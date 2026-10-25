@@ -1,0 +1,506 @@
+{
+  "version": "0.12.9",
+  "execution": {
+    "limitMs": 180000,
+    "elapsedMs": 123886,
+    "timedOut": false,
+    "exitCode": 0
+  },
+  "browser": "153.0.8010.12",
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 Ti (0x00002191) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "stages": [
+    "홈 → 클럽 이름 저장 → 새로고침으로 복구",
+    "AI 경기 조작 → 메뉴에서 퇴장 → 훈련",
+    "일반 서브 10회: 리시브 → 세트 → 세 번째 스파이크 성공률 80% 이상",
+    "친구에게 방 코드 전달 → 실제 Nostr/WebRTC 입장",
+    "실제 RTC 단절 → 자동 재연결",
+    "참가자 새로고침 → 기존 경기 재접속",
+    "방장 새로고침 → 기존 경기 재접속",
+    "양쪽 명시적 퇴장 → 새로고침 후 자동 재입장 없음"
+  ],
+  "checkpoints": [
+    {
+      "label": "입장",
+      "tick": 105,
+      "hash": 509357801
+    },
+    {
+      "label": "양쪽 입력 반영",
+      "tick": 154,
+      "hash": 1643037713
+    },
+    {
+      "label": "RTC 복구",
+      "tick": 223,
+      "hash": 3261287225
+    },
+    {
+      "label": "참가자 복귀",
+      "tick": 283,
+      "hash": 1873503481
+    },
+    {
+      "label": "방장 복귀",
+      "tick": 344,
+      "hash": 2208544004
+    }
+  ],
+  "serveReception": [
+    {
+      "trials": [
+        {
+          "rally": 2,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 700
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 781
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 903
+            }
+          ],
+          "crossing": {
+            "x": -0.23875704407691956,
+            "y": 3.0318453311920166,
+            "z": -2.4369022846221924
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 4,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1750
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1830
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 1932
+            }
+          ],
+          "crossing": {
+            "x": -0.1680505871772766,
+            "y": 2.4566617012023926,
+            "z": -2.2562615871429443
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 6,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2887
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2968
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 3062
+            }
+          ],
+          "crossing": {
+            "x": -0.26557356119155884,
+            "y": 2.719874143600464,
+            "z": -1.5076123476028442
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 8,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3935
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4016
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 4110
+            }
+          ],
+          "crossing": {
+            "x": -0.26557356119155884,
+            "y": 2.719874143600464,
+            "z": -1.5076123476028442
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 10,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4967
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5048
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 5142
+            }
+          ],
+          "crossing": {
+            "x": -0.26557356119155884,
+            "y": 2.719874143600464,
+            "z": -1.5076123476028442
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        }
+      ],
+      "completed": {
+        "rally": 10,
+        "eligible": true,
+        "success": true,
+        "sequence": [
+          {
+            "number": 1,
+            "role": "receiver",
+            "player": 3,
+            "kind": "toss",
+            "part": "footR",
+            "tick": 4967
+          },
+          {
+            "number": 2,
+            "role": "setter",
+            "player": 4,
+            "kind": "toss",
+            "part": "footR",
+            "tick": 5048
+          },
+          {
+            "number": 3,
+            "role": "attacker",
+            "player": 5,
+            "kind": "attack",
+            "part": "footR",
+            "tick": 5142
+          }
+        ],
+        "crossing": {
+          "x": -0.26557356119155884,
+          "y": 2.719874143600464,
+          "z": -1.5076123476028442
+        }
+      }
+    },
+    {
+      "trials": [
+        {
+          "rally": 2,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 700
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 781
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 903
+            }
+          ],
+          "crossing": {
+            "x": -0.23875704407691956,
+            "y": 3.0318453311920166,
+            "z": -2.4369022846221924
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 4,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1750
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1830
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 1932
+            }
+          ],
+          "crossing": {
+            "x": -0.1680505871772766,
+            "y": 2.4566617012023926,
+            "z": -2.2562615871429443
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 6,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2887
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2968
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 3062
+            }
+          ],
+          "crossing": {
+            "x": -0.26557356119155884,
+            "y": 2.719874143600464,
+            "z": -1.5076123476028442
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 8,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3935
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4016
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 4110
+            }
+          ],
+          "crossing": {
+            "x": -0.26557356119155884,
+            "y": 2.719874143600464,
+            "z": -1.5076123476028442
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        },
+        {
+          "rally": 10,
+          "eligible": true,
+          "success": true,
+          "sequence": [
+            {
+              "number": 1,
+              "role": "receiver",
+              "player": 3,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4967
+            },
+            {
+              "number": 2,
+              "role": "setter",
+              "player": 4,
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5048
+            },
+            {
+              "number": 3,
+              "role": "attacker",
+              "player": 5,
+              "kind": "attack",
+              "part": "footR",
+              "tick": 5142
+            }
+          ],
+          "crossing": {
+            "x": -0.26557356119155884,
+            "y": 2.719874143600464,
+            "z": -1.5076123476028442
+          },
+          "reason": "세 번째 스파이크 네트 통과"
+        }
+      ],
+      "completed": {
+        "rally": 10,
+        "eligible": true,
+        "success": true,
+        "sequence": [
+          {
+            "number": 1,
+            "role": "receiver",
+            "player": 3,
+            "kind": "toss",
+            "part": "footR",
+            "tick": 4967
+          },
+          {
+            "number": 2,
+            "role": "setter",
+            "player": 4,
+            "kind": "toss",
+            "part": "footR",
+            "tick": 5048
+          },
+          {
+            "number": 3,
+            "role": "attacker",
+            "player": 5,
+            "kind": "attack",
+            "part": "footR",
+            "tick": 5142
+          }
+        ],
+        "crossing": {
+          "x": -0.26557356119155884,
+          "y": 2.719874143600464,
+          "z": -1.5076123476028442
+        }
+      }
+    }
+  ],
+  "faults": [],
+  "sourceSha256": {
+    "src/config/game.js": "8b4d662c6984e507893788098b0c1caed09916ec84a2429a113a5e0f061f46ff",
+    "src/simulation/physics.js": "9e1f82ce204251ad5b39e29f41a12b64e7ee5b4613933de7cbc9f92e220402f5",
+    "tests/user-flow.spec.js": "d764a91eacc48fb319ec261cfa93c89d46e6b942266135eaed0e56c77d5615c9"
+  }
+}

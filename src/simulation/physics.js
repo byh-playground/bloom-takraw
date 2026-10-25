@@ -13,7 +13,7 @@ class TakrawPhysics {
     this.settings = Object.assign({
       gravity: 9.81, ballRadius: 0.095, ballMass: 0.18,
       ballRestitution: 0.57, ballDamping: 0.035,
-      movementSpeed: 3.15, movementAcceleration: 8.5, movementMaxAcceleration: 5, airControl: 0.9,
+      movementSpeed: 3.15, movementAcceleration: 8.5, movementMaxAcceleration: 12, airControl: 0.9,
       jumpSpeed: 5.4, jumpHoldAcceleration: 7.5, jumpHoldTime: 0.16,
       groundKickForce: 380, groundKickSpeed: 7.5,
       footPositionGain: 200, footVelocityGain: 23,

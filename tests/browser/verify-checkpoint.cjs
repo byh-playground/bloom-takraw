@@ -1,12 +1,13 @@
+const { outputDir, baseURL, ports } = require('./support.cjs');
 const {chromium}=require('playwright');
 const fs=require('node:fs');
 const path=require('node:path');
 (async()=>{
- const browser=await chromium.connectOverCDP('http://127.0.0.1:9331');
+ const browser=await chromium.connectOverCDP('http://127.0.0.1:'+ports[0]);
  // An isolated page keeps this CPU-heavy test out of the network game loop.
  const context=await browser.newContext();const page=await context.newPage();
  try {
- await page.goto('http://127.0.0.1:8766/');await page.waitForFunction(()=>__takraw?.ready);
+ await page.goto(baseURL);await page.waitForFunction(()=>window.__takraw?.ready);
  const report=await page.evaluate(async()=>{
    const source=__takraw.game,make=()=>new source.constructor({RAPIER:source.physics.R,config:source.config});
    const assert=(v,m)=>{if(!v)throw Error(m);};
@@ -45,6 +46,6 @@ const path=require('node:path');
      return {passed:true,version:__takraw.diagnostics().version,comparedTicks:1200,maxLegScale,checks};
    }finally{a.physics.dispose();b.physics.dispose();}
  });
- fs.writeFileSync(path.join(__dirname,'verification/checkpoint.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
+ fs.writeFileSync(path.join(outputDir,'checkpoint.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));
  } finally {await context.close();await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

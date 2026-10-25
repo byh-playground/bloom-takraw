@@ -1,38 +1,66 @@
-# 블룸 세팍타크로 v0.12.7
+# 블룸 세팍타크로
 
-블룸 세계관의 3D 세팍타크로 게임입니다. v0.12.7은 Rapier 복원과 실제 두 브라우저의 온라인 경기·재접속 검증을 통과한 버전입니다.
+블룸 세계관의 3D 온라인 세팍타크로 게임입니다. 개발 저장소는 `C:\projects\bloom-takraw`, 원격은 [byh-playground/bloom-takraw](https://github.com/byh-playground/bloom-takraw)입니다. 기존 rally-frontier 임시 검증 사본은 삭제됐습니다.
 
-- 게임: https://byh-playground.github.io/bloom-takraw/
-- 저장소: https://github.com/byh-playground/bloom-takraw
-- 검증 기록: [REPORT](verification/REPORT.md)
+- [공개 게임](https://byh-playground.github.io/bloom-takraw/)은 `release /` 브랜치로 배포합니다.
+- `main`은 개발 기준입니다. 작업 브랜치의 변경을 공개 배포하려면 별도 배포 지시가 필요합니다.
+- [기존 검증 기록](docs/verification/v0.12.7/REPORT.md)과 [모듈 전환 검증](docs/verification/module-refactor.md)을 구별합니다. 모든 환경의 Stable을 의미하지 않습니다.
 
-`main`은 개발 원본, `release`는 GitHub Pages 공개 배포 브랜치입니다. 초기 배포 HTML은 기존 검증본과 바이트 단위로 동일합니다.
+## 실행
 
-실행 산출물은 `index.html`입니다. 더블클릭으로 열 수 있으며 외부 CDN 라이브러리와 온라인 연결에는 인터넷이 필요합니다. 기존 의존성 버전을 유지했습니다: Three.js 0.180.0, Rapier 0.21.0, bloom-gamekit `9bcb2b20fc7c227553317ae31b8fb400437047eb` (HTML의 `TAKRAW_CONFIG.dependencies`에 원본 URL). 게임 라이브러리 배포본은 수정하지 않았습니다.
-
-수정 사항:
-
-- Rapier `World.restoreSnapshot()`의 임시 serializer 누수 경로를 소유권이 명확한 `SerializationPipeline.deserializeAll()`로 교체했습니다. 물리 인스턴스마다 하나를 재사용하고 종료 때 해제합니다. 틱 계산량과 게임 규칙은 유지합니다.
-- 라이브러리의 sessionStorage 신원 복원과 `room.reconnect()`를 연결했습니다. 참가자 및 방장 새로고침 때 살아 있는 상대에게 경기 상태를 받아 이어갑니다.
-- 연결 중복 재시도를 막고 1초 간격으로 재연결 필요 여부를 검사합니다. 대기 유예를 90초로 늘렸고, 끊긴 동안 “재접속 중”으로 표시합니다.
-- 일시적인 신호 서버 실패 후 “이전 경기 다시 연결” 버튼으로 기존 신원을 유지하여 재시도합니다. 명시적인 연결 닫기/새 방은 기존 복원 정보를 정리합니다. 저장소 오류가 종료 처리를 막지 않습니다.
-- 온라인 점수판의 청록/코랄 팀 이름이 갱신 때 우리 팀/상대 팀으로 덮이는 표시 오류를 수정했습니다. 점수와 세트 표시는 기존 색상 순서를 유지합니다.
-
-Node.js 22 이상이 필요합니다. 독립 저장소 루트에서 검사 도구를 설치하고 실행합니다:
+Node.js 22 이상에서 다음을 실행하고 `http://127.0.0.1:8766/`를 엽니다.
 
 ```powershell
 npm ci
-npx playwright install chromium
-node serve.cjs
-# 별도 터미널에서 순서대로 실행
-node verify-checkpoint.cjs
-node verify-network.cjs
-node verify-finish.cjs
-node verify-single.cjs
+npm run dev
 ```
 
-`serve.cjs`는 localhost:8766과 독립적인 실제 Chromium 창 두 개(CDP 9331/9332)를 실행합니다. `verify-network.cjs`는 UI로 방을 만들고 참가한 뒤, 실제 키/마우스 입력, RTC 연결 강제 종료, 양쪽 순차 새로고침, 신호 실패 주입과 UI 재시도, 같은 확정 경계의 해시를 검사합니다. 신호 실패 주입은 검사 브라우저에서만 WebSocket 생성자를 일시 차단하며 전달 HTML에는 포함되지 않습니다. `verify-finish.cjs`는 그 경기를 실제 속도로 끝까지 관찰합니다.
+`index.html`은 화면 골격이며 CSS와 ES 모듈을 링크합니다. **HTML을 더블클릭하는 file:// 실행은 지원하지 않습니다.** GameKit·Three.js·Rapier를 고정 CDN URL에서 가져오므로 처음 실행과 온라인 연결에 인터넷이 필요합니다. 이웃 저장소나 이전 임시 경로를 런타임에서 읽지 않습니다.
 
-`verification/`의 JSON과 PNG가 실행 증거입니다. `original-*`은 원본 조사 기록이며 최종 통과 기록과 구별합니다. 원본 초기 조사에서 동기식 물리 검사를 경기 페이지에서 실행해 타임아웃을 유발한 기록이 있어, 최종 물리 검사는 별도 페이지로 분리했습니다.
+## 구조와 GameKit 참조
 
-범위: Windows의 같은 PC에서 Chromium 독립 프로세스 2개, 공개 Nostr 릴레이, 실제 WebRTC DataChannel. 다른 OS/기기·모바일·외부 NAT 환경은 검증 범위 밖입니다. 재접속에는 살아 있는 상대와 탭의 sessionStorage가 필요합니다. 양쪽 동시 종료 및 아직 상대가 없는 방의 새로고침은 경기 복원을 보장하지 않습니다. Candidate 표시는 유지하며 모든 환경의 Stable을 주장하지 않습니다.
+```text
+index.html                   화면 골격, CSS/JS 링크, import map
+gamekit.lock.json             GameKit 배포 커밋·파일 URL·SHA-256
+src/
+  main.js                    로딩/오류 화면과 부팅
+  runtime.js                 게임과 GameKit의 수명주기 연결
+  config/{game,runtime}.js    게임 정의와 실행 정책
+  club/club.js               선수·편성·보상·IndexedDB 저장
+  motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
+  simulation/{game,physics}.js    경기 규칙과 Rapier 어댑터
+  presentation/{view,ui}.js       Three.js 표시와 DOM UI
+styles/app.css               화면 스타일
+scripts/                     HTTP 서버·배포 파일 구성·의존성 검사
+tests/browser/               실제 브라우저 검증
+docs/                        구조 설명과 보존 검증 기록
+artifacts/                   새 실행 결과, Git 제외
+dist/                        배포 파일 묶음, Git 제외
+```
+
+공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
+
+기존 검증에 사용한 GameKit dist 커밋 `9bcb2b20fc7c227553317ae31b8fb400437047eb`, Three.js 0.180.0, Rapier 0.21.0을 유지합니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요.
+
+## 검사
+
+```powershell
+npm test                       # import 연결·MIME·배포 구성
+npm run verify:dependencies     # 원격 GameKit 파일 해시
+npx playwright install chromium
+npm run qa:launch              # 서버와 독립 Chromium 창 두 개
+# 별도 터미널에서
+npm run verify:refactor        # 원본/모듈/dist 동일 입력·복원 결과
+npm run verify:checkpoint
+npm run verify:network         # 입장·입력·RTC 단절·새로고침·재시도
+npm run verify:finish          # 이어지는 온라인 경기 종료까지 관찰
+npm run verify:single          # UI AI 경기 → 종료·보상
+```
+
+기본 QA 포트는 HTTP 8766, CDP 9331/9332입니다. `QA_BASE_URL`, `QA_HOST_PORT`, `QA_GUEST_PORT`, `QA_OUTPUT_DIR`로 바꿀 수 있습니다. `verify:refactor`는 Git의 고정 초기 커밋을 기준본으로 읽으므로 shallow checkout은 해당 커밋을 먼저 fetch해야 합니다. 새 결과는 `artifacts/verification/`에 생성되어 과거 증거를 덮지 않습니다. 소요 시간은 경기 진행에 따라 달라집니다.
+
+## 배포 파일
+
+`npm run build`는 `dist/`에 `index.html`, `src/`, `styles/`, `.nojekyll`, 파일별 해시 manifest를 구성합니다. 번들링·라이브러리 인라인·단일 HTML 재생성을 하지 않습니다. 배포 시 이 파일들을 같은 상대 경로로 함께 올려야 합니다. 저장소 루트를 Pages로 제공해도 동작합니다. **이 명령은 공개 배포를 실행하지 않습니다.**
+
+재접속은 살아 있는 상대와 기존 탭의 sessionStorage가 필요합니다. 양쪽 동시 종료·상대가 없는 방의 복원을 보장하지 않습니다. 같은 PC의 데스크톱 검사 결과를 다른 OS·모바일·외부 NAT 환경으로 확대하지 않습니다.

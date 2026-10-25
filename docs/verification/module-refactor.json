@@ -1,0 +1,348 @@
+{
+  "date": "2026-10-25",
+  "baseCommit": "a01855b833ec5c09db6834e4c4ceeeb6d8088fd7",
+  "gamekitDistCommit": "9bcb2b20fc7c227553317ae31b8fb400437047eb",
+  "environment": "Windows / Chromium 153.0.8010.12 / two independent headed browser processes",
+  "appFiles": {
+    "gamekit.lock.json": "cf4451d51468a81657a807477b1443a4f1cc1da1957ea114a3ac357e5e2bf6c0",
+    "index.html": "0c29f38d15a588d2899b620e3998268ba9a6eb08a16d42cfe82bc75a8f71bda0",
+    "package.json": "eb54215cc09bedbb8508644003183a8fcf864621ccd659774eef5a298940e1a9",
+    "src/club/club.js": "a5d7371d421ebc1a29f675c981ef29ddeea7fdf030576b7e6bcd649e3b37950f",
+    "src/config/game.js": "096f99bf97fe5a92f40b77ea5d0ccba56129b162c97e7c6badcc19f17a090cb3",
+    "src/config/runtime.js": "6e72057ad629d7d258001aeb30c68b8abd0415b59cfca91a69ca363d6e977572",
+    "src/main.js": "6d19627ef63d69124ff4fbcbb299078b94bd0c7ed191fa09548c978c1eadccd8",
+    "src/motion/data.js": "b61d6ad2c8822b56f15530effcaa01b36f272d8bdd5f089893632de9e7d81917",
+    "src/motion/matcher.js": "d17ea0a44e255818e0e79fdb1896231da7c3d87d6316220e4656c443a8852179",
+    "src/motion/model.js": "e0dcb7fffeff466ebcab758421c45be2352db6ace2604805d80a039edb73c4b2",
+    "src/presentation/ui.js": "09bfae4610dd145afc04234b2918e91c5129fc08965758a9b768e5935fceed05",
+    "src/presentation/view.js": "fe851c10646dbeffd6b0e97e63e45154e66d1f6110b2972470bb7b4eca59e5e9",
+    "src/runtime.js": "3d6a8a9cb1e7df50b40e0f4d87941f144bc0d456037773513396ee134d114ab8",
+    "src/simulation/game.js": "1a11d80be942549aa7d8a77941d1bd63606315e17fba307bdea94459d34eaf07",
+    "src/simulation/physics.js": "14e68a96a2fbb9eefd13dbeae472b2f9b1e5c14b8d2c34aaa4e67804f81353c3",
+    "styles/app.css": "28e45925786a2c17e5541b0ebbeac18829f646fce0dfe589006cc1d0600cc038"
+  },
+  "passed": true,
+  "structureTests": 3,
+  "gamekitHashChecks": 8,
+  "baselineEquivalence": [
+    {
+      "label": "baseline",
+      "bootMs": 1151,
+      "stepMs": 6900.600000023842,
+      "records": [
+        {
+          "tick": 1,
+          "physics": "18cebbdcbc21077cda832d45ba8818d3d2918dd57ad099f79cab3d7c7356f201",
+          "metadata": "c24b1029259d4cd5f61332415876ef4627b9a319408084e93c09aa73730ec326"
+        },
+        {
+          "tick": 120,
+          "physics": "4e09785efc6fa8f8c0f7a4b1aed9817f85c85dfb964dbf025b9bb1e142d14041",
+          "metadata": "66609b7af7622b570b7614a38dc533542c246677a3da93f72358aea7dc3c1794"
+        },
+        {
+          "tick": 450,
+          "physics": "1fc92bb72860fb4112fffb3eae29c2935275393e9a28371a2cc3ca0c72283808",
+          "metadata": "d386f5bf4a0b5cd6fd8b9ae8da38a8dba7bbd32e2aeb9fd393b34438f3e98ddb"
+        },
+        {
+          "tick": 900,
+          "physics": "255fa0892cc9703f4764aee8bcc08755a86f6245d7e9ca0f05af81a291e816af",
+          "metadata": "f8da73f4e8ddedc65e8c25895821da6651d4106ac8174216d43444a53810064c"
+        },
+        {
+          "tick": 1200,
+          "physics": "92baf2595759cb7efd6f15ef394498558790499daa7eb3ed213e7842223fe0b2",
+          "metadata": "81ec80058c11a24dbdf850c624d1f2eae351d6abfb74ea414b02a6d759a1ebd6"
+        }
+      ]
+    },
+    {
+      "label": "modules",
+      "bootMs": 1082,
+      "stepMs": 7091.29999935627,
+      "records": [
+        {
+          "tick": 1,
+          "physics": "18cebbdcbc21077cda832d45ba8818d3d2918dd57ad099f79cab3d7c7356f201",
+          "metadata": "c24b1029259d4cd5f61332415876ef4627b9a319408084e93c09aa73730ec326"
+        },
+        {
+          "tick": 120,
+          "physics": "4e09785efc6fa8f8c0f7a4b1aed9817f85c85dfb964dbf025b9bb1e142d14041",
+          "metadata": "66609b7af7622b570b7614a38dc533542c246677a3da93f72358aea7dc3c1794"
+        },
+        {
+          "tick": 450,
+          "physics": "1fc92bb72860fb4112fffb3eae29c2935275393e9a28371a2cc3ca0c72283808",
+          "metadata": "d386f5bf4a0b5cd6fd8b9ae8da38a8dba7bbd32e2aeb9fd393b34438f3e98ddb"
+        },
+        {
+          "tick": 900,
+          "physics": "255fa0892cc9703f4764aee8bcc08755a86f6245d7e9ca0f05af81a291e816af",
+          "metadata": "f8da73f4e8ddedc65e8c25895821da6651d4106ac8174216d43444a53810064c"
+        },
+        {
+          "tick": 1200,
+          "physics": "92baf2595759cb7efd6f15ef394498558790499daa7eb3ed213e7842223fe0b2",
+          "metadata": "81ec80058c11a24dbdf850c624d1f2eae351d6abfb74ea414b02a6d759a1ebd6"
+        }
+      ]
+    },
+    {
+      "label": "dist",
+      "bootMs": 968,
+      "stepMs": 6976.499999165535,
+      "records": [
+        {
+          "tick": 1,
+          "physics": "18cebbdcbc21077cda832d45ba8818d3d2918dd57ad099f79cab3d7c7356f201",
+          "metadata": "c24b1029259d4cd5f61332415876ef4627b9a319408084e93c09aa73730ec326"
+        },
+        {
+          "tick": 120,
+          "physics": "4e09785efc6fa8f8c0f7a4b1aed9817f85c85dfb964dbf025b9bb1e142d14041",
+          "metadata": "66609b7af7622b570b7614a38dc533542c246677a3da93f72358aea7dc3c1794"
+        },
+        {
+          "tick": 450,
+          "physics": "1fc92bb72860fb4112fffb3eae29c2935275393e9a28371a2cc3ca0c72283808",
+          "metadata": "d386f5bf4a0b5cd6fd8b9ae8da38a8dba7bbd32e2aeb9fd393b34438f3e98ddb"
+        },
+        {
+          "tick": 900,
+          "physics": "255fa0892cc9703f4764aee8bcc08755a86f6245d7e9ca0f05af81a291e816af",
+          "metadata": "f8da73f4e8ddedc65e8c25895821da6651d4106ac8174216d43444a53810064c"
+        },
+        {
+          "tick": 1200,
+          "physics": "92baf2595759cb7efd6f15ef394498558790499daa7eb3ed213e7842223fe0b2",
+          "metadata": "81ec80058c11a24dbdf850c624d1f2eae351d6abfb74ea414b02a6d759a1ebd6"
+        }
+      ]
+    }
+  ],
+  "checkpoint": {
+    "passed": true,
+    "version": "0.12.7",
+    "comparedTicks": 1200,
+    "maxLegScale": 1.2499999999999991,
+    "checks": [
+      {
+        "type": "restore",
+        "tick": 0,
+        "bytes": 101741,
+        "rawImmediatelyEqual": false
+      },
+      {
+        "type": "restore",
+        "tick": 120,
+        "bytes": 126010,
+        "rawImmediatelyEqual": true
+      },
+      {
+        "type": "restore",
+        "tick": 450,
+        "bytes": 125211,
+        "rawImmediatelyEqual": true
+      },
+      {
+        "type": "invalid handle",
+        "rejected": true
+      },
+      {
+        "type": "repeated restore",
+        "count": 200,
+        "elapsedMs": 880
+      }
+    ]
+  },
+  "networkBoundaries": [
+    {
+      "label": "room admission",
+      "tick": 28,
+      "hash": 2720373888,
+      "epoch": 1
+    },
+    {
+      "label": "live input 0",
+      "tick": 159,
+      "hash": 3131262017,
+      "epoch": 1
+    },
+    {
+      "label": "live input 1",
+      "tick": 289,
+      "hash": 2590096953,
+      "epoch": 1
+    },
+    {
+      "label": "live input 2",
+      "tick": 425,
+      "hash": 3425148397,
+      "epoch": 1
+    },
+    {
+      "label": "live input 3",
+      "tick": 558,
+      "hash": 2258729856,
+      "epoch": 1
+    },
+    {
+      "label": "live input 4",
+      "tick": 689,
+      "hash": 3211148350,
+      "epoch": 1
+    },
+    {
+      "label": "live input 5",
+      "tick": 817,
+      "hash": 627591840,
+      "epoch": 1
+    },
+    {
+      "label": "RTC reconnect",
+      "tick": 934,
+      "hash": 3594165159,
+      "epoch": 1
+    },
+    {
+      "label": "guest reload",
+      "tick": 1006,
+      "hash": 1550783781,
+      "epoch": 2
+    },
+    {
+      "label": "host reload",
+      "tick": 1079,
+      "hash": 3967258009,
+      "epoch": 3
+    },
+    {
+      "label": "retry after signaling outage",
+      "tick": 1146,
+      "hash": 3019181144,
+      "epoch": 4
+    },
+    {
+      "label": "guest reload after retry",
+      "tick": 1212,
+      "hash": 3557456397,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 0",
+      "tick": 1366,
+      "hash": 2695635861,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 1",
+      "tick": 1517,
+      "hash": 1442081860,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 2",
+      "tick": 1669,
+      "hash": 4110759585,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 3",
+      "tick": 1820,
+      "hash": 237926889,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 4",
+      "tick": 1974,
+      "hash": 4284670181,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 5",
+      "tick": 2126,
+      "hash": 3452731045,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 6",
+      "tick": 2277,
+      "hash": 2928907033,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 7",
+      "tick": 2428,
+      "hash": 86699600,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 8",
+      "tick": 2580,
+      "hash": 1492011004,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 9",
+      "tick": 2732,
+      "hash": 1720252898,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 10",
+      "tick": 2885,
+      "hash": 1648570769,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 11",
+      "tick": 3036,
+      "hash": 2400259587,
+      "epoch": 5
+    }
+  ],
+  "finish": {
+    "tick": 42035,
+    "hash": 3965953997,
+    "sets": [
+      2,
+      1
+    ],
+    "hashMismatches": [
+      0,
+      0
+    ]
+  },
+  "single": {
+    "tick": 21632,
+    "score": [
+      15,
+      0
+    ],
+    "sets": [
+      2,
+      1
+    ],
+    "phase": "finished",
+    "rewards": {
+      "pending": 0,
+      "saving": false,
+      "failed": 0
+    }
+  },
+  "interface": {
+    "passed": true,
+    "flows": [
+      "training scissors",
+      "help",
+      "quit",
+      "club",
+      "settings"
+    ],
+    "errors": []
+  },
+  "dependencyFailureUI": true,
+  "webglFailureUI": true
+}

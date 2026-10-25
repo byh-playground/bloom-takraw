@@ -7,13 +7,20 @@
     "node": ">=22"
   },
   "scripts": {
-    "serve": "node serve.cjs",
-    "verify:checkpoint": "node verify-checkpoint.cjs",
-    "verify:network": "node verify-network.cjs",
-    "verify:finish": "node verify-finish.cjs",
-    "verify:single": "node verify-single.cjs"
+    "dev": "node scripts/dev-server.cjs",
+    "serve": "npm run dev",
+    "build": "node scripts/build.cjs",
+    "test": "node --test tests/structure.test.mjs",
+    "qa:launch": "node tests/browser/launch.cjs",
+    "verify:checkpoint": "node tests/browser/verify-checkpoint.cjs",
+    "verify:network": "node tests/browser/verify-network.cjs",
+    "verify:finish": "node tests/browser/verify-finish.cjs",
+    "verify:single": "node tests/browser/verify-single.cjs",
+    "verify:refactor": "node tests/browser/verify-refactor.cjs",
+    "verify:dependencies": "node scripts/verify-dependencies.cjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"
-  }
+  },
+  "type": "module"
 }

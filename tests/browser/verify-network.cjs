@@ -1,10 +1,11 @@
+const { outputDir, baseURL, ports } = require('./support.cjs');
 const {chromium}=require('playwright');
 const fs=require('node:fs');
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const report={started:new Date().toISOString(),checks:[],samples:[]};
 let bs=[],ps=[];
-const save=()=>fs.writeFileSync(path.join(__dirname,'verification/network.json'),JSON.stringify(report,null,2));
+const save=()=>fs.writeFileSync(path.join(outputDir,'network.json'),JSON.stringify(report,null,2));
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function diag(){return Promise.all(ps.map(p=>p.evaluate(()=>__takraw.diagnostics())));}
 async function connected(){await Promise.all(ps.map(p=>p.waitForFunction(()=>window.__takraw?.session?.ready && __takraw.session.players.length===2 && __takraw.session.status==='running' && __takraw.session.room.transports.size===1,{},{timeout:85000})));}
@@ -16,10 +17,10 @@ async function equal(label){
  assert.ok(hashes.every(Number.isInteger),'retained finite hashes');assert.equal(hashes[0],hashes[1],label+' state hash');
  report.checks.push({label,tick,hash:hashes[0],epoch:states[0].epoch});save();console.log('PASS',label,tick,hashes[0]);
 }
-async function screenshot(label){for(let i=0;i<2;i++)await ps[i].screenshot({path:path.join(__dirname,`verification/${label}-${i+1}.png`)});}
+async function screenshot(label){for(let i=0;i<2;i++)await ps[i].screenshot({path:path.join(outputDir,`${label}-${i+1}.png`)});}
 (async()=>{
- bs=await Promise.all([9331,9332].map(port=>chromium.connectOverCDP('http://127.0.0.1:'+port)));ps=bs.map(b=>b.contexts()[0].pages()[0]);
- for(const p of ps){await p.evaluate(()=>{sessionStorage.clear();__takraw?.dispose();});await p.goto('http://127.0.0.1:8766/');await p.waitForFunction(()=>__takraw?.ready);await p.locator('#open-network').click();}
+ bs=await Promise.all(ports.map(port=>chromium.connectOverCDP('http://127.0.0.1:'+port)));ps=bs.map(b=>b.contexts()[0].pages()[0]);
+ for(const p of ps){await p.evaluate(()=>{sessionStorage.clear();__takraw?.dispose();});await p.goto(baseURL);await p.waitForFunction(()=>window.__takraw?.ready);await p.locator('#open-network').click();}
  await ps[0].locator('[data-dialog-action="host"]').click();await ps[0].waitForFunction(()=>__takraw.diagnostics().network.code);
  const code=await ps[0].locator('#room-code').inputValue();report.room=code;
  await ps[1].locator('#room-input').fill(code);await ps[1].locator('[data-dialog-action="join"]').click();await connected();await wait(500);await equal('room admission');
@@ -34,7 +35,7 @@ async function screenshot(label){for(let i=0;i<2;i++)await ps[i].screenshot({pat
  await wait(500);report.samples.push({label:'link closed',diagnostics:await diag()});await connected();await wait(1500);await equal('RTC reconnect');
  for(const i of [1,0]){
    const prior=await ps[1-i].evaluate(()=>({tick:__takraw.session.tick,score:__takraw.game.state.score,sets:__takraw.game.state.sets}));
-   await ps[i].reload();await ps[i].waitForFunction(()=>__takraw?.ready);await connected();await wait(1000);
+   await ps[i].reload();await ps[i].waitForFunction(()=>window.__takraw?.ready);await connected();await wait(1000);
    assert.equal(await ps[i].evaluate(()=>__takraw.session.localPlayerId),report.initialIds[i],'resume preserves identity');
    assert.ok(await ps[i].evaluate(t=>__takraw.session.tick>=t-24,prior.tick),'resume preserves match progress');
    await equal(i?'guest reload':'host reload');report.samples.push({label:i?'guest reload':'host reload',diagnostics:await diag()});
@@ -49,7 +50,7 @@ async function screenshot(label){for(let i=0;i<2;i++)await ps[i].screenshot({pat
    }};
  });
  await ps[1].evaluate(()=>sessionStorage.setItem('__qaSignalFault','1'));
- await ps[1].reload();await ps[1].waitForFunction(()=>__takraw?.diagnostics().network.state==='error',{},{timeout:30000});
+ await ps[1].reload();await ps[1].waitForFunction(()=>window.__takraw?.diagnostics().network.state==='error',{},{timeout:30000});
  report.samples.push({label:'expected signaling outage',diagnostics:await diag()});
  await ps[1].evaluate(()=>sessionStorage.removeItem('__qaSignalFault'));
  await ps[1].locator('#resume-room').click();await connected();await wait(1000);await equal('retry after signaling outage');

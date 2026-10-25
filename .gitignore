@@ -1,8 +1,5 @@
 node_modules/
 reference/
 .publish/
-verification/*errors.log
-verification/original-*
-verification/rejoin-*
-verification/boot-*
-verification/match-*
+artifacts/
+dist/

@@ -13,5 +13,6 @@ try {
   }
   const reload = document.getElementById('reload-button');
   reload.hidden = false;
-  reload.addEventListener('click', () => location.reload(), { once: true });
+  // The UI owns this listener once bootTakraw has created the runtime.
+  if (!window.__takraw) reload.addEventListener('click', () => location.reload(), { once: true });
 }

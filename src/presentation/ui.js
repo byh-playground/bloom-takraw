@@ -3,7 +3,7 @@ import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS } from '../simulation/game.js';
 
 class TakrawUI {
-  constructor(callbacks = {}) {
+  constructor(callbacks, network) {
     this.callbacks = callbacks;
     this.canvas = document.getElementById('court-canvas');
     this.canvas.tabIndex = -1;
@@ -11,8 +11,7 @@ class TakrawUI {
     this.inGame = false;
     this.mode = 'match';
     this.dialog = '';
-    this.loading = true;
-    this.network = { state: 'idle', code: '', message: '', count: 0 };
+    this.network = network;
     this.controller = new AbortController();
     this.touch = { pointer: null, active: new Map() };
     this.previousFocus = null;
@@ -26,6 +25,7 @@ class TakrawUI {
     this.nodes = {};
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
+    this.text('version-label', TAKRAW_VERSION);
     this.bind();
     this.applyRoute();
   }
@@ -118,12 +118,12 @@ class TakrawUI {
     this.listen(pad, 'contextmenu', event => event.preventDefault());
   }
 
-  start(mode) { if (!this.loading && (!['match','training'].includes(mode) || this.club.status === 'ready')) this.callbacks.onStart?.(mode); }
+  start(mode) { if (this.callbacks.canStart(mode)) this.callbacks.onStart?.(mode); }
 
   updateStartButtons() {
     for (const button of document.querySelectorAll('.start-button')) {
-      const needsTeam = ['start-match','start-training'].includes(button.id);
-      button.disabled = this.loading || (needsTeam && this.club.status !== 'ready');
+      const mode = button.dataset.startMode;
+      button.disabled = !this.callbacks.canStart(mode);
     }
   }
 
@@ -141,9 +141,9 @@ class TakrawUI {
     this.touch.active.clear(); this.touch.pointer = null; this.nodes['move-thumb'].style.transform = ''; this.callbacks.onAxis?.(0, 0);
   }
 
-  setLoading(message, isError = false) {
-    this.loading = !!message; this.nodes['boot-message'].textContent = message;
-    this.nodes['boot-status'].classList.toggle('error', isError); this.nodes['boot-status'].classList.toggle('ready', !message);
+  setBootStatus({ phase, message, isError }) {
+    this.nodes['boot-message'].textContent = message;
+    this.nodes['boot-status'].classList.toggle('error', isError); this.nodes['boot-status'].classList.toggle('ready', phase === 'ready' && !isError);
     this.nodes['reload-button'].hidden = !isError;
     this.updateStartButtons();
   }
@@ -575,12 +575,12 @@ class TakrawUI {
 
   refreshDiagnostics() {
     const node = document.getElementById('diagnostics-output'); if (!node) return;
-    try { node.textContent = JSON.stringify(this.callbacks.onDiagnostics?.() ?? { product:'블룸 세팍타크로', version:TAKRAW_VERSION, state:this.loading ? 'loading' : 'ready' }, null, 2); }
+    try { node.textContent = JSON.stringify(this.callbacks.onDiagnostics(), null, 2); }
     catch (error) { node.textContent = `실행 정보 조회 오류: ${error.message}`; }
   }
 
   setNetwork(value) {
-    Object.assign(this.network, value); this.renderNetwork();
+    this.network = value; this.renderNetwork();
     const indicator = this.nodes['connection-indicator']; indicator.hidden = ['idle','closed',''].includes(this.network.state);
     indicator.querySelector('span').textContent = this.network.state === 'connected' ? '친구와 연결됨' : this.network.message || '연결 준비 중';
     indicator.querySelector('i').style.background = this.network.state === 'error' ? '#ba6548' : this.network.state === 'connected' ? '#238468' : '#c69a49';
@@ -630,8 +630,7 @@ class TakrawUI {
     if (hud.teamNames && !['local', 'online'].includes(this.mode)) {
       this.text('team-label-0', hud.teamNames[0]); this.text('team-label-1', hud.teamNames[1]);
     }
-    const states = { ready:'준비', grounded:'지상', standing:'지상', groundedKick:'받아 올리기', kick:'발차기', kicking:'발차기', airborne:'공중', jumping:'공중', air:'공중', overhead:'오버헤드 킥', falling:'착지 준비', recovery:'일어나는 중', recovering:'일어나는 중', fallen:'균형 회복', idle:'준비', moving:'이동 중', receive:'리시브', spike:'오버헤드 킥' };
-    this.text('selected-state', states[hud.selectedState] || hud.selectedState || '준비');
+    this.text('selected-state', hud.selectedState || '준비');
     document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld); document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
     if (this.mode === 'training' && hud.training) this.updateTraining(hud.training);
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;

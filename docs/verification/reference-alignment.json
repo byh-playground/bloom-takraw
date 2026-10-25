@@ -1,0 +1,72 @@
+{
+  "version": "0.12.7",
+  "baseCommit": "28062aa1726568f466acffc3f99ec4bca7bdab95",
+  "referenceCommit": "7a6fe0f3c6e5de39109eb02f08603b3b0965532e",
+  "run": {
+    "limitMs": 180000,
+    "elapsedMs": 40612,
+    "timedOut": false,
+    "exitCode": 0
+  },
+  "browser": "153.0.8010.12",
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 Ti (0x00002191) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "stages": [
+    "홈 → 클럽 이름 저장 → 새로고침으로 복구",
+    "AI 경기 조작 → 메뉴에서 퇴장 → 훈련",
+    "친구에게 방 코드 전달 → 실제 Nostr/WebRTC 입장",
+    "실제 RTC 단절 → 자동 재연결",
+    "참가자 새로고침 → 기존 경기 재접속",
+    "방장 새로고침 → 기존 경기 재접속",
+    "양쪽 명시적 퇴장 → 새로고침 후 자동 재입장 없음"
+  ],
+  "checkpoints": [
+    {
+      "label": "입장",
+      "tick": 82,
+      "hash": 1432534408
+    },
+    {
+      "label": "양쪽 입력 반영",
+      "tick": 142,
+      "hash": 3618229460
+    },
+    {
+      "label": "RTC 복구",
+      "tick": 188,
+      "hash": 1438411231
+    },
+    {
+      "label": "참가자 복귀",
+      "tick": 256,
+      "hash": 577783509
+    },
+    {
+      "label": "방장 복귀",
+      "tick": 318,
+      "hash": 2240120293
+    }
+  ],
+  "faults": [],
+  "hashMismatches": [
+    0,
+    0
+  ],
+  "files": {
+    "index.html": "93f255488a60c13af52b7d5ac5629c4374e3d037774a6de992ca6b338852c5c0",
+    "package.json": "80e3158a62c8e0c71058fd90523e3740de913730e57ce936579f3f943a67096f",
+    "playwright.config.js": "1212fda07855681d408fa8506f804f12cd619e431199af21faaba2d1134dc175",
+    "src/config/game.js": "e2637dad3ed920a4823195c38ff8bf0ba090b008a34a126d48f09d9a42612c2a",
+    "src/main.js": "d8720a40a4371ce8a71bfa77e5a9f18c0249fb29b88b240e3293ba6af9f2d31f",
+    "src/runtime.js": "2a2ab092a97887302b009159e59241e33a8ebcbedd0df5b54c31f184791e565f",
+    "src/presentation/ui.js": "09399c0459c41518569d96434e4cad8c5fb56d1ba6e020005d8c09bc70b2f2f8",
+    "scripts/check.cjs": "a697782d7649be1354789234da82174adc2db5fcedb1ac3ec5ea4133d92b13b6",
+    "scripts/test.cjs": "b6a5ce4396a031e5662f7fb52bb4bbaebf3c9ffeaa3ebd5af3897dc87f33e957",
+    "tests/user-flow.spec.js": "6fbe8775483e6f836932881478753099ec39220f94f7cd72311e7950f1f45b24"
+  },
+  "notRun": [
+    "full match to final victory",
+    "mobile and other OS",
+    "external NAT combinations"
+  ],
+  "passed": true
+}

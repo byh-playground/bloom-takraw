@@ -1,0 +1,160 @@
+{
+  "version": "0.12.7",
+  "sha256": "c4dddadbe575d632b8f46dc65733d4511f421ca687f71d03da5204cbbfaa822e",
+  "bytes": 574547,
+  "artifact": "블룸 세팍타크로 v0.12.7.html",
+  "verifiedAt": "2026-10-25T10:51:06.196Z",
+  "browser": "Chromium 153.0.8010.12",
+  "platform": "Windows, two independent headed processes",
+  "checks": [
+    {
+      "label": "room admission",
+      "tick": 30,
+      "hash": 1940769798,
+      "epoch": 1
+    },
+    {
+      "label": "live input 0",
+      "tick": 155,
+      "hash": 3627216190,
+      "epoch": 1
+    },
+    {
+      "label": "live input 1",
+      "tick": 278,
+      "hash": 1653153798,
+      "epoch": 1
+    },
+    {
+      "label": "live input 2",
+      "tick": 406,
+      "hash": 3984921759,
+      "epoch": 1
+    },
+    {
+      "label": "live input 3",
+      "tick": 530,
+      "hash": 515406215,
+      "epoch": 1
+    },
+    {
+      "label": "live input 4",
+      "tick": 663,
+      "hash": 1710709778,
+      "epoch": 1
+    },
+    {
+      "label": "live input 5",
+      "tick": 789,
+      "hash": 715626161,
+      "epoch": 1
+    },
+    {
+      "label": "RTC reconnect",
+      "tick": 897,
+      "hash": 1345108198,
+      "epoch": 1
+    },
+    {
+      "label": "guest reload",
+      "tick": 966,
+      "hash": 664252439,
+      "epoch": 2
+    },
+    {
+      "label": "host reload",
+      "tick": 1026,
+      "hash": 1888836286,
+      "epoch": 3
+    },
+    {
+      "label": "retry after signaling outage",
+      "tick": 1094,
+      "hash": 3297725561,
+      "epoch": 4
+    },
+    {
+      "label": "guest reload after retry",
+      "tick": 1158,
+      "hash": 3419608069,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 0",
+      "tick": 1309,
+      "hash": 3584307245,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 1",
+      "tick": 1460,
+      "hash": 3237830488,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 2",
+      "tick": 1611,
+      "hash": 3099943251,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 3",
+      "tick": 1763,
+      "hash": 2581392566,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 4",
+      "tick": 1914,
+      "hash": 3386732134,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 5",
+      "tick": 2065,
+      "hash": 4060061049,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 6",
+      "tick": 2217,
+      "hash": 1689849277,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 7",
+      "tick": 2368,
+      "hash": 2774835997,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 8",
+      "tick": 2520,
+      "hash": 3312905491,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 9",
+      "tick": 2671,
+      "hash": 4177084905,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 10",
+      "tick": 2822,
+      "hash": 3758941074,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 11",
+      "tick": 2973,
+      "hash": 3597211177,
+      "epoch": 5
+    }
+  ],
+  "finalBoundary": {
+    "tick": 47304,
+    "hash": 1331515139
+  },
+  "allPassed": true
+}

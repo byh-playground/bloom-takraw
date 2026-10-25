@@ -1,0 +1,515 @@
+{
+  "samples": [
+    {
+      "tick": 0,
+      "score": [
+        0,
+        0
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "ready"
+    },
+    {
+      "tick": 893,
+      "score": [
+        1,
+        1
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "ready"
+    },
+    {
+      "tick": 1794,
+      "score": [
+        2,
+        2
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 2695,
+      "score": [
+        2,
+        4
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "ready"
+    },
+    {
+      "tick": 3596,
+      "score": [
+        2,
+        6
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 4497,
+      "score": [
+        2,
+        8
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 5398,
+      "score": [
+        2,
+        11
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 6299,
+      "score": [
+        2,
+        13
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 7200,
+      "score": [
+        0,
+        0
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 8100,
+      "score": [
+        0,
+        2
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "ready"
+    },
+    {
+      "tick": 9002,
+      "score": [
+        1,
+        3
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 9902,
+      "score": [
+        1,
+        4
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 10803,
+      "score": [
+        1,
+        6
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 11704,
+      "score": [
+        3,
+        7
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 12604,
+      "score": [
+        5,
+        7
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 13505,
+      "score": [
+        8,
+        7
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 14406,
+      "score": [
+        10,
+        7
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 15307,
+      "score": [
+        12,
+        7
+      ],
+      "sets": [
+        0,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 16207,
+      "score": [
+        0,
+        0
+      ],
+      "sets": [
+        1,
+        1
+      ],
+      "phase": "ready"
+    },
+    {
+      "tick": 17108,
+      "score": [
+        2,
+        0
+      ],
+      "sets": [
+        1,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 18009,
+      "score": [
+        5,
+        0
+      ],
+      "sets": [
+        1,
+        1
+      ],
+      "phase": "ready"
+    },
+    {
+      "tick": 18910,
+      "score": [
+        7,
+        0
+      ],
+      "sets": [
+        1,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 19811,
+      "score": [
+        10,
+        0
+      ],
+      "sets": [
+        1,
+        1
+      ],
+      "phase": "point"
+    },
+    {
+      "tick": 20711,
+      "score": [
+        12,
+        0
+      ],
+      "sets": [
+        1,
+        1
+      ],
+      "phase": "rally"
+    },
+    {
+      "tick": 21612,
+      "score": [
+        15,
+        0
+      ],
+      "sets": [
+        2,
+        1
+      ],
+      "phase": "finished"
+    }
+  ],
+  "passed": true,
+  "diagnostics": {
+    "product": "블룸 세팍타크로",
+    "version": "0.12.7",
+    "status": "Candidate",
+    "ready": true,
+    "bootstrapStage": "ready",
+    "mode": "match",
+    "paused": false,
+    "failed": false,
+    "environment": {
+      "secureContext": true,
+      "webCrypto": true
+    },
+    "dependencies": {
+      "three": {
+        "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "state": "ready"
+      },
+      "rapier": {
+        "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+        "state": "ready"
+      },
+      "input": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+        "state": "ready"
+      },
+      "simloop": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+        "state": "ready"
+      },
+      "interpolation": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+        "state": "ready"
+      },
+      "rollback": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+        "state": "ready"
+      },
+      "transport": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+        "state": "ready"
+      },
+      "audio": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+        "state": "ready"
+      },
+      "events": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+        "state": "ready"
+      },
+      "deterministic": {
+        "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+        "state": "ready"
+      }
+    },
+    "tick": 21612,
+    "phase": "finished",
+    "selected": [
+      2,
+      5
+    ],
+    "physics": {
+      "players": 6,
+      "entities": 91
+    },
+    "input": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "network": {
+      "state": "idle",
+      "code": "",
+      "message": "",
+      "count": 0,
+      "phase": "연결 준비",
+      "hint": "",
+      "diagnostics": "",
+      "session": "running",
+      "ready": true,
+      "players": [
+        "local"
+      ],
+      "roomConnections": 0,
+      "roomMetrics": null
+    },
+    "session": {
+      "rollbacks": 0,
+      "resimulatedTicks": 0,
+      "maxRollbackDepth": 0,
+      "stalls": 0,
+      "holds": 0,
+      "recoveries": 0,
+      "rejectedSnapshots": 0,
+      "rejectedPackets": 0,
+      "sentBytes": 0,
+      "receivedBytes": 0,
+      "predictedTicks": 0,
+      "hashMismatches": 0,
+      "latestResimulationMs": 0,
+      "smoothedRTT": 0,
+      "jitter": 0,
+      "lateInputRate": 0,
+      "rollbackFrequency": 0,
+      "stallFrequency": 0,
+      "resimulationCostMs": 0,
+      "stateHashComputations": 0,
+      "hashedStateBytes": 0,
+      "snapshotSaves": 0,
+      "serializedSnapshotBytes": 0,
+      "inputReservations": 0,
+      "inputReservationSentBytes": 0,
+      "inputReservationReceivedBytes": 0,
+      "inputDelay": 0,
+      "requestedInputDelay": 0,
+      "confirmedTick": 21611,
+      "tick": 21612,
+      "pace": 1,
+      "retainedSnapshotBytes": 0,
+      "transitions": 0,
+      "bootstrapBytes": 0,
+      "bootstrapTicks": 0,
+      "rejectedMessages": 0,
+      "sentControlBytes": 0,
+      "receivedControlBytes": 0,
+      "membershipPrepareMs": 0,
+      "membershipCommitMs": 0,
+      "bootstrapPrepareMs": 0,
+      "bootstrapPulseMs": 0,
+      "maxBoundaryTaskMs": 0,
+      "boundaryLongTasks": 0,
+      "epoch": 0,
+      "pendingAdmissions": 0,
+      "controlIncomingBytes": 0,
+      "controlQueuedBytes": 0,
+      "controlReceivingBytes": 0
+    },
+    "audio": {
+      "state": "running",
+      "volume": 0.68,
+      "muted": false,
+      "voices": 0,
+      "categoryVolumes": {
+        "impact": 0.9,
+        "signal": 0.65
+      },
+      "lastError": null,
+      "played": 242,
+      "dropped": 0,
+      "blocked": 0,
+      "maxObserved": 2,
+      "bySound": {
+        "serve": 54,
+        "kick": 133,
+        "point": 54,
+        "land": 1
+      }
+    },
+    "club": {
+      "status": "ready",
+      "revision": 1,
+      "reads": 2,
+      "writes": 2,
+      "bytes": 419,
+      "copyMs": 0.10000002384185791,
+      "serializationMs": 0.30000007152557373,
+      "restoreMs": 0.6999999284744263,
+      "readMs": 0,
+      "writeMs": 31.899999976158142,
+      "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+    },
+    "rewards": {
+      "pending": 0,
+      "saving": false,
+      "failed": 0
+    },
+    "simulation": {
+      "frames": 21335,
+      "steps": 21612,
+      "simulationMs": 67480.90000545979,
+      "maxSimulationMs": 135.29999995231628,
+      "backlogDrops": 1,
+      "averageMs": 3.1223810848352667
+    },
+    "lastContact": {
+      "tick": 21539,
+      "sequence": 0,
+      "playerId": 3,
+      "team": 1,
+      "speed": 5.019864242431931,
+      "position": {
+        "x": 5.077305793762207,
+        "y": 0.6964139938354492,
+        "z": -0.21104593575000763
+      },
+      "type": "touch",
+      "part": "lowerLegR",
+      "footVelocity": {
+        "x": -0.10999536514282227,
+        "y": 3.4160070419311523,
+        "z": -0.0929017961025238
+      },
+      "incomingSpeed": 9.515756583806633,
+      "reactionSeverity": 0
+    },
+    "errors": []
+  }
+}

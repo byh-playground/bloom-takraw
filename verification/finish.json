@@ -1,0 +1,6549 @@
+{
+  "samples": [
+    {
+      "tick": 6097,
+      "hash": 2093965321,
+      "states": [
+        {
+          "ballSpeed": 1.0682781741295784,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 99.43333333332897,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 13,
+          "score": [
+            3,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 6097,
+          "time": 101.61666666666218,
+          "timer": 1.4333333333333353,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 1.0682781741295784,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 99.43333333332897,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 13,
+          "score": [
+            3,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 6097,
+          "time": 101.61666666666218,
+          "timer": 1.4333333333333353,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 6083,
+          "steps": 5130,
+          "simulationMs": 16369.700003385544,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1909746595293456
+        },
+        {
+          "frames": 5160,
+          "steps": 4999,
+          "simulationMs": 15743.399992346764,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.149309860441441
+        }
+      ]
+    },
+    {
+      "tick": 6999,
+      "hash": 129807596,
+      "states": [
+        {
+          "ballSpeed": 6.092281867650473,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 1.0320810662960747,
+                  "y": 0.75,
+                  "z": 0.7847424762646266
+                },
+                "time": 0.3257795070261088,
+                "stance": {
+                  "x": 1.6520810662960748,
+                  "z": 0.6847424762646266
+                },
+                "moving": false,
+                "at": 116.60000000003886,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 115.91666666666137,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 15,
+          "score": [
+            4,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 6999,
+          "time": 116.64999999999466,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "started": 115.91666666666137,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.092281867650473,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 1.0320810662960747,
+                  "y": 0.75,
+                  "z": 0.7847424762646266
+                },
+                "time": 0.3257795070261088,
+                "stance": {
+                  "x": 1.6520810662960748,
+                  "z": 0.6847424762646266
+                },
+                "moving": false,
+                "at": 116.60000000003886,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 115.91666666666137,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 15,
+          "score": [
+            4,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 6999,
+          "time": 116.64999999999466,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "started": 115.91666666666137,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 6961,
+          "steps": 6032,
+          "simulationMs": 19081.200004696846,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1633289132454983
+        },
+        {
+          "frames": 6000,
+          "steps": 5901,
+          "simulationMs": 18700.599993944168,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.1690560911615266
+        }
+      ]
+    },
+    {
+      "tick": 7901,
+      "hash": 510317100,
+      "states": [
+        {
+          "ballSpeed": 0.02135022359895004,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 16,
+          "score": [
+            5,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 7901,
+          "time": 131.68333333333027,
+          "timer": 0.3166666666666661,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.02135022359895004,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 16,
+          "score": [
+            5,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 7901,
+          "time": 131.68333333333027,
+          "timer": 0.3166666666666661,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 7832,
+          "steps": 6934,
+          "simulationMs": 22014.600005030632,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.174877416358614
+        },
+        {
+          "frames": 6817,
+          "steps": 6803,
+          "simulationMs": 21632.399994134903,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.1798324260083644
+        }
+      ]
+    },
+    {
+      "tick": 8803,
+      "hash": 470868049,
+      "states": [
+        {
+          "ballSpeed": 7.489960466970555,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 145.2666666666744,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 18,
+          "score": [
+            6,
+            12
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 8803,
+          "time": 146.71666666667556,
+          "timer": 1.8833333333333337,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.489960466970555,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 145.2666666666744,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 18,
+          "score": [
+            6,
+            12
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 8803,
+          "time": 146.71666666667556,
+          "timer": 1.8833333333333337,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 8724,
+          "steps": 7836,
+          "simulationMs": 24947.100004315376,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1836523742107423
+        },
+        {
+          "frames": 7653,
+          "steps": 7705,
+          "simulationMs": 24263.19999539852,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.1490201162100613
+        }
+      ]
+    },
+    {
+      "tick": 9704,
+      "hash": 1495186823,
+      "states": [
+        {
+          "ballSpeed": 3.00941810203946,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 160.8000000000201,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 20,
+          "score": [
+            6,
+            13
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 9704,
+          "time": 161.73333333335418,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 160.8000000000201,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 3.00941810203946,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 160.8000000000201,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 20,
+          "score": [
+            6,
+            13
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 9704,
+          "time": 161.73333333335418,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 160.8000000000201,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 9603,
+          "steps": 8737,
+          "simulationMs": 27867.900006055832,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.189641754155412
+        },
+        {
+          "frames": 8520,
+          "steps": 8606,
+          "simulationMs": 26870.299991369247,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.1222751558644255
+        }
+      ]
+    },
+    {
+      "tick": 10606,
+      "hash": 3928508605,
+      "states": [
+        {
+          "ballSpeed": 8.446146287311437,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.268617441893811,
+                  "y": 0.75,
+                  "z": -0.20855097867909378
+                },
+                "time": 0.8604004484705956,
+                "stance": {
+                  "x": 5.888617441893811,
+                  "z": -0.30855097867909376
+                },
+                "moving": true,
+                "at": 176.73333333333693,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 176.48333333336592,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 22,
+          "score": [
+            7,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 10606,
+          "time": 176.76666666669948,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 8.446146287311437,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.268617441893811,
+                  "y": 0.75,
+                  "z": -0.20855097867909378
+                },
+                "time": 0.8604004484705956,
+                "stance": {
+                  "x": 5.888617441893811,
+                  "z": -0.30855097867909376
+                },
+                "moving": true,
+                "at": 176.73333333333693,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 176.48333333336592,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 22,
+          "score": [
+            7,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 1,
+          "sets": [
+            0,
+            0
+          ],
+          "tick": 10606,
+          "time": 176.76666666669948,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 10460,
+          "steps": 9639,
+          "simulationMs": 30537.000005960464,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.168067227509126
+        },
+        {
+          "frames": 9397,
+          "steps": 9508,
+          "simulationMs": 29478.299991607666,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.1003681101817064
+        }
+      ]
+    },
+    {
+      "tick": 11507,
+      "hash": 1129106490,
+      "states": [
+        {
+          "ballSpeed": 1.9648093062458707,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 세트 획득 · 다음 세트를 준비합니다.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 188.76666666670903,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 23,
+          "score": [
+            0,
+            0
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 11507,
+          "time": 191.7833333333781,
+          "timer": 0.6000000000000023,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 1.9648093062458707,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 세트 획득 · 다음 세트를 준비합니다.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 188.76666666670903,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 23,
+          "score": [
+            0,
+            0
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 11507,
+          "time": 191.7833333333781,
+          "timer": 0.6000000000000023,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 11324,
+          "steps": 10540,
+          "simulationMs": 33002.20000612736,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.131138520505442
+        },
+        {
+          "frames": 10279,
+          "steps": 10409,
+          "simulationMs": 32231.299991965294,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.0964838113137954
+        }
+      ]
+    },
+    {
+      "tick": 12409,
+      "hash": 869816577,
+      "states": [
+        {
+          "ballSpeed": 5.978934444350619,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 206.6333333333899,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 25,
+          "score": [
+            1,
+            0
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 12409,
+          "time": 206.8166666667234,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 206.6333333333899,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 5.978934444350619,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 206.6333333333899,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 25,
+          "score": [
+            1,
+            0
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 12409,
+          "time": 206.8166666667234,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 206.6333333333899,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 12197,
+          "steps": 11442,
+          "simulationMs": 35613.60000669956,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.112532774576085
+        },
+        {
+          "frames": 11167,
+          "steps": 11311,
+          "simulationMs": 35183.599990963936,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.1105649359883243
+        }
+      ]
+    },
+    {
+      "tick": 13310,
+      "hash": 2429071075,
+      "states": [
+        {
+          "ballSpeed": 3.5491082668304443,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "서브 · 공의 위치를 확인하세요.",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 27,
+          "score": [
+            2,
+            1
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 13310,
+          "time": 221.833333333402,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 3.7104687690734863,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "서브 · 공의 위치를 확인하세요.",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 27,
+          "score": [
+            2,
+            1
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 13311,
+          "time": 221.8500000000687,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 13079,
+          "steps": 12343,
+          "simulationMs": 38379.80000936985,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1094385489240746
+        },
+        {
+          "frames": 11982,
+          "steps": 12213,
+          "simulationMs": 38241.899992227554,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.131245393615619
+        }
+      ]
+    },
+    {
+      "tick": 14211,
+      "hash": 2800738071,
+      "states": [
+        {
+          "ballSpeed": 6.878724229899157,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 234.60000000007884,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 28,
+          "score": [
+            3,
+            2
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 14211,
+          "time": 236.85000000008063,
+          "timer": 1.0833333333333366,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.856590286314235,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 234.60000000007884,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 28,
+          "score": [
+            3,
+            2
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 14212,
+          "time": 236.8666666667473,
+          "timer": 1.06666666666667,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 13966,
+          "steps": 13244,
+          "simulationMs": 41252.000007390976,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1147689525363167
+        },
+        {
+          "frames": 12798,
+          "steps": 13114,
+          "simulationMs": 41094.99999368191,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.133673935769552
+        }
+      ]
+    },
+    {
+      "tick": 15113,
+      "hash": 170304594,
+      "states": [
+        {
+          "ballSpeed": 6.249159657688848,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 2.3875883981377957,
+                  "y": 0.75,
+                  "z": 1.1836826276382801
+                },
+                "time": 0.5752043120465603,
+                "stance": {
+                  "x": 3.0075883981377958,
+                  "z": 1.08368262763828
+                },
+                "moving": false,
+                "at": 251.86666666660193,
+                "distance": 0.6280127387243035
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 250.13333333342453,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 30,
+          "score": [
+            3,
+            3
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 15113,
+          "time": 251.88333333342592,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.249159657688848,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 2.3875883981377957,
+                  "y": 0.75,
+                  "z": 1.1836826276382801
+                },
+                "time": 0.5752043120465603,
+                "stance": {
+                  "x": 3.0075883981377958,
+                  "z": 1.08368262763828
+                },
+                "moving": false,
+                "at": 251.86666666660193,
+                "distance": 0.6280127387243035
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 250.13333333342453,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 30,
+          "score": [
+            3,
+            3
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 15113,
+          "time": 251.88333333342592,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 14853,
+          "steps": 14146,
+          "simulationMs": 44128.100006222725,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.119475470537447
+        },
+        {
+          "frames": 13640,
+          "steps": 14015,
+          "simulationMs": 43741.699993014336,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.12106314613017
+        }
+      ]
+    },
+    {
+      "tick": 16014,
+      "hash": 2120816598,
+      "states": [
+        {
+          "ballSpeed": 9.38822624169179,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.16683547506556,
+                  "y": 0.75,
+                  "z": -0.1994014534064662
+                },
+                "time": 0.058582355041608025,
+                "stance": {
+                  "x": 5.78683547506556,
+                  "z": -0.2994014534064662
+                },
+                "moving": false,
+                "at": 266.8666666665883,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 265.8166666667536,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 32,
+          "score": [
+            4,
+            4
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 16014,
+          "time": 266.9000000000859,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 9.38822624169179,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.16683547506556,
+                  "y": 0.75,
+                  "z": -0.1994014534064662
+                },
+                "time": 0.058582355041608025,
+                "stance": {
+                  "x": 5.78683547506556,
+                  "z": -0.2994014534064662
+                },
+                "moving": false,
+                "at": 266.8666666665883,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 265.8166666667536,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 32,
+          "score": [
+            4,
+            4
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 16014,
+          "time": 266.9000000000859,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 15743,
+          "steps": 15047,
+          "simulationMs": 46900.60000371933,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1169402541183846
+        },
+        {
+          "frames": 14515,
+          "steps": 14916,
+          "simulationMs": 46283.89999604225,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.102969964872771
+        }
+      ]
+    },
+    {
+      "tick": 16915,
+      "hash": 1592204483,
+      "states": [
+        {
+          "ballSpeed": 0.017537454298299556,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 33,
+          "score": [
+            5,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 16915,
+          "time": 281.91666666673893,
+          "timer": 1.0666666666666673,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.017537454298299556,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 33,
+          "score": [
+            5,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 16915,
+          "time": 281.91666666673893,
+          "timer": 1.0666666666666673,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 16595,
+          "steps": 15948,
+          "simulationMs": 49658.30000293255,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1032,
+          "averageMs": 3.1137634814981534
+        },
+        {
+          "frames": 15391,
+          "steps": 15817,
+          "simulationMs": 49033.59999668598,
+          "maxSimulationMs": 22.5,
+          "backlogDrops": 7,
+          "averageMs": 3.100056900593411
+        }
+      ]
+    },
+    {
+      "tick": 17816,
+      "hash": 2895379124,
+      "states": [
+        {
+          "ballSpeed": 2.5927919760678786,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 295.96666666672616,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 35,
+          "score": [
+            6,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 17816,
+          "time": 296.93333333339194,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 295.96666666672616,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 2.5927919760678786,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 295.96666666672616,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 35,
+          "score": [
+            6,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 17816,
+          "time": 296.93333333339194,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 295.96666666672616,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 17449,
+          "steps": 16849,
+          "simulationMs": 52212.90000629425,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.098872337010757
+        },
+        {
+          "frames": 16274,
+          "steps": 16718,
+          "simulationMs": 51846.0999956131,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.101214259816551
+        }
+      ]
+    },
+    {
+      "tick": 18717,
+      "hash": 830027665,
+      "states": [
+        {
+          "ballSpeed": 7.9266148614151195,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.741581749025621,
+                  "y": 0.75,
+                  "z": 0.29607175292975313
+                },
+                "time": 0.4924830853783132,
+                "stance": {
+                  "x": -5.361581749025621,
+                  "z": 0.39607175292975316
+                },
+                "moving": false,
+                "at": 311.93333333321397,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 311.36666666671215,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 37,
+          "score": [
+            7,
+            6
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 18717,
+          "time": 311.95000000004495,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.9266148614151195,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.741581749025621,
+                  "y": 0.75,
+                  "z": 0.29607175292975313
+                },
+                "time": 0.4924830853783132,
+                "stance": {
+                  "x": -5.361581749025621,
+                  "z": 0.39607175292975316
+                },
+                "moving": false,
+                "at": 311.93333333321397,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 311.36666666671215,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 37,
+          "score": [
+            7,
+            6
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 18717,
+          "time": 311.95000000004495,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 18309,
+          "steps": 17750,
+          "simulationMs": 54680.90000498295,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.0806140847877717
+        },
+        {
+          "frames": 17166,
+          "steps": 17619,
+          "simulationMs": 54509.29999434948,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.0937794423264364
+        }
+      ]
+    },
+    {
+      "tick": 19617,
+      "hash": 2478952594,
+      "states": [
+        {
+          "ballSpeed": 6.425035484899289,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 323.9333333333674,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 38,
+          "score": [
+            8,
+            7
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 19618,
+          "time": 326.96666666669796,
+          "timer": 0.30000000000000204,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.439070031998175,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 323.9333333333674,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 38,
+          "score": [
+            8,
+            7
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 19617,
+          "time": 326.9500000000313,
+          "timer": 0.3166666666666687,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 19188,
+          "steps": 18651,
+          "simulationMs": 57229.90000641346,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.068462817350998
+        },
+        {
+          "frames": 18042,
+          "steps": 18519,
+          "simulationMs": 57077.89999496937,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.0821264644402704
+        }
+      ]
+    },
+    {
+      "tick": 20519,
+      "hash": 3647177892,
+      "states": [
+        {
+          "ballSpeed": 9.698627787011588,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 341.8000000000178,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 40,
+          "score": [
+            8,
+            8
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 20519,
+          "time": 341.98333333335097,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "started": 341.8000000000178,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 9.698627787011588,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 341.8000000000178,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 40,
+          "score": [
+            8,
+            8
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 20519,
+          "time": 341.98333333335097,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "started": 341.8000000000178,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 20070,
+          "steps": 19552,
+          "simulationMs": 59776.80000388622,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.057324059118567
+        },
+        {
+          "frames": 18887,
+          "steps": 19421,
+          "simulationMs": 59654.89999425411,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.0716698416278314
+        }
+      ]
+    },
+    {
+      "tick": 21421,
+      "hash": 926395998,
+      "states": [
+        {
+          "ballSpeed": 7.424584158573215,
+          "defense": [
+            {
+              "playerId": 1,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -2.1770101385885794,
+                  "y": 0.75,
+                  "z": -0.7762878213643619
+                },
+                "time": 0.30786344469531574,
+                "stance": {
+                  "x": -2.7970101385885795,
+                  "z": -0.6762878213643619
+                },
+                "moving": false,
+                "at": 356.99999999983964,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": 4,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 356.28333333333796,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 42,
+          "score": [
+            9,
+            9
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 21421,
+          "time": 357.01666666667063,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.424584158573215,
+          "defense": [
+            {
+              "playerId": 1,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -2.1770101385885794,
+                  "y": 0.75,
+                  "z": -0.7762878213643619
+                },
+                "time": 0.30786344469531574,
+                "stance": {
+                  "x": -2.7970101385885795,
+                  "z": -0.6762878213643619
+                },
+                "moving": false,
+                "at": 356.99999999983964,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": 4,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 356.28333333333796,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 42,
+          "score": [
+            9,
+            9
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 21421,
+          "time": 357.01666666667063,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 20959,
+          "steps": 20454,
+          "simulationMs": 62237.90000486374,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.0428229199600927
+        },
+        {
+          "frames": 19776,
+          "steps": 20323,
+          "simulationMs": 61955.39999461174,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.0485361410525877
+        }
+      ]
+    },
+    {
+      "tick": 22321,
+      "hash": 2049430984,
+      "states": [
+        {
+          "ballSpeed": 0.017815604250593343,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 43,
+          "score": [
+            10,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 22322,
+          "time": 372.03333333332364,
+          "timer": 0.28333333333333277,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.01767229704028341,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 43,
+          "score": [
+            10,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 22321,
+          "time": 372.016666666657,
+          "timer": 0.29999999999999943,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 21836,
+          "steps": 21355,
+          "simulationMs": 64784.500002741814,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.033692343841808
+        },
+        {
+          "frames": 20660,
+          "steps": 21223,
+          "simulationMs": 64259.09999501705,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.0278047399056236
+        }
+      ]
+    },
+    {
+      "tick": 23222,
+      "hash": 710397977,
+      "states": [
+        {
+          "ballSpeed": 3.258129336412988,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 385.29999999997824,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 45,
+          "score": [
+            11,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 23223,
+          "time": 387.04999999997665,
+          "timer": 1.8666666666666671,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 3.4228507639953762,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 385.29999999997824,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 45,
+          "score": [
+            11,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 23222,
+          "time": 387.03333333331,
+          "timer": 1.8833333333333337,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 22667,
+          "steps": 22256,
+          "simulationMs": 67212.70000135899,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.0199811287454614
+        },
+        {
+          "frames": 21540,
+          "steps": 22124,
+          "simulationMs": 66688.69999229908,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 3.014314770941018
+        }
+      ]
+    },
+    {
+      "tick": 24123,
+      "hash": 693232603,
+      "states": [
+        {
+          "ballSpeed": 6.142093002563173,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 1.0949428563291876,
+                  "y": 0.75,
+                  "z": 0.7899435558142291
+                },
+                "time": 0.7943887284459753,
+                "stance": {
+                  "x": 1.7149428563291877,
+                  "z": 0.6899435558142292
+                },
+                "moving": false,
+                "at": 401.9999999997987,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 401.7833333332966,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 47,
+          "score": [
+            12,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 24124,
+          "time": 402.06666666662966,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "started": 401.7833333332966,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.205057091252947,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 1.0949428563291876,
+                  "y": 0.75,
+                  "z": 0.7899435558142291
+                },
+                "time": 0.7943887284459753,
+                "stance": {
+                  "x": 1.7149428563291877,
+                  "z": 0.6899435558142292
+                },
+                "moving": false,
+                "at": 401.9999999997987,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 401.7833333332966,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 47,
+          "score": [
+            12,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 24123,
+          "time": 402.049999999963,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "started": 401.7833333332966,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 23536,
+          "steps": 23157,
+          "simulationMs": 69557.40000200272,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 3.003731053331723
+        },
+        {
+          "frames": 22415,
+          "steps": 23025,
+          "simulationMs": 69021.09999346733,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.9976590659486355
+        }
+      ]
+    },
+    {
+      "tick": 25025,
+      "hash": 1680647944,
+      "states": [
+        {
+          "ballSpeed": 0.019220657063840272,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 48,
+          "score": [
+            13,
+            12
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 25025,
+          "time": 417.08333333328267,
+          "timer": 0.7833333333333335,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.019220657063840272,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 48,
+          "score": [
+            13,
+            12
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 25025,
+          "time": 417.08333333328267,
+          "timer": 0.7833333333333335,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 24418,
+          "steps": 24058,
+          "simulationMs": 71778.90000164509,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.983577188529599
+        },
+        {
+          "frames": 23295,
+          "steps": 23927,
+          "simulationMs": 71278.1999900341,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.9789860822516028
+        }
+      ]
+    },
+    {
+      "tick": 25926,
+      "hash": 1841726000,
+      "states": [
+        {
+          "ballSpeed": 9.194227934373465,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 431.1333333332699,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 50,
+          "score": [
+            13,
+            13
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 25926,
+          "time": 432.0999999999357,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 9.194227934373465,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 431.1333333332699,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 50,
+          "score": [
+            13,
+            13
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 25926,
+          "time": 432.0999999999357,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 25296,
+          "steps": 24959,
+          "simulationMs": 74080.70000469685,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.968095677098315
+        },
+        {
+          "frames": 24150,
+          "steps": 24828,
+          "simulationMs": 73501.49998676777,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.960427742337996
+        }
+      ]
+    },
+    {
+      "tick": 26828,
+      "hash": 474277742,
+      "states": [
+        {
+          "ballSpeed": 7.080308637894619,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 446.6666666665891,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 52,
+          "score": [
+            14,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 26828,
+          "time": 447.13333333325534,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 446.6666666665891,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.080308637894619,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 446.6666666665891,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 52,
+          "score": [
+            14,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 26828,
+          "time": 447.13333333325534,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 446.6666666665891,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 26177,
+          "steps": 25861,
+          "simulationMs": 76535.40000426769,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.959491125798217
+        },
+        {
+          "frames": 25020,
+          "steps": 25730,
+          "simulationMs": 75875.89998531342,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.9489273216211975
+        }
+      ]
+    },
+    {
+      "tick": 27728,
+      "hash": 3922206179,
+      "states": [
+        {
+          "ballSpeed": 3.5491082668304443,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "서브 · 공의 위치를 확인하세요.",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 54,
+          "score": [
+            15,
+            15
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 27729,
+          "time": 462.14999999990835,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 3.3876538276672363,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "서브 · 공의 위치를 확인하세요.",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 54,
+          "score": [
+            15,
+            15
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 27728,
+          "time": 462.1333333332417,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 27067,
+          "steps": 26762,
+          "simulationMs": 78994.40000474453,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.9517375384778615
+        },
+        {
+          "frames": 25909,
+          "steps": 26630,
+          "simulationMs": 78165.49998342991,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.9352422074138156
+        }
+      ]
+    },
+    {
+      "tick": 28630,
+      "hash": 2918142286,
+      "states": [
+        {
+          "ballSpeed": 4.43363654343959,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 474.6333333332303,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 55,
+          "score": [
+            16,
+            16
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 28630,
+          "time": 477.16666666656135,
+          "timer": 1.0833333333333366,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 4.43363654343959,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 474.6333333332303,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 55,
+          "score": [
+            16,
+            16
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 2,
+          "sets": [
+            0,
+            1
+          ],
+          "tick": 28630,
+          "time": 477.16666666656135,
+          "timer": 1.0833333333333366,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 27943,
+          "steps": 27663,
+          "simulationMs": 81458.60000443459,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.9446770055465636
+        },
+        {
+          "frames": 26803,
+          "steps": 27532,
+          "simulationMs": 80459.69998168945,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.9224066534101936
+        }
+      ]
+    },
+    {
+      "tick": 29531,
+      "hash": 4116217755,
+      "states": [
+        {
+          "ballSpeed": 3.75098727619665,
+          "defense": [
+            {
+              "playerId": 1,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "slide",
+                "reachable": true,
+                "point": {
+                  "x": -2.056161933350106,
+                  "y": 0.5625,
+                  "z": 0.9281087272630082
+                },
+                "time": 0.35941187936993113,
+                "stance": {
+                  "x": -2.676161933350106,
+                  "z": 1.0281087272630083
+                },
+                "moving": true,
+                "at": 492.1333333330501,
+                "distance": 0.9627943352733717
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 491.11666666654867,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 57,
+          "score": [
+            0,
+            0
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 29531,
+          "time": 492.18333333321436,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "started": 491.11666666654867,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 3.75098727619665,
+          "defense": [
+            {
+              "playerId": 1,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "slide",
+                "reachable": true,
+                "point": {
+                  "x": -2.056161933350106,
+                  "y": 0.5625,
+                  "z": 0.9281087272630082
+                },
+                "time": 0.35941187936993113,
+                "stance": {
+                  "x": -2.676161933350106,
+                  "z": 1.0281087272630083
+                },
+                "moving": true,
+                "at": 492.1333333330501,
+                "distance": 0.9627943352733717
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 491.11666666654867,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 57,
+          "score": [
+            0,
+            0
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 29531,
+          "time": 492.18333333321436,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 0,
+            "to": 1,
+            "started": 491.11666666654867,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 28794,
+          "steps": 28564,
+          "simulationMs": 83948.30000424385,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.9389546283519064
+        },
+        {
+          "frames": 27678,
+          "steps": 28433,
+          "simulationMs": 82945.89998281002,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.9172405297650625
+        }
+      ]
+    },
+    {
+      "tick": 30432,
+      "hash": 666126726,
+      "states": [
+        {
+          "ballSpeed": 1.335696816444397,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "서브 · 공의 위치를 확인하세요.",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 59,
+          "score": [
+            1,
+            1
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 30432,
+          "time": 507.1999999998674,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 1.335696816444397,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "서브 · 공의 위치를 확인하세요.",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 59,
+          "score": [
+            1,
+            1
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 30432,
+          "time": 507.1999999998674,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 29663,
+          "steps": 29465,
+          "simulationMs": 86308.30000531673,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.9291803836862966
+        },
+        {
+          "frames": 28549,
+          "steps": 29334,
+          "simulationMs": 85367.59998059273,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.910192949498627
+        }
+      ]
+    },
+    {
+      "tick": 31333,
+      "hash": 2561133226,
+      "states": [
+        {
+          "ballSpeed": 6.953542880805345,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 520.466666666522,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 60,
+          "score": [
+            2,
+            2
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 31333,
+          "time": 522.2166666665204,
+          "timer": 1.5833333333333348,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.953542880805345,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 520.466666666522,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 60,
+          "score": [
+            2,
+            2
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 31333,
+          "time": 522.2166666665204,
+          "timer": 1.5833333333333348,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 30537,
+          "steps": 30366,
+          "simulationMs": 88556.90000665188,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.9163175922627897
+        },
+        {
+          "frames": 29419,
+          "steps": 30235,
+          "simulationMs": 87654.59998047352,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8991103019835793
+        }
+      ]
+    },
+    {
+      "tick": 32235,
+      "hash": 2081227673,
+      "states": [
+        {
+          "ballSpeed": 2.39084010402094,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 2.4109659063841,
+                  "y": 0.75,
+                  "z": 1.1935920437329464
+                },
+                "time": 1.1047893951184342,
+                "stance": {
+                  "x": 3.0309659063841,
+                  "z": 1.0935920437329463
+                },
+                "moving": false,
+                "at": 537.1999999996758,
+                "distance": 0.6280127387243035
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 535.9999999998412,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 62,
+          "score": [
+            2,
+            3
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 32235,
+          "time": 537.24999999984,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 2.39084010402094,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 2.4109659063841,
+                  "y": 0.75,
+                  "z": 1.1935920437329464
+                },
+                "time": 1.1047893951184342,
+                "stance": {
+                  "x": 3.0309659063841,
+                  "z": 1.0935920437329463
+                },
+                "moving": false,
+                "at": 537.1999999996758,
+                "distance": 0.6280127387243035
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 535.9999999998412,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 62,
+          "score": [
+            2,
+            3
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 32235,
+          "time": 537.24999999984,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 31417,
+          "steps": 31268,
+          "simulationMs": 90902.80000817776,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.907215044396116
+        },
+        {
+          "frames": 30291,
+          "steps": 31137,
+          "simulationMs": 89916.99997985363,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.88778623437883
+        }
+      ]
+    },
+    {
+      "tick": 33136,
+      "hash": 4293108214,
+      "states": [
+        {
+          "ballSpeed": 7.958414798900118,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.196728402159591,
+                  "y": 0.75,
+                  "z": -0.20208866315572105
+                },
+                "time": 0.5914579275576524,
+                "stance": {
+                  "x": 5.816728402159591,
+                  "z": -0.302088663155721
+                },
+                "moving": false,
+                "at": 552.1999999996622,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 551.6833333331602,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 64,
+          "score": [
+            3,
+            4
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 33136,
+          "time": 552.266666666493,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.958414798900118,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.196728402159591,
+                  "y": 0.75,
+                  "z": -0.20208866315572105
+                },
+                "time": 0.5914579275576524,
+                "stance": {
+                  "x": 5.816728402159591,
+                  "z": -0.302088663155721
+                },
+                "moving": false,
+                "at": 552.1999999996622,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 551.6833333331602,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 64,
+          "score": [
+            3,
+            4
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 33136,
+          "time": 552.266666666493,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 32303,
+          "steps": 32169,
+          "simulationMs": 93355.80000758171,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.9020423391333803
+        },
+        {
+          "frames": 31156,
+          "steps": 32038,
+          "simulationMs": 92250.79997873306,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.879418190234505
+        }
+      ]
+    },
+    {
+      "tick": 34036,
+      "hash": 762563394,
+      "states": [
+        {
+          "ballSpeed": 0.9102617352638921,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 563.9666666664824,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 65,
+          "score": [
+            4,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 34037,
+          "time": 567.2833333331461,
+          "timer": 0.30000000000000204,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.7580813939605463,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 563.9666666664824,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 65,
+          "score": [
+            4,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 34036,
+          "time": 567.2666666664794,
+          "timer": 0.3166666666666687,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 33196,
+          "steps": 33070,
+          "simulationMs": 95845.80000662804,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8982703358520725
+        },
+        {
+          "frames": 32046,
+          "steps": 32938,
+          "simulationMs": 94485.89997708797,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.868598578453093
+        }
+      ]
+    },
+    {
+      "tick": 34937,
+      "hash": 278247059,
+      "states": [
+        {
+          "ballSpeed": 3.360813522523971,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 581.8333333331328,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 67,
+          "score": [
+            5,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 34938,
+          "time": 582.2999999997991,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 581.8333333331328,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 3.5053963995624797,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 581.8333333331328,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 67,
+          "score": [
+            5,
+            5
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 34937,
+          "time": 582.2833333331324,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 581.8333333331328,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 34072,
+          "steps": 33971,
+          "simulationMs": 98351.60000610352,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8951635220071092
+        },
+        {
+          "frames": 32939,
+          "steps": 33839,
+          "simulationMs": 96784.49997770786,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8601465757767035
+        }
+      ]
+    },
+    {
+      "tick": 35839,
+      "hash": 2745648009,
+      "states": [
+        {
+          "ballSpeed": 9.144304384098179,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.910897355190629,
+                  "y": 0.75,
+                  "z": 0.31399942706694006
+                },
+                "time": 1.032965232248994,
+                "stance": {
+                  "x": -5.530897355190629,
+                  "z": 0.41399942706694004
+                },
+                "moving": true,
+                "at": 597.2666666662878,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 597.2333333331188,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 69,
+          "score": [
+            6,
+            6
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 35839,
+          "time": 597.3166666664521,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 9.144304384098179,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.910897355190629,
+                  "y": 0.75,
+                  "z": 0.31399942706694006
+                },
+                "time": 1.032965232248994,
+                "stance": {
+                  "x": -5.530897355190629,
+                  "z": 0.41399942706694004
+                },
+                "moving": true,
+                "at": 597.2666666662878,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 597.2333333331188,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 69,
+          "score": [
+            6,
+            6
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 35839,
+          "time": 597.3166666664521,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 34922,
+          "steps": 34872,
+          "simulationMs": 100716.50000572205,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.888176760889024
+        },
+        {
+          "frames": 33821,
+          "steps": 34741,
+          "simulationMs": 99189.8999761343,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8551250676760684
+        }
+      ]
+    },
+    {
+      "tick": 36740,
+      "hash": 730536082,
+      "states": [
+        {
+          "ballSpeed": 7.029616185435824,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 609.7999999997741,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 70,
+          "score": [
+            7,
+            7
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 36740,
+          "time": 612.3333333331051,
+          "timer": 0.8000000000000029,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.029616185435824,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 609.7999999997741,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 70,
+          "score": [
+            7,
+            7
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 36740,
+          "time": 612.3333333331051,
+          "timer": 0.8000000000000029,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 35794,
+          "steps": 35773,
+          "simulationMs": 103044.00000560284,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8804964639701125
+        },
+        {
+          "frames": 34700,
+          "steps": 35642,
+          "simulationMs": 101516.09997677803,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.848215587699288
+        }
+      ]
+    },
+    {
+      "tick": 37642,
+      "hash": 2792182447,
+      "states": [
+        {
+          "ballSpeed": 8.839042154371999,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 2.3842470248501075,
+                  "y": 0.75,
+                  "z": 1.1822652755315226
+                },
+                "time": 0.31091438840204655,
+                "stance": {
+                  "x": 3.0042470248501076,
+                  "z": 1.0822652755315225
+                },
+                "moving": false,
+                "at": 627.3333333329272,
+                "distance": 0.6280127387243035
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 625.3333333330933,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 72,
+          "score": [
+            7,
+            8
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 37642,
+          "time": 627.3666666664247,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 8.839042154371999,
+          "defense": [
+            null,
+            {
+              "playerId": 4,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 2.3842470248501075,
+                  "y": 0.75,
+                  "z": 1.1822652755315226
+                },
+                "time": 0.31091438840204655,
+                "stance": {
+                  "x": 3.0042470248501076,
+                  "z": 1.0822652755315225
+                },
+                "moving": false,
+                "at": 627.3333333329272,
+                "distance": 0.6280127387243035
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 625.3333333330933,
+            "outcome": "overpass"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 72,
+          "score": [
+            7,
+            8
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 37642,
+          "time": 627.3666666664247,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 36666,
+          "steps": 36675,
+          "simulationMs": 105369.20000553131,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8730524882217128
+        },
+        {
+          "frames": 35580,
+          "steps": 36544,
+          "simulationMs": 103882.29997932911,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8426636377881214
+        }
+      ]
+    },
+    {
+      "tick": 38544,
+      "hash": 1434799448,
+      "states": [
+        {
+          "ballSpeed": 7.6681610057163745,
+          "defense": [
+            {
+              "playerId": 1,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -2.2719898099483045,
+                  "y": 0.75,
+                  "z": -0.7835602241164867
+                },
+                "time": 0.8437887167003113,
+                "stance": {
+                  "x": -2.8919898099483046,
+                  "z": -0.6835602241164868
+                },
+                "moving": true,
+                "at": 642.3333333329135,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": 4,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 642.1499999997446,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 74,
+          "score": [
+            8,
+            9
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 38544,
+          "time": 642.3999999997444,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 1,
+            "from": 3,
+            "to": 4,
+            "started": 642.1499999997446,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 7.6681610057163745,
+          "defense": [
+            {
+              "playerId": 1,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -2.2719898099483045,
+                  "y": 0.75,
+                  "z": -0.7835602241164867
+                },
+                "time": 0.8437887167003113,
+                "stance": {
+                  "x": -2.8919898099483046,
+                  "z": -0.6835602241164868
+                },
+                "moving": true,
+                "at": 642.3333333329135,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "아군에게 리시브 · 다음 토스를 준비하세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": 4,
+            "kind": "toss",
+            "reason": "receive",
+            "condition": null,
+            "part": "footR",
+            "at": 642.1499999997446,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 74,
+          "score": [
+            8,
+            9
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 38544,
+          "time": 642.3999999997444,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 1,
+            "from": 3,
+            "to": 4,
+            "started": 642.1499999997446,
+            "pending": false
+          },
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 37540,
+          "steps": 37577,
+          "simulationMs": 107703.3000049591,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8662027305255635
+        },
+        {
+          "frames": 36452,
+          "steps": 37446,
+          "simulationMs": 106130.7999780178,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8342359658713296
+        }
+      ]
+    },
+    {
+      "tick": 39445,
+      "hash": 426732858,
+      "states": [
+        {
+          "ballSpeed": 0.016662343603862186,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 75,
+          "score": [
+            9,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 39446,
+          "time": 657.4333333330641,
+          "timer": 0.7500000000000001,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.016544368540238243,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 서브",
+          "lastTouch": -1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "ready",
+          "play": null,
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": -1,
+          "rally": 75,
+          "score": [
+            9,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 39445,
+          "time": 657.4166666663974,
+          "timer": 0.7666666666666668,
+          "toss": null,
+          "touches": 0,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 38418,
+          "steps": 38479,
+          "simulationMs": 110116.80000519753,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8617375712777755
+        },
+        {
+          "frames": 37320,
+          "steps": 38347,
+          "simulationMs": 108404.59997999668,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8269382215035512
+        }
+      ]
+    },
+    {
+      "tick": 40346,
+      "hash": 1058724215,
+      "states": [
+        {
+          "ballSpeed": 5.323446488196189,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 671.1666666663849,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 77,
+          "score": [
+            10,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 40347,
+          "time": 672.4499999997171,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 671.1666666663849,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 5.171139948693925,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 671.1666666663849,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 77,
+          "score": [
+            10,
+            10
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 40346,
+          "time": 672.4333333330504,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 671.1666666663849,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 39312,
+          "steps": 39380,
+          "simulationMs": 112545.2000054121,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.857927882311125
+        },
+        {
+          "frames": 38204,
+          "steps": 39248,
+          "simulationMs": 110616.89997899532,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8184085807938066
+        }
+      ]
+    },
+    {
+      "tick": 41247,
+      "hash": 1432435064,
+      "states": [
+        {
+          "ballSpeed": 8.636680924547438,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.724239342956945,
+                  "y": 0.75,
+                  "z": 0.29423614572869217
+                },
+                "time": 0.22632558302643702,
+                "stance": {
+                  "x": -5.3442393429569455,
+                  "z": 0.39423614572869214
+                },
+                "moving": false,
+                "at": 687.3999999995392,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 686.5666666663709,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 79,
+          "score": [
+            11,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 41248,
+          "time": 687.4666666663701,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 8.573488991056895,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.724239342956945,
+                  "y": 0.75,
+                  "z": 0.29423614572869217
+                },
+                "time": 0.22632558302643702,
+                "stance": {
+                  "x": -5.3442393429569455,
+                  "z": 0.39423614572869214
+                },
+                "moving": false,
+                "at": 687.3999999995392,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 686.5666666663709,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 79,
+          "score": [
+            11,
+            11
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 41247,
+          "time": 687.4499999997034,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 40179,
+          "steps": 40281,
+          "simulationMs": 115073.400005579,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.856766217461806
+        },
+        {
+          "frames": 39085,
+          "steps": 40149,
+          "simulationMs": 113009.69997930527,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.814757527691979
+        }
+      ]
+    },
+    {
+      "tick": 42796,
+      "hash": 884228009,
+      "states": [
+        {
+          "ballSpeed": 8.224155303002064,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.171456679868406,
+                  "y": 0.75,
+                  "z": -0.19981668780713518
+                },
+                "time": 0.39167553274856604,
+                "stance": {
+                  "x": 5.791456679868406,
+                  "z": -0.2998166878071352
+                },
+                "moving": false,
+                "at": 713.1999999995157,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 712.483333333014,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 82,
+          "score": [
+            12,
+            13
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 42796,
+          "time": 713.2666666663466,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 8.224155303002064,
+          "defense": [
+            null,
+            {
+              "playerId": 3,
+              "team": 1,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": 5.171456679868406,
+                  "y": 0.75,
+                  "z": -0.19981668780713518
+                },
+                "time": 0.39167553274856604,
+                "stance": {
+                  "x": 5.791456679868406,
+                  "z": -0.2998166878071352
+                },
+                "moving": false,
+                "at": 713.1999999995157,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            }
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 0,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 0,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 712.483333333014,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 82,
+          "score": [
+            12,
+            13
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 42796,
+          "time": 713.2666666663466,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 41651,
+          "steps": 41829,
+          "simulationMs": 119157.1000007391,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.848671974007007
+        },
+        {
+          "frames": 40602,
+          "steps": 41698,
+          "simulationMs": 117140.19997811317,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.809252241788891
+        }
+      ]
+    },
+    {
+      "tick": 43698,
+      "hash": 2292032526,
+      "states": [
+        {
+          "ballSpeed": 0.37252787213036204,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 724.7666666663362,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 83,
+          "score": [
+            13,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 43699,
+          "time": 728.3166666663329,
+          "timer": 0.06666666666666876,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.4931157693269166,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 득점 · 아웃",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 724.7666666663362,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 83,
+          "score": [
+            13,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 43698,
+          "time": 728.2999999996663,
+          "timer": 0.08333333333333542,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 42528,
+          "steps": 42732,
+          "simulationMs": 121420.70000362396,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8414466910892062
+        },
+        {
+          "frames": 41473,
+          "steps": 42600,
+          "simulationMs": 119450.39997828007,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.8039999994901423
+        }
+      ]
+    },
+    {
+      "tick": 44601,
+      "hash": 1630402943,
+      "states": [
+        {
+          "ballSpeed": 1.7223352313364142,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 742.6333333329866,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 85,
+          "score": [
+            14,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 44601,
+          "time": 743.3499999996526,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 742.6333333329866,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 1.7223352313364142,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "공격수에게 토스 · 점프 타이밍을 맞추세요.",
+          "lastTouch": 1,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 742.6333333329866,
+            "outcome": "set"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 0,
+          "rally": 85,
+          "score": [
+            14,
+            14
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 44601,
+          "time": 743.3499999996526,
+          "timer": -5.065392549852277e-16,
+          "toss": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "started": 742.6333333329866,
+            "pending": false
+          },
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 43406,
+          "steps": 43634,
+          "simulationMs": 123754.5000039339,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8361942522788173
+        },
+        {
+          "frames": 42356,
+          "steps": 43503,
+          "simulationMs": 121726.7999740839,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.7981242666961794
+        }
+      ]
+    },
+    {
+      "tick": 45502,
+      "hash": 4011900136,
+      "states": [
+        {
+          "ballSpeed": 8.190286905082875,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.797705723558162,
+                  "y": 0.75,
+                  "z": 0.3020148183800606
+                },
+                "time": 0.76044122485811,
+                "stance": {
+                  "x": -5.4177057235581625,
+                  "z": 0.4020148183800606
+                },
+                "moving": false,
+                "at": 758.333333332808,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 758.0333333329726,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 87,
+          "score": [
+            15,
+            15
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 45502,
+          "time": 758.3666666663056,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 8.190286905082875,
+          "defense": [
+            {
+              "playerId": 0,
+              "team": 0,
+              "human": false,
+              "plan": {
+                "mode": "cushion",
+                "reachable": true,
+                "point": {
+                  "x": -4.797705723558162,
+                  "y": 0.75,
+                  "z": 0.3020148183800606
+                },
+                "time": 0.76044122485811,
+                "stance": {
+                  "x": -5.4177057235581625,
+                  "z": 0.4020148183800606
+                },
+                "moving": false,
+                "at": 758.333333332808,
+                "distance": 0.6280127387243033
+              },
+              "humanPlan": null
+            },
+            null
+          ],
+          "lastMessage": "상대 코트로 넘기세요.",
+          "lastTouch": 3,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "rally",
+          "play": {
+            "team": 1,
+            "from": 3,
+            "to": null,
+            "kind": "return",
+            "reason": "serve",
+            "condition": null,
+            "part": "footR",
+            "at": 758.0333333329726,
+            "outcome": "contact"
+          },
+          "pointReason": "",
+          "pointWinner": -1,
+          "possession": 1,
+          "rally": 87,
+          "score": [
+            15,
+            15
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 45502,
+          "time": 758.3666666663056,
+          "timer": -5.065392549852277e-16,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 44296,
+          "steps": 44535,
+          "simulationMs": 126162.10000824928,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.832875266829444
+        },
+        {
+          "frames": 43223,
+          "steps": 44404,
+          "simulationMs": 123956.69997489452,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.791566074562979
+        }
+      ]
+    },
+    {
+      "tick": 46403,
+      "hash": 3378296567,
+      "states": [
+        {
+          "ballSpeed": 6.54067918177917,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 770.5999999996278,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 88,
+          "score": [
+            16,
+            16
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 46403,
+          "time": 773.3833333329586,
+          "timer": 0.5500000000000022,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        },
+        {
+          "ballSpeed": 6.54067918177917,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "우리 팀 득점 · 아웃",
+          "lastTouch": 4,
+          "matchWinner": -1,
+          "mode": "online",
+          "phase": "point",
+          "play": {
+            "team": 1,
+            "from": 4,
+            "to": 5,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "lowerLegR",
+            "at": 770.5999999996278,
+            "outcome": "overpass"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 0,
+          "possession": 1,
+          "rally": 88,
+          "score": [
+            16,
+            16
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 1,
+          "set": 3,
+          "sets": [
+            1,
+            1
+          ],
+          "tick": 46403,
+          "time": 773.3833333329586,
+          "timer": 0.5500000000000022,
+          "toss": null,
+          "touches": 1,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 45181,
+          "steps": 45436,
+          "simulationMs": 128702.50000965595,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.832610705380226
+        },
+        {
+          "frames": 44100,
+          "steps": 45305,
+          "simulationMs": 126307.09997522831,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.7879284841679355
+        }
+      ]
+    },
+    {
+      "tick": 47304,
+      "hash": 1331515139,
+      "states": [
+        {
+          "ballSpeed": 0.20960327140417442,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 승리!",
+          "lastTouch": 1,
+          "matchWinner": 1,
+          "mode": "online",
+          "phase": "finished",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 778.3666666662874,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 89,
+          "score": [
+            16,
+            17
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            2
+          ],
+          "tick": 47304,
+          "time": 788.3999999996116,
+          "timer": 2,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        },
+        {
+          "ballSpeed": 0.20960327140417442,
+          "defense": [
+            null,
+            null
+          ],
+          "lastMessage": "상대 팀 승리!",
+          "lastTouch": 1,
+          "matchWinner": 1,
+          "mode": "online",
+          "phase": "finished",
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footL",
+            "at": 778.3666666662874,
+            "outcome": "set"
+          },
+          "pointReason": "아웃",
+          "pointWinner": 1,
+          "possession": 0,
+          "rally": 89,
+          "score": [
+            16,
+            17
+          ],
+          "selected": [
+            2,
+            5
+          ],
+          "serving": 0,
+          "set": 3,
+          "sets": [
+            1,
+            2
+          ],
+          "tick": 47304,
+          "time": 788.3999999996116,
+          "timer": 2,
+          "toss": null,
+          "touches": 2,
+          "training": null
+        }
+      ],
+      "simulation": [
+        {
+          "frames": 46073,
+          "steps": 46337,
+          "simulationMs": 131197.50001049042,
+          "maxSimulationMs": 25.5,
+          "backlogDrops": 1033,
+          "averageMs": 2.8313766538725083
+        },
+        {
+          "frames": 44986,
+          "steps": 46206,
+          "simulationMs": 128527.2999740839,
+          "maxSimulationMs": 24.300000071525574,
+          "backlogDrops": 8,
+          "averageMs": 2.7816149412215707
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "diagnostics": [
+    {
+      "product": "블룸 세팍타크로",
+      "version": "0.12.7",
+      "status": "Candidate",
+      "ready": true,
+      "bootstrapStage": "ready",
+      "mode": "online",
+      "paused": false,
+      "failed": false,
+      "environment": {
+        "secureContext": true,
+        "webCrypto": true
+      },
+      "dependencies": {
+        "three": {
+          "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "state": "ready"
+        },
+        "rapier": {
+          "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+          "state": "ready"
+        },
+        "input": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+          "state": "ready"
+        },
+        "simloop": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+          "state": "ready"
+        },
+        "interpolation": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+          "state": "ready"
+        },
+        "rollback": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+          "state": "ready"
+        },
+        "transport": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+          "state": "ready"
+        },
+        "audio": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+          "state": "ready"
+        },
+        "events": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+          "state": "ready"
+        },
+        "deterministic": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+          "state": "ready"
+        }
+      },
+      "tick": 47304,
+      "phase": "finished",
+      "selected": [
+        2,
+        5
+      ],
+      "physics": {
+        "players": 6,
+        "entities": 91
+      },
+      "input": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "network": {
+        "state": "connected",
+        "code": "7665",
+        "message": "상대와 연결됐어요.",
+        "count": 2,
+        "phase": "연결 완료",
+        "hint": "",
+        "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 39초 · connect-start · role=host version=0.12.7\n19시 11분 39초 · relay-connected · wss://relay.damus.io/\n19시 11분 39초 · room-ready\n19시 11분 39초 · relay-connected · wss://nos.lol/\n19시 11분 39초 · relay-error · banned: too many rate-limit violations, try again later\n19시 11분 40초 · relay-connected · wss://relay.primal.net/\n19시 11분 43초 · peer-connected\n19시 11분 43초 · room-created · room=7665 role=host\n19시 11분 43초 · session-open · role=host players=2\n19시 11분 43초 · checkpoint-verified · physics=equal bytes=153417/153417\n19시 11분 43초 · session:membership-committed · reconnect\n19시 11분 45초 · peer-disconnected · dynamic peer closed\n19시 11분 45초 · session:peer-disconnected · dynamic peer closed\n19시 11분 45초 · peer-failed · dynamic peer closed\n19시 11분 45초 · reconnect-start\n19시 11분 52초 · peer-connected\n19시 11분 52초 · session:membership-committed · reconnect\n19시 11분 53초 · peer-disconnected · dynamic peer closed\n19시 11분 53초 · session:peer-disconnected · dynamic peer closed\n19시 11분 53초 · peer-failed · dynamic peer closed\n19시 11분 54초 · reconnect-start\n19시 12분 1초 · peer-connected\n19시 12분 1초 · session:membership-committed · reconnect",
+        "canResume": true,
+        "session": "running",
+        "ready": true,
+        "players": [
+          "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+          "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+        ],
+        "roomConnections": 1,
+        "roomMetrics": {
+          "activePeerCount": 1,
+          "pendingPeerCount": 0,
+          "signalBacklogBytes": 0
+        }
+      },
+      "session": {
+        "rollbacks": 0,
+        "resimulatedTicks": 0,
+        "maxRollbackDepth": 0,
+        "stalls": 0,
+        "holds": 0,
+        "recoveries": 0,
+        "rejectedSnapshots": 0,
+        "rejectedPackets": 0,
+        "sentBytes": 2196620,
+        "receivedBytes": 2198681,
+        "predictedTicks": 35,
+        "hashMismatches": 0,
+        "latestResimulationMs": 0,
+        "smoothedRTT": 5.465331983016933,
+        "jitter": 1.3993079833533115,
+        "lateInputRate": 0.0000074407934802484424,
+        "rollbackFrequency": 0,
+        "stallFrequency": 0,
+        "resimulationCostMs": 0,
+        "stateHashComputations": 833,
+        "hashedStateBytes": 128050845,
+        "snapshotSaves": 46337,
+        "serializedSnapshotBytes": 7123323805,
+        "inputReservations": 0,
+        "inputReservationSentBytes": 0,
+        "inputReservationReceivedBytes": 0,
+        "inputDelay": 1,
+        "requestedInputDelay": 1,
+        "confirmedTick": 47303,
+        "tick": 47304,
+        "pace": 1,
+        "retainedSnapshotBytes": 19660876,
+        "transitions": 3,
+        "bootstrapBytes": 461042,
+        "bootstrapTicks": 0,
+        "rejectedMessages": 0,
+        "sentControlBytes": 465944,
+        "receivedControlBytes": 155846,
+        "membershipPrepareMs": 6,
+        "membershipCommitMs": 3.8000000715255737,
+        "bootstrapPrepareMs": 7.300000071525574,
+        "bootstrapPulseMs": 2,
+        "maxBoundaryTaskMs": 31.100000023841858,
+        "boundaryLongTasks": 0,
+        "epoch": 5,
+        "pendingAdmissions": 0,
+        "controlIncomingBytes": 0,
+        "controlQueuedBytes": 0,
+        "controlReceivingBytes": 0
+      },
+      "audio": {
+        "state": "running",
+        "volume": 0.68,
+        "muted": false,
+        "voices": 0,
+        "categoryVolumes": {
+          "impact": 0.9,
+          "signal": 0.65
+        },
+        "lastError": null,
+        "played": 472,
+        "dropped": 1,
+        "blocked": 0,
+        "maxObserved": 1,
+        "bySound": {
+          "kick": 299,
+          "point": 87,
+          "serve": 86
+        }
+      },
+      "club": {
+        "status": "ready",
+        "revision": 0,
+        "reads": 1,
+        "writes": 0,
+        "bytes": 304,
+        "copyMs": 0,
+        "serializationMs": 0,
+        "restoreMs": 0.2999999523162842,
+        "readMs": 1.7000000476837158,
+        "writeMs": 0,
+        "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+      },
+      "rewards": {
+        "pending": 0,
+        "saving": false,
+        "failed": 0
+      },
+      "simulation": {
+        "frames": 46073,
+        "steps": 46337,
+        "simulationMs": 131197.50001049042,
+        "maxSimulationMs": 25.5,
+        "backlogDrops": 1033,
+        "averageMs": 2.8313766538725083
+      },
+      "lastContact": {
+        "tick": 46701,
+        "sequence": 0,
+        "playerId": 1,
+        "team": 0,
+        "speed": 7.846328165317535,
+        "position": {
+          "x": -2.028358221054077,
+          "y": 0.6187676191329956,
+          "z": 0.9390409588813782
+        },
+        "type": "touch",
+        "part": "footL",
+        "footVelocity": {
+          "x": 1.3697973489761353,
+          "y": 0.6776227951049805,
+          "z": 7.461742401123047
+        },
+        "incomingSpeed": 5.563891574080167,
+        "reactionSeverity": 0
+      },
+      "errors": []
+    },
+    {
+      "product": "블룸 세팍타크로",
+      "version": "0.12.7",
+      "status": "Candidate",
+      "ready": true,
+      "bootstrapStage": "ready",
+      "mode": "online",
+      "paused": false,
+      "failed": false,
+      "environment": {
+        "secureContext": true,
+        "webCrypto": true
+      },
+      "dependencies": {
+        "three": {
+          "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "state": "ready"
+        },
+        "rapier": {
+          "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+          "state": "ready"
+        },
+        "input": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+          "state": "ready"
+        },
+        "simloop": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+          "state": "ready"
+        },
+        "interpolation": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+          "state": "ready"
+        },
+        "rollback": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+          "state": "ready"
+        },
+        "transport": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+          "state": "ready"
+        },
+        "audio": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+          "state": "ready"
+        },
+        "events": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+          "state": "ready"
+        },
+        "deterministic": {
+          "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+          "state": "ready"
+        }
+      },
+      "tick": 47304,
+      "phase": "finished",
+      "selected": [
+        2,
+        5
+      ],
+      "physics": {
+        "players": 6,
+        "entities": 91
+      },
+      "input": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "network": {
+        "state": "connected",
+        "code": "7665",
+        "message": "상대와 연결됐어요.",
+        "count": 2,
+        "phase": "연결 완료",
+        "hint": "",
+        "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 54초 · connect-start · role=join version=0.12.7\n19시 11분 54초 · relay-error · Nostr WebSocket error\n19시 11분 55초 · relay-connected · wss://nos.lol/\n19시 11분 55초 · room-ready\n19시 11분 55초 · relay-connected · wss://relay.primal.net/\n19시 12분 1초 · peer-connected\n19시 12분 1초 · room-created · room=7665 role=join\n19시 12분 1초 · session-open · role=join players=2\n19시 12분 1초 · checkpoint-verified · physics=equal bytes=152994/152994\n19시 12분 1초 · session:membership-committed · reconnect",
+        "canResume": true,
+        "session": "running",
+        "ready": true,
+        "players": [
+          "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+          "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+        ],
+        "roomConnections": 1,
+        "roomMetrics": {
+          "activePeerCount": 1,
+          "pendingPeerCount": 0,
+          "signalBacklogBytes": 0
+        }
+      },
+      "session": {
+        "rollbacks": 0,
+        "resimulatedTicks": 0,
+        "maxRollbackDepth": 0,
+        "stalls": 0,
+        "holds": 3,
+        "recoveries": 0,
+        "rejectedSnapshots": 0,
+        "rejectedPackets": 0,
+        "sentBytes": 2198710,
+        "receivedBytes": 2196620,
+        "predictedTicks": 87,
+        "hashMismatches": 0,
+        "latestResimulationMs": 0,
+        "smoothedRTT": 4.983639989935881,
+        "jitter": 1.2467994679911811,
+        "lateInputRate": 1.0068277887180601e-19,
+        "rollbackFrequency": 0,
+        "stallFrequency": 0,
+        "resimulationCostMs": 0,
+        "stateHashComputations": 827,
+        "hashedStateBytes": 127127751,
+        "snapshotSaves": 46206,
+        "serializedSnapshotBytes": 7103115773,
+        "inputReservations": 0,
+        "inputReservationSentBytes": 0,
+        "inputReservationReceivedBytes": 0,
+        "inputDelay": 1,
+        "requestedInputDelay": 1,
+        "confirmedTick": 47303,
+        "tick": 47304,
+        "pace": 1,
+        "retainedSnapshotBytes": 19660876,
+        "transitions": 1,
+        "bootstrapBytes": 152994,
+        "bootstrapTicks": 0,
+        "rejectedMessages": 0,
+        "sentControlBytes": 587,
+        "receivedControlBytes": 154626,
+        "membershipPrepareMs": 11.600000023841858,
+        "membershipCommitMs": 4.700000047683716,
+        "bootstrapPrepareMs": 22,
+        "bootstrapPulseMs": 4.100000023841858,
+        "maxBoundaryTaskMs": 22,
+        "boundaryLongTasks": 0,
+        "epoch": 5,
+        "pendingAdmissions": 0,
+        "controlIncomingBytes": 0,
+        "controlQueuedBytes": 0,
+        "controlReceivingBytes": 0
+      },
+      "audio": {
+        "state": "suspended",
+        "volume": 0.68,
+        "muted": false,
+        "voices": 0,
+        "categoryVolumes": {
+          "impact": 0.9,
+          "signal": 0.65
+        },
+        "lastError": null,
+        "played": 0,
+        "dropped": 0,
+        "blocked": 469,
+        "maxObserved": 0,
+        "bySound": {}
+      },
+      "club": {
+        "status": "ready",
+        "revision": 0,
+        "reads": 1,
+        "writes": 0,
+        "bytes": 304,
+        "copyMs": 0,
+        "serializationMs": 0.30000007152557373,
+        "restoreMs": 0.3999999761581421,
+        "readMs": 4.199999928474426,
+        "writeMs": 0,
+        "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+      },
+      "rewards": {
+        "pending": 0,
+        "saving": false,
+        "failed": 0
+      },
+      "simulation": {
+        "frames": 44986,
+        "steps": 46206,
+        "simulationMs": 128527.2999740839,
+        "maxSimulationMs": 24.300000071525574,
+        "backlogDrops": 8,
+        "averageMs": 2.7816149412215707
+      },
+      "lastContact": {
+        "tick": 46701,
+        "sequence": 0,
+        "playerId": 1,
+        "team": 0,
+        "speed": 7.846328165317535,
+        "position": {
+          "x": -2.028358221054077,
+          "y": 0.6187676191329956,
+          "z": 0.9390409588813782
+        },
+        "type": "touch",
+        "part": "footL",
+        "footVelocity": {
+          "x": 1.3697973489761353,
+          "y": 0.6776227951049805,
+          "z": 7.461742401123047
+        },
+        "incomingSpeed": 5.563891574080167,
+        "reactionSeverity": 0
+      },
+      "errors": []
+    }
+  ]
+}

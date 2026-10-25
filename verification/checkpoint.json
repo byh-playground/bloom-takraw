@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "version": "0.12.7",
+  "comparedTicks": 1200,
+  "maxLegScale": 1.2499999999999991,
+  "checks": [
+    {
+      "type": "restore",
+      "tick": 0,
+      "bytes": 101741,
+      "rawImmediatelyEqual": false
+    },
+    {
+      "type": "restore",
+      "tick": 120,
+      "bytes": 126010,
+      "rawImmediatelyEqual": true
+    },
+    {
+      "type": "restore",
+      "tick": 450,
+      "bytes": 125211,
+      "rawImmediatelyEqual": true
+    },
+    {
+      "type": "invalid handle",
+      "rejected": true
+    },
+    {
+      "type": "repeated restore",
+      "count": 200,
+      "elapsedMs": 440.2999999523163
+    }
+  ]
+}

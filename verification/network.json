@@ -1,0 +1,2686 @@
+{
+  "started": "2026-10-25T10:11:07.132Z",
+  "checks": [
+    {
+      "label": "room admission",
+      "tick": 30,
+      "hash": 1940769798,
+      "epoch": 1
+    },
+    {
+      "label": "live input 0",
+      "tick": 155,
+      "hash": 3627216190,
+      "epoch": 1
+    },
+    {
+      "label": "live input 1",
+      "tick": 278,
+      "hash": 1653153798,
+      "epoch": 1
+    },
+    {
+      "label": "live input 2",
+      "tick": 406,
+      "hash": 3984921759,
+      "epoch": 1
+    },
+    {
+      "label": "live input 3",
+      "tick": 530,
+      "hash": 515406215,
+      "epoch": 1
+    },
+    {
+      "label": "live input 4",
+      "tick": 663,
+      "hash": 1710709778,
+      "epoch": 1
+    },
+    {
+      "label": "live input 5",
+      "tick": 789,
+      "hash": 715626161,
+      "epoch": 1
+    },
+    {
+      "label": "RTC reconnect",
+      "tick": 897,
+      "hash": 1345108198,
+      "epoch": 1
+    },
+    {
+      "label": "guest reload",
+      "tick": 966,
+      "hash": 664252439,
+      "epoch": 2
+    },
+    {
+      "label": "host reload",
+      "tick": 1026,
+      "hash": 1888836286,
+      "epoch": 3
+    },
+    {
+      "label": "retry after signaling outage",
+      "tick": 1094,
+      "hash": 3297725561,
+      "epoch": 4
+    },
+    {
+      "label": "guest reload after retry",
+      "tick": 1158,
+      "hash": 3419608069,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 0",
+      "tick": 1309,
+      "hash": 3584307245,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 1",
+      "tick": 1460,
+      "hash": 3237830488,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 2",
+      "tick": 1611,
+      "hash": 3099943251,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 3",
+      "tick": 1763,
+      "hash": 2581392566,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 4",
+      "tick": 1914,
+      "hash": 3386732134,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 5",
+      "tick": 2065,
+      "hash": 4060061049,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 6",
+      "tick": 2217,
+      "hash": 1689849277,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 7",
+      "tick": 2368,
+      "hash": 2774835997,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 8",
+      "tick": 2520,
+      "hash": 3312905491,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 9",
+      "tick": 2671,
+      "hash": 4177084905,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 10",
+      "tick": 2822,
+      "hash": 3758941074,
+      "epoch": 5
+    },
+    {
+      "label": "sustained 11",
+      "tick": 2973,
+      "hash": 3597211177,
+      "epoch": 5
+    }
+  ],
+  "samples": [
+    {
+      "label": "live",
+      "diagnostics": [
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 802,
+          "phase": "point",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 8초 · connect-start · role=host version=0.12.7\n19시 11분 8초 · relay-error · Nostr WebSocket error\n19시 11분 9초 · relay-connected · wss://relay.primal.net/\n19시 11분 9초 · room-ready\n19시 11분 9초 · room-created · room=7665 role=host\n19시 11분 9초 · session-open · role=host players=1\n19시 11분 9초 · relay-connected · wss://nos.lol/\n19시 11분 13초 · peer-connected\n19시 11분 13초 · checkpoint-verified · physics=equal bytes=125428/125428\n19시 11분 13초 · session:membership-committed · join",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 0,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 40738,
+            "receivedBytes": 41026,
+            "predictedTicks": 1,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 6.870943985707374,
+            "jitter": 2.66556015799212,
+            "lateInputRate": 0.00012772722590354178,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 21,
+            "hashedStateBytes": 3178012,
+            "snapshotSaves": 803,
+            "serializedSnapshotBytes": 122423309,
+            "inputReservations": 18,
+            "inputReservationSentBytes": 589,
+            "inputReservationReceivedBytes": 582,
+            "inputDelay": 1,
+            "requestedInputDelay": 1,
+            "confirmedTick": 801,
+            "tick": 802,
+            "pace": 1,
+            "retainedSnapshotBytes": 19460720,
+            "transitions": 1,
+            "bootstrapBytes": 125428,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 127128,
+            "receivedControlBytes": 587,
+            "membershipPrepareMs": 19.899999976158142,
+            "membershipCommitMs": 6.600000023841858,
+            "bootstrapPrepareMs": 0,
+            "bootstrapPulseMs": 0,
+            "maxBoundaryTaskMs": 19.899999976158142,
+            "boundaryLongTasks": 0,
+            "epoch": 1,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 13,
+            "dropped": 1,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "serve": 2,
+              "land": 5,
+              "kick": 4,
+              "point": 2
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0.10000002384185791,
+            "restoreMs": 0.20000004768371582,
+            "readMs": 1,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 1092,
+            "steps": 802,
+            "simulationMs": 2745.3999993801117,
+            "maxSimulationMs": 15,
+            "backlogDrops": 214,
+            "averageMs": 3.4231920191771965
+          },
+          "lastContact": {
+            "tick": 594,
+            "sequence": 0,
+            "playerId": 1,
+            "team": 0,
+            "speed": 8.138518926956658,
+            "position": {
+              "x": -2.26292085647583,
+              "y": 0.7783689498901367,
+              "z": -0.18214647471904755
+            },
+            "type": "touch",
+            "part": "footL",
+            "footVelocity": {
+              "x": -1.9906554222106934,
+              "y": 0.9597141742706299,
+              "z": 0.024517059326171875
+            },
+            "incomingSpeed": 8.384193076993002,
+            "reactionSeverity": 0.27343993352141305
+          },
+          "errors": []
+        },
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 803,
+          "phase": "point",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 9초 · connect-start · role=join version=0.12.7\n19시 11분 9초 · relay-connected · wss://relay.damus.io/\n19시 11분 9초 · room-ready\n19시 11분 10초 · relay-error · banned: too many rate-limit violations, try again later\n19시 11분 10초 · relay-connected · wss://nos.lol/\n19시 11분 10초 · relay-connected · wss://relay.primal.net/\n19시 11분 13초 · peer-connected\n19시 11분 13초 · room-created · room=7665 role=join\n19시 11분 13초 · session-open · role=join players=1\n19시 11분 13초 · checkpoint-verified · physics=equal bytes=125428/125428\n19시 11분 13초 · session:membership-committed · join",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 6,
+            "resimulatedTicks": 6,
+            "maxRollbackDepth": 1,
+            "stalls": 0,
+            "holds": 1,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 41026,
+            "receivedBytes": 40738,
+            "predictedTicks": 313,
+            "hashMismatches": 0,
+            "latestResimulationMs": 11.399999976158142,
+            "smoothedRTT": 6.381907922691021,
+            "jitter": 1.7721185253185974,
+            "lateInputRate": 0.3240812540641158,
+            "rollbackFrequency": 0.14241737745640765,
+            "stallFrequency": 0,
+            "resimulationCostMs": 1.2074753422461941,
+            "stateHashComputations": 20,
+            "hashedStateBytes": 3052584,
+            "snapshotSaves": 809,
+            "serializedSnapshotBytes": 123369434,
+            "inputReservations": 18,
+            "inputReservationSentBytes": 582,
+            "inputReservationReceivedBytes": 589,
+            "inputDelay": 6,
+            "requestedInputDelay": 6,
+            "confirmedTick": 802,
+            "tick": 803,
+            "pace": 1,
+            "retainedSnapshotBytes": 19459623,
+            "transitions": 1,
+            "bootstrapBytes": 125428,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 587,
+            "receivedControlBytes": 127128,
+            "membershipPrepareMs": 8.299999952316284,
+            "membershipCommitMs": 4.399999976158142,
+            "bootstrapPrepareMs": 20.799999952316284,
+            "bootstrapPulseMs": 2.600000023841858,
+            "maxBoundaryTaskMs": 20.799999952316284,
+            "boundaryLongTasks": 0,
+            "epoch": 1,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 13,
+            "dropped": 1,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "serve": 2,
+              "land": 5,
+              "kick": 4,
+              "point": 2
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0,
+            "restoreMs": 0.19999992847442627,
+            "readMs": 1.100000023841858,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 1036,
+            "steps": 809,
+            "simulationMs": 2795.800002336502,
+            "maxSimulationMs": 19.600000023841858,
+            "backlogDrops": 10,
+            "averageMs": 3.4558714491180496
+          },
+          "lastContact": {
+            "tick": 594,
+            "sequence": 0,
+            "playerId": 1,
+            "team": 0,
+            "speed": 8.138518926956658,
+            "position": {
+              "x": -2.26292085647583,
+              "y": 0.7783689498901367,
+              "z": -0.18214647471904755
+            },
+            "type": "touch",
+            "part": "footL",
+            "footVelocity": {
+              "x": -1.9906554222106934,
+              "y": 0.9597141742706299,
+              "z": 0.024517059326171875
+            },
+            "incomingSpeed": 8.384193076993002,
+            "reactionSeverity": 0.27343993352141305
+          },
+          "errors": []
+        }
+      ]
+    },
+    {
+      "label": "link closed",
+      "diagnostics": [
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 806,
+          "phase": "point",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connecting",
+            "code": "7665",
+            "message": "연결이 끊겨 경기를 기다리고 있어요. 같은 방으로 다시 연결합니다.",
+            "count": 2,
+            "phase": "재접속 중",
+            "hint": "친구와 직접 연결하는 데 실패했어요. 방화벽·NAT 설정을 확인해 주세요. (dynamic peer closed)",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 8초 · connect-start · role=host version=0.12.7\n19시 11분 8초 · relay-error · Nostr WebSocket error\n19시 11분 9초 · relay-connected · wss://relay.primal.net/\n19시 11분 9초 · room-ready\n19시 11분 9초 · room-created · room=7665 role=host\n19시 11분 9초 · session-open · role=host players=1\n19시 11분 9초 · relay-connected · wss://nos.lol/\n19시 11분 13초 · peer-connected\n19시 11분 13초 · checkpoint-verified · physics=equal bytes=125428/125428\n19시 11분 13초 · session:membership-committed · join\n19시 11분 26초 · peer-disconnected · dynamic peer closed\n19시 11분 26초 · session:peer-disconnected · dynamic peer closed\n19시 11분 26초 · peer-failed · dynamic peer closed",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 0,
+            "roomMetrics": {
+              "activePeerCount": 0,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 80,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 40776,
+            "receivedBytes": 41026,
+            "predictedTicks": 1,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 6.870943985707374,
+            "jitter": 2.66556015799212,
+            "lateInputRate": 0.00012772722590354178,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 21,
+            "hashedStateBytes": 3178012,
+            "snapshotSaves": 807,
+            "serializedSnapshotBytes": 123033377,
+            "inputReservations": 18,
+            "inputReservationSentBytes": 589,
+            "inputReservationReceivedBytes": 582,
+            "inputDelay": 1,
+            "requestedInputDelay": 1,
+            "confirmedTick": 805,
+            "tick": 806,
+            "pace": 1,
+            "retainedSnapshotBytes": 19456470,
+            "transitions": 1,
+            "bootstrapBytes": 125428,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 127128,
+            "receivedControlBytes": 587,
+            "membershipPrepareMs": 19.899999976158142,
+            "membershipCommitMs": 6.600000023841858,
+            "bootstrapPrepareMs": 0,
+            "bootstrapPulseMs": 0,
+            "maxBoundaryTaskMs": 19.899999976158142,
+            "boundaryLongTasks": 0,
+            "epoch": 1,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 13,
+            "dropped": 1,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "serve": 2,
+              "land": 5,
+              "kick": 4,
+              "point": 2
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0.10000002384185791,
+            "restoreMs": 0.20000004768371582,
+            "readMs": 1,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 1123,
+            "steps": 806,
+            "simulationMs": 2757.499999165535,
+            "maxSimulationMs": 15,
+            "backlogDrops": 294,
+            "averageMs": 3.421215879857984
+          },
+          "lastContact": {
+            "tick": 594,
+            "sequence": 0,
+            "playerId": 1,
+            "team": 0,
+            "speed": 8.138518926956658,
+            "position": {
+              "x": -2.26292085647583,
+              "y": 0.7783689498901367,
+              "z": -0.18214647471904755
+            },
+            "type": "touch",
+            "part": "footL",
+            "footVelocity": {
+              "x": -1.9906554222106934,
+              "y": 0.9597141742706299,
+              "z": 0.024517059326171875
+            },
+            "incomingSpeed": 8.384193076993002,
+            "reactionSeverity": 0.27343993352141305
+          },
+          "errors": []
+        },
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 806,
+          "phase": "point",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connecting",
+            "code": "7665",
+            "message": "연결이 끊겨 경기를 기다리고 있어요. 같은 방으로 다시 연결합니다.",
+            "count": 2,
+            "phase": "재접속 중",
+            "hint": "친구와 직접 연결하는 데 실패했어요. 방화벽·NAT 설정을 확인해 주세요. (dynamic peer closed)",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 9초 · connect-start · role=join version=0.12.7\n19시 11분 9초 · relay-connected · wss://relay.damus.io/\n19시 11분 9초 · room-ready\n19시 11분 10초 · relay-error · banned: too many rate-limit violations, try again later\n19시 11분 10초 · relay-connected · wss://nos.lol/\n19시 11분 10초 · relay-connected · wss://relay.primal.net/\n19시 11분 13초 · peer-connected\n19시 11분 13초 · room-created · room=7665 role=join\n19시 11분 13초 · session-open · role=join players=1\n19시 11분 13초 · checkpoint-verified · physics=equal bytes=125428/125428\n19시 11분 13초 · session:membership-committed · join\n19시 11분 26초 · peer-disconnected · dynamic peer closed\n19시 11분 26초 · session:peer-disconnected · dynamic peer closed\n19시 11분 26초 · peer-failed · dynamic peer closed",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 0,
+            "roomMetrics": {
+              "activePeerCount": 0,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 6,
+            "resimulatedTicks": 6,
+            "maxRollbackDepth": 1,
+            "stalls": 0,
+            "holds": 86,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 41093,
+            "receivedBytes": 40776,
+            "predictedTicks": 315,
+            "hashMismatches": 0,
+            "latestResimulationMs": 11.399999976158142,
+            "smoothedRTT": 6.381907922691021,
+            "jitter": 1.7721185253185974,
+            "lateInputRate": 0.3240812540641158,
+            "rollbackFrequency": 0.14241737745640765,
+            "stallFrequency": 0,
+            "resimulationCostMs": 1.2074753422461941,
+            "stateHashComputations": 20,
+            "hashedStateBytes": 3052584,
+            "snapshotSaves": 812,
+            "serializedSnapshotBytes": 123827017,
+            "inputReservations": 18,
+            "inputReservationSentBytes": 582,
+            "inputReservationReceivedBytes": 589,
+            "inputDelay": 6,
+            "requestedInputDelay": 6,
+            "confirmedTick": 803,
+            "tick": 806,
+            "pace": 1,
+            "retainedSnapshotBytes": 19456470,
+            "transitions": 1,
+            "bootstrapBytes": 125428,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 587,
+            "receivedControlBytes": 127128,
+            "membershipPrepareMs": 8.299999952316284,
+            "membershipCommitMs": 4.399999976158142,
+            "bootstrapPrepareMs": 20.799999952316284,
+            "bootstrapPulseMs": 2.600000023841858,
+            "maxBoundaryTaskMs": 20.799999952316284,
+            "boundaryLongTasks": 0,
+            "epoch": 1,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 13,
+            "dropped": 1,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "serve": 2,
+              "land": 5,
+              "kick": 4,
+              "point": 2
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0,
+            "restoreMs": 0.19999992847442627,
+            "readMs": 1.100000023841858,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 1067,
+            "steps": 812,
+            "simulationMs": 2804.500002503395,
+            "maxSimulationMs": 19.600000023841858,
+            "backlogDrops": 95,
+            "averageMs": 3.4538177370731464
+          },
+          "lastContact": {
+            "tick": 594,
+            "sequence": 0,
+            "playerId": 1,
+            "team": 0,
+            "speed": 8.138518926956658,
+            "position": {
+              "x": -2.26292085647583,
+              "y": 0.7783689498901367,
+              "z": -0.18214647471904755
+            },
+            "type": "touch",
+            "part": "footL",
+            "footVelocity": {
+              "x": -1.9906554222106934,
+              "y": 0.9597141742706299,
+              "z": 0.024517059326171875
+            },
+            "incomingSpeed": 8.384193076993002,
+            "reactionSeverity": 0.27343993352141305
+          },
+          "errors": []
+        }
+      ]
+    },
+    {
+      "label": "guest reload",
+      "diagnostics": [
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 966,
+          "phase": "rally",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 8초 · connect-start · role=host version=0.12.7\n19시 11분 8초 · relay-error · Nostr WebSocket error\n19시 11분 9초 · relay-connected · wss://relay.primal.net/\n19시 11분 9초 · room-ready\n19시 11분 9초 · room-created · room=7665 role=host\n19시 11분 9초 · session-open · role=host players=1\n19시 11분 9초 · relay-connected · wss://nos.lol/\n19시 11분 13초 · peer-connected\n19시 11분 13초 · checkpoint-verified · physics=equal bytes=125428/125428\n19시 11분 13초 · session:membership-committed · join\n19시 11분 26초 · peer-disconnected · dynamic peer closed\n19시 11분 26초 · session:peer-disconnected · dynamic peer closed\n19시 11분 26초 · peer-failed · dynamic peer closed\n19시 11분 27초 · reconnect-start\n19시 11분 28초 · peer-connected\n19시 11분 30초 · peer-disconnected · dynamic peer closed\n19시 11분 30초 · session:peer-disconnected · dynamic peer closed\n19시 11분 30초 · peer-failed · dynamic peer closed\n19시 11분 30초 · reconnect-start\n19시 11분 37초 · peer-connected\n19시 11분 37초 · session:membership-committed · reconnect",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 0,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 4048,
+            "receivedBytes": 4200,
+            "predictedTicks": 0,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 6.525615602861798,
+            "jitter": 3.6318094084908097,
+            "lateInputRate": 0,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 27,
+            "hashedStateBytes": 4099970,
+            "snapshotSaves": 967,
+            "serializedSnapshotBytes": 147620538,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 1,
+            "requestedInputDelay": 1,
+            "confirmedTick": 965,
+            "tick": 966,
+            "pace": 1,
+            "retainedSnapshotBytes": 9629064,
+            "transitions": 2,
+            "bootstrapBytes": 278615,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 281946,
+            "receivedControlBytes": 1174,
+            "membershipPrepareMs": 8.899999976158142,
+            "membershipCommitMs": 3.600000023841858,
+            "bootstrapPrepareMs": 13.399999976158142,
+            "bootstrapPulseMs": 3.200000047683716,
+            "maxBoundaryTaskMs": 19.899999976158142,
+            "boundaryLongTasks": 0,
+            "epoch": 2,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 15,
+            "dropped": 1,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "serve": 3,
+              "land": 5,
+              "kick": 5,
+              "point": 2
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0.10000002384185791,
+            "restoreMs": 0.20000004768371582,
+            "readMs": 1,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 1758,
+            "steps": 966,
+            "simulationMs": 3359.5999978780746,
+            "maxSimulationMs": 15,
+            "backlogDrops": 901,
+            "averageMs": 3.4778467886936593
+          },
+          "lastContact": {
+            "tick": 933,
+            "sequence": 0,
+            "playerId": 3,
+            "team": 1,
+            "speed": 9.635162584466972,
+            "position": {
+              "x": 3.7010984420776367,
+              "y": 0.7666833400726318,
+              "z": -0.5981739163398743
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -1.068315029144287,
+              "y": 5.132931232452393,
+              "z": -1.2431823015213013
+            },
+            "incomingSpeed": 5.318873882293701,
+            "reactionSeverity": 0
+          },
+          "errors": []
+        },
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 967,
+          "phase": "rally",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 30초 · connect-start · role=join version=0.12.7\n19시 11분 31초 · relay-error · Nostr WebSocket error\n19시 11분 31초 · relay-connected · wss://nos.lol/\n19시 11분 31초 · room-ready\n19시 11분 31초 · relay-connected · wss://relay.primal.net/\n19시 11분 37초 · peer-connected\n19시 11분 37초 · room-created · room=7665 role=join\n19시 11분 37초 · session-open · role=join players=2\n19시 11분 37초 · checkpoint-verified · physics=equal bytes=153187/153187\n19시 11분 37초 · session:membership-committed · reconnect",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 0,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 4200,
+            "receivedBytes": 4048,
+            "predictedTicks": 29,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 16.94777007288694,
+            "jitter": 8.578370778010008,
+            "lateInputRate": 0.1059322033898305,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 2,
+            "hashedStateBytes": 307854,
+            "snapshotSaves": 63,
+            "serializedSnapshotBytes": 9629651,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 2,
+            "requestedInputDelay": 2,
+            "confirmedTick": 966,
+            "tick": 967,
+            "pace": 1,
+            "retainedSnapshotBytes": 9782838,
+            "transitions": 1,
+            "bootstrapBytes": 153187,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 587,
+            "receivedControlBytes": 154818,
+            "membershipPrepareMs": 12.699999928474426,
+            "membershipCommitMs": 6.100000023841858,
+            "bootstrapPrepareMs": 36.699999928474426,
+            "bootstrapPulseMs": 5.400000095367432,
+            "maxBoundaryTaskMs": 36.699999928474426,
+            "boundaryLongTasks": 0,
+            "epoch": 2,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 1,
+            "dropped": 0,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "kick": 1
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0.10000002384185791,
+            "restoreMs": 0.09999990463256836,
+            "readMs": 0.8999999761581421,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 425,
+            "steps": 63,
+            "simulationMs": 316.4999997615814,
+            "maxSimulationMs": 14.399999976158142,
+            "backlogDrops": 6,
+            "averageMs": 5.023809520025102
+          },
+          "lastContact": {
+            "tick": 933,
+            "sequence": 0,
+            "playerId": 3,
+            "team": 1,
+            "speed": 9.635162584466972,
+            "position": {
+              "x": 3.7010984420776367,
+              "y": 0.7666833400726318,
+              "z": -0.5981739163398743
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -1.068315029144287,
+              "y": 5.132931232452393,
+              "z": -1.2431823015213013
+            },
+            "incomingSpeed": 5.318873882293701,
+            "reactionSeverity": 0
+          },
+          "errors": []
+        }
+      ]
+    },
+    {
+      "label": "host reload",
+      "diagnostics": [
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 1027,
+          "phase": "rally",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 39초 · connect-start · role=host version=0.12.7\n19시 11분 39초 · relay-connected · wss://relay.damus.io/\n19시 11분 39초 · room-ready\n19시 11분 39초 · relay-connected · wss://nos.lol/\n19시 11분 39초 · relay-error · banned: too many rate-limit violations, try again later\n19시 11분 40초 · relay-connected · wss://relay.primal.net/\n19시 11분 43초 · peer-connected\n19시 11분 43초 · room-created · room=7665 role=host\n19시 11분 43초 · session-open · role=host players=2\n19시 11분 43초 · checkpoint-verified · physics=equal bytes=153417/153417\n19시 11분 43초 · session:membership-committed · reconnect",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 0,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 3948,
+            "receivedBytes": 4328,
+            "predictedTicks": 3,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 22.452191344767265,
+            "jitter": 19.39683950726156,
+            "lateInputRate": 0.012711864406779662,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 1,
+            "hashedStateBytes": 154055,
+            "snapshotSaves": 57,
+            "serializedSnapshotBytes": 8745204,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 4,
+            "requestedInputDelay": 4,
+            "confirmedTick": 1026,
+            "tick": 1027,
+            "pace": 1,
+            "retainedSnapshotBytes": 8898621,
+            "transitions": 1,
+            "bootstrapBytes": 153417,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 155049,
+            "receivedControlBytes": 154672,
+            "membershipPrepareMs": 15,
+            "membershipCommitMs": 7.100000023841858,
+            "bootstrapPrepareMs": 31.100000023841858,
+            "bootstrapPulseMs": 3.899999976158142,
+            "maxBoundaryTaskMs": 31.100000023841858,
+            "boundaryLongTasks": 0,
+            "epoch": 3,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 1,
+            "dropped": 0,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "kick": 1
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0,
+            "restoreMs": 0.2999999523162842,
+            "readMs": 1.7000000476837158,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 312,
+            "steps": 57,
+            "simulationMs": 380.10000014305115,
+            "maxSimulationMs": 25.5,
+            "backlogDrops": 7,
+            "averageMs": 6.668421055141248
+          },
+          "lastContact": {
+            "tick": 998,
+            "sequence": 0,
+            "playerId": 0,
+            "team": 0,
+            "speed": 7.566343187492052,
+            "position": {
+              "x": -4.77136754989624,
+              "y": 0.7256371974945068,
+              "z": 0.2998436391353607
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -0.410003125667572,
+              "y": 0.9521792531013489,
+              "z": 1.3869074583053589
+            },
+            "incomingSpeed": 9.402320275511334,
+            "reactionSeverity": 0.4499255767949226
+          },
+          "errors": []
+        },
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 1027,
+          "phase": "rally",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 30초 · connect-start · role=join version=0.12.7\n19시 11분 31초 · relay-error · Nostr WebSocket error\n19시 11분 31초 · relay-connected · wss://nos.lol/\n19시 11분 31초 · room-ready\n19시 11분 31초 · relay-connected · wss://relay.primal.net/\n19시 11분 37초 · peer-connected\n19시 11분 37초 · room-created · room=7665 role=join\n19시 11분 37초 · session-open · role=join players=2\n19시 11분 37초 · checkpoint-verified · physics=equal bytes=153187/153187\n19시 11분 37초 · session:membership-committed · reconnect\n19시 11분 38초 · peer-disconnected · dynamic peer closed\n19시 11분 38초 · session:peer-disconnected · dynamic peer closed\n19시 11분 38초 · peer-failed · dynamic peer closed\n19시 11분 39초 · reconnect-start\n19시 11분 43초 · peer-connected\n19시 11분 43초 · session:membership-committed · reconnect",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 10,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 4328,
+            "receivedBytes": 3948,
+            "predictedTicks": 30,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 31.58341930936377,
+            "jitter": 27.400027970486708,
+            "lateInputRate": 0.13636363636363635,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 4,
+            "hashedStateBytes": 615326,
+            "snapshotSaves": 125,
+            "serializedSnapshotBytes": 19142895,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 5,
+            "requestedInputDelay": 5,
+            "confirmedTick": 1026,
+            "tick": 1027,
+            "pace": 1,
+            "retainedSnapshotBytes": 8898621,
+            "transitions": 2,
+            "bootstrapBytes": 306604,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 155259,
+            "receivedControlBytes": 309867,
+            "membershipPrepareMs": 9.5,
+            "membershipCommitMs": 6.399999976158142,
+            "bootstrapPrepareMs": 11.100000023841858,
+            "bootstrapPulseMs": 5.100000023841858,
+            "maxBoundaryTaskMs": 36.699999928474426,
+            "boundaryLongTasks": 0,
+            "epoch": 3,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 2,
+            "dropped": 0,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "kick": 2
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0.10000002384185791,
+            "restoreMs": 0.09999990463256836,
+            "readMs": 0.8999999761581421,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 789,
+            "steps": 125,
+            "simulationMs": 670.1999999284744,
+            "maxSimulationMs": 22.59999990463257,
+            "backlogDrops": 412,
+            "averageMs": 5.361599999427796
+          },
+          "lastContact": {
+            "tick": 998,
+            "sequence": 0,
+            "playerId": 0,
+            "team": 0,
+            "speed": 7.566343187492052,
+            "position": {
+              "x": -4.77136754989624,
+              "y": 0.7256371974945068,
+              "z": 0.2998436391353607
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -0.410003125667572,
+              "y": 0.9521792531013489,
+              "z": 1.3869074583053589
+            },
+            "incomingSpeed": 9.402320275511334,
+            "reactionSeverity": 0.4499255767949226
+          },
+          "errors": []
+        }
+      ]
+    },
+    {
+      "label": "expected signaling outage",
+      "diagnostics": [
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 1034,
+          "phase": "rally",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connecting",
+            "code": "7665",
+            "message": "연결이 끊겨 경기를 기다리고 있어요. 같은 방으로 다시 연결합니다.",
+            "count": 2,
+            "phase": "재접속 중",
+            "hint": "친구와 직접 연결하는 데 실패했어요. 방화벽·NAT 설정을 확인해 주세요. (dynamic peer closed)",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 39초 · connect-start · role=host version=0.12.7\n19시 11분 39초 · relay-connected · wss://relay.damus.io/\n19시 11분 39초 · room-ready\n19시 11분 39초 · relay-connected · wss://nos.lol/\n19시 11분 39초 · relay-error · banned: too many rate-limit violations, try again later\n19시 11분 40초 · relay-connected · wss://relay.primal.net/\n19시 11분 43초 · peer-connected\n19시 11분 43초 · room-created · room=7665 role=host\n19시 11분 43초 · session-open · role=host players=2\n19시 11분 43초 · checkpoint-verified · physics=equal bytes=153417/153417\n19시 11분 43초 · session:membership-committed · reconnect\n19시 11분 45초 · peer-disconnected · dynamic peer closed\n19시 11분 45초 · session:peer-disconnected · dynamic peer closed\n19시 11분 45초 · peer-failed · dynamic peer closed",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 0,
+            "roomMetrics": {
+              "activePeerCount": 0,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 66,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 4153,
+            "receivedBytes": 4571,
+            "predictedTicks": 3,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 22.452191344767265,
+            "jitter": 19.39683950726156,
+            "lateInputRate": 0.012711864406779662,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 2,
+            "hashedStateBytes": 308202,
+            "snapshotSaves": 64,
+            "serializedSnapshotBytes": 9825114,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 4,
+            "requestedInputDelay": 4,
+            "confirmedTick": 1033,
+            "tick": 1034,
+            "pace": 1,
+            "retainedSnapshotBytes": 9978531,
+            "transitions": 1,
+            "bootstrapBytes": 153417,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 155049,
+            "receivedControlBytes": 154672,
+            "membershipPrepareMs": 15,
+            "membershipCommitMs": 7.100000023841858,
+            "bootstrapPrepareMs": 31.100000023841858,
+            "bootstrapPulseMs": 3.899999976158142,
+            "maxBoundaryTaskMs": 31.100000023841858,
+            "boundaryLongTasks": 0,
+            "epoch": 3,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 1,
+            "dropped": 0,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "kick": 1
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0,
+            "restoreMs": 0.2999999523162842,
+            "readMs": 1.7000000476837158,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 341,
+            "steps": 64,
+            "simulationMs": 413.80000030994415,
+            "maxSimulationMs": 25.5,
+            "backlogDrops": 73,
+            "averageMs": 6.465625004842877
+          },
+          "lastContact": {
+            "tick": 998,
+            "sequence": 0,
+            "playerId": 0,
+            "team": 0,
+            "speed": 7.566343187492052,
+            "position": {
+              "x": -4.77136754989624,
+              "y": 0.7256371974945068,
+              "z": 0.2998436391353607
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -0.410003125667572,
+              "y": 0.9521792531013489,
+              "z": 1.3869074583053589
+            },
+            "incomingSpeed": 9.402320275511334,
+            "reactionSeverity": 0.4499255767949226
+          },
+          "errors": []
+        },
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": null,
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 0,
+          "phase": "ready",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "error",
+            "code": "",
+            "message": "방 신호 서버 연결에 실패했어요. 네트워크를 확인해 주세요. (No Nostr relay became ready: QA signaling outage)",
+            "count": 0,
+            "phase": "연결 실패",
+            "hint": "방 코드 · 양쪽 버전 · 상대가 방을 열어둔 상태인지 확인하세요.",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 45초 · connect-start · role=join version=0.12.7\n19시 11분 45초 · relay-error · QA signaling outage\n19시 11분 45초 · relay-error · QA signaling outage\n19시 11분 45초 · relay-error · QA signaling outage\n19시 11분 45초 · connect-error · No Nostr relay became ready: QA signaling outage",
+            "canResume": true,
+            "session": null,
+            "ready": false,
+            "players": [],
+            "roomConnections": 0,
+            "roomMetrics": null
+          },
+          "session": null,
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 0,
+            "dropped": 0,
+            "blocked": 0,
+            "maxObserved": 0,
+            "bySound": {}
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0,
+            "restoreMs": 0.10000002384185791,
+            "readMs": 22.59999990463257,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 2,
+            "steps": 0,
+            "simulationMs": 0,
+            "maxSimulationMs": 0,
+            "backlogDrops": 0,
+            "averageMs": 0
+          },
+          "lastContact": null,
+          "errors": [
+            {
+              "source": "network",
+              "message": "No Nostr relay became ready: QA signaling outage",
+              "stack": "Error: No Nostr relay became ready: QA signaling outage\n    at nostrFailRelay (https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js:938:24)\n    at createNostrSignaler (https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js:1227:7)\n    at https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js:2814:13\n    at async Module.createNostrDynamicRoom (https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js:2831:16)\n    at async connect (http://127.0.0.1:8766/:6276:20)",
+              "time": 312.8000000715256
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "final",
+      "diagnostics": [
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 2987,
+          "phase": "point",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 39초 · connect-start · role=host version=0.12.7\n19시 11분 39초 · relay-connected · wss://relay.damus.io/\n19시 11분 39초 · room-ready\n19시 11분 39초 · relay-connected · wss://nos.lol/\n19시 11분 39초 · relay-error · banned: too many rate-limit violations, try again later\n19시 11분 40초 · relay-connected · wss://relay.primal.net/\n19시 11분 43초 · peer-connected\n19시 11분 43초 · room-created · room=7665 role=host\n19시 11분 43초 · session-open · role=host players=2\n19시 11분 43초 · checkpoint-verified · physics=equal bytes=153417/153417\n19시 11분 43초 · session:membership-committed · reconnect\n19시 11분 45초 · peer-disconnected · dynamic peer closed\n19시 11분 45초 · session:peer-disconnected · dynamic peer closed\n19시 11분 45초 · peer-failed · dynamic peer closed\n19시 11분 45초 · reconnect-start\n19시 11분 52초 · peer-connected\n19시 11분 52초 · session:membership-committed · reconnect\n19시 11분 53초 · peer-disconnected · dynamic peer closed\n19시 11분 53초 · session:peer-disconnected · dynamic peer closed\n19시 11분 53초 · peer-failed · dynamic peer closed\n19시 11분 54초 · reconnect-start\n19시 12분 1초 · peer-connected\n19시 12분 1초 · session:membership-committed · reconnect",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 0,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 90640,
+            "receivedBytes": 90754,
+            "predictedTicks": 2,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 7.078370733822594,
+            "jitter": 1.6959076603440377,
+            "lateInputRate": 0.0006154482481909579,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 48,
+            "hashedStateBytes": 7395428,
+            "snapshotSaves": 2020,
+            "serializedSnapshotBytes": 311230131,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 1,
+            "requestedInputDelay": 1,
+            "confirmedTick": 2986,
+            "tick": 2987,
+            "pace": 1,
+            "retainedSnapshotBytes": 20242875,
+            "transitions": 3,
+            "bootstrapBytes": 461042,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 465944,
+            "receivedControlBytes": 155846,
+            "membershipPrepareMs": 6,
+            "membershipCommitMs": 3.8000000715255737,
+            "bootstrapPrepareMs": 7.300000071525574,
+            "bootstrapPulseMs": 2,
+            "maxBoundaryTaskMs": 31.100000023841858,
+            "boundaryLongTasks": 0,
+            "epoch": 5,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "running",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 22,
+            "dropped": 1,
+            "blocked": 0,
+            "maxObserved": 1,
+            "bySound": {
+              "kick": 13,
+              "point": 5,
+              "serve": 4
+            }
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0,
+            "restoreMs": 0.2999999523162842,
+            "readMs": 1.7000000476837158,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 3113,
+            "steps": 2020,
+            "simulationMs": 7027.500000834465,
+            "maxSimulationMs": 25.5,
+            "backlogDrops": 1032,
+            "averageMs": 3.4789603964527056
+          },
+          "lastContact": {
+            "tick": 2811,
+            "sequence": 0,
+            "playerId": 0,
+            "team": 0,
+            "speed": 7.31930159466251,
+            "position": {
+              "x": -4.8109588623046875,
+              "y": 0.7053954005241394,
+              "z": 0.32667720317840576
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -0.5548651218414307,
+              "y": 0.8515690565109253,
+              "z": 1.4507921934127808
+            },
+            "incomingSpeed": 9.41538259578802,
+            "reactionSeverity": 0.45193129611637356
+          },
+          "errors": []
+        },
+        {
+          "product": "블룸 세팍타크로",
+          "version": "0.12.7",
+          "status": "Candidate",
+          "ready": true,
+          "bootstrapStage": "ready",
+          "mode": "online",
+          "paused": false,
+          "failed": false,
+          "environment": {
+            "secureContext": true,
+            "webCrypto": true
+          },
+          "dependencies": {
+            "three": {
+              "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+              "state": "ready"
+            },
+            "rapier": {
+              "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+              "state": "ready"
+            },
+            "input": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+              "state": "ready"
+            },
+            "simloop": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+              "state": "ready"
+            },
+            "interpolation": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+              "state": "ready"
+            },
+            "rollback": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+              "state": "ready"
+            },
+            "transport": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+              "state": "ready"
+            },
+            "audio": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+              "state": "ready"
+            },
+            "events": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+              "state": "ready"
+            },
+            "deterministic": {
+              "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+              "state": "ready"
+            }
+          },
+          "tick": 2987,
+          "phase": "point",
+          "selected": [
+            2,
+            5
+          ],
+          "physics": {
+            "players": 6,
+            "entities": 91
+          },
+          "input": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "network": {
+            "state": "connected",
+            "code": "7665",
+            "message": "상대와 연결됐어요.",
+            "count": 2,
+            "phase": "연결 완료",
+            "hint": "",
+            "diagnostics": "BLOOM TAKRAW 0.12.7 · http: · secure=true\n19시 11분 54초 · connect-start · role=join version=0.12.7\n19시 11분 54초 · relay-error · Nostr WebSocket error\n19시 11분 55초 · relay-connected · wss://nos.lol/\n19시 11분 55초 · room-ready\n19시 11분 55초 · relay-connected · wss://relay.primal.net/\n19시 12분 1초 · peer-connected\n19시 12분 1초 · room-created · room=7665 role=join\n19시 12분 1초 · session-open · role=join players=2\n19시 12분 1초 · checkpoint-verified · physics=equal bytes=152994/152994\n19시 12분 1초 · session:membership-committed · reconnect",
+            "canResume": true,
+            "session": "running",
+            "ready": true,
+            "players": [
+              "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae",
+              "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362"
+            ],
+            "roomConnections": 1,
+            "roomMetrics": {
+              "activePeerCount": 1,
+              "pendingPeerCount": 0,
+              "signalBacklogBytes": 0
+            }
+          },
+          "session": {
+            "rollbacks": 0,
+            "resimulatedTicks": 0,
+            "maxRollbackDepth": 0,
+            "stalls": 0,
+            "holds": 2,
+            "recoveries": 0,
+            "rejectedSnapshots": 0,
+            "rejectedPackets": 0,
+            "sentBytes": 90754,
+            "receivedBytes": 90640,
+            "predictedTicks": 19,
+            "hashMismatches": 0,
+            "latestResimulationMs": 0,
+            "smoothedRTT": 6.446716228241217,
+            "jitter": 1.4135776230845105,
+            "lateInputRate": 0.00595041172845023,
+            "rollbackFrequency": 0,
+            "stallFrequency": 0,
+            "resimulationCostMs": 0,
+            "stateHashComputations": 43,
+            "hashedStateBytes": 6627289,
+            "snapshotSaves": 1889,
+            "serializedSnapshotBytes": 291022099,
+            "inputReservations": 0,
+            "inputReservationSentBytes": 0,
+            "inputReservationReceivedBytes": 0,
+            "inputDelay": 1,
+            "requestedInputDelay": 1,
+            "confirmedTick": 2986,
+            "tick": 2987,
+            "pace": 1,
+            "retainedSnapshotBytes": 20242875,
+            "transitions": 1,
+            "bootstrapBytes": 152994,
+            "bootstrapTicks": 0,
+            "rejectedMessages": 0,
+            "sentControlBytes": 587,
+            "receivedControlBytes": 154626,
+            "membershipPrepareMs": 11.600000023841858,
+            "membershipCommitMs": 4.700000047683716,
+            "bootstrapPrepareMs": 22,
+            "bootstrapPulseMs": 4.100000023841858,
+            "maxBoundaryTaskMs": 22,
+            "boundaryLongTasks": 0,
+            "epoch": 5,
+            "pendingAdmissions": 0,
+            "controlIncomingBytes": 0,
+            "controlQueuedBytes": 0,
+            "controlReceivingBytes": 0
+          },
+          "audio": {
+            "state": "suspended",
+            "volume": 0.68,
+            "muted": false,
+            "voices": 0,
+            "categoryVolumes": {
+              "impact": 0.9,
+              "signal": 0.65
+            },
+            "lastError": null,
+            "played": 0,
+            "dropped": 0,
+            "blocked": 19,
+            "maxObserved": 0,
+            "bySound": {}
+          },
+          "club": {
+            "status": "ready",
+            "revision": 0,
+            "reads": 1,
+            "writes": 0,
+            "bytes": 304,
+            "copyMs": 0,
+            "serializationMs": 0.30000007152557373,
+            "restoreMs": 0.3999999761581421,
+            "readMs": 4.199999928474426,
+            "writeMs": 0,
+            "bytesMeaning": "저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다."
+          },
+          "rewards": {
+            "pending": 0,
+            "saving": false,
+            "failed": 0
+          },
+          "simulation": {
+            "frames": 2141,
+            "steps": 1889,
+            "simulationMs": 5915.499994516373,
+            "maxSimulationMs": 19.700000047683716,
+            "backlogDrops": 7,
+            "averageMs": 3.1315510823273547
+          },
+          "lastContact": {
+            "tick": 2811,
+            "sequence": 0,
+            "playerId": 0,
+            "team": 0,
+            "speed": 7.31930159466251,
+            "position": {
+              "x": -4.8109588623046875,
+              "y": 0.7053954005241394,
+              "z": 0.32667720317840576
+            },
+            "type": "touch",
+            "part": "footR",
+            "footVelocity": {
+              "x": -0.5548651218414307,
+              "y": 0.8515690565109253,
+              "z": 1.4507921934127808
+            },
+            "incomingSpeed": 9.41538259578802,
+            "reactionSeverity": 0.45193129611637356
+          },
+          "errors": []
+        }
+      ]
+    }
+  ],
+  "room": "7665",
+  "initialIds": [
+    "cbc94346be972ee0a47580aaca70a0f5ce69f9d484f5bf5d86808080d8da2362",
+    "1e9655e5e745ee76a8aab110cc3c0e7f1f4946c94ce851270bb84519b2bdc8ae"
+  ],
+  "passed": true
+}

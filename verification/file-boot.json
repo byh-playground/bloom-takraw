@@ -1,0 +1,47 @@
+{
+  "passed": true,
+  "secure": true,
+  "version": "0.12.7",
+  "dependencies": {
+    "three": {
+      "url": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "state": "ready"
+    },
+    "rapier": {
+      "url": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+      "state": "ready"
+    },
+    "input": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/input.js",
+      "state": "ready"
+    },
+    "simloop": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/simloop.js",
+      "state": "ready"
+    },
+    "interpolation": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/interpolation.js",
+      "state": "ready"
+    },
+    "rollback": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/rollback.js",
+      "state": "ready"
+    },
+    "transport": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/transport.js",
+      "state": "ready"
+    },
+    "audio": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/audio.js",
+      "state": "ready"
+    },
+    "events": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/presentation-events.js",
+      "state": "ready"
+    },
+    "deterministic": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
+      "state": "ready"
+    }
+  }
+}

@@ -5,7 +5,7 @@
 - [공개 게임](https://byh-playground.github.io/bloom-takraw/)은 `release /` 브랜치로 배포합니다.
 - `main`은 개발 기준입니다. 작업 브랜치의 변경을 공개 배포하려면 별도 배포 지시가 필요합니다.
 - 개발 기준은 [bloom-reference 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/development.html), [AI 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/ai-development.html), [프로젝트 관리 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html)입니다. 정책 전문을 이 저장소에 복제하지 않습니다.
-- [최신 리시브·스파이크 검증](docs/verification/receive-set-spike.md)과 [과거 기록](docs/verification/README.md)을 구별합니다. 검증 기록만으로 Stable 승격이나 배포 완료를 뜻하지 않습니다.
+- [최신 서브 수신 성공률 검증](docs/verification/receive-reliability.md)과 [과거 기록](docs/verification/README.md)을 구별합니다. 검증 기록만으로 Stable 승격이나 배포 완료를 뜻하지 않습니다.
 
 ## 실행
 
@@ -52,7 +52,7 @@ npx playwright install chromium
 npm test                      # 서버·브라우저 시작부터 종료까지 자동 실행
 ```
 
-`npm test`는 클럽 이름 변경·저장·새로고침 복구 → AI 플레이·3회 터치 스파이크·퇴장 → 훈련 → 친구 초대·실제 WebRTC 입장 → 연결 단절·재접속 → 양쪽 새로고침 → 명시적 퇴장을 확인합니다. 물리·전송을 mock으로 대체하지 않습니다. 관찰에는 기존 런타임 진단과 같은 확정 경계의 해시를 사용하며 게임 상태를 강제로 종료 상태로 바꾸지 않습니다.
+`npm test`는 클럽 이름 변경·저장·새로고침 복구 → AI 플레이·일반 서브 수신 10회 중 80% 이상 3회 터치 스파이크·퇴장 → 훈련 → 친구 초대·실제 WebRTC 입장 → 연결 단절·재접속 → 양쪽 새로고침 → 명시적 퇴장을 확인합니다. 물리·전송을 mock으로 대체하지 않습니다. 관찰에는 기존 런타임 진단과 같은 확정 경계의 해시를 사용하며 게임 상태를 강제로 종료 상태로 바꾸지 않습니다.
 
 실행 구성은 `playwright.config.js`입니다. Playwright 전체 제한 170초와 시작/정리를 포함한 외부 상한 180초를 사용하며 초과는 실패입니다. 긴 전체 경기 종료 관찰을 이 기본 흐름의 성공으로 주장하지 않습니다. 결과·스크린샷은 `artifacts/e2e/`에 저장합니다. 성능/부하 측정은 이 버그 검사와 분리합니다. 정책 원문은 [검증 정책 §13](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#verification)을 따릅니다.
 

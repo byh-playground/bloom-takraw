@@ -1,0 +1,2381 @@
+{
+  "date": "2026-10-26",
+  "base": "e3e97b0612d1d3954abbb8a579dc8d79817d6051",
+  "method": "Chromium에서 각 원본 게임 클래스의 새 인스턴스, 양팀 AI, 기본 능력치, 60Hz/2서브스텝, 자연 진행 첫20랠리. 제품 UI 실행 성공률과 별도인 원인 분리 비교.",
+  "variants": [
+    {
+      "name": "original",
+      "trials": 20,
+      "received": 20,
+      "set": 3,
+      "spike": 1,
+      "netCrossed": 0,
+      "roleOrderAudited": true,
+      "details": [
+        {
+          "rally": 1,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 183,
+              "ball": {
+                "x": -4.991663455963135,
+                "y": 0.6928061246871948,
+                "z": 0.24873948097229004
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 2,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 503,
+              "ball": {
+                "x": 5.053268909454346,
+                "y": 0.7119655609130859,
+                "z": -0.21177057921886444
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 3,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1022,
+              "ball": {
+                "x": -4.728051662445068,
+                "y": 0.7689430117607117,
+                "z": 0.2997698485851288
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 4,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 1452,
+              "ball": {
+                "x": 5.07701301574707,
+                "y": 0.685435950756073,
+                "z": -0.21262988448143005
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 5,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 1778,
+              "ball": {
+                "x": -4.737231731414795,
+                "y": 0.6896910071372986,
+                "z": 0.3568618595600128
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 6,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2095,
+              "ball": {
+                "x": 5.046313285827637,
+                "y": 0.7192293405532837,
+                "z": -0.2103707492351532
+              }
+            },
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "torso",
+              "tick": 2334,
+              "ball": {
+                "x": 5.29681921005249,
+                "y": 1.1065540313720703,
+                "z": -0.8960133790969849
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 7,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2719,
+              "ball": {
+                "x": -4.736961841583252,
+                "y": 0.7528385519981384,
+                "z": 0.2738446891307831
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 8,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3091,
+              "ball": {
+                "x": 5.0532097816467285,
+                "y": 0.7142245173454285,
+                "z": -0.21162235736846924
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 9,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 3521,
+              "ball": {
+                "x": -4.789768695831299,
+                "y": 0.6812812685966492,
+                "z": 0.2814197838306427
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 10,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3853,
+              "ball": {
+                "x": 5.270434856414795,
+                "y": 0.6971440315246582,
+                "z": -0.2109249383211136
+              }
+            },
+            {
+              "n": 1,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footL",
+              "tick": 4009,
+              "ball": {
+                "x": 2.4154927730560303,
+                "y": 0.6833813190460205,
+                "z": 0.3463166058063507
+              }
+            },
+            {
+              "n": 2,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4080,
+              "ball": {
+                "x": 3.0019125938415527,
+                "y": 0.8434023857116699,
+                "z": -0.45809975266456604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 4218,
+              "ball": {
+                "x": 3.232982873916626,
+                "y": 3.249168634414673,
+                "z": -1.280964732170105
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "네트 아래 통과"
+        },
+        {
+          "rally": 11,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4543,
+              "ball": {
+                "x": -4.8175129890441895,
+                "y": 0.7596167325973511,
+                "z": 0.35389286279678345
+              }
+            },
+            {
+              "n": 1,
+              "role": "setter",
+              "kind": "toss",
+              "part": "upperLegL",
+              "tick": 4726,
+              "ball": {
+                "x": -1.7132947444915771,
+                "y": 0.8617648482322693,
+                "z": -0.7683001756668091
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 12,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5046,
+              "ball": {
+                "x": 5.270843982696533,
+                "y": 0.697536826133728,
+                "z": -0.2112337350845337
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 13,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5572,
+              "ball": {
+                "x": -4.797576904296875,
+                "y": 0.7103013396263123,
+                "z": 0.33409756422042847
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footL",
+              "tick": 5666,
+              "ball": {
+                "x": -2.0400583744049072,
+                "y": 0.8438347578048706,
+                "z": 0.43366655707359314
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 14,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6090,
+              "ball": {
+                "x": 5.364278316497803,
+                "y": 0.7537860870361328,
+                "z": -0.2504517138004303
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 15,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6607,
+              "ball": {
+                "x": -4.798939228057861,
+                "y": 0.7085738778114319,
+                "z": 0.3343639075756073
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 16,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 6985,
+              "ball": {
+                "x": 5.291679859161377,
+                "y": 0.777738630771637,
+                "z": -0.1735582798719406
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "torso",
+              "tick": 7023,
+              "ball": {
+                "x": 2.0404975414276123,
+                "y": 1.2602510452270508,
+                "z": -0.45013707876205444
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 17,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7349,
+              "ball": {
+                "x": -4.799113750457764,
+                "y": 0.7097856402397156,
+                "z": 0.33363789319992065
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 18,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 7730,
+              "ball": {
+                "x": 5.413352966308594,
+                "y": 0.6672484874725342,
+                "z": -0.1834876984357834
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 19,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8056,
+              "ball": {
+                "x": -4.798905372619629,
+                "y": 0.7093653678894043,
+                "z": 0.3345593214035034
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 20,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 8435,
+              "ball": {
+                "x": 5.412582874298096,
+                "y": 0.6648260354995728,
+                "z": -0.1828339844942093
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        }
+      ]
+    },
+    {
+      "name": "current",
+      "trials": 20,
+      "received": 20,
+      "set": 20,
+      "spike": 20,
+      "netCrossed": 13,
+      "roleOrderAudited": true,
+      "details": [
+        {
+          "rally": 1,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 183,
+              "ball": {
+                "x": -5.009624481201172,
+                "y": 0.8087687492370605,
+                "z": 0.23519787192344666
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 266,
+              "ball": {
+                "x": -3.35927414894104,
+                "y": 0.8622423410415649,
+                "z": -0.15805140137672424
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 374,
+              "ball": {
+                "x": -0.4851694703102112,
+                "y": 3.4644827842712402,
+                "z": 1.7871766090393066
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 2,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 835,
+              "ball": {
+                "x": 5.218822002410889,
+                "y": 0.8270027041435242,
+                "z": -0.20602241158485413
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 922,
+              "ball": {
+                "x": 2.7836053371429443,
+                "y": 0.7470608949661255,
+                "z": -0.06923260539770126
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 1014,
+              "ball": {
+                "x": 1.3485920429229736,
+                "y": 3.4856903553009033,
+                "z": -1.7210749387741089
+              }
+            },
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1147,
+              "ball": {
+                "x": 3.7694621086120605,
+                "y": 0.5521296262741089,
+                "z": 0.9580405354499817
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "네트 터치"
+        },
+        {
+          "rally": 3,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1455,
+              "ball": {
+                "x": -4.774637699127197,
+                "y": 0.8137044310569763,
+                "z": 0.3126078248023987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1537,
+              "ball": {
+                "x": -3.3577585220336914,
+                "y": 0.759203314781189,
+                "z": -0.040946658700704575
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 1647,
+              "ball": {
+                "x": -1.673616886138916,
+                "y": 3.5851333141326904,
+                "z": 1.5116596221923828
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 4,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1977,
+              "ball": {
+                "x": 5.220462322235107,
+                "y": 0.8268002271652222,
+                "z": -0.2058202028274536
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2064,
+              "ball": {
+                "x": 2.953167676925659,
+                "y": 0.7708390951156616,
+                "z": -0.04752051830291748
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 2171,
+              "ball": {
+                "x": 1.3409563302993774,
+                "y": 3.5958762168884277,
+                "z": -1.4838452339172363
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 5,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2496,
+              "ball": {
+                "x": -4.772131443023682,
+                "y": 0.8156183958053589,
+                "z": 0.31261977553367615
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2580,
+              "ball": {
+                "x": -3.060791492462158,
+                "y": 0.7417615056037903,
+                "z": -0.04273179545998573
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 2669,
+              "ball": {
+                "x": -1.755184292793274,
+                "y": 3.4808270931243896,
+                "z": 1.836263656616211
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 6,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3014,
+              "ball": {
+                "x": 5.214056015014648,
+                "y": 0.8284931182861328,
+                "z": -0.20489752292633057
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3102,
+              "ball": {
+                "x": 2.22147536277771,
+                "y": 0.7653787136077881,
+                "z": 0.06545782089233398
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 3182,
+              "ball": {
+                "x": 1.1800850629806519,
+                "y": 3.6016311645507812,
+                "z": -1.4298105239868164
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 7,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3517,
+              "ball": {
+                "x": -4.769471168518066,
+                "y": 0.8172160387039185,
+                "z": 0.3127191364765167
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3603,
+              "ball": {
+                "x": -2.733067512512207,
+                "y": 0.8270947933197021,
+                "z": -0.02899007499217987
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 3692,
+              "ball": {
+                "x": -1.5739765167236328,
+                "y": 3.4806904792785645,
+                "z": 1.877623200416565
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 8,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4032,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4118,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 4208,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 9,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4594,
+              "ball": {
+                "x": -4.777307987213135,
+                "y": 0.8110287189483643,
+                "z": 0.31253519654273987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4674,
+              "ball": {
+                "x": -3.6586387157440186,
+                "y": 0.8426538705825806,
+                "z": -0.012159278616309166
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 4784,
+              "ball": {
+                "x": -2.026179075241089,
+                "y": 3.3087310791015625,
+                "z": 3.439304828643799
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 10,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5116,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5202,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 5292,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 11,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5678,
+              "ball": {
+                "x": -4.777307987213135,
+                "y": 0.8110287189483643,
+                "z": 0.31253519654273987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5758,
+              "ball": {
+                "x": -3.6586387157440186,
+                "y": 0.8426538705825806,
+                "z": -0.012159278616309166
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 5868,
+              "ball": {
+                "x": -2.026179075241089,
+                "y": 3.3087310791015625,
+                "z": 3.439304828643799
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 12,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6200,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6286,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 6376,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 13,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6762,
+              "ball": {
+                "x": -4.777307987213135,
+                "y": 0.8110287189483643,
+                "z": 0.31253519654273987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6842,
+              "ball": {
+                "x": -3.6586387157440186,
+                "y": 0.8426538705825806,
+                "z": -0.012159278616309166
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 6952,
+              "ball": {
+                "x": -2.026179075241089,
+                "y": 3.3087310791015625,
+                "z": 3.439304828643799
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 14,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7284,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7370,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 7460,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 15,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7846,
+              "ball": {
+                "x": -4.777307987213135,
+                "y": 0.8110287189483643,
+                "z": 0.31253519654273987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7926,
+              "ball": {
+                "x": -3.6586387157440186,
+                "y": 0.8426538705825806,
+                "z": -0.012159278616309166
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 8036,
+              "ball": {
+                "x": -2.026179075241089,
+                "y": 3.3087310791015625,
+                "z": 3.439304828643799
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 16,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8368,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8454,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 8544,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 17,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8930,
+              "ball": {
+                "x": -4.777307987213135,
+                "y": 0.8110287189483643,
+                "z": 0.31253519654273987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9010,
+              "ball": {
+                "x": -3.6586387157440186,
+                "y": 0.8426538705825806,
+                "z": -0.012159278616309166
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 9120,
+              "ball": {
+                "x": -2.026179075241089,
+                "y": 3.3087310791015625,
+                "z": 3.439304828643799
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 18,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9452,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9538,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 9628,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 19,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10014,
+              "ball": {
+                "x": -4.777307987213135,
+                "y": 0.8110287189483643,
+                "z": 0.31253519654273987
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10094,
+              "ball": {
+                "x": -3.6586387157440186,
+                "y": 0.8426538705825806,
+                "z": -0.012159278616309166
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 10204,
+              "ball": {
+                "x": -2.026179075241089,
+                "y": 3.3087310791015625,
+                "z": 3.439304828643799
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 20,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10536,
+              "ball": {
+                "x": 5.22070837020874,
+                "y": 0.825883686542511,
+                "z": -0.20648489892482758
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10622,
+              "ball": {
+                "x": 3.0139946937561035,
+                "y": 0.7396575212478638,
+                "z": -0.11701108515262604
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 10712,
+              "ball": {
+                "x": 1.5242772102355957,
+                "y": 3.500723123550415,
+                "z": -1.6643131971359253
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        }
+      ]
+    },
+    {
+      "name": "acceleration",
+      "trials": 20,
+      "received": 20,
+      "set": 20,
+      "spike": 19,
+      "netCrossed": 19,
+      "roleOrderAudited": true,
+      "details": [
+        {
+          "rally": 1,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 183,
+              "ball": {
+                "x": -5.011284351348877,
+                "y": 0.8049764037132263,
+                "z": 0.2373482584953308
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 262,
+              "ball": {
+                "x": -3.608086347579956,
+                "y": 0.7784321904182434,
+                "z": 0.052122339606285095
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 374,
+              "ball": {
+                "x": -0.49580249190330505,
+                "y": 3.231545925140381,
+                "z": 2.5390751361846924
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 2,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 747,
+              "ball": {
+                "x": 5.224761962890625,
+                "y": 0.8202322721481323,
+                "z": -0.20909450948238373
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 828,
+              "ball": {
+                "x": 3.563443183898926,
+                "y": 0.8528514504432678,
+                "z": -0.3762722313404083
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 941,
+              "ball": {
+                "x": 0.6085371971130371,
+                "y": 3.523789405822754,
+                "z": -2.095468521118164
+              }
+            },
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1080,
+              "ball": {
+                "x": 5.178035259246826,
+                "y": 0.7528361082077026,
+                "z": 0.6266170740127563
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "torso",
+              "tick": 1128,
+              "ball": {
+                "x": 4.030496597290039,
+                "y": 1.1056734323501587,
+                "z": 0.7522940039634705
+              }
+            },
+            {
+              "n": 3,
+              "role": "receiver",
+              "kind": "return",
+              "part": "footR",
+              "tick": 1181,
+              "ball": {
+                "x": 5.265896797180176,
+                "y": 0.9278258085250854,
+                "z": 1.5310040712356567
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 3,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1502,
+              "ball": {
+                "x": -4.845668792724609,
+                "y": 0.7407722473144531,
+                "z": 0.31334009766578674
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 1588,
+              "ball": {
+                "x": -2.8885231018066406,
+                "y": 0.736616849899292,
+                "z": -0.003627430647611618
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 1659,
+              "ball": {
+                "x": -2.103656768798828,
+                "y": 3.424644947052002,
+                "z": 1.0277539491653442
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 4,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2049,
+              "ball": {
+                "x": 5.225013732910156,
+                "y": 0.8202818036079407,
+                "z": -0.208260178565979
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "lowerLegR",
+              "tick": 2130,
+              "ball": {
+                "x": 3.532456159591675,
+                "y": 0.8429983854293823,
+                "z": -0.29588449001312256
+              }
+            }
+          ],
+          "success": false,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 5,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2570,
+              "ball": {
+                "x": -4.845668792724609,
+                "y": 0.7407722473144531,
+                "z": 0.31334009766578674
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 2656,
+              "ball": {
+                "x": -2.8885231018066406,
+                "y": 0.736616849899292,
+                "z": -0.003627430647611618
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 2727,
+              "ball": {
+                "x": -2.103656768798828,
+                "y": 3.424644947052002,
+                "z": 1.0277539491653442
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 6,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3230,
+              "ball": {
+                "x": 5.2256693840026855,
+                "y": 0.8194441795349121,
+                "z": -0.2087337076663971
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3310,
+              "ball": {
+                "x": 3.6782078742980957,
+                "y": 0.7422301769256592,
+                "z": -0.33154451847076416
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 3425,
+              "ball": {
+                "x": 0.9746303558349609,
+                "y": 3.2469570636749268,
+                "z": -1.806775450706482
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 7,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3749,
+              "ball": {
+                "x": -4.772006988525391,
+                "y": 0.8127300143241882,
+                "z": 0.3249579668045044
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 3836,
+              "ball": {
+                "x": -2.7602200508117676,
+                "y": 0.8260265588760376,
+                "z": 0.21794643998146057
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 3952,
+              "ball": {
+                "x": -1.0942140817642212,
+                "y": 3.2489891052246094,
+                "z": 2.55035400390625
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 8,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4282,
+              "ball": {
+                "x": 5.224491119384766,
+                "y": 0.8206265568733215,
+                "z": -0.2084866315126419
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4363,
+              "ball": {
+                "x": 3.535405397415161,
+                "y": 0.7565644979476929,
+                "z": -0.3111792802810669
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 4478,
+              "ball": {
+                "x": 0.8367862701416016,
+                "y": 3.34281325340271,
+                "z": -2.2687931060791016
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 9,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4805,
+              "ball": {
+                "x": -4.772006988525391,
+                "y": 0.8127300143241882,
+                "z": 0.3249579668045044
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 4892,
+              "ball": {
+                "x": -2.7601730823516846,
+                "y": 0.8259910345077515,
+                "z": 0.2178967148065567
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 5008,
+              "ball": {
+                "x": -1.084896445274353,
+                "y": 3.248905897140503,
+                "z": 2.5441641807556152
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 10,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5336,
+              "ball": {
+                "x": 5.224014759063721,
+                "y": 0.8206104636192322,
+                "z": -0.209036186337471
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5417,
+              "ball": {
+                "x": 3.4972939491271973,
+                "y": 0.754421591758728,
+                "z": -0.3666599690914154
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 5536,
+              "ball": {
+                "x": 0.9328513741493225,
+                "y": 3.253525733947754,
+                "z": -2.8976266384124756
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 11,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5861,
+              "ball": {
+                "x": -4.772006988525391,
+                "y": 0.8127300143241882,
+                "z": 0.3249579668045044
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 5948,
+              "ball": {
+                "x": -2.7601730823516846,
+                "y": 0.8259910345077515,
+                "z": 0.2178967148065567
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 6064,
+              "ball": {
+                "x": -1.084896445274353,
+                "y": 3.248905897140503,
+                "z": 2.5441641807556152
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 12,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6392,
+              "ball": {
+                "x": 5.224093437194824,
+                "y": 0.8206446170806885,
+                "z": -0.2091803103685379
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6473,
+              "ball": {
+                "x": 3.507931709289551,
+                "y": 0.7539710402488708,
+                "z": -0.37359243631362915
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footL",
+              "tick": 6581,
+              "ball": {
+                "x": 1.8745737075805664,
+                "y": 3.5030019283294678,
+                "z": -0.8105868101119995
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "네 번째 터치"
+        },
+        {
+          "rally": 13,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 6978,
+              "ball": {
+                "x": -4.774805068969727,
+                "y": 0.809796154499054,
+                "z": 0.32339248061180115
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7061,
+              "ball": {
+                "x": -3.1305038928985596,
+                "y": 0.7702944874763489,
+                "z": 0.07399927079677582
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 7136,
+              "ball": {
+                "x": -1.703182339668274,
+                "y": 3.5978314876556396,
+                "z": 1.4642817974090576
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 14,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7476,
+              "ball": {
+                "x": 5.294438362121582,
+                "y": 0.7498331665992737,
+                "z": -0.20926974713802338
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 7561,
+              "ball": {
+                "x": 3.4972076416015625,
+                "y": 0.8382194638252258,
+                "z": -0.3918934762477875
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 7676,
+              "ball": {
+                "x": 1.3892405033111572,
+                "y": 3.2368812561035156,
+                "z": -2.556459903717041
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 15,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8077,
+              "ball": {
+                "x": -4.7720046043396,
+                "y": 0.8127195835113525,
+                "z": 0.3249545693397522
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8164,
+              "ball": {
+                "x": -2.7677206993103027,
+                "y": 0.8185704946517944,
+                "z": 0.21013996005058289
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 8269,
+              "ball": {
+                "x": -1.4127061367034912,
+                "y": 3.6019372940063477,
+                "z": 1.4402999877929688
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 16,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8600,
+              "ball": {
+                "x": 5.294438362121582,
+                "y": 0.7498331665992737,
+                "z": -0.20926974713802338
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 8685,
+              "ball": {
+                "x": 3.4972076416015625,
+                "y": 0.8382194638252258,
+                "z": -0.3918934762477875
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 8800,
+              "ball": {
+                "x": 1.3892405033111572,
+                "y": 3.2368812561035156,
+                "z": -2.556459903717041
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 17,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9201,
+              "ball": {
+                "x": -4.7720046043396,
+                "y": 0.8127195835113525,
+                "z": 0.3249545693397522
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9288,
+              "ball": {
+                "x": -2.7677206993103027,
+                "y": 0.8185704946517944,
+                "z": 0.21013996005058289
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 9393,
+              "ball": {
+                "x": -1.4127061367034912,
+                "y": 3.6019372940063477,
+                "z": 1.4402999877929688
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 18,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9724,
+              "ball": {
+                "x": 5.294438362121582,
+                "y": 0.7498331665992737,
+                "z": -0.20926974713802338
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 9809,
+              "ball": {
+                "x": 3.4972076416015625,
+                "y": 0.8382194638252258,
+                "z": -0.3918934762477875
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 9924,
+              "ball": {
+                "x": 1.3892405033111572,
+                "y": 3.2368812561035156,
+                "z": -2.556459903717041
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        },
+        {
+          "rally": 19,
+          "receiving": 0,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10325,
+              "ball": {
+                "x": -4.7720046043396,
+                "y": 0.8127195835113525,
+                "z": 0.3249545693397522
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10412,
+              "ball": {
+                "x": -2.7677206993103027,
+                "y": 0.8185704946517944,
+                "z": 0.21013996005058289
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 10517,
+              "ball": {
+                "x": -1.4127061367034912,
+                "y": 3.6019372940063477,
+                "z": 1.4402999877929688
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "코트에 공이 닿았습니다."
+        },
+        {
+          "rally": 20,
+          "receiving": 1,
+          "contacts": [
+            {
+              "n": 1,
+              "role": "receiver",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10848,
+              "ball": {
+                "x": 5.294438362121582,
+                "y": 0.7498331665992737,
+                "z": -0.20926974713802338
+              }
+            },
+            {
+              "n": 2,
+              "role": "setter",
+              "kind": "toss",
+              "part": "footR",
+              "tick": 10933,
+              "ball": {
+                "x": 3.4972076416015625,
+                "y": 0.8382194638252258,
+                "z": -0.3918934762477875
+              }
+            },
+            {
+              "n": 3,
+              "role": "attacker",
+              "kind": "attack",
+              "part": "footR",
+              "tick": 11048,
+              "ball": {
+                "x": 1.3892405033111572,
+                "y": 3.2368812561035156,
+                "z": -2.556459903717041
+              }
+            }
+          ],
+          "success": true,
+          "serveCrossed": true,
+          "reason": "아웃"
+        }
+      ]
+    }
+  ],
+  "originalSha256": "6fc33725116823839f9c62de0fd3df6a404b538ee53c234505a37fc4a4740f7d"
+}

@@ -49,45 +49,63 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
     await host.locator('#dialog-close').click();
 
     stage('AI 경기 조작 → 메뉴에서 퇴장 → 훈련');
-    await host.locator('#start-match').click();
-    await expect(host.locator('#match-type')).toHaveText('AI 대전');
-    stage('상대 AI의 리시브 → 세터 → 세 번째 스파이크가 네트를 넘음');
-    await host.evaluate(() => {
+    stage('일반 서브 10회: 리시브 → 세트 → 세 번째 스파이크 성공률 80% 이상');
+    await Promise.all(pages.map(page => page.locator('#start-match').click()));
+    await Promise.all(pages.map(page => page.evaluate(() => {
       const game = window.__takraw.game;
-      const witness = window.__teamPlayWitness = { contacts: [], completed: null };
-      let seen = game.metrics.contacts, sequence = [], attack = null;
+      const witness = window.__teamPlayWitness = { trials: [], completed: null };
+      let seen = game.metrics.contacts, trial = null, rally = -1;
+      function finish(reason) {
+        trial.reason = reason;
+        // Count every ordinary opponent receive opportunity, including a
+        // missed crossing observation or a bad serve. Never select successes.
+        witness.trials.push(trial);
+        trial = null;
+      }
       function observe() {
-        const state = game.state;
-        if (game.metrics.contacts !== seen) {
-          seen = game.metrics.contacts;
-          const play = state.play;
-          const contact = play && { rally: state.rally, team: play.team, number: state.touches,
-            role: game.physics.players[play.from].role, player: play.from, kind: play.kind, part: play.part, tick: state.tick };
-          if (contact) {
-            witness.contacts.push(contact);
-            if (contact.team !== 1 || contact.number === 1) { sequence = []; attack = null; }
-            if (contact.team === 1) sequence.push(contact);
-            if (sequence.length === 3 && sequence.every((c, i) => c.number === i + 1 && c.rally === contact.rally) &&
-                sequence.map(c => c.role).join(',') === 'receiver,setter,attacker' &&
-                contact.kind === 'attack' && /^foot/.test(contact.part)) attack = { ...contact, sequence: sequence.slice() };
+        const state = game.state, ball = game.physics.ball.translation();
+        if (state.phase === 'rally' && state.rally !== rally) {
+          rally = state.rally;
+          trial = state.serving === 0 ? { rally, eligible: false, success: false, sequence: [] } : null;
+        }
+        if (trial && state.phase === 'rally') {
+          if (!trial.sequence.length && state.lastTouch >= 0 && state.lastTouch < 3 &&
+              ball.x > game.physics.settings.ballRadius && ball.y > game.config.court.netHeight &&
+              Math.abs(ball.z) < game.config.court.halfWidth) trial.eligible = true;
+          if (game.metrics.contacts !== seen) {
+            const play = state.play;
+            if (play?.team === 1) trial.sequence.push({ number: state.touches,
+              role: game.physics.players[play.from].role, player: play.from,
+              kind: play.kind, part: play.part, tick: state.tick });
+            else if (trial.sequence.length) finish('3회 공격 전에 상대에게 반환');
+          }
+          if (trial?.sequence.length === 3 && trial.sequence.every((c, i) => c.number === i + 1) &&
+              trial.sequence.map(c => c.role).join(',') === 'receiver,setter,attacker' &&
+              trial.sequence.slice(0, 2).every(c => c.kind === 'toss') &&
+              state.play?.kind === 'attack' && /^foot/.test(state.play.part) && state.lastTouch === 5 &&
+              ball.x < -game.physics.settings.ballRadius &&
+              ball.y > game.config.court.netHeight + game.physics.settings.ballRadius &&
+              Math.abs(ball.z) < game.config.court.halfWidth) {
+            trial.success = true; trial.crossing = { ...ball };
+            witness.completed = { ...trial }; finish('세 번째 스파이크 네트 통과');
           }
         }
-        const ball = game.physics.ball.translation();
-        if (attack && state.phase === 'rally' && state.rally === attack.rally && state.lastTouch === attack.player &&
-            ball.x < -game.physics.settings.ballRadius && Math.abs(ball.z) <= game.config.court.halfWidth) {
-          witness.completed = { ...attack, crossing: { ...ball }, velocity: { ...game.physics.ball.linvel() } };
-          return;
-        }
-        requestAnimationFrame(observe);
+        seen = game.metrics.contacts;
+        if (trial && state.phase === 'point') finish(state.pointReason);
+        if (witness.trials.length < 5) requestAnimationFrame(observe);
       }
       observe();
-    });
-    await host.waitForFunction(() => window.__teamPlayWitness.completed, {}, { timeout: 45000 });
-    evidence.threeTouchAttack = await host.evaluate(() => window.__teamPlayWitness.completed);
+    })));
+    await Promise.all(pages.map(page => page.waitForFunction(() => window.__teamPlayWitness.trials.length >= 5,
+      {}, { timeout: 110000 })));
+    evidence.serveReception = await Promise.all(pages.map(page => page.evaluate(() => window.__teamPlayWitness)));
+    const trials = evidence.serveReception.flatMap(w => w.trials);
+    expect(trials).toHaveLength(10);
+    expect(trials.filter(t => t.success).length / trials.length).toBeGreaterThanOrEqual(0.8);
+    evidence.threeTouchAttack = evidence.serveReception[0].completed;
     await host.screenshot({ path: testInfo.outputPath('three-touch-attack.png') });
     await host.locator('canvas').focus(); await host.keyboard.press('Space');
-    await expect(host.locator('#rally-status')).toHaveText('랠리 진행 중');
-    await quit(host);
+    await Promise.all(pages.map(quit));
     await host.locator('#start-training').click();
     await host.locator('#training-lesson').selectOption('scissors');
     await expect(host.locator('#training-lesson')).toHaveValue('scissors');

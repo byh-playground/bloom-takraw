@@ -2,8 +2,8 @@
 
 블룸 세계관의 3D 온라인 세팍타크로 게임입니다. 개발 저장소는 `C:\projects\bloom-takraw`, 원격은 [byh-playground/bloom-takraw](https://github.com/byh-playground/bloom-takraw)입니다. 기존 rally-frontier 임시 검증 사본은 삭제됐습니다.
 
-- [공개 게임](https://byh-playground.github.io/bloom-takraw/)은 `release /` 브랜치로 배포합니다.
-- `main`은 개발 기준입니다. 작업 브랜치의 변경을 공개 배포하려면 별도 배포 지시가 필요합니다.
+- [공개 게임](https://byh-playground.github.io/bloom-takraw/)은 `main /`의 원본을 상시 배포합니다.
+- `main`은 개발·배포 기준입니다. PR이 main에 머지되면 공개 게임에도 반영되며 별도 release 브랜치를 갱신하지 않습니다.
 - 개발 기준은 [bloom-reference 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/development.html), [AI 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/ai-development.html), [프로젝트 관리 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html)입니다. 정책 전문을 이 저장소에 복제하지 않습니다.
 - [최신 서브 수신 성공률 검증](docs/verification/receive-reliability.md)과 [과거 기록](docs/verification/README.md)을 구별합니다. 검증 기록만으로 Stable 승격이나 배포 완료를 뜻하지 않습니다.
 
@@ -62,6 +62,8 @@ npm test                      # 서버·브라우저 시작부터 종료까지 �
 
 `index.html`, `src/`, `styles/`를 같은 소스 스냅샷의 상대 경로로 제공합니다. 생성·번들링·변환 빌드나 별도 dist 산출물은 없습니다. GitHub Pages도 소스 파일을 그대로 제공합니다. GameKit은 `gamekit.lock.json`과 HTML import map의 고정 CDN 링크로 불러옵니다.
 
-현재 공개 주소는 기존 승인된 `release /`를 유지합니다. 이 리팩토링은 공개 배포나 Stable/Nightly 태그 발행을 수행하지 않습니다. 채널 규약은 [관리 규칙 §8.1](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#tag-preview)을 따르며, 신규 채널 자동화는 배포 변경 시 적용합니다.
+Pages 소스는 `main /`입니다. [태그 워크플로](.github/workflows/game-release-tags.yml)는 공통 워크플로를 불변 커밋으로 참조하고, main 푸시마다 `nightly-YYYYMMDDTHHMMSSZ-SHA12` 태그를 자동 발행합니다. Nightly는 개발 채널이며 정상 실행을 보장하지 않습니다. Stable 태그는 검증·승인을 마친 전체 커밋 SHA와 제품 버전을 수동 실행에 명시해 발행합니다. 기존 태그는 이동하지 않으며 main 배포가 Stable을 자동 승격하지 않습니다. 상세 계약은 [관리 규칙 §8.1](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#tag-preview)을 따릅니다.
+
+제품 버전은 [관리 규칙 §2](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#version)의 MAJOR=제품 세대, MINOR=비호환 변경, PATCH=호환 변경을 따릅니다. 문서·CI·순수 내부 정리는 버전을 유지합니다. 이번 배포 운영 변경도 기존 제품 버전 `0.12.9`를 유지하며, 태그 날짜·커밋은 별도 제품 버전이 아닙니다.
 
 재접속은 살아 있는 상대와 기존 탭의 sessionStorage가 필요합니다. 양쪽 동시 종료·상대가 없는 방의 복원을 보장하지 않습니다. 같은 PC의 데스크톱 검사 결과를 다른 OS·모바일·외부 NAT 환경으로 확대하지 않습니다.

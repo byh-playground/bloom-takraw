@@ -17,5 +17,6 @@
 - 공통 기능은 `bloom-gamekit`의 기능 소유 모듈에서 직접 import한다. 핀은 `gamekit.lock.json`과 import map으로 관리한다. 게임 규칙·Rapier 어댑터·콘텐츠·표시는 이 저장소가 소유한다.
 - 검사 명령은 `npm run check`, `npm test`, `npm run verify:dependencies`다. 고정 사용자 흐름은 `tests/user-flow.spec.js`, 결과는 Git 제외 `artifacts/e2e/`에 있다. 검증 범위와 미실행을 구별해 PR에 기록한다.
 - 구조와 상태 소유권은 `docs/architecture.md`, 실행 방법은 `README.md`, 과거 실행 결과는 `docs/verification/`을 따른다.
-- 공개 Pages는 기존 `release /`를 유지한다. 공개 배포·Stable 승격은 별도 사용자 지시에 따르며, 이전 특정 PR의 머지/배포 승인을 다음 변경의 포괄 승인으로 해석하지 않는다.
+- 공개 Pages는 `main /` 원본을 상시 배포한다. main 머지는 공개 게임에도 반영되며 별도 release 브랜치 승격 절차를 두지 않는다.
+- 버전과 채널은 공통 관리 규칙 §2·§8.1을 따른다. 제품 세대는 MAJOR, 비호환 변경은 MINOR, 호환 변경은 PATCH이며 문서·CI·순수 내부 정리는 버전을 유지한다. main 푸시는 고정 커밋으로 참조한 공통 워크플로가 Nightly 태그를 발행한다. Stable은 검증·승인한 커밋에 불변 태그로 명시적으로 승격하며 Pages 배포만으로 Stable로 간주하지 않는다.
 - 문서와 커밋은 한국어로 작성한다.

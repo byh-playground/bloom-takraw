@@ -1,0 +1,39 @@
+name: Game release tags
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 검증한 전체 커밋 SHA
+        required: true
+        type: string
+      stable_version:
+        description: 승인한 제품 버전 (MAJOR.MINOR.PATCH)
+        required: true
+        type: string
+      stable_approved:
+        description: 해당 커밋의 검증과 Stable 승격 승인 완료
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  nightly:
+    if: github.event_name == 'push'
+    uses: byh-playground/bloom-reference/.github/workflows/game-release-tags.yml@7a6fe0f3c6e5de39109eb02f08603b3b0965532e
+    with:
+      channel: nightly
+      commit_sha: ${{ github.sha }}
+  stable:
+    if: github.event_name == 'workflow_dispatch'
+    uses: byh-playground/bloom-reference/.github/workflows/game-release-tags.yml@7a6fe0f3c6e5de39109eb02f08603b3b0965532e
+    with:
+      channel: stable
+      commit_sha: ${{ inputs.commit_sha }}
+      stable_version: ${{ inputs.stable_version }}
+      stable_approved: ${{ inputs.stable_approved }}

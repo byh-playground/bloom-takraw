@@ -11,7 +11,6 @@ const TAKRAW_CONFIG = Object.freeze({
   product: 'BLOOM TAKRAW',
   version: TAKRAW_VERSION,
   status: 'Candidate',
-  build: '20261025-browser-reconnect',
   simulation: { tickRate: 60, substeps: 2, aiRate: 15 },
   network: { namespace: 'bloom-takraw', seed: 7 },
   court: { halfLength: 6.7, halfWidth: 3.05, netHeight: 1.52 },

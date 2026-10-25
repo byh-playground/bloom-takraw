@@ -51,6 +51,40 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
     stage('AI 경기 조작 → 메뉴에서 퇴장 → 훈련');
     await host.locator('#start-match').click();
     await expect(host.locator('#match-type')).toHaveText('AI 대전');
+    stage('상대 AI의 리시브 → 세터 → 세 번째 스파이크가 네트를 넘음');
+    await host.evaluate(() => {
+      const game = window.__takraw.game;
+      const witness = window.__teamPlayWitness = { contacts: [], completed: null };
+      let seen = game.metrics.contacts, sequence = [], attack = null;
+      function observe() {
+        const state = game.state;
+        if (game.metrics.contacts !== seen) {
+          seen = game.metrics.contacts;
+          const play = state.play;
+          const contact = play && { rally: state.rally, team: play.team, number: state.touches,
+            role: game.physics.players[play.from].role, player: play.from, kind: play.kind, part: play.part, tick: state.tick };
+          if (contact) {
+            witness.contacts.push(contact);
+            if (contact.team !== 1 || contact.number === 1) { sequence = []; attack = null; }
+            if (contact.team === 1) sequence.push(contact);
+            if (sequence.length === 3 && sequence.every((c, i) => c.number === i + 1 && c.rally === contact.rally) &&
+                sequence.map(c => c.role).join(',') === 'receiver,setter,attacker' &&
+                contact.kind === 'attack' && /^foot/.test(contact.part)) attack = { ...contact, sequence: sequence.slice() };
+          }
+        }
+        const ball = game.physics.ball.translation();
+        if (attack && state.phase === 'rally' && state.rally === attack.rally && state.lastTouch === attack.player &&
+            ball.x < -game.physics.settings.ballRadius && Math.abs(ball.z) <= game.config.court.halfWidth) {
+          witness.completed = { ...attack, crossing: { ...ball }, velocity: { ...game.physics.ball.linvel() } };
+          return;
+        }
+        requestAnimationFrame(observe);
+      }
+      observe();
+    });
+    await host.waitForFunction(() => window.__teamPlayWitness.completed, {}, { timeout: 45000 });
+    evidence.threeTouchAttack = await host.evaluate(() => window.__teamPlayWitness.completed);
+    await host.screenshot({ path: testInfo.outputPath('three-touch-attack.png') });
     await host.locator('canvas').focus(); await host.keyboard.press('Space');
     await expect(host.locator('#rally-status')).toHaveText('랠리 진행 중');
     await quit(host);

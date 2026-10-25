@@ -4,3 +4,5 @@
 - [모듈 전환](module-refactor.md): ES 모듈·GameKit 직접 import 전환의 실행 결과.
 - [개발 규칙 정렬](reference-alignment.md): 현행 고정 사용자 흐름 검사와 적용 범위.
 - 현재 원본 출력은 `artifacts/e2e/`에 생성합니다. 과거 파일의 명령은 당시 실행 기록이며 실행 방법은 [현재 README](../../README.md)를 따릅니다.
+
+- [리시브 → 세터 → 스파이크](receive-set-spike.md): v0.12.8 실제 접촉·직접 조작·온라인 복구와 별도 비용 측정.

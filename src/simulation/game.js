@@ -520,7 +520,8 @@ class TakrawGame {
   receiveCover(player, assignment) {
     const point = assignment.plan.point, distance = this.config.ai.receive.coverDistance;
     const n = player.toward, limit = this.config.court.halfWidth - 0.25;
-    const target = player.role === 'setter' ? { x: player.home.x, z: point.z } :
+    const target = player.role === 'attacker' ? { ...player.home } :
+      player.role === 'setter' ? { x: player.home.x, z: point.z } :
       { x: point.x - n * distance, z: point.z + (player.home.z < point.z ? -1 : 1) * distance };
     const dx = target.x - point.x, dz = target.z - point.z, length = Math.hypot(dx, dz);
     if (length < distance) {
@@ -602,6 +603,13 @@ class TakrawGame {
       const detail = defense.human ? '좌클을 유지해 받으세요. 동료는 다음 공을 커버해요.' :
         defense.plan.reachable ? '빈 공간으로 이동해 좌클을 누르면 직접 받아낼 수 있어요.' : '먼 공을 따라가는 중이에요. 가까운 빈 공간을 직접 커버해 보세요.';
       return result(title, detail, defense.human ? 'ready' : 'neutral', { from: actor.id, kind: 'receive', reason: 'defense' });
+    }
+    if (play?.kind === 'attack' && play.from === state.lastTouch) {
+      const own = play.team === team, toward = play.team === 0 ? 1 : -1;
+      const crossed = this.physics.ball.translation().x * toward > this.physics.settings.ballRadius;
+      return result(`${own ? '우리 팀' : '상대 팀'} ${state.touches === this.config.rules.contacts ? '세 번째 터치 · ' : ''}스파이크`,
+        crossed ? '실제 발 타격으로 네트를 넘겼어요. 다음 공을 준비하세요.' : '공중에서 발로 타격했어요. 공이 넘어가는 궤적을 확인하세요.',
+        own ? 'ready' : 'warning', play);
     }
     if (overpass) return result(play.team === team ? '토스가 길어 상대 코트로 넘어갔어요' : '상대 토스가 우리 코트로 넘어왔어요',
       play.team === team ? `${name(play.from)}가 ${name(play.to)}에게 올리던 공이에요. 다음 공을 수비하세요.` : '반환을 선택한 공이 아니라 빗나간 토스예요. 받을 자리를 잡으세요.',
@@ -908,15 +916,22 @@ class TakrawGame {
         for (let i = 3; i < 6; i++) Object.assign(this.ai[i], { x: 0, z: 0, active: false, kickFrom: 0, kickUntil: 0, jumpUntil: 0 });
         continue;
       }
-      const ownSide = team === 0 ? intercept.x < -0.15 : intercept.x > 0.15;
       const human = humans[team];
       const available = this.physics.players.filter(player => player.team === team && (!human || this.state.selected[team] !== player.id) && (this.mode !== 'training' || player.id === 1));
       for (let id = team * 3; id < team * 3 + 3; id++) this.ai[id].active = false;
       const pass = this.state.toss?.team === team ? this.state.toss : null;
       const recipient = pass ? this.physics.players[pass.to] : null;
-      const recipientDistance = recipient ? Math.hypot(recipient.root.translation().x - intercept.x, recipient.root.translation().z - intercept.z) : Infinity;
-      const reachableDistance = (recipient?.settings.movementSpeed || this.physics.settings.movementSpeed) * Math.max(0, intercept.time - 0.1) + 0.9;
+      const aerialPass = recipient?.role === 'attacker' ? this.predictAerial(recipient) : null;
+      const useAerial = aerialPass?.reachable && aerialPass.time > 0 && aerialPass.x * recipient.toward < -0.15;
+      const receivingPoint = useAerial ? aerialPass : intercept;
+      const receivingStance = this.approachPosition(team, receivingPoint,
+        useAerial ? attack.offset : this.config.ai.toss.receiveOffset);
+      const recipientDistance = recipient ? Math.hypot(recipient.root.translation().x - receivingStance.x,
+        recipient.root.translation().z - receivingStance.z) : Infinity;
+      const reachableDistance = (recipient?.settings.movementSpeed || this.physics.settings.movementSpeed) *
+        Math.max(0, receivingPoint.time - 0.1) + attack.positionRadius;
       const recipientReady = recipient && !/fall|recover|down/i.test(recipient.state) && recipientDistance < reachableDistance;
+      const ownSide = team === 0 ? receivingPoint.x < -0.15 : receivingPoint.x > 0.15;
       let active = null, best = Infinity;
       if (ownSide) {
         // An ally pass belongs to its recipient. Other AI only step in when a
@@ -933,7 +948,7 @@ class TakrawGame {
       for (const player of available) {
         const a = this.ai[player.id];
         a.active = player === active;
-        const aerial = this.predictAerial(player), { shortJump } = aerial;
+        const aerial = player === recipient && aerialPass ? aerialPass : this.predictAerial(player), { shortJump } = aerial;
         const q = player.root.translation();
         const setTarget = this.tossTarget(player);
         const ground = this.config.ai.toss.ground;
@@ -965,7 +980,7 @@ class TakrawGame {
         const dist = Math.hypot(dx, dz);
         const velocity = this.attackVelocity(player), prepare = attack.preparation;
         const anticipating = player === active && highContact;
-        const receiving = !!defense && player === active;
+        const receiving = player === active && (!!defense || (!!setTarget && !highContact && !player.jump.active));
         const brakeLead = anticipating ? prepare.brakeLead : receiving ? this.config.ai.receive.braking : 0;
         const moveX = dx - velocity.x * brakeLead;
         const moveZ = dz - velocity.z * brakeLead;
@@ -1006,7 +1021,7 @@ class TakrawGame {
         }
         // A receiver must finish approaching while its real foot swings.
         // Stopping on kickFrom strands the player outside the kick workspace.
-        const reaching = !!defense && player === active;
+        const reaching = receiving;
         if (a.jumpUntil > this.state.time || (player.jump.active && this.state.time < a.kickUntil) ||
             (!reaching && this.state.time >= a.kickFrom - 0.06 && this.state.time < a.kickUntil)) { a.x = 0; a.z = 0; }
         if (player.jump.active && a.attack && this.state.time < a.kickUntil && player.kick.airPlan?.phase !== 'follow') {

@@ -1,0 +1,197 @@
+{
+  "version": "0.12.8",
+  "date": "2026-10-25",
+  "base": "1ef56e699f47ad234a500f2915bf9a26275afa85",
+  "sourceSha256": {
+    "src/config/game.js": "ed35ba5d2b1b3fde313706a45dc387392b0bc3e2efca0836141730dceb57f519",
+    "src/presentation/ui.js": "0725c8e35ab57c8c7aa0055777d98cffff5919126681ca16869c480e0da1a223",
+    "src/simulation/game.js": "58e4e0c8a4269e931de958b76213f0c09e69b18fc390910826a3437f00ddafad",
+    "src/simulation/physics.js": "9d82d15e018b7590556d1da9ebf2987c632cf119070060b2e8bf9235da50270e",
+    "tests/user-flow.spec.js": "21f58aaae00453d7585f66686df3739c98f63dd5552f95685ffd2bdfca736c76"
+  },
+  "execution": {
+    "limitMs": 180000,
+    "elapsedMs": 56601,
+    "timedOut": false,
+    "exitCode": 0
+  },
+  "browser": "153.0.8010.12",
+  "renderer": "ANGLE (NVIDIA, NVIDIA GeForce GTX 1660 Ti (0x00002191) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "stages": [
+    "홈 → 클럽 이름 저장 → 새로고침으로 복구",
+    "AI 경기 조작 → 메뉴에서 퇴장 → 훈련",
+    "상대 AI의 리시브 → 세터 → 세 번째 스파이크가 네트를 넘음",
+    "친구에게 방 코드 전달 → 실제 Nostr/WebRTC 입장",
+    "실제 RTC 단절 → 자동 재연결",
+    "참가자 새로고침 → 기존 경기 재접속",
+    "방장 새로고침 → 기존 경기 재접속",
+    "양쪽 명시적 퇴장 → 새로고침 후 자동 재입장 없음"
+  ],
+  "checkpoints": [
+    {
+      "label": "입장",
+      "tick": 90,
+      "hash": 1502610786
+    },
+    {
+      "label": "양쪽 입력 반영",
+      "tick": 144,
+      "hash": 326686400
+    },
+    {
+      "label": "RTC 복구",
+      "tick": 195,
+      "hash": 605150409
+    },
+    {
+      "label": "참가자 복귀",
+      "tick": 261,
+      "hash": 3400758232
+    },
+    {
+      "label": "방장 복귀",
+      "tick": 325,
+      "hash": 1313259557
+    }
+  ],
+  "threeTouchAttack": {
+    "rally": 2,
+    "team": 1,
+    "number": 3,
+    "role": "attacker",
+    "player": 5,
+    "kind": "attack",
+    "part": "footR",
+    "tick": 882,
+    "sequence": [
+      {
+        "rally": 2,
+        "team": 1,
+        "number": 1,
+        "role": "receiver",
+        "player": 3,
+        "kind": "toss",
+        "part": "footR",
+        "tick": 703
+      },
+      {
+        "rally": 2,
+        "team": 1,
+        "number": 2,
+        "role": "setter",
+        "player": 4,
+        "kind": "toss",
+        "part": "footR",
+        "tick": 790
+      },
+      {
+        "rally": 2,
+        "team": 1,
+        "number": 3,
+        "role": "attacker",
+        "player": 5,
+        "kind": "attack",
+        "part": "footR",
+        "tick": 882
+      }
+    ],
+    "crossing": {
+      "x": -0.18138150870800018,
+      "y": 2.5995423793792725,
+      "z": -1.6803269386291504
+    },
+    "velocity": {
+      "x": -8.423310279846191,
+      "y": -5.667745590209961,
+      "z": 0.2562609910964966
+    }
+  },
+  "faults": [],
+  "manual": {
+    "success": true,
+    "elapsedMs": 6388,
+    "events": [
+      {
+        "rally": 1,
+        "type": "jump",
+        "tick": 339
+      },
+      {
+        "rally": 1,
+        "type": "kick",
+        "tick": 345
+      }
+    ],
+    "touches": 3,
+    "play": {
+      "team": 0,
+      "from": 2,
+      "to": null,
+      "kind": "attack",
+      "reason": "spike",
+      "condition": null,
+      "part": "footL",
+      "at": 6.183333333333317,
+      "outcome": "contact"
+    },
+    "ball": {
+      "x": 0.0200756024569273,
+      "y": 3.195836305618286,
+      "z": 1.7499457597732544
+    },
+    "velocity": {
+      "x": 5.1065568923950195,
+      "y": -5.94169807434082,
+      "z": 0.14514978229999542
+    }
+  },
+  "performance": {
+    "measurementOnly": true,
+    "results": [
+      {
+        "label": "candidate",
+        "steps": 1201,
+        "wallMs": 20007.5,
+        "averageAdapterMs": 3.5963363877740333,
+        "logicSteps": 1201,
+        "physicsSteps": 2402,
+        "aiSteps": 309,
+        "contacts": 9,
+        "errors": []
+      },
+      {
+        "label": "baseline",
+        "steps": 1201,
+        "wallMs": 20005.099999904633,
+        "averageAdapterMs": 3.9614487941020933,
+        "logicSteps": 1201,
+        "physicsSteps": 2402,
+        "aiSteps": 305,
+        "contacts": 8,
+        "errors": []
+      },
+      {
+        "label": "baseline",
+        "steps": 1200,
+        "wallMs": 20001.5,
+        "averageAdapterMs": 4.163749998410543,
+        "logicSteps": 1200,
+        "physicsSteps": 2400,
+        "aiSteps": 304,
+        "contacts": 8,
+        "errors": []
+      },
+      {
+        "label": "candidate",
+        "steps": 1200,
+        "wallMs": 19999.799999952316,
+        "averageAdapterMs": 4.087416666050752,
+        "logicSteps": 1200,
+        "physicsSteps": 2400,
+        "aiSteps": 308,
+        "contacts": 9,
+        "errors": []
+      }
+    ]
+  }
+}

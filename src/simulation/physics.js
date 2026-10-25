@@ -13,7 +13,7 @@ class TakrawPhysics {
     this.settings = Object.assign({
       gravity: 9.81, ballRadius: 0.095, ballMass: 0.18,
       ballRestitution: 0.57, ballDamping: 0.035,
-      movementSpeed: 3.15, movementAcceleration: 8.5, airControl: 0.9,
+      movementSpeed: 3.15, movementAcceleration: 8.5, movementMaxAcceleration: 5, airControl: 0.9,
       jumpSpeed: 5.4, jumpHoldAcceleration: 7.5, jumpHoldTime: 0.16,
       groundKickForce: 380, groundKickSpeed: 7.5,
       footPositionGain: 200, footVelocityGain: 23,
@@ -24,7 +24,7 @@ class TakrawPhysics {
     this.settings.groundToss = Object.assign({
       contactHeight: 0.75, minPlanTime: 0.08, maxPlanTime: 0.45,
       receiveApex: 3.2, attackHeight: 3.3, attackApex: 4.2,
-      forefoot: 0.12, effectiveFootMass: 0.78,
+      forefoot: 0.08,
       strokeTime: 0.12, strokeFraction: 0.6, followThrough: 0.08,
       positionGain: 1200, velocityGain: 50, accelerationMass: 4.0,
       orientationStiffness: 1000, orientationDamping: 2.0,
@@ -181,7 +181,7 @@ class TakrawPhysics {
     const s = p.settings, receive = s.receive, ball = this.ball.translation(), velocity = this.ball.linvel();
     if (p.jump.active || input?.jump || input?.jumpPressed || (input !== null && /recover|fall/.test(p.state))) return null;
     const root = p.root.translation(), bodyVelocity = this._bodyVelocity(p);
-    const offset = Math.min(this.config.ai?.toss?.incomingOffset ?? 0.62, s.airKick.reach * 0.81);
+    const offset = Math.min(this.config.ai?.toss?.incomingOffset ?? 0.8, receive.cushionReach);
     const candidate = (height, sliding) => {
       const discriminant = velocity.y * velocity.y + 2 * s.gravity * (ball.y - height);
       if (discriminant < 0) return null;
@@ -209,7 +209,7 @@ class TakrawPhysics {
       // Bounded pursuit estimate; it is not a position/velocity write. The
       // actual articulated controller and floor contact still decide arrival.
       const change = { x: desired.x * speed - startVelocity.x, y: 0, z: desired.z * speed - startVelocity.z };
-      const acceleration = Math.min(12, s.movementAcceleration * this._length(change));
+      const acceleration = Math.min(s.movementMaxAcceleration, s.movementAcceleration * this._length(change));
       const accelerationTime = acceleration > 1e-6 ? Math.min(time, this._length(change) / acceleration) : 0;
       const travel = acceleration * accelerationTime * (time - accelerationTime * 0.5);
       const direction = this._unit(change);
@@ -508,7 +508,6 @@ class TakrawPhysics {
     // Equal/opposite impulses at the same world point cancel the total wrench.
     // Unlike an opposite force at pelvis COM, this also preserves angular momentum.
     p.root.applyImpulseAtPoint(this._mul(impulse, -1), point, true);
-    return force;
   }
 
   _instepDrive(p, normal, targetClosing, forefoot, settings, power = false) {
@@ -596,9 +595,9 @@ class TakrawPhysics {
     }
   }
 
-  _legTargets(p, suffix, footTarget, blend = 1) {
-    const root = p.root, inv = this._conj(root.rotation());
-    const local = this._rotate(inv, this._sub(footTarget, root.translation()));
+  _legTargets(p, suffix, footTarget, blend = 1, rootPosition = p.root.translation(), rootRotation = p.root.rotation()) {
+    const inv = this._conj(rootRotation);
+    const local = this._rotate(inv, this._sub(footTarget, rootPosition));
     local.x -= suffix === 'L' ? -0.12 : 0.12;
     local.y += 0.06;
     // The foot COM is ahead of its ankle by 8.5 cm.
@@ -661,7 +660,10 @@ class TakrawPhysics {
 
   _drivePlayer(p, input, dt) {
     const s = p.settings, root = p.root, pos = root.translation(), vel = root.linvel();
-    const contact = this._groundInfo(p), up = this._rotate(root.rotation(), this._v(0, 1, 0));
+    // Force/torque actuation below does not change poses until world.step.
+    // Reuse this substep's root pose for the two IK queries and frame changes.
+    const rootRotation = root.rotation();
+    const contact = this._groundInfo(p), up = this._rotate(rootRotation, this._v(0, 1, 0));
     p.freeTime = contact.any ? 0 : p.freeTime + dt;
     if (p.freeTime > 0.12 && p.airTime > 0.12) p.landArmed = true;
     p.reaction.remaining = Math.max(0, p.reaction.remaining - dt);
@@ -713,7 +715,7 @@ class TakrawPhysics {
         const t = this._clamp((bv.y + Math.sqrt(Math.max(0, disc))) / s.gravity, 0, s.groundToss.maxPlanTime);
         choose = { x: choose.x + bv.x * t, y: height, z: choose.z + bv.z * t };
       }
-      const ballLocal = this._rotate(this._conj(root.rotation()), this._sub(choose, pos));
+      const ballLocal = this._rotate(this._conj(rootRotation), this._sub(choose, pos));
       if (!(mode === 'air' && continuingGroundKick)) p.kick.side = ballLocal.x < -0.10 ? 'L' : 'R';
     }
     p.kick.held = kicking;
@@ -752,7 +754,7 @@ class TakrawPhysics {
         if (Math.hypot(movementVelocity.x, movementVelocity.z) < 0.12) p.locomotionActive = false;
       }
       const force = this._limit({ x: (targetV.x - movementVelocity.x) * p.mass * s.movementAcceleration,
-        y: 0, z: (targetV.z - movementVelocity.z) * p.mass * s.movementAcceleration }, p.mass * 12);
+        y: 0, z: (targetV.z - movementVelocity.z) * p.mass * s.movementAcceleration }, p.mass * s.movementMaxAcceleration);
       root.applyImpulseAtPoint(this._mul(force, dt * muscleResponse), { x: pos.x, y: 0.09, z: pos.z }, true);
       p.gait += dt * (moving > 0.08 ? 8.5 : 0);
       const facing = this._yaw(p.desiredYaw);
@@ -765,7 +767,7 @@ class TakrawPhysics {
         const target = { x: pos.x + spread.x + move.x * Math.sin(phase) * 0.18 + planted.x,
           y: 0.075 + (moving > 0.1 ? Math.max(0, Math.sin(phase)) * 0.15 : 0),
           z: pos.z + spread.z + move.z * Math.sin(phase) * 0.18 + planted.z };
-        const pose = this._legTargets(p, suffix, target);
+        const pose = this._legTargets(p, suffix, target, 1, pos, rootRotation);
         if (motion) {
           const length = p.byName['upperLeg' + suffix].restLength + p.byName['lowerLeg' + suffix].restLength;
           const bend = Math.min(2.45, 2 * Math.acos(this._clamp((motion.height - 0.14) / length, 0, 1))) * receiveBlend;
@@ -863,7 +865,7 @@ class TakrawPhysics {
       // The air controller already projects position and velocity together
       // into the current leg workspace. Ground reception keeps its own path.
       if (mode !== 'air') {
-        if (p.kick.receivePlan?.dynamicReceive && contactNormal) {
+        if (p.kick.receivePlan && contactNormal) {
           const offset = this._add(this._mul(contactNormal, 0.065), this._mul(contactForward, -0.085));
           const ankle = this._add(target, offset), relative = this._sub(ankle, hip);
           const reach = this._legReach(p, suffix), minimum = this._legMinReach(p, suffix);
@@ -881,13 +883,13 @@ class TakrawPhysics {
           target = this._add(hip, delta);
         }
       }
-      // Air controls the real ankle directly; ground reception controls the
-      // oriented foot COM. Cancel _legTargets' standing-foot COM adjustment.
-      const ikTarget = mode === 'air' ? this._add(airTarget.ankle, this._rotate(root.rotation(), this._v(0, 0, 0.055))) :
+      // Controlled contacts drive the actual ankle. Convert the planned foot
+      // centre to that anchor, cancelling _legTargets' standing COM offset.
+      const ikTarget = mode === 'air' ? this._add(airTarget.ankle, this._rotate(rootRotation, this._v(0, 0, 0.055))) :
         contactNormal ? this._add(this._add(target, this._mul(contactNormal, 0.065)),
           this._add(this._mul(contactForward, -0.085),
-            this._rotate(root.rotation(), this._v(0, 0, 0.055)))) : target;
-      const pose = this._legTargets(p, suffix, ikTarget);
+            this._rotate(rootRotation, this._v(0, 0, 0.055)))) : target;
+      const pose = this._legTargets(p, suffix, ikTarget, 1, pos, rootRotation);
       targetMap['hip' + suffix] = pose.hip; targetMap['knee' + suffix] = pose.knee;
       if (mode === 'air') {
         const motion = p.kick.airPlan.motion;
@@ -897,23 +899,31 @@ class TakrawPhysics {
       }
       targetMap['ankle' + suffix] = pose.ankle;
       if (contactNormal) orientedFoot = suffix;
-      const ankleDriven = mode === 'air' || !!p.kick.receivePlan?.dynamicReceive;
+      const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
       const forcePoint = ankleDriven ? this._point(foot.body, this._v(0, 0.065, -0.085)) : null;
-      const driveTarget = mode !== 'air' && ankleDriven ? this._sub(ikTarget, this._rotate(root.rotation(), this._v(0, 0, 0.055))) : target;
+      const driveTarget = mode !== 'air' && ankleDriven ? this._sub(ikTarget, this._rotate(rootRotation, this._v(0, 0, 0.055))) : target;
+      if (mode === 'ground' && ankleDriven) {
+        const plan = p.kick.receivePlan;
+        const terminal = this._clamp((this.time - plan.startedAt + dt - plan.duration + s.groundToss.strokeTime) /
+          s.groundToss.strokeTime, 0, 1);
+        const instep = this._point(foot.body, this._v(0, 0.055, s.groundToss.forefoot));
+        const rotationVelocity = this._sub(foot.body.velocityAtPoint(instep), foot.body.velocityAtPoint(forcePoint));
+        targetVelocity = this._sub(targetVelocity, this._mul(rotationVelocity, terminal));
+      }
       // Both controls read the same solved state. A point impulse temporarily
       // changes free-body omega before the ankle joint is solved again.
       const angularVelocity = ankleDriven ? foot.body.angvel() : null;
-      const actuation = this._footDrive(p, foot, driveTarget, targetVelocity,
+      this._footDrive(p, foot, driveTarget, targetVelocity,
         (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
         dt, (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
-        (footControl === s.groundToss && (p.kick.receivePlan.attackSet || p.kick.receivePlan.dynamicReceive) ?
+        (footControl === s.groundToss ?
           2 * Math.sqrt(s.groundToss.positionGain * s.groundToss.accelerationMass) :
           footControl ? footControl.velocityGain : s.footVelocityGain) * muscleResponse, forcePoint,
         mode === 'air' && airTarget.acceleration ? this._mul(this._add(airTarget.acceleration, this._v(0, s.gravity, 0)),
           s.airKick.trackingMass * muscleResponse) : groundAcceleration ?
           this._mul(this._add(groundAcceleration, this._v(0, s.gravity, 0)), s.groundToss.accelerationMass * muscleResponse) : null,
         mode === 'air' ? airTarget.contactDrive : groundContactDrive);
-      if (contactNormal) this._orientFootNormal(p, suffix, contactNormal, contactForward, footControl, dt, muscleResponse, actuation, angularVelocity, ankleDriven);
+      if (contactNormal) this._orientFootNormal(p, suffix, contactNormal, contactForward, footControl, dt, muscleResponse, angularVelocity);
     }
     for (const j of p.joints) {
       let strength = muscle;
@@ -922,9 +932,9 @@ class TakrawPhysics {
       if (preparing && ['hip', 'knee', 'ankle'].some(name => j.name === name + (p.kick.side === 'L' ? 'R' : 'L'))) strength = s.airKick.motion.poseStrength * muscleResponse;
       if (kicking && !fallen && (j.name === 'hip' + p.kick.side || j.name === 'knee' + p.kick.side || j.name === 'ankle' + p.kick.side)) strength = (mode === 'air' ? 0.72 : 0.85) * muscleResponse;
       if (orientedFoot && (j.name === 'ankle' + orientedFoot ||
-          ((mode === 'air' || p.kick.receivePlan?.attackSet || p.kick.receivePlan?.dynamicReceive) && j.name === 'hip' + orientedFoot))) {
-        // Foot orientation owns the ankle. The airborne kick and a high set
-        // also let their force trajectory own hip direction, without a second
+          ((mode === 'air' || p.kick.receivePlan) && j.name === 'hip' + orientedFoot))) {
+        // Foot orientation owns the ankle. Every controlled contact lets its
+        // force trajectory own hip direction, without a second
         // absolute-angle motor pulling the foot through the contact point.
         for (const axis of [this.R.JointAxis.AngX, this.R.JointAxis.AngY, this.R.JointAxis.AngZ]) j.joint.setMotorMaxForce(axis, 0);
         continue;
@@ -1006,15 +1016,16 @@ class TakrawPhysics {
     p.root.applyTorqueImpulse(this._mul(impulse, -1), true);
   }
 
-  _orientFootNormal(p, suffix, normal, forward, s, dt, response, actuation, angularVelocity = null, ankleDriven = false) {
+  _orientFootNormal(p, suffix, normal, forward, s, dt, response, angularVelocity) {
     const body = p.byName['foot' + suffix].body;
     const parent = p.byName['lowerLeg' + suffix].body;
-    const up = this._rotate(body.rotation(), this._v(0, 1, 0));
+    const rotation = body.rotation();
+    const up = this._rotate(rotation, this._v(0, 1, 0));
     const cross = (a, b) => ({ x: a.y * b.z - a.z * b.y,
       y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x });
     const right = cross(normal, forward);
-    const currentForward = this._rotate(body.rotation(), this._v(0, 0, 1));
-    const currentRight = this._rotate(body.rotation(), this._v(1, 0, 0));
+    const currentForward = this._rotate(rotation, this._v(0, 0, 1));
+    const currentRight = this._rotate(rotation, this._v(1, 0, 0));
     let error = this._mul(this._add(this._add(cross(up, normal),
       cross(currentForward, forward)), cross(currentRight, right)), 0.5);
     if (s === this.settings.airKick) {
@@ -1038,7 +1049,7 @@ class TakrawPhysics {
         const t = Math.sqrt(1 + m22 - m00 - m11) * 2;
         q = { w: (m10 - m01) / t, x: (m02 + m20) / t, y: (m12 + m21) / t, z: t / 4 };
       }
-      let e = this._qmul(q, this._conj(body.rotation()));
+      let e = this._qmul(q, this._conj(rotation));
       if (e.w < 0) e = { x: -e.x, y: -e.y, z: -e.z, w: -e.w };
       const sine = Math.hypot(e.x, e.y, e.z);
       error = this._mul(e, sine > 1e-7 ? 2 * Math.atan2(sine, this._clamp(e.w, -1, 1)) / sine : 2);
@@ -1046,12 +1057,10 @@ class TakrawPhysics {
     const omega = angularVelocity || body.angvel();
     const kp = s.orientationStiffness, kd = s.orientationDamping, inertia = s.orientationInertia;
     const stable = 1 + kd * dt / inertia + kp * dt * dt / inertia;
-    // Air force acts at the ankle itself. Ground COM force retains the same
-    // ankle-reaction compensation; both apply equal/opposite rotation torques.
-    const counterMoment = s === this.settings.airKick || ankleDriven ? this._v() :
-      cross(this._rotate(body.rotation(), this._v(0, 0.065, -0.085)), actuation);
-    const torque = this._limit(this._add(this._mul(this._sub(this._mul(error, kp),
-      this._mul(omega, kd)), response / stable), counterMoment), s.maxTorque * response);
+    // Translation acts at the ankle joint, so there is no COM-force moment
+    // to compensate. Orientation retains equal/opposite finite torques.
+    const torque = this._limit(this._mul(this._sub(this._mul(error, kp),
+      this._mul(omega, kd)), response / stable), s.maxTorque * response);
     body.applyTorqueImpulse(this._mul(torque, dt), true);
     parent.applyTorqueImpulse(this._mul(torque, -dt), true);
   }
@@ -1393,7 +1402,11 @@ class TakrawPhysics {
       // its finite reach, force, orientation and actual collision decide the pass.
       const delta = this._sub(wanted, incoming), normal = this._unit(delta, this._v(0, 1, 0));
       const vn = this._dot(incoming, normal);
-      const transfer = toss.effectiveFootMass / (toss.effectiveFootMass + s.ballMass);
+      const contactFoot = p.byName['foot' + p.kick.side];
+      const mass = contactFoot.body.mass(), extent = contactFoot.halfExtents;
+      const pitchInertia = mass * (extent.y * extent.y + extent.z * extent.z) / 3;
+      const contactMass = 1 / (1 / mass + toss.forefoot * toss.forefoot / pitchInertia);
+      const transfer = contactMass / (contactMass + s.ballMass);
       const normalSpeed = vn + this._length(delta) / ((1 + s.ballRestitution) * transfer);
       const velocity = this._add(this._sub(incoming, this._mul(normal, vn)), this._mul(normal, normalSpeed));
       // A slide points the toes along the extended leg, leaving the ankle
@@ -1407,19 +1420,18 @@ class TakrawPhysics {
       const dynamicReceive = !!p.receive && p.receive.mode !== 'cushion';
       const ankle = this._point(foot, this._v(0, 0.065, -0.085));
       const ankleOffset = this._add(this._mul(normal, 0.065), this._mul(forward, -0.085));
-      // Dynamic reception drives the actual ankle. Its curve is returned in
-      // foot-centre coordinates, then the fixed contact ankle offset is added
-      // at actuation; subtract that same offset at the starting boundary.
-      const start = dynamicReceive ? this._sub(ankle, ankleOffset) : { ...foot.translation() };
-      const startVelocity = dynamicReceive ? { ...foot.velocityAtPoint(ankle) } : { ...foot.linvel() };
+      // Every pass drives the ankle. Curves use foot-centre coordinates;
+      // subtract the same contact anchor offset at the starting boundary.
+      const start = this._sub(ankle, ankleOffset);
+      const startVelocity = { ...foot.velocityAtPoint(ankle) };
       p.kick.receivePlan = { duration, startedAt: this.time, normal, forward, point, velocity, tracking,
         attackSet: attacking, dynamicReceive, incoming, start, startVelocity };
     }
     const plan = p.kick.receivePlan;
-    if (p.receive?.hitAt !== null && p.receive?.hitAt !== undefined) {
-      // A real touch ends the outward stroke. Retract the physical foot below
-      // the hip so a held button does not drive the leg back through the
-      // newly rising ball during the continuous contact episode.
+    if (p.receive?.hitAt !== null && p.receive?.hitAt !== undefined &&
+        this.time - p.receive.hitAt >= toss.followThrough) {
+      // Finish the bounded physical follow-through, then retract below the
+      // hip. A held button must not sweep through the departing ball again.
       const root = p.root.translation(), direction = p.receive.direction;
       const target = { x: root.x - direction.x * 0.15, y: 0.12, z: root.z - direction.z * 0.15 };
       const velocity = this._sub(this._bodyVelocity(p), this._mul(direction, toss.followThrough * s.groundKickSpeed / Math.max(dt, toss.strokeTime)));
@@ -1455,26 +1467,27 @@ class TakrawPhysics {
           toss.forefoot, s.receive) : null;
       return { target, velocity, normal: plan.normal, contactDrive };
     }
-    if (plan.attackSet) {
-      // A high set uses the whole available arrival interval to reach the
-      // contact with its exit velocity. The previous low preparation point
-      // could be outside the leg workspace, leaving the foot still moving
-      // forward when a backward set needed it to be slowing down.
-      const elapsed = this.time - plan.startedAt + dt, duration = plan.duration;
+    if (plan.attackSet || !plan.dynamicReceive) {
+      // Cushion receptions and high sets share a continuous approach, with
+      // endpoint velocity for the intended pass instead of a late hard swing.
+      const elapsed = this.time - plan.startedAt + dt;
+      const duration = plan.duration;
+      const point = plan.point;
       const u = this._clamp(elapsed / duration, 0, 1), u2 = u * u, u3 = u2 * u;
       const start = plan.start, initialVelocity = plan.startVelocity, endVelocity = plan.velocity;
       let target = this._add(this._add(this._mul(start, 2 * u3 - 3 * u2 + 1),
         this._mul(initialVelocity, (u3 - 2 * u2 + u) * duration)),
-        this._add(this._mul(plan.point, -2 * u3 + 3 * u2), this._mul(endVelocity, (u3 - u2) * duration)));
+        this._add(this._mul(point, -2 * u3 + 3 * u2), this._mul(endVelocity, (u3 - u2) * duration)));
       let velocity = this._add(this._add(this._mul(start, (6 * u2 - 6 * u) / duration),
         this._mul(initialVelocity, 3 * u2 - 4 * u + 1)),
-        this._add(this._mul(plan.point, (-6 * u2 + 6 * u) / duration), this._mul(endVelocity, 3 * u2 - 2 * u)));
+        this._add(this._mul(point, (-6 * u2 + 6 * u) / duration), this._mul(endVelocity, 3 * u2 - 2 * u)));
       let acceleration = this._add(this._add(this._mul(start, (12 * u - 6) / (duration * duration)),
         this._mul(initialVelocity, (6 * u - 4) / duration)),
-        this._add(this._mul(plan.point, (-12 * u + 6) / (duration * duration)), this._mul(endVelocity, (6 * u - 2) / duration)));
-      if (elapsed >= duration) {
-        target = this._add(plan.point, this._mul(endVelocity, Math.min(elapsed - duration, toss.followThrough)));
-        velocity = elapsed - duration < toss.followThrough ? endVelocity : this._v();
+        this._add(this._mul(point, (-12 * u + 6) / (duration * duration)), this._mul(endVelocity, (6 * u - 2) / duration)));
+      if (elapsed >= plan.duration) {
+        const follow = Math.min(elapsed - plan.duration, toss.followThrough);
+        target = this._add(plan.point, this._mul(plan.velocity, follow));
+        velocity = elapsed - plan.duration < toss.followThrough ? plan.velocity : this._v();
         acceleration = this._v();
       }
       return { target, velocity, acceleration, normal: plan.normal };

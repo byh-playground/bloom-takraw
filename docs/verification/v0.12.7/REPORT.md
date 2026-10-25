@@ -1,4 +1,6 @@
-# v0.12.7 검증 결과
+# v0.12.7 단일 HTML 검증 기록
+
+이 문서는 모듈 분리 이전의 역사 기록입니다. 현재 개발 경로와 실행 방식은 [현재 README](../../../README.md)를 따릅니다. 아래 file:// 검증 결과는 당시 단일 HTML에만 해당합니다.
 
 2026-10-25, Windows에서 실제 Chromium 153.0.8010.12 브라우저 프로세스 두 개로 검증했습니다. 최종 HTML의 아래 검사는 모두 통과했습니다. 공개 배포는 하지 않았습니다.
 
@@ -25,10 +27,10 @@
 
 범위는 같은 PC의 두 독립 브라우저입니다. 외부 NAT/다른 OS/실제 모바일은 검증하지 않았습니다. 재접속은 한쪽 상대가 살아 있고 기존 탭 저장소가 남아 있을 때 90초 유예 안에서 동작합니다. 양쪽 동시 종료 또는 상대가 없는 방의 복원은 보장하지 않습니다. 인터넷 연결이 필요하며 Candidate 표시는 유지합니다.
 
-산출물: [블룸 세팍타크로 v0.12.7.html](../블룸 세팍타크로 v0.12.7.html) (574,547 bytes)
+산출물: [블룸 세팍타크로 v0.12.7.html](https://github.com/byh-playground/bloom-takraw/blob/a01855b833ec5c09db6834e4c4ceeeb6d8088fd7/index.html) (574,547 bytes)
 
 SHA-256: c4dddadbe575d632b8f46dc65733d4511f421ca687f71d03da5204cbbfaa822e
 
 실행 기록: [체크포인트](checkpoint.json), [온라인 및 재접속](network.json), [온라인 종료](finish.json), [AI 종료](single.json), [직접 열기](file-boot.json), [manifest](manifest.json).
 
-화면 증거: [온라인 1](finished-1.png), [온라인 2](finished-2.png), [AI 종료](single-finished.png). 검사 재실행은 [README](../README.md)를 참고하세요.
+화면 증거: [온라인 1](finished-1.png), [온라인 2](finished-2.png), [AI 종료](single-finished.png). 검사 재실행은 [현재 README](../../../README.md)를 참고하세요.

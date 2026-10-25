@@ -1,2 +1,2 @@
-*.html -text
+* text=auto eol=lf
 *.png -text

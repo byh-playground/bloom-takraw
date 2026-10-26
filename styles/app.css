@@ -608,3 +608,14 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
 .timing-badge[data-grade="normal"]{color:#5f6b66}
 .timing-badge[data-grade="normal"] strong{font-weight:700}
 @keyframes timing-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
+
+/* 동료 AI 학습 화면 */
+.learning-open{flex:none;margin:0 0 8px;align-self:flex-start}
+.learning-progress{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin:12px 0 6px}
+.learning-progress span{display:block;height:100%;background:var(--mint);transition:width .2s}
+.learning-curve{display:block;width:100%;max-width:360px;height:90px;color:var(--green);margin:8px 0}
+.learning-compare{display:flex;gap:12px;margin:12px 0}
+.learning-compare>div{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.learning-compare small{display:block;color:var(--muted)}
+.learning-compare strong{font-size:24px;color:var(--green)}
+.learning-actions{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 6px}

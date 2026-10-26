@@ -21,6 +21,7 @@ class TakrawUI {
     this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], scouts: [], lineup: {}, record: {} };
     this.clubSelection = { tab: 'roster', player: 'i-deun', stat: 'power', filter: 'all', compare: 'none', detail: false,
       rename: false, nameDraft: null, nameError: '', players: { roster: 'i-deun', scouts: null }, scroll: {} };
+    this.learning = { phase: 'idle', epochs: 0, curve: [], result: null, message: '' };
     this.clubDraft = null; this.clubBusy = false; this.clubNotice = ''; this.clubNoticeType = 'status';
     this.nodes = {};
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
@@ -185,7 +186,7 @@ class TakrawUI {
   }
 
   showHome() {
-    const initialDialog = !this.homeShown && !this.inGame && ['help','settings','network','club'].includes(this.dialog) ? this.dialog : '';
+    const initialDialog = !this.homeShown && !this.inGame && ['help','settings','network','club','learning'].includes(this.dialog) ? this.dialog : '';
     this.homeShown = true;
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
@@ -216,7 +217,7 @@ class TakrawUI {
 
   applyRoute() {
     const route = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-    if (['help','settings','pause','network','club'].includes(route)) {
+    if (['help','settings','pause','network','club','learning'].includes(route)) {
       if (route === 'pause' && !this.inGame) { this.setRoute('', true); this.hideDialog(false); return; }
       this.openDialog(route);
     } else {
@@ -230,7 +231,7 @@ class TakrawUI {
     if (this.dialog === route) return;
     if (!this.dialog) { this.previousFocus = document.activeElement; this.releaseTouch(); if (this.inGame) this.callbacks.onPause?.(true); }
     this.dialog = route; this.nodes['modal-layer'].hidden = false;
-    const meta = { help:['플레이 가이드','발끝의 타이밍'], club:['선수단 · 편성 · 훈련','내 팀 관리'], settings:['내게 맞는 플레이','설정'], pause:[this.mode === 'online' ? '경기는 계속 진행돼요' : '잠깐 숨 고르기', this.mode === 'online' ? '경기 메뉴' : '일시 정지'], network:['둘이서, 하나의 코트','친구와 온라인 1대1'] }[route];
+    const meta = { help:['플레이 가이드','발끝의 타이밍'], club:['선수단 · 편성 · 훈련','내 팀 관리'], learning:['동료 AI · 받기 학습','학습 훈련'], settings:['내게 맞는 플레이','설정'], pause:[this.mode === 'online' ? '경기는 계속 진행돼요' : '잠깐 숨 고르기', this.mode === 'online' ? '경기 메뉴' : '일시 정지'], network:['둘이서, 하나의 코트','친구와 온라인 1대1'] }[route];
     this.nodes['dialog-panel'].classList.toggle('is-club', route === 'club');
     this.nodes['modal-layer'].classList.toggle('is-club-layer', route === 'club');
     this.nodes['dialog-kicker'].textContent = meta[0]; this.nodes['dialog-title'].textContent = meta[1];
@@ -275,6 +276,7 @@ class TakrawUI {
     const status = { loading:'팀을 불러오는 중', saving:'팀을 저장하는 중', conflict:'다른 탭에서 변경됨 · 최신 저장 불러오기', error:'팀 저장 확인 필요 · 관리에서 다시 불러오기' }[value.status];
     this.text('club-home-summary', status || (value.teamName ? `${value.teamName} · 선수 ${value.roster.length}명` : '선수단 · 편성 · 훈련'));
     if (this.dialog === 'club') this.renderClub();
+    if (this.dialog === 'learning') this.renderLearning();
   }
 
   rememberClubPosition() {
@@ -435,7 +437,7 @@ class TakrawUI {
       <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">최신 저장 불러오기</button>` : ''}${c.pendingReward?.status === 'error' ? '<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">보상 저장 재시도</button>' : ''}</div>${draftBanner}
       <div class="club-navigation"><div class="club-tabs" role="group" aria-label="팀 관리 메뉴"><button type="button" class="${!isScout ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isScout}">선수단 <span>${c.roster.length}</span></button><button type="button" class="${isScout ? 'selected' : ''}" data-club-action="tab" data-value="scouts" data-club-focus="tab-scouts" aria-pressed="${isScout}">선수 영입 <span>${c.scouts.length}</span></button></div><span class="club-capacity">선수 ${c.roster.length} / ${rules.capacity}명</span></div>
       <div class="club-workspace" data-detail="${selection.detail}"><div class="club-roster-column"><div class="club-filter" role="group" aria-label="추천 역할로 선수 찾기">${[{id:'all',name:'전체'},...rules.roles.slice().reverse()].map(role => `<button type="button" class="${selection.filter === role.id ? 'selected' : ''}" data-club-action="filter" data-value="${role.id}" data-club-focus="filter-${role.id}" aria-pressed="${selection.filter === role.id}">${role.name}</button>`).join('')}</div><div id="club-list" class="club-list">${cards || `<p class="club-empty">${empty}</p>`}</div></div><section id="club-detail" class="club-detail" aria-label="선수 상세">${player ? this.clubDetailContent(player,isScout) : `<p class="club-empty">${empty}</p>`}</section></div>
-      <p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p></div>`;
+      <button type="button" class="secondary learning-open" data-dialog-action="learning-open">동료 AI 학습 · ${c.learning?.runs || 0}회 · ${c.trainingPoints || 0} P</button><p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p></div>`;
   }
 
   clubAdjust(stat, direction) {
@@ -517,6 +519,52 @@ class TakrawUI {
     }
   }
 
+  learningContent() { return `<div id="learning-body">${this.learningBody()}</div>`; }
+
+  renderLearning() { const body = document.getElementById('learning-body'); if (this.dialog === 'learning' && body) body.innerHTML = this.learningBody(); }
+
+  learningCurve(curve) {
+    if (curve.length < 2) return '';
+    const width = 320, height = 90, values = curve.map(point => point.meanReward), lo = Math.min(...values), hi = Math.max(...values), span = hi - lo || 1;
+    const points = values.map((value, i) => `${(i / (values.length - 1) * width).toFixed(1)},${(height - 6 - (value - lo) / span * (height - 12)).toFixed(1)}`).join(' ');
+    return `<svg class="learning-curve" viewBox="0 0 ${width} ${height}" role="img" aria-label="배치별 평균 보상 ${values[0].toFixed(2)}에서 ${values.at(-1).toFixed(2)}"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2"/></svg>`;
+  }
+
+  learningBody() {
+    const c = this.club, L = this.learning, rule = TAKRAW_CLUB_RULES.learning, busy = ['before', 'train', 'after'].includes(L.phase);
+    const percent = Math.min(100, Math.round(L.epochs / rule.epochs * 100)), pct = value => `${Math.round(value * 100)}%`;
+    const phaseLabel = { before: '학습 전 실력을 재고 있어요', train: `학습 중 · ${L.epochs}/${rule.epochs}회`, after: '학습 후 실력을 재고 있어요' }[L.phase] || '';
+    const compare = L.result?.completed ? `<div class="learning-compare"><div><small>학습 전</small><strong>${pct(L.result.before.success / L.result.before.n)}</strong></div><div><small>학습 후</small><strong>${pct(L.result.after.success / L.result.after.n)}</strong></div></div>
+      <p>같은 스파이크 ${L.result.before.n}개를 다시 받아 본 성공률이에요. 성공 = 우리 코트 안쪽으로 2.0 m 이상 높이 올려 동료가 닿을 수 있는 공.</p>` : '';
+    const lock = this.inGame ? '학습은 처음 화면에서 할 수 있어요.' : c.status !== 'ready' ? c.message || '팀을 먼저 불러와 주세요.' : (c.trainingPoints || 0) < rule.cost ? '훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.' : '';
+    return `<p class="lead-note">동료가 상대 스파이크를 받는 방식을 학습해요.<br>훈련 포인트 ${rule.cost} P = 스파이크 ${rule.epochs}번 받아 보며 학습.</p>
+      <p>보유 ${c.trainingPoints || 0} P · 누적 학습 ${c.learning?.runs || 0}회 · 이 브라우저의 로컬 AI 대전에만 적용돼요(온라인 제외).</p>
+      ${busy ? `<div class="learning-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div><p role="status" aria-live="polite">${phaseLabel}</p>` : ''}
+      ${this.learningCurve(L.curve)}
+      ${compare}
+      ${L.message ? `<p role="status" aria-live="polite">${this.escape(L.message)}</p>` : ''}
+      <div class="learning-actions">
+        ${busy ? '<button type="button" class="secondary" data-dialog-action="learning-stop">멈추기</button>' : `<button type="button" class="primary" data-dialog-action="learning-start" ${lock ? 'disabled' : ''}>학습 시작 (−${rule.cost} P)</button>`}
+        <button type="button" class="secondary" data-dialog-action="learning-back" ${busy ? 'disabled' : ''}>← 내 팀 관리</button>
+      </div>${lock && !busy ? `<p>${this.escape(lock)}</p>` : ''}`;
+  }
+
+  async learningStart() {
+    const L = this.learning;
+    if (['before', 'train', 'after'].includes(L.phase)) return;
+    Object.assign(L, { phase: 'before', epochs: 0, curve: [], result: null, message: '' }); this.renderLearning();
+    try {
+      const result = await this.callbacks.onLearning?.('start', {
+        onPhase: phase => { L.phase = phase; this.renderLearning(); },
+        onBatch: batch => { L.epochs = batch.epochs; L.curve.push(batch); this.renderLearning(); },
+      });
+      if (result?.view) this.club = { ...this.club, ...result.view };
+      if (result?.completed) Object.assign(L, { phase: 'done', result, message: '학습 결과를 저장했어요. 다음 AI 대전부터 적용돼요.' });
+      else Object.assign(L, { phase: 'idle', message: '중간에 멈췄어요. 저장하지 않았고 포인트도 그대로예요.' });
+    } catch (error) { Object.assign(L, { phase: 'error', message: error.message || '학습하지 못했어요. 다시 시도해 주세요.' }); }
+    this.updateStartButtons(); this.renderLearning();
+  }
+
   helpContent() {
     return this.controlText(`<p class="lead-note">내 선수는 언제나 공격수.<br>동료의 토스에 맞춰 거리, 점프 높이, 발차기 타이밍을 잡으세요.</p>
       <h3>동료가 받아 올리면, 내가 마무리해요</h3>
@@ -578,6 +626,10 @@ class TakrawUI {
     const button = event.target.closest('[data-dialog-action]'); if (!button) return;
     const action = button.dataset.dialogAction;
     if (action === 'close') this.closeDialog();
+    if (action === 'learning-open') this.navigate('learning');
+    if (action === 'learning-back') { if (this.learning.phase === 'idle' || this.learning.phase === 'done' || this.learning.phase === 'error') this.navigate('club'); }
+    if (action === 'learning-start') this.learningStart();
+    if (action === 'learning-stop') { this.learning.message = '지금 배치까지만 하고 멈춰요. 포인트는 쓰지 않아요.'; this.callbacks.onLearning?.('stop'); this.renderLearning(); }
     if (action === 'restart') { this.callbacks.onRestart?.(); this.closeDialog(); }
     if (action === 'quit') this.quit();
     if (action === 'sound') { this.settings.sound = !this.settings.sound; button.setAttribute('aria-checked', String(this.settings.sound)); this.callbacks.onSetting?.('sound', this.settings.sound); }

@@ -1,7 +1,7 @@
 /** 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다. */
 const TAKRAW_CLUB_RULES = Object.freeze({
   initial: { credits: 600, trainingPoints: 6 },
-  capacity: 9, nameLength: 18, training: { cost: 1, increase: 2, maximum: 100 },
+  capacity: 9, nameLength: 18, training: { cost: 1, increase: 2, maximum: 100 }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
   rewards: { win: { credits: 180, trainingPoints: 3 }, loss: { credits: 100, trainingPoints: 2 } },
   roles: [{ id: 'receiver', name: '리시버' }, { id: 'setter', name: '세터' }, { id: 'attacker', name: '공격수' }],
   stats: [
@@ -57,7 +57,7 @@ class TakrawClub {
     return { schema: 1, revision: 0, name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
       owned: TAKRAW_CLUB_PLAYERS.filter(player => !player.price).map(player => player.id), trained: {},
       lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
-      record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null };
+      record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null } };
   }
 
   _validate(record) {
@@ -74,6 +74,13 @@ class TakrawClub {
       !record.record || !['played','won','lost'].every(key => integer(record.record[key])) || record.record.played !== record.record.won + record.record.lost ||
       !Array.isArray(record.rewards) || record.rewards.length !== record.record.played || new Set(record.rewards).size !== record.rewards.length ||
       record.rewards.some(id => typeof id !== 'string' || !/^[a-f\d]{32}$/.test(id))) fail();
+    // 선택 필드: 이전 저장본에는 없다. 있으면 형식을 엄격히 확인한다.
+    if (record.learning !== undefined) {
+      const learning = record.learning, policy = learning?.policy;
+      if (!learning || typeof learning !== 'object' || !integer(learning.runs) ||
+        !(policy === null || (typeof policy === 'string' && policy.length <= TAKRAW_CLUB_RULES.learning.policyLength && /^[A-Za-z\d+/]+={0,2}$/.test(policy))) ||
+        (policy === null) !== (learning.runs === 0)) fail();
+    }
     for (const [id, training] of Object.entries(record.trained)) {
       const player = TAKRAW_CLUB_PLAYERS.find(value => value.id === id);
       if (!record.owned.includes(id) || !player || !training || typeof training !== 'object' || Array.isArray(training)) fail();
@@ -250,6 +257,24 @@ class TakrawClub {
     }, '경기 보상을 저장했어요.');
   }
 
+  /** 훈련 포인트 1개로 받기 학습 한 번(100 epoch)을 마친 정책을 저장한다. policy는 양자화한 정책의 base64다. */
+  learn(policy) {
+    const rule = TAKRAW_CLUB_RULES.learning;
+    if (typeof policy !== 'string' || !policy || policy.length > rule.policyLength || !/^[A-Za-z\d+/]+={0,2}$/.test(policy)) return Promise.reject(this._error('저장할 학습 결과를 확인해 주세요.'));
+    return this._mutate(record => {
+      if (record.trainingPoints < rule.cost) throw this._error('훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.');
+      record.trainingPoints -= rule.cost;
+      const learning = record.learning ?? { runs: 0, policy: null };
+      record.learning = { runs: learning.runs + 1, policy };
+    }, '학습 결과를 저장했어요. 다음 AI 대전·연습부터 적용돼요.');
+  }
+
+  /** 저장된 학습 정책(base64)과 누적 학습 횟수. 학습한 적이 없으면 null이다. */
+  learnedPolicy() {
+    const learning = this.record?.learning;
+    return learning?.policy ? { policy: learning.policy, runs: learning.runs } : null;
+  }
+
   _player(id) {
     const base = TAKRAW_CLUB_PLAYERS.find(value => value.id === id);
     return { ...base, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, value + (this.record?.trained[id]?.[key] || 0)])),
@@ -261,7 +286,7 @@ class TakrawClub {
     return { status: this.status, message: this.message, teamName: record?.name || '', credits: record?.credits || 0,
       trainingPoints: record?.trainingPoints || 0, roster: record ? record.owned.map(id => this._player(id)) : [], lineup: { ...record?.lineup },
       scouts: record ? TAKRAW_CLUB_PLAYERS.filter(player => player.price && !record.owned.includes(player.id)).map(player => this._player(player.id)) : [],
-      record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 }, lastReward: record?.lastReward ? { ...record.lastReward } : null,
+      record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 }, learning: { runs: record?.learning?.runs || 0 }, lastReward: record?.lastReward ? { ...record.lastReward } : null,
       revision: record?.revision ?? null };
   }
 

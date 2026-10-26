@@ -19,6 +19,7 @@ class Trainer {
       for (let i = 0; i < size; i++) {
         const seed = this.seedBase + Math.floor(this.random() * 100000);
         batch.push(this.task.rollout(seed, obs => this.algorithm.sample(obs)));
+        await yieldToUi(); // 장면마다 화면에 양보해 입력과 진행 표시가 멈추지 않게 한다
       }
       const meanReward = this.algorithm.update(batch);
       done += size; this.epochs += size;

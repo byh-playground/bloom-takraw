@@ -10,6 +10,8 @@ class TakrawPhysics {
     this.R = RAPIER;
     this.config = config;
     this.motionMatcher = new MotionMatcher();
+    this.tossTuning = [null, null]; // 팀별 지면 토스 보정 값(조정이 없으면 null)
+    this._toss = [null, null];
     this.settings = Object.assign({
       gravity: 9.81, ballRadius: 0.095, ballMass: 0.18,
       ballRestitution: 0.57, ballDamping: 0.035,
@@ -228,9 +230,10 @@ class TakrawPhysics {
         (mode === 'cushion' ? 0 : extension) && (!sliding || moving);
       return { mode, reachable, point, time, stance, moving, at: this.time, distance };
     };
-    const normal = candidate(s.groundToss.contactHeight, false);
+    const toss = this.tossFor(p);
+    const normal = candidate(toss.contactHeight, false);
     if (normal?.reachable) return normal;
-    const slides = receive.slideContactFractions.map(fraction => candidate(s.groundToss.contactHeight * fraction, true));
+    const slides = receive.slideContactFractions.map(fraction => candidate(toss.contactHeight * fraction, true));
     return slides.find(plan => plan?.reachable) || normal || slides.find(Boolean) || null;
   }
 
@@ -710,9 +713,9 @@ class TakrawPhysics {
       p.kick.mode = mode; p.kick.receivePlan = null; p.kick.airPlan = null;
       let choose = this.ball.translation();
       if (mode === 'ground' && input.tossTarget) {
-        const bv = this.ball.linvel(), height = s.groundToss.contactHeight;
+        const toss = this.tossFor(p), bv = this.ball.linvel(), height = toss.contactHeight;
         const disc = bv.y * bv.y + 2 * s.gravity * (choose.y - height);
-        const t = this._clamp((bv.y + Math.sqrt(Math.max(0, disc))) / s.gravity, 0, s.groundToss.maxPlanTime);
+        const t = this._clamp((bv.y + Math.sqrt(Math.max(0, disc))) / s.gravity, 0, toss.maxPlanTime);
         choose = { x: choose.x + bv.x * t, y: height, z: choose.z + bv.z * t };
       }
       const ballLocal = this._rotate(this._conj(rootRotation), this._sub(choose, pos));
@@ -853,7 +856,7 @@ class TakrawPhysics {
           target = receive.target; targetVelocity = receive.velocity; groundAcceleration = receive.acceleration;
           groundContactDrive = receive.contactDrive || null;
           contactNormal = receive.normal;
-          contactForward = p.kick.receivePlan.forward; footControl = s.groundToss;
+          contactForward = p.kick.receivePlan.forward; footControl = this.tossFor(p);
         } else {
           const horizontal = this._unit({ x: predicted.x - hip.x, y: 0, z: predicted.z - hip.z },
             { x: p.toward, y: 0, z: 0 });
@@ -903,10 +906,10 @@ class TakrawPhysics {
       const forcePoint = ankleDriven ? this._point(foot.body, this._v(0, 0.065, -0.085)) : null;
       const driveTarget = mode !== 'air' && ankleDriven ? this._sub(ikTarget, this._rotate(rootRotation, this._v(0, 0, 0.055))) : target;
       if (mode === 'ground' && ankleDriven) {
-        const plan = p.kick.receivePlan;
-        const terminal = this._clamp((this.time - plan.startedAt + dt - plan.duration + s.groundToss.strokeTime) /
-          s.groundToss.strokeTime, 0, 1);
-        const instep = this._point(foot.body, this._v(0, 0.055, s.groundToss.forefoot));
+        const plan = p.kick.receivePlan, toss = this.tossFor(p);
+        const terminal = this._clamp((this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) /
+          toss.strokeTime, 0, 1);
+        const instep = this._point(foot.body, this._v(0, 0.055, toss.forefoot));
         const rotationVelocity = this._sub(foot.body.velocityAtPoint(instep), foot.body.velocityAtPoint(forcePoint));
         targetVelocity = this._sub(targetVelocity, this._mul(rotationVelocity, terminal));
       }
@@ -916,12 +919,12 @@ class TakrawPhysics {
       this._footDrive(p, foot, driveTarget, targetVelocity,
         (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
         dt, (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
-        (footControl === s.groundToss ?
-          2 * Math.sqrt(s.groundToss.positionGain * s.groundToss.accelerationMass) :
+        (footControl === this.tossFor(p) ?
+          2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass) :
           footControl ? footControl.velocityGain : s.footVelocityGain) * muscleResponse, forcePoint,
         mode === 'air' && airTarget.acceleration ? this._mul(this._add(airTarget.acceleration, this._v(0, s.gravity, 0)),
           s.airKick.trackingMass * muscleResponse) : groundAcceleration ?
-          this._mul(this._add(groundAcceleration, this._v(0, s.gravity, 0)), s.groundToss.accelerationMass * muscleResponse) : null,
+          this._mul(this._add(groundAcceleration, this._v(0, s.gravity, 0)), this.tossFor(p).accelerationMass * muscleResponse) : null,
         mode === 'air' ? airTarget.contactDrive : groundContactDrive);
       if (contactNormal) this._orientFootNormal(p, suffix, contactNormal, contactForward, footControl, dt, muscleResponse, angularVelocity);
     }
@@ -1373,8 +1376,18 @@ class TakrawPhysics {
       normal: contact.normal, forward: contact.forward };
   }
 
+  /** 팀별 지면 토스 설정. 조정이 없으면 기본 설정 객체를 그대로 돌려준다. */
+  tossFor(p) { return this._toss[p.team] || this.settings.groundToss; }
+
+  /** 학습 조정 값(contactHeight, strokeTime, attackApex)을 팀 단위로 덮어쓴다. null이면 기본으로 되돌린다. */
+  setTossTuning(team, values) {
+    const keys = ['contactHeight', 'strokeTime', 'attackApex'];
+    this.tossTuning[team] = values ? Object.fromEntries(keys.filter(key => Number.isFinite(values[key])).map(key => [key, values[key]])) : null;
+    this._toss[team] = this.tossTuning[team] ? Object.freeze({ ...this.settings.groundToss, ...this.tossTuning[team] }) : null;
+  }
+
   _receiveFootTarget(p, input, ballPos, ballVel, dt) {
-    const s = this.settings, toss = s.groundToss;
+    const s = this.settings, toss = this.tossFor(p);
     // An early held input can prepare the real foot while the ball is still
     // outside the stroke horizon. Commit the stroke only once its actual
     // predicted arrival enters that horizon. Once committed, retain the

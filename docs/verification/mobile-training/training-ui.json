@@ -1,0 +1,319 @@
+{
+  "idle": [
+    {
+      "attempt": 1,
+      "contacts": [
+        {
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 1.8499999999999983,
+            "outcome": "set"
+          },
+          "ball": {
+            "x": -2.3853137493133545,
+            "y": 0.7568776607513428,
+            "z": -1.339038610458374
+          }
+        }
+      ],
+      "crossed": false,
+      "guides": 171
+    },
+    {
+      "attempt": 2,
+      "contacts": [
+        {
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 8.58333333333334,
+            "outcome": "set"
+          },
+          "ball": {
+            "x": -2.3853342533111572,
+            "y": 0.756341814994812,
+            "z": -1.3389889001846313
+          }
+        }
+      ],
+      "crossed": false,
+      "guides": 170
+    },
+    {
+      "attempt": 3,
+      "contacts": [
+        {
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 14.866666666666985,
+            "outcome": "set"
+          },
+          "ball": {
+            "x": -2.3853342533111572,
+            "y": 0.756341814994812,
+            "z": -1.3389889001846313
+          }
+        }
+      ],
+      "crossed": false,
+      "guides": 171
+    },
+    {
+      "attempt": 4,
+      "contacts": [
+        {
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 21.15000000000008,
+            "outcome": "set"
+          },
+          "ball": {
+            "x": -2.3853342533111572,
+            "y": 0.756341814994812,
+            "z": -1.3389889001846313
+          }
+        }
+      ],
+      "crossed": false,
+      "guides": 170
+    },
+    {
+      "attempt": 5,
+      "contacts": [
+        {
+          "play": {
+            "team": 0,
+            "from": 1,
+            "to": 2,
+            "kind": "toss",
+            "reason": "set",
+            "condition": null,
+            "part": "footR",
+            "at": 27.433333333333056,
+            "outcome": "set"
+          },
+          "ball": {
+            "x": -2.3853342533111572,
+            "y": 0.756341814994812,
+            "z": -1.3389889001846313
+          }
+        }
+      ],
+      "crossed": false,
+      "guides": 144
+    }
+  ],
+  "events": [
+    {
+      "type": "jump",
+      "attempt": 7,
+      "tick": 2204,
+      "guide": {
+        "playerId": 2,
+        "contact": {
+          "x": -0.44117186070752423,
+          "y": 3.6,
+          "z": 1.780147352342547
+        },
+        "stance": {
+          "x": -1.0911718607075243,
+          "z": 1.8801473523425472
+        },
+        "time": 0.609507144590127,
+        "inPosition": true,
+        "settled": true,
+        "drift": 0.14651885872521173,
+        "braking": false,
+        "brakeTravel": 0.23362239643224578,
+        "shortJump": false,
+        "contactLead": 0.6,
+        "jumpHold": 0.25,
+        "kickDelay": 0.08,
+        "preholdWindow": false,
+        "preheld": false,
+        "timeWindow": true,
+        "estimated": true,
+        "phase": null,
+        "remaining": null,
+        "jumpWindow": true,
+        "kickWindow": false,
+        "stage": "jump"
+      }
+    },
+    {
+      "type": "kick",
+      "attempt": 7,
+      "tick": 2212
+    },
+    {
+      "type": "jump",
+      "attempt": 9,
+      "tick": 2799,
+      "guide": {
+        "playerId": 2,
+        "contact": {
+          "x": -0.44420254645371127,
+          "y": 3.6,
+          "z": 1.777964974996976
+        },
+        "stance": {
+          "x": -1.0942025464537113,
+          "z": 1.877964974996976
+        },
+        "time": 0.542450982289985,
+        "inPosition": true,
+        "settled": true,
+        "drift": 0.29465590685785126,
+        "braking": false,
+        "brakeTravel": 0.21230118278989848,
+        "shortJump": false,
+        "contactLead": 0.6,
+        "jumpHold": 0.25,
+        "kickDelay": 0.08,
+        "preholdWindow": false,
+        "preheld": false,
+        "timeWindow": true,
+        "estimated": true,
+        "phase": null,
+        "remaining": null,
+        "jumpWindow": true,
+        "kickWindow": false,
+        "stage": "jump"
+      }
+    },
+    {
+      "type": "kick",
+      "attempt": 9,
+      "tick": 2809
+    }
+  ],
+  "observedCrossing": {
+    "s": {
+      "mode": "training",
+      "phase": "rally",
+      "tick": 3088,
+      "time": 51.46666666666503,
+      "score": [
+        0,
+        0
+      ],
+      "sets": [
+        0,
+        0
+      ],
+      "set": 1,
+      "serving": 1,
+      "selected": [
+        2,
+        5
+      ],
+      "touches": 2,
+      "possession": 0,
+      "lastTouch": 2,
+      "toss": null,
+      "play": {
+        "team": 0,
+        "from": 2,
+        "to": null,
+        "kind": "attack",
+        "reason": "set_received",
+        "condition": null,
+        "part": "head",
+        "at": 51.21666666666504,
+        "outcome": "contact"
+      },
+      "defense": [
+        null,
+        null
+      ],
+      "lastMessage": "상대 코트로 넘기세요.",
+      "pointWinner": -1,
+      "pointReason": "",
+      "matchWinner": -1,
+      "ballSpeed": 2.8127811582191624,
+      "timer": -9.506284648352903e-16,
+      "rally": 10,
+      "training": {
+        "lesson": "auto",
+        "attempt": 10,
+        "successes": 0,
+        "setAt": 49.31666666666515,
+        "jumpAt": null,
+        "kickAt": null,
+        "jumpOffset": null,
+        "kickOffset": null,
+        "entry": null,
+        "motionId": null,
+        "contact": {
+          "part": "head",
+          "foot": false,
+          "downward": false,
+          "height": 1.4242395162582397,
+          "entry": null,
+          "motionId": null,
+          "time": 51.21666666666504,
+          "outgoing": {
+            "x": 1.9681564569473267,
+            "y": 4.254595756530762,
+            "z": -0.9837072491645813
+          },
+          "crossed": true,
+          "counted": false
+        },
+        "result": null,
+        "previousResult": null,
+        "setApex": 5.287398338317871,
+        "jumpTiming": {
+          "attempt": 9,
+          "shortJump": false,
+          "contactLead": 0.6,
+          "jumpHold": 0.25,
+          "kickDelay": 0.08
+        }
+      }
+    },
+    "guide": null,
+    "position": {
+      "x": -0.9756237268447876,
+      "y": 0.9675393104553223,
+      "z": 2.214768171310425
+    },
+    "velocity": {
+      "x": -0.21738432212312586,
+      "z": -0.14048911105076384
+    },
+    "right": {
+      "x": 0,
+      "z": 1
+    },
+    "back": {
+      "x": -1,
+      "z": 0
+    }
+  },
+  "manualSpikeSuccess": false,
+  "manualNote": "실제 WASD/Space/마우스 조작 시도 2회 후 관찰한 네트 통과는 머리 접촉이었다. 스파이크 성공 근거가 아니다."
+}

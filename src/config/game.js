@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.9';
+const TAKRAW_VERSION = '0.12.10';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -27,7 +27,7 @@ const TAKRAW_CONFIG = Object.freeze({
   } },
   physics: { groundToss: { receiveApex: 2.4, attackApex: 4.2 } },
   training: { ready: 1.1, retry: 2.2, timeout: 7,
-    feed: { height: 2.4, rise: 1.5, offset: 0.65, lateral: 0.10 },
+    feed: { height: 2.4, rise: 1.5, offset: 0.8, lateral: 0.10 },
     guide: { preholdLead: 0.34, kickWindow: 0.08 },
   },
   ai: { receiveHeight: 0.75, kickHold: 0.34, jumpHold: 0.25,

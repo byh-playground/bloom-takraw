@@ -3,7 +3,7 @@ import { defineConfig } from 'playwright/test';
 const baseURL = 'http://127.0.0.1:8766/';
 export default defineConfig({
   testDir: './tests',
-  testMatch: 'user-flow.spec.js',
+  testMatch: ['user-flow.spec.js', 'mobile-flow.spec.js'],
   workers: 1,
   retries: 0,
   timeout: 150_000,

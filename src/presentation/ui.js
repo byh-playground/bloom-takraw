@@ -27,6 +27,7 @@ class TakrawUI {
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
     this.bind();
+    this.syncInputMode();
     this.applyRoute();
   }
 
@@ -35,7 +36,19 @@ class TakrawUI {
   }
 
   bind() {
-    const click = (id, fn) => this.listen(document.getElementById(id), 'click', fn);
+    const click = (id, fn) => {
+      const button = document.getElementById(id);
+      this.listen(button, 'click', fn);
+      // Browsers synthesize clicks only for the primary touch. Menus must also
+      // work with a second finger while the movement pad is being held.
+      this.listen(button, 'pointerup', event => {
+        if (event.pointerType !== 'touch' || event.isPrimary) return;
+        const bounds = button.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom || button.disabled) return;
+        event.preventDefault(); fn(event);
+      });
+    };
     click('start-match', () => this.start('match'));
     click('start-training', () => this.start('training'));
     click('start-local', () => this.start('local'));
@@ -51,6 +64,7 @@ class TakrawUI {
     click('rematch-button', () => this.callbacks.onRestart?.());
     click('training-reset', () => this.callbacks.onRestart?.());
     const lessonSelect = document.getElementById('training-lesson');
+    lessonSelect.replaceChildren();
     for (const lesson of TAKRAW_TRAINING_LESSONS) {
       const option = document.createElement('option');
       option.value = lesson.id; option.textContent = lesson.title;
@@ -62,6 +76,8 @@ class TakrawUI {
     this.listen(document.querySelector('.wordmark'), 'click', event => { event.preventDefault(); this.quit(); });
     this.listen(window, 'hashchange', () => this.applyRoute());
     this.listen(window, 'blur', () => this.releaseTouch());
+    this.listen(window, 'resize', () => this.releaseTouch());
+    this.listen(this.coarse, 'change', () => this.syncInputMode());
     this.listen(document, 'visibilitychange', () => { if (document.hidden) this.releaseTouch(); });
     this.listen(this.nodes['modal-layer'], 'pointerdown', event => { if (event.target === this.nodes['modal-layer']) this.closeDialog(); });
     this.listen(this.nodes['dialog-content'], 'click', event => this.dialogClick(event));
@@ -96,9 +112,10 @@ class TakrawUI {
       const up = event => {
         const state = this.touch.active.get(event.pointerId);
         if (!state) return;
-        event.preventDefault(); state.button.classList.remove('is-down');
+        event.preventDefault();
         this.callbacks.onTouch?.(state.action, state.source, false);
         this.touch.active.delete(event.pointerId);
+        state.button.classList.toggle('is-down', [...this.touch.active.values()].some(item => item.button === state.button));
       };
       for (const type of ['pointerup','pointercancel','lostpointercapture']) this.listen(button, type, up);
       this.listen(button, 'contextmenu', event => event.preventDefault());
@@ -128,17 +145,36 @@ class TakrawUI {
   }
 
   moveTouch(event) {
-    const rect = this.nodes['move-pad'].getBoundingClientRect(), radius = rect.width * .34;
+    const rect = this.nodes['move-pad'].getBoundingClientRect();
+    const thumb = this.nodes['move-thumb'].getBoundingClientRect();
+    const radius = Math.max(1, (Math.min(rect.width, rect.height) - Math.max(thumb.width, thumb.height)) / 2);
     let x = (event.clientX - rect.left - rect.width / 2) / radius, z = (event.clientY - rect.top - rect.height / 2) / radius;
     const length = Math.hypot(x, z);
     if (length > 1) { x /= length; z /= length; }
     this.nodes['move-thumb'].style.transform = `translate(${x * radius}px,${z * radius}px)`;
-    this.callbacks.onAxis?.(Math.abs(x) < .12 ? 0 : x, Math.abs(z) < .12 ? 0 : z);
+    // A circular dead zone preserves direction when the thumb leaves centre.
+    const strength = Math.max(0, (Math.min(length, 1) - .12) / .88);
+    const scale = length > 0 ? strength / Math.min(length, 1) : 0;
+    this.callbacks.onAxis?.(x * scale, z * scale);
   }
 
   releaseTouch() {
-    for (const state of this.touch.active.values()) { state.button.classList.remove('is-down'); this.callbacks.onTouch?.(state.action, state.source, false); }
+    const active = [...this.touch.active.entries()], pointer = this.touch.pointer;
     this.touch.active.clear(); this.touch.pointer = null; this.nodes['move-thumb'].style.transform = ''; this.callbacks.onAxis?.(0, 0);
+    for (const [id, state] of active) {
+      state.button.classList.remove('is-down'); this.callbacks.onTouch?.(state.action, state.source, false);
+      if (state.button.hasPointerCapture(id)) state.button.releasePointerCapture(id);
+    }
+    if (pointer !== null && this.nodes['move-pad'].hasPointerCapture(pointer)) this.nodes['move-pad'].releasePointerCapture(pointer);
+  }
+
+  syncInputMode() {
+    this.releaseTouch();
+    this.nodes['touch-controls'].hidden = !this.inGame || !this.coarse.matches;
+  }
+
+  controlText(value) {
+    return this.coarse.matches ? value.replaceAll('좌클', '발차기 버튼') : value;
   }
 
   setBootStatus({ phase, message, isError }) {
@@ -482,17 +518,17 @@ class TakrawUI {
   }
 
   helpContent() {
-    return `<p class="lead-note">내 선수는 언제나 공격수.<br>동료의 토스에 맞춰 거리, 점프 높이, 발차기 타이밍을 잡으세요.</p>
+    return this.controlText(`<p class="lead-note">내 선수는 언제나 공격수.<br>동료의 토스에 맞춰 거리, 점프 높이, 발차기 타이밍을 잡으세요.</p>
       <h3>동료가 받아 올리면, 내가 마무리해요</h3>
       <p>리시버는 뒤쪽, 세터는 중앙, 내 공격수는 앞쪽에서 시작해요. 동료가 리시브와 토스를 연결하면, 앞쪽 공격수로 타점에 맞춰 이동하고 점프·발차기를 직접 조작해요. AI 공격수도 수비 중에는 앞쪽에서 다음 토스를 준비해요. 스파이크 연습도 같은 대형에서 네 가지 발차기를 반복해 익힐 수 있어요.</p>
       <h3>동료는 언제 토스하고, 언제 넘기나요?</h3>
       <p>기본 연결은 <strong>리시브 담당 → 세터 → 공격수</strong>예요. 우리 팀이 이미 두 번 받았다면 다음이 마지막인 세 번째 터치이므로 상대 코트로 넘겨요. 공격수가 넘어져 회복 중이거나 멀리 떨어져 있으면 가까운 동료에게 이어서 공을 살려요. 서브도 상대 코트로 보내요.</p>
       <p>점수판 아래에서 어느 팀의 몇 번째 터치인지, 누구에게 토스하는지와 그 이유를 확인하세요. 토스를 시도해도 발이나 정강이에 빗맞으면 공이 상대 코트로 넘어갈 수 있어요. 이때는 <strong>토스가 길어 넘어간 경우</strong>와 <strong>마지막 터치라 넘기는 경우</strong>를 구분해 알려줘요.</p>
       <h3>기본 조작</h3>
-      <div class="control-row"><kbd>W A S D</kbd><span><strong>화면 방향으로 이동</strong><small>W·S는 화면 앞뒤, A·D는 좌우예요. 공중에서도 조금 움직일 수 있어요.</small></span></div>
-      <div class="control-row"><kbd>Space</kbd><span><strong>누르는 즉시 점프</strong><small>일찍 떼면 낮게, 길게 누르면 높게 뛰어요.</small></span></div>
+      <div class="control-row"><kbd>${this.coarse.matches ? '왼쪽 패드' : 'W A S D'}</kbd><span><strong>화면 방향으로 이동</strong><small>${this.coarse.matches ? '가려는 방향으로 밀고, 손을 떼면 멈춰요.' : 'W·S는 화면 앞뒤, A·D는 좌우예요.'} 공중에서도 조금 움직일 수 있어요.</small></span></div>
+      <div class="control-row"><kbd>${this.coarse.matches ? '점프' : 'Space'}</kbd><span><strong>누르는 즉시 점프</strong><small>일찍 떼면 낮게, 길게 누르면 높게 뛰어요.</small></span></div>
       <div class="control-row"><kbd>좌클</kbd><span><strong>누르는 동안 발에 힘</strong><small>누르는 즉시 발이 공을 향해 움직이고, 누르는 동안 힘을 계속 줘요. 짧게 눌러 툭 받거나 길게 유지해 힘을 더하세요.</small></span></div>
-      <div class="control-row"><kbd>우클 드래그</kbd><span><strong>카메라 각도 조절</strong><small>좌우로 돌리거나 위아래 각도를 바꿔 공과 발의 거리를 보세요. 이동도 바뀐 화면 방향을 따라가요. C를 누르면 기본 시점으로 돌아와요.</small></span></div>
+      ${this.coarse.matches ? '<p>카메라는 공과 내 선수를 따라가요. 설정의 ‘시점 초기화’로 기본 시점으로 돌아올 수 있어요.</p>' : '<div class="control-row"><kbd>우클 드래그</kbd><span><strong>카메라 각도 조절</strong><small>좌우로 돌리거나 위아래 각도를 바꿔 공과 발의 거리를 보세요. 이동도 바뀐 화면 방향을 따라가요. C를 누르면 기본 시점으로 돌아와요.</small></span></div>'}
       <h3>빈 공간은 내가 리시브해요</h3>
       <p>공격수로 빈 공간에 이동한 뒤 지상에서 좌클을 누르면 직접 받아 올려요. 가까운 공은 쿠션 리시브, 옆 공은 다리를 뻗는 런지로 받아요. 낮고 먼 수비 공을 향해 이동하면서 좌클을 유지하면 닿을 수 있는 범위에서 슬라이딩으로 이어져요. 버튼을 놓으면 추가 발 구동이 멈추고 몸의 관성은 남아요.</p>
       <p>유저가 실제로 받을 수 있는 위치에서 준비하면 AI 동료가 후속 공을 커버해요. 방향을 바꾸거나 놓치면 AI가 다시 받으러 들어와요. 아군 세터의 정상 공격 토스에는 슬라이딩이 나가지 않으며, 점프 발차기는 스파이크와 블로킹으로 이어져요. 점수판 아래 안내와 수비 표식에서 현재 받을 선수를 확인하세요.</p>
@@ -513,13 +549,13 @@ class TakrawUI {
       <h3>내 팀을 꾸려요</h3><p>내 팀 관리에서 선수를 선택해 리시버·세터·공격수에 편성하고, 훈련과 스카우트로 선수단을 성장시키세요. 선발 선수를 다른 자리에 배치하면 두 선수가 자리를 바꿔요. 후보 선수를 넣으면 기존 선발은 후보가 돼요. 추천 역할과 관계없이 세 자리에 자유롭게 배치할 수 있어요.</p>
       <p>능력치 50이 기본이며 100까지 훈련해요. 1 P를 사용하면 선택한 능력치가 2 올라요. AI 대전을 끝내면 승리 180 C·3 P, 패배 100 C·2 P를 받아요. 경기 도중 나가기, 연습, 로컬·온라인 대전에는 보상이 없어요. 내 편성과 훈련은 새 AI 대전·연습에 적용되고, 로컬·온라인은 양 팀 모두 기본 능력치로 경기해요.</p>
       <p>팀은 현재 브라우저에 저장돼요. 이름 저장·편성·훈련·영입·경기 보상 완료 시 저장하며, 계정이나 다른 기기로 자동 동기화하지 않아요. 다른 탭에서 변경했다면 최신 저장을 불러오세요. 보상 저장에 실패하면 재시도 버튼을 사용하세요. 저장 완료 전에 탭을 닫으면 미저장 보상을 잃을 수 있어요.</p>
-      <details class="diagnostics"><summary>실행 정보 · 문제 신고에 사용</summary><p>문제가 생긴 화면의 상태를 복사해 전달할 수 있어요.</p><div class="dialog-actions"><button type="button" class="secondary-small" data-dialog-action="diagnostics-refresh">새로고침</button><button type="button" class="secondary-small" data-dialog-action="diagnostics-copy">실행 정보 복사</button></div><pre id="diagnostics-output">실행 정보를 준비하고 있어요.</pre></details>`;
+      <details class="diagnostics"><summary>실행 정보 · 문제 신고에 사용</summary><p>문제가 생긴 화면의 상태를 복사해 전달할 수 있어요.</p><div class="dialog-actions"><button type="button" class="secondary-small" data-dialog-action="diagnostics-refresh">새로고침</button><button type="button" class="secondary-small" data-dialog-action="diagnostics-copy">실행 정보 복사</button></div><pre id="diagnostics-output">실행 정보를 준비하고 있어요.</pre></details>`);
   }
 
   settingsContent() {
     return `<div class="settings-row"><div><strong>효과음</strong><small>발끝의 접촉과 랠리의 리듬</small></div><button type="button" class="toggle-button" role="switch" aria-label="효과음" aria-checked="${this.settings.sound}" data-dialog-action="sound"></button></div>
       <div class="settings-row"><div><strong>화면 품질</strong><small>느린 기기에서는 가볍게</small></div><div class="segmented" role="group" aria-label="화면 품질"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">가볍게</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">선명하게</button></div></div>
-      <div class="settings-row"><div><strong>카메라</strong><small>우클릭 드래그로 회전 · C로 기본 시점</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">시점 초기화</button></div>
+      <div class="settings-row"><div><strong>카메라</strong><small>${this.coarse.matches ? '공과 선수를 따라가는 기본 시점' : '우클릭 드래그로 회전 · C로 기본 시점'}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">시점 초기화</button></div>
       <p class="key-tip">화면 품질을 바꿔도 공의 움직임과 경기 규칙은 같아요.</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">완료</button></div>`;
   }
 
@@ -622,7 +658,7 @@ class TakrawUI {
       `${hud.possession === hud.localTeam ? '우리 팀' : '상대 팀'} 터치` : '터치');
     const teamPlay = hud.teamPlay, notice = teamPlay?.title || hud.lastMessage || '';
     this.text('rally-notice', notice);
-    this.text('rally-detail', teamPlay?.detail || '');
+    this.text('rally-detail', this.controlText(teamPlay?.detail || ''));
     const callout = document.getElementById('rally-callout'), tone = teamPlay?.tone || 'neutral';
     callout.hidden = !notice;
     if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
@@ -643,13 +679,13 @@ class TakrawUI {
     const downward = training.lesson === 'downward';
     const lessonSelect = document.getElementById('training-lesson');
     if (lessonSelect.value !== training.lesson) lessonSelect.value = training.lesson;
-    this.text('training-sequence', training.sequence);
+    this.text('training-sequence', this.controlText(training.sequence));
     this.text('training-motion', training.motionStatus);
     this.text('training-count', `${Math.max(1, training.attempt || 0)}번째 토스`);
     const stages = { ready: '토스 준비', set: '세터의 토스', position: '자리 잡기', brake: '이동 멈추기', jump: '점프 타이밍', kick: '발차기 타이밍', contact: '타격', result: '이번 시도' };
     this.text('training-stage', stages[training.stage] || training.title || '스파이크 연습');
-    this.text('training-cue', training.cue);
-    this.text('training-detail', training.detail);
+    this.text('training-cue', this.controlText(training.cue));
+    this.text('training-detail', this.controlText(training.detail));
     this.text('training-successes', `성공 ${training.successes || 0}회`);
     const coach = document.getElementById('training-coach');
     const tone = training.tone || 'neutral';
@@ -670,8 +706,8 @@ class TakrawUI {
     else if (training.stage === 'kick' && !downward) label = Number.isFinite(training.kickIn) && training.kickIn > 0 ? `발차기까지 ${(Math.ceil(training.kickIn * 10) / 10).toFixed(1)}초` : '좌클을 유지하세요';
     else if (Number.isFinite(training.jumpIn) && training.jumpIn > 0) label = `점프까지 ${(Math.ceil(training.jumpIn * 10) / 10).toFixed(1)}초`;
     else if (training.stage === 'kick') label = '좌클을 유지한 채 점프하세요';
-    this.text('training-timing-label', label);
-    timing.setAttribute('aria-valuetext', label);
+    this.text('training-timing-label', this.controlText(label));
+    timing.setAttribute('aria-valuetext', this.controlText(label));
   }
 
   dispose() { this.releaseTouch(); if (this.copyTimer) window.clearTimeout(this.copyTimer); this.controller.abort(); }

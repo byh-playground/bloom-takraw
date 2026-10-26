@@ -38,6 +38,7 @@
         <button id="open-club" class="club-home-button" type="button"><span><strong>내 팀 관리</strong><small id="club-home-summary">팀을 불러오는 중</small></span><span aria-hidden="true">→</span></button>
       </div>
       <div id="boot-status" class="boot-status" role="status"><span class="loading-dot"></span><span id="boot-message"></span><button id="reload-button" type="button" hidden="">다시 열기</button></div>
+      <p class="home-touch-controls">왼손으로 이동 · 오른손으로 점프와 발차기</p>
       <p class="home-controls"><kbd>W A S D</kbd> 이동 <span></span><kbd>Space</kbd> 점프 <span></span><kbd>좌클</kbd> 발차기</p>
     </main>
 
@@ -60,7 +61,7 @@
       <div id="end-actions" class="end-actions" hidden=""><strong id="match-result">경기 종료</strong><span id="match-reward" role="status"></span><button id="reward-retry" type="button" class="secondary-small" hidden="">보상 저장 재시도</button><button id="rematch-button" type="button" class="primary-small">다시 경기</button><button id="result-home" type="button" class="secondary-small">처음으로</button></div>
       <section id="training-actions" class="training-actions" aria-label="스파이크 연습 가이드" hidden="">
         <div class="training-heading"><span>스파이크 레슨</span><span id="training-count">첫 번째 토스</span></div>
-        <label class="training-lessons" for="training-lesson"><span>연습할 동작</span><select id="training-lesson" aria-label="연습할 동작"><option value="auto">상황에 맞춰 차기</option><option value="downward">내려찍기</option><option value="sideswipe">사선 회전킥</option><option value="scissors">가위치기</option><option value="roundhouse540">540도 회전킥</option></select></label>
+        <label class="training-lessons" for="training-lesson"><span>연습할 동작</span><select id="training-lesson" aria-label="연습할 동작"></select></label>
         <p id="training-sequence" class="training-sequence">거리와 높이 맞추기 → 점프 → 좌클 유지</p>
         <div id="training-coach" class="training-coach" data-tone="neutral">
           <span id="training-stage" class="training-stage">토스 준비</span>
@@ -75,8 +76,8 @@
     </section>
 
     <div id="touch-controls" class="touch-controls" hidden="">
-      <div id="move-pad" class="move-pad" role="group" aria-label="이동 조이스틱"><div class="pad-cross" aria-hidden="true"></div><div id="move-thumb" class="move-thumb" aria-hidden="true"></div></div>
-      <div class="touch-actions"><button data-touch="jump" class="touch-jump" type="button">점프<small>길게 · 높게</small></button><button data-touch="kick" class="touch-kick" type="button">발차기<small>누르는 동안 힘</small></button></div>
+      <div id="move-pad" class="move-pad" role="group" aria-label="이동 조이스틱"><span class="move-label" aria-hidden="true">이동</span><div class="pad-cross" aria-hidden="true"></div><div id="move-thumb" class="move-thumb" aria-hidden="true"></div></div>
+      <div class="touch-actions"><button data-touch="jump" class="touch-jump" type="button">점프<small>길게 · 높게</small></button><button data-touch="kick" class="touch-kick" type="button">발차기<small>누르고 유지</small></button></div>
     </div>
 
   <footer class="site-footer"><span>블룸 세팍타크로 <b id="version-label">—</b></span><span id="connection-indicator" hidden=""><i></i><span></span></span><span class="home-only">몸으로 읽고, 타이밍으로 넘기다.</span></footer>

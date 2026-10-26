@@ -41,3 +41,12 @@
 시뮬레이션은 사람 선수의 공중 발 접촉마다 `timing: { grade, error }`를 접촉 이벤트에 싣습니다. 등급 창은 `config.timing`, 효과 값은 `config.visual.impact`, 소리는 `config/runtime.js`의 `kick`·`kickGood`·`kickPerfect`가 소유합니다. 표시 계층은 이 이벤트를 받아 모양만 정하며 시뮬레이션 시간과 공의 움직임을 바꾸지 않습니다.
 
 runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(handle, ageMs)`·`reconcile`·`stop`에 `TakrawImpactEffects`를 연결합니다. 효과 모양은 저널이 주는 경과 시간의 함수이고 입자 방향은 접촉 이벤트의 `tick`·`sequence`에서 만든 시드 난수입니다. 따라서 롤백 재확정에서 효과가 처음부터 다시 시작하지 않고, 두 피어가 같은 모양을 그립니다. 등급 표시(`#timing-badge`)는 같은 이벤트 수명에 묶여 있고 `ui.showTiming`이 돌려준 토큰으로만 지워집니다.
+
+## 학습 모듈의 경계
+
+`src/learning/core/`는 게임을 모르는 범용 강화학습이다. 정책은 층(`DenseLayer`)을 조합하고 `Quantizable` 믹스인으로 양자화 저장을 얻는다. `Algorithm`(sample·update·actor)은 `Reinforce`, 이를 상속한 `ActorCritic`, 그리고 `Dqn`이 구현한다. 과제는 `Task.rollout(seed, chooseAction)`으로 전이 `{obs, action, reward, nextObs, done}`를 돌려준다.
+
+`src/learning/takraw/`는 게임 전용이다. `TAKRAW_TUNING`이 조정 값의 이름·범위를 정의하고 기본값은 `config`와 `physics.settings`에서 읽는다(SSOT). `ReceiveObservation`이 정책 입력의 유일한 인코더이고, `ReceiveTask`가 스파이크 리시브 장면과 판정을 소유한다. 장면마다 새 게임을 만든다.
+
+경기와의 접점은 `game.setTuning(team, values)`뿐이다. 조정 값은 팀별 `game.tuning`에 두고 `save`·`load`·`validate`가 포함한다. 물리에 영향을 주는 값(`contactHeight`, `strokeTime`, `attackApex`)은 `physics.setTossTuning`이 팀별 설정 사본으로 반영한다. 조정이 없으면 기본 설정 객체를 그대로 쓴다. 정책 추론은 사칙연산만 쓰는 활성 함수(`x / (1 + |x|)`)로 구현해 엔진이 달라도 같은 값을 내도록 했다. 저장은 4비트 양자화한 가중치의 base64이며 `PolicyStore`가 다룬다.
+

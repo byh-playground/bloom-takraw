@@ -30,11 +30,13 @@ src/
   club/club.js               선수·편성·보상·IndexedDB 저장
   motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
   simulation/{game,physics,timing}.js  경기 규칙, Rapier 어댑터, 입력 타이밍 판정
+  learning/                  규칙 AI 조정 값 강화학습(core: 범용, takraw: 게임 전용)
   presentation/{view,ui,impact}.js     Three.js 표시, DOM UI, 접촉 효과
 styles/app.css               화면 스타일
 scripts/                     원본 HTTP 서버·정적 참조·의존성 검사
 playwright.config.js         사용자 시나리오 실행 구성
 tests/{user-flow,mobile-flow}.spec.js  고정 사용자 흐름 E2E
+tests/learning.spec.js       학습 모듈 단위 검사(브라우저 없이 실행)
 docs/                        구조 설명과 보존 검증 기록
 artifacts/                   새 실행 결과, Git 제외
 ```

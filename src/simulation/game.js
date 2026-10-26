@@ -28,6 +28,8 @@ class TakrawGame {
     this.timingJudge = new TakrawTimingJudge(config.timing);
     this.revision = 0;
     this.tuning = [null, null]; // 팀별 학습 조정 값(이름 → 절대값). 없으면 config 기본값을 쓴다.
+    this.tuners = [null, null]; // 팀별 상황 반응형 조정기: (game, playerId) → 조정 값. 상대가 공을 칠 때마다 다시 계산한다(로컬 경기 전용).
+    this.retuneTeam = -1;
     this.isolated = false; // 학습 장면 전용: 훈련 모드에서도 상대 공에 대한 리시브 판단을 켠다.
     this.teamById = {};
     this.setTeams();
@@ -70,6 +72,7 @@ class TakrawGame {
 
   reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto') {
     this.mode = mode;
+    this.retuneTeam = -1;
     this.state = {
       mode, phase: 'ready', tick: 0, time: 0,
       score: [0, 0], sets: [0, 0], set: 1,
@@ -241,6 +244,7 @@ class TakrawGame {
       this.metrics.physicsSteps++;
       for (const event of events) this.handlePhysicsEvent(event, humans);
       this.confirmToss(humans);
+      this.applyTuner();
       const afterBall = this.physics.ball.translation();
       if (this.mode === 'training') this.observeTraining();
       if (this.state.phase === 'rally' && beforeBall.x * afterBall.x < 0) {
@@ -369,6 +373,7 @@ class TakrawGame {
       }
       const spike = /^foot/.test(event.part || '') && !!event.footVelocity && event.footVelocity.y < -1 && event.position.y > this.config.court.netHeight;
       if (spike) this.metrics.spikes++;
+      if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
       const target = this.inputs[event.playerId]?.tossTarget;
       const set = target && /^(foot|lowerLeg)/.test(event.part || '') && this.physics.players[event.playerId].kick.mode === 'ground' && !spike;
       const intent = this.inputs[event.playerId]?.intent;
@@ -595,6 +600,31 @@ class TakrawGame {
     if (values && !Object.values(values).every(Number.isFinite)) throw new Error('조정 값은 유한한 수여야 합니다.');
     this.tuning[team] = values ? { ...values } : null;
     this.physics.setTossTuning(team, this.tuning[team]);
+  }
+
+  /** 팀의 조정기를 등록한다. null이면 해제하고 조정 값도 기본으로 되돌린다. */
+  setTuner(team, tuner) {
+    if (tuner !== null && typeof tuner !== 'function') throw new Error('조정기는 함수여야 합니다.');
+    this.tuners[team] = tuner;
+    if (!tuner) this.setTuning(team, null);
+  }
+
+  /** 상대가 방금 공을 쳤다면, 공이 반응한 뒤 착지 예상 지점에 가장 가까운 선수 기준으로 팀 조정 값을 갱신한다. */
+  applyTuner() {
+    const team = this.retuneTeam;
+    if (team < 0) return;
+    this.retuneTeam = -1;
+    const tuner = this.tuners[team];
+    if (!tuner || this.state.phase !== 'rally') return;
+    const land = this.predictAtHeight(this.config.ai.receiveHeight);
+    if (!land.reachable) return;
+    let nearest = null, best = Infinity;
+    for (const player of this.physics.players) {
+      if (player.team !== team) continue;
+      const t = player.root.translation(), d = Math.hypot(t.x - land.x, t.z - land.z);
+      if (d < best) { best = d; nearest = player.id; }
+    }
+    if (nearest !== null) this.setTuning(team, tuner(this, nearest));
   }
 
   tossTarget(player) { return this.kickIntent(player)?.target || null; }

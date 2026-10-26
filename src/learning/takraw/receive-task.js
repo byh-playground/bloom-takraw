@@ -69,7 +69,7 @@ class ReceiveTask extends Task {
       if (game.state.phase !== 'rally') { ended = game.state.pointReason || ''; break; }
       if (touched && physics.ball.linvel().y <= 0 && b.y > 1.2) settled = true;
     }
-    const result = { seed, obs, action: choice?.action ?? null, mean: choice?.mean ?? null, ticks: tick - start };
+    const result = { ...(choice ?? { action: null }), seed, obs, nextObs: null, done: true, ticks: tick - start }; // 결정이 한 번뿐인 과제
     if (!touched) return { ...result, success: false, code: 'no_touch', reward: 0.1 * Math.max(0, Math.min(1, 1 - closest / 3)) };
     if (!settled) return { ...result, success: false, code: 'foul/lost', reason: ended, reward: /네트/.test(ended || '') ? -0.5 : -0.3 };
     return { ...result, ...this._judge(game) };

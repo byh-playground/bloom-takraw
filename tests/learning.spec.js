@@ -1,5 +1,5 @@
 import { test, expect } from 'playwright/test';
-import { LinearPolicy, MlpPolicy, Policy, Quantizer, Adam, GaussianExploration, EmaBaseline, Reinforce, Trainer, PolicyStore, TuningSpec, TAKRAW_TUNING } from '../src/learning/index.js';
+import { LinearPolicy, MlpPolicy, Policy, Quantizer, Adam, GaussianExploration, EmaBaseline, Reinforce, ActorCritic, Dqn, BranchActions, ReplayBuffer, Trainer, PolicyStore, TuningSpec, TAKRAW_TUNING } from '../src/learning/index.js';
 
 const mulberry = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
 const randomize = (policy, random) => { for (const p of policy.parameters()) for (let i = 0; i < p.weights.length; i++) p.weights[i] = (random() - 0.5) * 2; };
@@ -88,4 +88,51 @@ test('TuningSpec: 0은 기본값, ±1은 범위 끝, 범위 밖은 잘린다', (
   const high = spec.decode(new Array(spec.size).fill(1), game), low = spec.decode(new Array(spec.size).fill(-5), game);
   TAKRAW_TUNING.forEach(e => { expect(high[e.name]).toBeCloseTo(e.max, 10); expect(low[e.name]).toBeCloseTo(e.min, 10); });
   expect(() => spec.decode([0], game)).toThrow();
+});
+
+test('ActorCritic: 상태마다 다른 최적 출력을 배우고 크리틱이 상태 가치를 맞춘다', () => {
+  const random = mulberry(7), contexts = [Float64Array.of(1, 0), Float64Array.of(0, 1)], targets = [[0.6, -0.4], [-0.5, 0.3]];
+  const algorithm = new ActorCritic({ policy: new LinearPolicy(2, 2), critic: new LinearPolicy(2, 1, { output: 'identity' }),
+    exploration: new GaussianExploration({ sigma: 0.3, random }), optimizer: new Adam({ learningRate: 0.05 }), criticOptimizer: new Adam({ learningRate: 0.05 }) });
+  const reward = (c, a) => -a.reduce((s, x, k) => s + (x - targets[c][k]) ** 2, 0);
+  for (let r = 0; r < 500; r++) algorithm.update(Array.from({ length: 8 }, () => { const c = Math.floor(random() * 2), e = algorithm.sample(contexts[c]); return { ...e, reward: reward(c, e.action), nextObs: null, done: true }; }));
+  contexts.forEach((obs, c) => {
+    const out = algorithm.actor().act(obs);
+    expect(Math.max(...out.map((x, k) => Math.abs(x - targets[c][k])))).toBeLessThan(0.15);
+    expect(Math.abs(algorithm.value(obs) - (-2 * 0.09))).toBeLessThan(0.15); // 탐험 잡음 σ=0.3 아래의 기대 보상 −2σ²
+  });
+});
+
+test('Dqn(분기형): 상태별 최적 단계를 고르고, 목표망·리플레이가 동작한다', () => {
+  const random = mulberry(8), contexts = [Float64Array.of(1, 0), Float64Array.of(0, 1)], best = [[2, 0], [0, 1]];
+  const actions = new BranchActions({ branches: 2, values: [-0.5, 0, 0.5] });
+  const algorithm = new Dqn({ qPolicy: new LinearPolicy(2, actions.outputSize, { output: 'identity' }), targetPolicy: new LinearPolicy(2, actions.outputSize, { output: 'identity' }),
+    actions, optimizer: new Adam({ learningRate: 0.02 }), random, minReplay: 32, targetEvery: 10, epsilon: { start: 1, end: 0.1, steps: 600 } });
+  for (let r = 0; r < 120; r++) algorithm.update(Array.from({ length: 8 }, () => { const c = Math.floor(random() * 2), e = algorithm.sample(contexts[c]); return { ...e, reward: e.indices.reduce((s, l, b) => s + (l === best[c][b] ? 1 : 0), 0) / 2, nextObs: null, done: true }; }));
+  contexts.forEach((obs, c) => expect(algorithm.actor().act(obs)).toEqual(best[c].map(l => actions.values[l])));
+  expect(algorithm.epsilon).toBeCloseTo(0.1, 5); expect(algorithm.replay.size).toBe(960);
+});
+
+test('Dqn: 여러 단계 보상이 앞 상태로 전파된다 (사슬 환경)', () => {
+  const random = mulberry(9), N = 4, state = i => Float64Array.from({ length: N }, (_, k) => k === i ? 1 : 0);
+  const actions = new BranchActions({ branches: 1, values: [-1, 1] }); // 왼쪽, 오른쪽
+  const algorithm = new Dqn({ qPolicy: new LinearPolicy(N, 2, { output: 'identity' }), targetPolicy: new LinearPolicy(N, 2, { output: 'identity' }),
+    actions, optimizer: new Adam({ learningRate: 0.03 }), random, gamma: 0.9, minReplay: 32, targetEvery: 10, epsilon: { start: 1, end: 0.2, steps: 1500 } });
+  for (let episode = 0; episode < 400; episode++) {
+    let s = 0; const batch = [];
+    for (let step = 0; step < 12; step++) {
+      const e = algorithm.sample(state(s)), next = Math.max(0, Math.min(N - 1, s + (e.action[0] > 0 ? 1 : -1))), done = next === N - 1;
+      batch.push({ ...e, reward: done ? 1 : 0, nextObs: done ? null : state(next), done }); s = next; if (done) break;
+    }
+    algorithm.update(batch);
+  }
+  for (let i = 0; i < N - 1; i++) expect(algorithm.actor().act(state(i))).toEqual([1]);
+  const q0 = algorithm.qPolicy.forward(state(0))[1];
+  expect(q0).toBeGreaterThan(0.5); expect(q0).toBeLessThan(1.0); // 이상값 γ^2 = 0.81
+});
+
+test('ReplayBuffer: 용량을 넘으면 오래된 전이부터 덮어쓴다', () => {
+  const buffer = new ReplayBuffer(3, mulberry(10)); [1, 2, 3, 4, 5].forEach(x => buffer.push(x));
+  expect(buffer.size).toBe(3); expect([...buffer.items].sort()).toEqual([3, 4, 5]);
+  buffer.sample(20).forEach(x => expect([3, 4, 5]).toContain(x));
 });

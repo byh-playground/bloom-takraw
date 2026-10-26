@@ -57,6 +57,8 @@ class Policy extends Quantizable(Object) {
   act(obs) { return this.forward(obs); }
   /** 직전 forward 호출에 대한 출력 기울기를 역전파한다. */
   backward(gradOutput) { let g = Float64Array.from(gradOutput); for (let i = this.layers.length - 1; i >= 0; i--) g = this.layers[i].backward(g); }
+  /** 같은 구조의 다른 정책 가중치를 복사한다(DQN 목표망 갱신). */
+  copyFrom(other) { this.layers.forEach((layer, i) => layer.weights.set(other.layers[i].weights)); return this; }
   zeroGradient() { for (const layer of this.layers) layer.gradient.fill(0); }
   /** 최적화·양자화가 다루는 가중치와 기울기 목록. */
   parameters() { return this.layers.map(layer => ({ weights: layer.weights, gradient: layer.gradient, rows: layer.outputs, columns: layer.columns })); }
@@ -72,14 +74,15 @@ class Policy extends Quantizable(Object) {
 
 /** 입력 → 출력 한 층. 가장 작은 정책이다. */
 class LinearPolicy extends Policy {
-  constructor(inputs, outputs) { super([new DenseLayer(inputs, outputs, 'bounded')]); }
+  /** output: 출력 활성 함수. 행동 평균은 'bounded'([-1, 1]), 가치(Q·V)는 'identity'. */
+  constructor(inputs, outputs, { output = 'bounded' } = {}) { super([new DenseLayer(inputs, outputs, output)]); }
 }
 
 /** 은닉층을 가진 정책. hidden은 은닉 크기 배열이다. */
 class MlpPolicy extends Policy {
-  constructor(inputs, hidden, outputs) {
+  constructor(inputs, hidden, outputs, { output = 'bounded' } = {}) {
     const sizes = [inputs, ...hidden, outputs];
-    super(sizes.slice(1).map((size, i) => new DenseLayer(sizes[i], size, 'bounded')));
+    super(sizes.slice(1).map((size, i) => new DenseLayer(sizes[i], size, i === sizes.length - 2 ? output : 'bounded')));
   }
 }
 

@@ -29,11 +29,11 @@ class Trainer {
   }
 }
 
-/** 고정 시드 장면에서 정책(또는 조정 없는 규칙 AI)을 평가한다. 정책의 평균 출력만 쓰고 탐험하지 않는다. */
-function evaluate(task, policy, seeds) {
+/** 고정 시드 장면에서 actor({ act(obs) }, null이면 조정 없는 규칙 AI)를 평가한다. 탐험하지 않는다. */
+function evaluate(task, actor, seeds) {
   const by = {}; let success = 0, reward = 0;
   for (const seed of seeds) {
-    const episode = task.rollout(seed, policy ? obs => ({ action: policy.act(obs) }) : null);
+    const episode = task.rollout(seed, actor ? obs => ({ action: actor.act(obs) }) : null);
     success += episode.success ? 1 : 0; reward += episode.reward; by[episode.code] = (by[episode.code] || 0) + 1;
   }
   return { success, n: seeds.length, meanReward: reward / seeds.length, by };

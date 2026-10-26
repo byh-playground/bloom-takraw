@@ -599,3 +599,12 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
 .network-debug pre{max-height:122px;white-space:pre-wrap;overflow:auto;overflow-wrap:anywhere;padding:8px;background:#e5eee3;border-radius:7px;font-size:10px;line-height:1.5;color:#3f6250}
 .network-debug button{min-height:36px;padding:8px 12px}
 .room-status{white-space:normal}
+.timing-badge{display:flex;align-items:baseline;justify-content:center;gap:8px;margin:6px auto 0;padding:4px 14px;width:max-content;max-width:100%;border:1px solid #ffffffb3;border-radius:999px;background:#f9f9eeeb;color:#315b49;line-height:1.4;animation:timing-pop .28s ease-out both}
+.timing-badge[hidden]{display:none}
+.timing-badge strong{font-size:15px;font-weight:800;letter-spacing:.02em}
+.timing-badge span{font-size:12px;font-variant-numeric:tabular-nums;opacity:.75}
+.timing-badge[data-grade="perfect"]{background:#fff0b3;border-color:#ffe27a;color:#6b4a00}
+.timing-badge[data-grade="perfect"] strong{font-size:17px}
+.timing-badge[data-grade="normal"]{color:#5f6b66}
+.timing-badge[data-grade="normal"] strong{font-weight:700}
+@keyframes timing-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}

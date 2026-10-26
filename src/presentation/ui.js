@@ -646,6 +646,30 @@ class TakrawUI {
     this.cache.set(id, string); const node = document.getElementById(id); if (node) node.textContent = string;
   }
 
+  /**
+   * 접촉 타이밍 등급을 표시한다. 반환된 토큰으로 hideTiming하면 그 표시만 지운다.
+   * 짧은 간격의 접촉이 겹쳐도 먼저 끝난 표시가 나중 표시를 지우지 않는다.
+   */
+  showTiming(timing) {
+    const labels = { perfect: '퍼펙트', good: '굿' };
+    const label = labels[timing.grade] || (timing.error < 0 ? '빠름' : '늦음');
+    const milliseconds = Math.round(timing.error * 1000);
+    const badge = document.getElementById('timing-badge');
+    this.text('timing-grade', label);
+    this.text('timing-offset', `${milliseconds > 0 ? '+' : ''}${milliseconds}ms`);
+    badge.dataset.grade = timing.grade;
+    badge.hidden = false;
+    badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
+    this.timingToken = { grade: timing.grade };
+    return this.timingToken;
+  }
+
+  hideTiming(token) {
+    if (!token || this.timingToken !== token) return;
+    this.timingToken = null;
+    document.getElementById('timing-badge').hidden = true;
+  }
+
   update(hud) {
     if (!hud) return;
     this.text('score-0', hud.score?.[0] ?? 0); this.text('score-1', hud.score?.[1] ?? 0);

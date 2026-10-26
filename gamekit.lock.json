@@ -34,6 +34,10 @@
     "deterministic": {
       "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/deterministic.js",
       "sha256": "1917d9766f1a1a2bbd4eab3bf214205979e7881c8cfb34cd1183f462a47ba62f"
+    },
+    "object-pool": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@9bcb2b20fc7c227553317ae31b8fb400437047eb/object-pool.js",
+      "sha256": "4291d6d90f23b47024153e2d2db9e1af7f8b78586c8c0ee279621d42dc54f10b"
     }
   },
   "external": {

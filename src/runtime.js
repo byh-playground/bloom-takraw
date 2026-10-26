@@ -27,7 +27,7 @@ const PLAYER_STATE_LABELS = Object.freeze({
 async function bootTakraw() {
   const config = TAKRAW_CONFIG;
   const stepMs = 1000 / config.simulation.tickRate;
-  const dependencyState = Object.fromEntries(['three', 'rapier', '@bloom-gamekit/input', '@bloom-gamekit/simloop', '@bloom-gamekit/interpolation', '@bloom-gamekit/rollback', '@bloom-gamekit/transport', '@bloom-gamekit/audio', '@bloom-gamekit/presentation-events', '@bloom-gamekit/deterministic'].map(name => [name, { url: import.meta.resolve(name), state: 'ready' }]));
+  const dependencyState = Object.fromEntries(['three', 'rapier', '@bloom-gamekit/input', '@bloom-gamekit/simloop', '@bloom-gamekit/interpolation', '@bloom-gamekit/rollback', '@bloom-gamekit/transport', '@bloom-gamekit/audio', '@bloom-gamekit/presentation-events', '@bloom-gamekit/deterministic', '@bloom-gamekit/object-pool'].map(name => [name, { url: import.meta.resolve(name), state: 'ready' }]));
   const errors = [];
   const listeners = [];
   const actionNames = [
@@ -396,6 +396,25 @@ async function bootTakraw() {
     resetMode = null;
   }
 
+  /** 접촉 효과 한 건의 표시 자원. 우리 팀의 타이밍 등급 표시는 이벤트 수명 동안 함께 유지한다. */
+  function showBadge(payload) {
+    return payload.timing && (mode === 'local' || payload.team === localTeam()) ? ui.showTiming(payload.timing) : null;
+  }
+
+  /** 등급 표시가 바뀌었는지 비교하는 키. 같은 판정이 재확정될 때 표시를 다시 띄우지 않기 위해 쓴다. */
+  function badgeKey(timing) {
+    return timing ? `${timing.grade}:${Math.round(timing.error * 1000)}` : '';
+  }
+
+  /** 접촉 이벤트가 남는 시간(ms). 등급 효과의 정지·궤적 강조와 등급 표시가 끝날 때까지 유지한다. */
+  function contactDuration(timing) {
+    const { duration, badge } = TAKRAW_RUNTIME.feedback;
+    if (!timing) return duration;
+    const impact = TAKRAW_CONFIG.visual.impact[timing.grade] ?? TAKRAW_CONFIG.visual.impact.normal;
+    return Math.max(duration, badge, (impact.hold + impact.life) * 1000,
+      (impact.trail?.duration ?? 0) * 1000, (impact.shake?.duration ?? 0) * 1000);
+  }
+
   function replaceJournal() {
     journal?.dispose();
     inRollback = false;
@@ -404,11 +423,22 @@ async function bootTakraw() {
       adapters: {
         contact: {
           reversible: true,
-          start(event) { return { cleanup: view.burst(event.payload) }; },
-          stop(handle) { if (typeof handle?.cleanup === 'function') handle.cleanup(); },
+          start(event) {
+            return { impact: view.impacts.start(event.payload), badge: showBadge(event.payload), badgeKey: badgeKey(event.payload.timing) };
+          },
+          update(handle, ageMs) { view.impacts.update(handle.impact, ageMs); },
+          // 같은 이벤트의 재확정은 경과 시간을 유지한 채 모양과 등급 표시만 갱신한다.
           reconcile(handle, event) {
-            if (typeof handle.cleanup === 'function') handle.cleanup();
-            handle.cleanup = view.burst(event.payload);
+            view.impacts.reconcile(handle.impact, event.payload);
+            const key = badgeKey(event.payload.timing);
+            if (key === handle.badgeKey) return;
+            ui.hideTiming(handle.badge);
+            handle.badge = showBadge(event.payload);
+            handle.badgeKey = key;
+          },
+          stop(handle) {
+            view.impacts.release(handle.impact);
+            ui.hideTiming(handle.badge);
           },
         },
         sound: audio.createAdapter({ onEnded: event => journal?.finish(event) }),
@@ -432,10 +462,11 @@ async function bootTakraw() {
           kind: 'contact',
           payload: { ...event, position: { ...event.position } },
           policy: 'speculative',
-          durationMs: TAKRAW_RUNTIME.feedback.duration,
+          durationMs: contactDuration(event.timing),
         });
       }
-      const soundId = { touch: 'kick', land: 'land', net: 'net', serve: 'serve', point: 'point' }[event.type];
+      const kickSound = { perfect: 'kickPerfect', good: 'kickGood' }[event.timing?.grade] ?? 'kick';
+      const soundId = { touch: kickSound, land: 'land', net: 'net', serve: 'serve', point: 'point' }[event.type];
       if (soundId) {
         const strength = event.type === 'point' || event.type === 'serve' ? 0.8 :
           Math.max(0.2, Math.min(1.2, event.speed / TAKRAW_RUNTIME.feedback.soundReferenceSpeed));

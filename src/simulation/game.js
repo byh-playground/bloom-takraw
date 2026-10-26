@@ -27,6 +27,8 @@ class TakrawGame {
     this.physics = new TakrawPhysics(RAPIER, config);
     this.timingJudge = new TakrawTimingJudge(config.timing);
     this.revision = 0;
+    this.tuning = [null, null]; // 팀별 학습 조정 값(이름 → 절대값). 없으면 config 기본값을 쓴다.
+    this.isolated = false; // 학습 장면 전용: 훈련 모드에서도 상대 공에 대한 리시브 판단을 켠다.
     this.teamById = {};
     this.setTeams();
     this.reset('match');
@@ -451,7 +453,7 @@ class TakrawGame {
   }
 
   isReceiveBall(team, intercept) {
-    if (this.mode === 'training' || this.state.phase !== 'rally') return false;
+    if ((this.mode === 'training' && !this.isolated) || this.state.phase !== 'rally') return false;
     const toward = team === 0 ? 1 : -1;
     // A ball already below the normal receiving height may still have a
     // reachable lower slide contact. The physical planner verifies that path.
@@ -580,9 +582,19 @@ class TakrawGame {
     const condition = recoveringAttacker(ally) ? 'recovering_attacker' : ally.role === preferred || !preferredAlly ? null : /fall|recover|down/i.test(preferredAlly.state) ? 'recovering' : 'distance';
     return { kind: 'toss', reason: condition && condition !== 'recovering_attacker' ? 'cover' : ally.role === 'attacker' ? 'set' : 'receive',
       condition, from: player.id, target: { playerId: ally.id,
-      x: n * Math.max(-this.config.court.halfLength + 0.5, Math.min(-0.95, p.x * n + 0.70)),
-      z: Math.max(-2.55, Math.min(2.55, p.z - n * 0.10)),
+      x: n * Math.max(-this.config.court.halfLength + 0.5, Math.min(-0.95, p.x * n + this.tuned(player.team, 'aimDx', this.config.ai.toss.aim.dx))),
+      z: Math.max(-2.55, Math.min(2.55, p.z - n * 0.10 + this.tuned(player.team, 'aimDz', this.config.ai.toss.aim.dz))),
     } };
+  }
+
+  /** 팀의 학습 조정 값. 조정이 없거나 해당 이름이 없으면 기본값을 돌려준다. */
+  tuned(team, name, fallback) { return this.tuning[team]?.[name] ?? fallback; }
+
+  /** 팀의 조정 값을 바꾼다. values는 이름 → 유한한 수의 객체이며 null이면 기본으로 되돌린다. */
+  setTuning(team, values) {
+    if (values && !Object.values(values).every(Number.isFinite)) throw new Error('조정 값은 유한한 수여야 합니다.');
+    this.tuning[team] = values ? { ...values } : null;
+    this.physics.setTossTuning(team, this.tuning[team]);
   }
 
   tossTarget(player) { return this.kickIntent(player)?.target || null; }
@@ -984,6 +996,10 @@ class TakrawGame {
         }
       }
       if (this.state.training) active = this.state.training.setAt === null && !this.state.training.contact ? this.physics.players[1] : null;
+      const groundBase = this.config.ai.toss.ground;
+      const groundTuned = this.tuning[team] ? { ...groundBase, lead: this.tuned(team, 'lead', groundBase.lead),
+        followThrough: this.tuned(team, 'followThrough', groundBase.followThrough) } : groundBase;
+      const braking = this.tuned(team, 'braking', this.config.ai.receive.braking);
       const defense = this.decideReceive(team, human, available, intercept, active);
       if (defense) active = this.physics.players[defense.playerId];
       for (const player of available) {
@@ -992,7 +1008,7 @@ class TakrawGame {
         const aerial = player === recipient && aerialPass ? aerialPass : this.predictAerial(player), { shortJump } = aerial;
         const q = player.root.translation();
         const setTarget = this.tossTarget(player);
-        const ground = this.config.ai.toss.ground;
+        const ground = groundTuned;
         const kickLead = setTarget ? ground.lead : 0.20;
         const kickWindow = setTarget ? ground.window : 0.36;
         let target = { ...player.home };
@@ -1022,7 +1038,7 @@ class TakrawGame {
         const velocity = this.attackVelocity(player), prepare = attack.preparation;
         const anticipating = player === active && highContact;
         const receiving = player === active && (!!defense || (!!setTarget && !highContact && !player.jump.active));
-        const brakeLead = anticipating ? prepare.brakeLead : receiving ? this.config.ai.receive.braking : 0;
+        const brakeLead = anticipating ? prepare.brakeLead : receiving ? braking : 0;
         const moveX = dx - velocity.x * brakeLead;
         const moveZ = dz - velocity.z * brakeLead;
         const approachScale = player.settings.movementSpeed / this.physics.settings.movementSpeed;
@@ -1096,7 +1112,7 @@ class TakrawGame {
   }
 
   save() {
-    return { version: this.config.version, mode: this.mode, state: structuredClone(this.state), teamNames: [...this.teamNames], teamById: { ...this.teamById }, ai: structuredClone(this.ai), aiDirty: this.aiDirty, inputs: structuredClone(this.inputs), rallyStart: this.rallyStart || 0, metrics: { ...this.metrics }, physics: this.physics.save() };
+    return { version: this.config.version, mode: this.mode, state: structuredClone(this.state), teamNames: [...this.teamNames], teamById: { ...this.teamById }, ai: structuredClone(this.ai), aiDirty: this.aiDirty, inputs: structuredClone(this.inputs), rallyStart: this.rallyStart || 0, metrics: { ...this.metrics }, physics: this.physics.save(), tuning: structuredClone(this.tuning) };
   }
   validate(data) {
     const vector = (value, axes) => value && axes.every(axis => Number.isFinite(value[axis]));
@@ -1110,7 +1126,9 @@ class TakrawGame {
       assignment.team === team && typeof assignment.human === 'boolean' &&
       (!assignment.human || assignment.playerId === team * 3 + 2) && receivePlan(assignment.plan) &&
       (assignment.humanPlan === null || receivePlan(assignment.humanPlan)));
+    const tuning = value => value === null || (value && typeof value === 'object' && Object.values(value).every(Number.isFinite));
     return data && data.version === this.config.version && data.physics && data.state &&
+      Array.isArray(data.tuning) && data.tuning.length === 2 && data.tuning.every(tuning) &&
       Array.isArray(data.teamNames) && data.teamNames.length === 2 && data.teamNames.every(name => typeof name === 'string' && name.trim()) &&
       Array.isArray(data.state.defense) && data.state.defense.length === 2 && Array.from(data.state.defense).every(defense) &&
       Array.isArray(data.state.score) && data.state.score.length === 2 && data.state.score.every(Number.isFinite) &&
@@ -1122,6 +1140,8 @@ class TakrawGame {
   load(data) {
     if (!this.validate(data)) throw new Error('경기 상태 형식 또는 버전이 맞지 않습니다.');
     this.physics.load(data.physics);
+    this.tuning = structuredClone(data.tuning);
+    data.tuning.forEach((values, team) => this.physics.setTossTuning(team, values));
     this.mode = data.mode; this.state = structuredClone(data.state); this.teamById = { ...data.teamById };
     this.teamNames = [...data.teamNames];
     this.ai = structuredClone(data.ai); this.inputs = structuredClone(data.inputs);

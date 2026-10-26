@@ -38,6 +38,8 @@ const TAKRAW_CONFIG = Object.freeze({
   ai: { receiveHeight: 0.75, kickHold: 0.34, jumpHold: 0.25,
     receive: { claimLead: 0.75, commitLead: 0.10, claimSlack: 0.25, coverDistance: 1.25, hysteresis: 0.16, braking: 0.18 },
     toss: { receiveOffset: 0.8, incomingOffset: 0.8, airContactHeight: 3.6,
+      // 동료에게 보내는 지면 토스의 목표 보정(m): dx는 동료보다 네트 쪽, dz는 옆쪽으로 둔다.
+      aim: { dx: 0.70, dz: 0 },
       ground: { lead: 0.30, followThrough: 0.15, window: 0.45 },
       lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
       attack: { offset: 0.65, lateral: 0.10, positionRadius: 0.55, minLead: 0.16, maxLead: 0.65,

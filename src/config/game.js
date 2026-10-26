@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.10';
+const TAKRAW_VERSION = '0.12.11';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -21,6 +21,11 @@ const TAKRAW_CONFIG = Object.freeze({
     attacker: { x: -2.0, z: 1.3 },
   },
   rules: { contacts: 3, points: 15, deuce: 14, cap: 17, sets: 2, ready: 1.25, point: 2 },
+  // 접촉 타이밍 등급 창(초). 오차 크기가 perfect 이하면 perfect, good 이하면 good, 그 외 normal.
+  // 헤드리스 실측(docs/verification/timing-impact.md)에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
+  // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.
+  // maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
+  timing: { windows: { perfect: 0.02, good: 0.04 }, maxAge: 1.2 },
   athletes: { base: 50, max: 100, bonus: {
     mobility: 0.10, jump: 0.02, power: 0.08, flexibility: 0.10,
     setting: 0.04, defense: 0.20, recovery: 0.15,
@@ -50,6 +55,15 @@ const TAKRAW_CONFIG = Object.freeze({
       follow: 7, ballWeight: 0.28, maxLateral: 2.3, maxDistance: 20, frameMargin: 0.78,
       topInset: 120, narrowTopInset: 188, narrowWidth: 700, near: 0.1, far: 100,
       orbit: { sensitivity: 0.006, minPitch: 0.14, maxPitch: 1.13 } },
+    // 접촉 효과의 등급별 표시 값. 등급 이름은 timing.windows와 normal이다.
+    // ringScale: 링 최대 배율, dots: 입자 수, outerRing: 바깥 링 추가, hold: 링·입자를 첫 모습으로 유지하는 시간(초),
+    // shake: 카메라 진동(m, 초), trail: 공 궤적 강조 색과 지속 시간(초).
+    impact: {
+      normal: { life: 0.25, ringScale: 2.1, dots: 6, ringColor: null, outerRing: false, hold: 0, shake: null, trail: null },
+      good: { life: 0.32, ringScale: 2.8, dots: 8, ringColor: 0xfff6d2, outerRing: false, hold: 0, shake: null, trail: null },
+      perfect: { life: 0.45, ringScale: 3.6, dots: 10, ringColor: 0xffe27a, outerRing: true, hold: 0.07,
+        shake: { amplitude: 0.04, duration: 0.2 }, trail: { color: 0xffe27a, duration: 0.8 } },
+    },
     colors: { ground: 0xece7d9, court: 0x467b6f, courtInset: 0x598c7d, line: 0xf6f0d9, home: 0x39b5b0, away: 0xeb785f, ball: 0xffcd61 },
   },
 });

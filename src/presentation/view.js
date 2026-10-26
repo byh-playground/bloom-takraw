@@ -1,3 +1,5 @@
+import { TakrawImpactEffects } from './impact.js';
+
 class TakrawView {
   constructor({ THREE, canvas, config }) {
     this.THREE = THREE;
@@ -8,7 +10,8 @@ class TakrawView {
     this.materials = new Map();
     this.quality = 'high';
     this.lastMs = 0;
-    this.effects = [];
+    this.motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+    this.shakeOffset = { x: 0, y: 0 };
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0xe8eee3);
     this.scene.fog = new THREE.Fog(0xe8eee3, 32, 68);
@@ -35,7 +38,7 @@ class TakrawView {
     this.makeCourt();
     this.makeSurroundings();
     this.makeMarkers();
-    this.makeEffects();
+    this.impacts = new TakrawImpactEffects({ THREE, scene: this.scene, config, reducedMotion: () => this.reducedMotion() });
     this.resize();
   }
 
@@ -259,15 +262,18 @@ class TakrawView {
     this.materials.set('ballHeightTicks', tickMaterial);
     this.ballHeightTicks = new T.LineSegments(this.heightTickGeometry, tickMaterial);
     this.ballHeightTicks.frustumCulled = false; this.ballHeightTicks.renderOrder = 3; this.scene.add(this.ballHeightTicks);
-    const haloMaterial = new T.MeshBasicMaterial({ color: 0x213f37, transparent: true, opacity: .85,
+    this.haloBaseColor = 0x213f37;
+    const haloMaterial = new T.MeshBasicMaterial({ color: this.haloBaseColor, transparent: true, opacity: .85,
       side: T.DoubleSide, depthWrite: false, depthTest: false });
     this.materials.set('ballHalo', haloMaterial);
+    this.haloMaterial = haloMaterial;
     this.ballHalo = this.mesh(this.geometry('ballHalo', () => new T.RingGeometry(.118, .140, 40)), haloMaterial);
     this.ballHalo.castShadow = false; this.ballHalo.receiveShadow = false; this.ballHalo.renderOrder = 4;
     this.trailData = new Float32Array(20 * 3);
     this.trailGeometry = new T.BufferGeometry(); this.trailGeometry.setAttribute('position', new T.BufferAttribute(this.trailData, 3)); this.trailGeometry.setDrawRange(0, 0);
     this.geometries.set('ballTrail', this.trailGeometry);
-    this.trailMaterial = new T.LineBasicMaterial({ color: 0xffdf92, transparent: true, opacity: .55, depthWrite: false }); this.materials.set('ballTrail', this.trailMaterial);
+    this.trailBase = { color: 0xffdf92, opacity: .55 };
+    this.trailMaterial = new T.LineBasicMaterial({ color: this.trailBase.color, transparent: true, opacity: this.trailBase.opacity, depthWrite: false }); this.materials.set('ballTrail', this.trailMaterial);
     this.trail = new T.Line(this.trailGeometry, this.trailMaterial); this.trail.frustumCulled = false; this.scene.add(this.trail); this.trailCount = 0; this.trailLast = new T.Vector3();
     this.makeAttackGuides();
     this.makeReceiveGuides();
@@ -511,30 +517,9 @@ class TakrawView {
     return group;
   }
 
-  makeEffects() {
-    const T = this.THREE;
-    const ringGeometry = this.geometry('impact-ring', () => new T.TorusGeometry(.13, .009, 4, 20));
-    const dotGeometry = this.geometry('impact-dot', () => new T.SphereGeometry(.024, 5, 4));
-    for (let i = 0; i < 10; i++) {
-      const group = new T.Group(); group.visible = false; this.scene.add(group);
-      const material = new T.MeshBasicMaterial({ color: 0xfff1be, transparent: true, depthWrite: false }); this.materials.set(`burst:${i}`, material);
-      const ring = this.mesh(ringGeometry, material, group); ring.castShadow = false;
-      const dots = [];
-      for (let j = 0; j < 6; j++) { const mesh = this.mesh(dotGeometry, material, group); mesh.castShadow = false; dots.push({ mesh, x: 0, y: 0, z: 0 }); }
-      this.effects.push({ group, ring, dots, material, life: 0, generation: 0 });
-    }
-  }
-
-  burst(event) {
-    if (!event || event.type !== 'touch' || !event.position) return () => {};
-    const effect = this.effects.find(item => item.life <= 0) || this.effects.reduce((a,b) => a.life < b.life ? a : b);
-    effect.generation++; const generation = effect.generation;
-    effect.life = .25; effect.group.visible = true; effect.group.position.set(event.position.x, event.position.y, event.position.z);
-    effect.ring.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
-    effect.material.color.set(event.team === 1 ? 0xffd6b4 : 0xe7f6b3);
-    const speed = Math.min(1.3, .40 + (event.speed || 0) * .035);
-    for (const dot of effect.dots) { const angle = Math.random() * Math.PI * 2; dot.x = Math.cos(angle) * speed; dot.y = Math.random() * speed + .12; dot.z = Math.sin(angle) * speed; dot.mesh.position.set(0,0,0); }
-    return () => { if (effect.generation === generation) { effect.life = 0; effect.group.visible = false; } };
+  /** 시스템의 동작 줄이기 설정. 켜져 있으면 정지·진동 효과를 쓰지 않는다. */
+  reducedMotion() {
+    return !!this.motionQuery?.matches;
   }
 
   orbitBy(deltaX, deltaY) {
@@ -644,6 +629,7 @@ class TakrawView {
     else for (const entity of viewData.entities) apply(entity, entity.id);
     if (this.width !== this.canvas.clientWidth || this.height !== this.canvas.clientHeight) this.resize();
     this.updateCamera(viewData, context, dt);
+    this.applyShake();
     this.updateAttackGuides(viewData, context);
     this.updateReceiveGuides(viewData, context);
     const selected = viewData.state?.selected || [2,5];
@@ -678,7 +664,11 @@ class TakrawView {
       this.ballHalo.position.copy(ball.position); this.ballHalo.quaternion.copy(this.camera.quaternion);
       const depth = Math.max(1, this.temp.vector.copy(ball.position).applyMatrix4(this.camera.matrixWorldInverse).z * -1);
       const unitsPerPixel = 2 * depth * Math.tan(this.camera.fov * Math.PI / 360) / this.height;
-      this.ballHalo.scale.setScalar(Math.max(1, 7 * unitsPerPixel / .14));
+      const boost = this.impacts.trailBoost();
+      this.ballHalo.scale.setScalar(Math.max(1, 7 * unitsPerPixel / .14) * (boost ? 1.8 : 1));
+      this.haloMaterial.color.setHex(boost ? boost.color : this.haloBaseColor);
+      this.trailMaterial.color.setHex(boost ? boost.color : this.trailBase.color);
+      this.trailMaterial.opacity = boost ? 1 : this.trailBase.opacity;
       const distance = ball.position.distanceTo(this.trailLast);
       if (distance > .055) {
         if (distance > 2 || viewData.state?.phase === 'ready' || viewData.state?.phase === 'point') this.trailCount = 0;
@@ -688,14 +678,15 @@ class TakrawView {
       }
       this.trail.visible = (viewData.state?.ballSpeed || 0) > 4 && this.trailCount > 1;
     }
-    for (const effect of this.effects) {
-      if (effect.life <= 0) continue;
-      effect.life -= dt; effect.group.visible = effect.life > 0;
-      const progress = 1 - Math.max(0, effect.life) / .25;
-      effect.material.opacity = (1 - progress) * .80; effect.ring.scale.setScalar(.65 + progress * 2.1);
-      for (const dot of effect.dots) { dot.mesh.position.x += dot.x * dt; dot.mesh.position.y += dot.y * dt; dot.mesh.position.z += dot.z * dt; dot.y -= dt * 2; }
-    }
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** 카메라를 화면 평면에서 짧게 흔든다. 위치만 바꾸므로 조준·입력·시뮬레이션에 영향이 없다. */
+  applyShake() {
+    const { x, y } = this.impacts.shake(this.shakeOffset), rig = this.cameraRig;
+    if (!x && !y) return;
+    this.camera.position.addScaledVector(rig.right, x).addScaledVector(rig.up, y);
+    this.camera.updateMatrixWorld();
   }
 
   resize() {
@@ -719,6 +710,7 @@ class TakrawView {
   }
 
   dispose() {
+    this.impacts.dispose();
     for (const geometry of this.geometries.values()) geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
     this.renderer.dispose(); this.meshes.clear();

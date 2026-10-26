@@ -1,4 +1,5 @@
 import { TakrawPhysics } from './physics.js';
+import { TakrawTimingJudge } from './timing.js';
 
 /** 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다. */
 const TAKRAW_TRAINING_LESSONS = Object.freeze([
@@ -24,6 +25,7 @@ class TakrawGame {
   constructor({ RAPIER, config }) {
     this.config = config;
     this.physics = new TakrawPhysics(RAPIER, config);
+    this.timingJudge = new TakrawTimingJudge(config.timing);
     this.revision = 0;
     this.teamById = {};
     this.setTeams();
@@ -74,6 +76,8 @@ class TakrawGame {
       lastMessage: mode === 'training' ? '공의 옆에 서서 점프와 발차기를 맞춰 보세요.' : '첫 서브를 준비합니다.',
       pointWinner: -1, pointReason: '', matchWinner: -1, ballSpeed: 0,
       timer: this.config.rules.ready, rally: 0,
+      // 팀별 최근 점프·발차기 입력 오차. 접촉 때 평가해 소비한다(스냅샷에 포함).
+      timing: this.timingJudge.emptyRecords(),
       training: mode === 'training' ? {
         lesson: TAKRAW_TRAINING_LESSONS.some(item => item.id === lesson) ? lesson : 'auto', attempt: 0, successes: 0,
         setAt: null, jumpAt: null, kickAt: null, jumpOffset: null, kickOffset: null,
@@ -207,6 +211,7 @@ class TakrawGame {
       };
     }
     if (this.mode === 'training') this.recordTrainingInput();
+    this.observeTiming(humans);
 
     // The game chooses an ally; the physics controller only guides the foot.
     // Humans and AI use this same target, with no extra aiming input or ball force.
@@ -277,6 +282,7 @@ class TakrawGame {
     this.state.touches = 0; this.state.possession = -1; this.state.lastTouch = -1; this.state.toss = null; this.state.play = null; this.state.defense = [null, null];
     this.state.pointWinner = -1; this.state.pointReason = '';
     this.state.selected = [2, 5];
+    this.state.timing = this.timingJudge.emptyRecords();
     this.state.lastMessage = this.mode === 'training' ? '다음 공을 준비합니다.' : `${this.state.serving === 0 ? '우리 팀' : '상대 팀'} 서브`;
     if (this.state.training) {
       const training = this.state.training;
@@ -299,6 +305,7 @@ class TakrawGame {
     this.metrics.rallies++;
     this.state.touches = 0; this.state.possession = -1; this.state.lastTouch = -1; this.state.toss = null; this.state.play = null; this.state.defense = [null, null];
     this.rallyStart = this.state.time;
+    this.state.timing = this.timingJudge.emptyRecords();
     if (this.mode === 'training') {
       const setter = this.physics.players[1], p = setter.root.translation(), feed = this.config.training.feed;
       this.state.training.attempt++;
@@ -352,7 +359,8 @@ class TakrawGame {
       }
       this.metrics.contacts++;
       if (defendedTouch) this.metrics.defensiveTouches++;
-      this.emit(event);
+      const timing = this.judgeTiming(event, humans);
+      this.emit(timing ? { ...event, timing } : event);
       if (this.state.touches > this.config.rules.contacts) {
         this.awardPoint(1 - event.team, '네 번째 터치');
         return;
@@ -701,14 +709,47 @@ class TakrawGame {
         shortJump: guide.shortJump, contactLead: guide.contactLead,
         jumpHold: guide.jumpHold, kickDelay: guide.kickDelay } : null;
       training.jumpAt = this.state.time;
-      training.jumpOffset = guide?.inPosition && guide.settled ? guide.contactLead - guide.time : null;
+      training.jumpOffset = this.timingJudge.jumpError(guide);
     }
     if ((input.kickPressed || input.kick) && training.kickAt === null) {
       training.kickAt = this.state.time;
-      training.kickOffset = training.lesson !== 'downward' ?
-        (player.jump.active ? player.jump.time - this.getAttackKickDelay(guide || this.predictAerial(player)) : null) :
-        (guide ? guide.contactLead + this.config.training.guide.preholdLead - guide.time : null);
+      training.kickOffset = this.kickTimingError(player, guide, training.lesson);
     }
+  }
+
+  /** 발차기 입력 시점의 타이밍 오차. 연습 기록과 접촉 판정이 같은 식을 쓴다. */
+  kickTimingError(player, guide, lesson) {
+    return this.timingJudge.kickError({
+      lesson, guide, jumpActive: player.jump.active, jumpTime: player.jump.time,
+      kickDelay: () => this.getAttackKickDelay(guide || this.predictAerial(player)),
+      preholdLead: this.config.training.guide.preholdLead,
+    });
+  }
+
+  /** 사람이 조작하는 선수의 점프·발차기 입력 순간을 기록한다. 안내는 입력이 있을 때만 계산한다. */
+  observeTiming(humans) {
+    if (this.state.phase !== 'rally') return;
+    const lesson = this.state.training?.lesson ?? 'auto';
+    let guides = null;
+    for (const team of [0, 1]) {
+      if (!humans[team]) continue;
+      const player = this.physics.players[this.state.selected[team]], input = this.inputs[player.id];
+      if (!input.jumpPressed && !input.kickPressed) continue;
+      guides ??= this.getAttackGuides();
+      const guide = guides[team];
+      if (input.jumpPressed) this.timingJudge.record(this.state.timing, team, 'jump', this.timingJudge.jumpError(guide), this.state.time);
+      if (input.kickPressed) this.timingJudge.record(this.state.timing, team, 'kick', this.kickTimingError(player, guide, lesson), this.state.time);
+    }
+  }
+
+  /** 사람 선수의 공중 발 접촉만 등급을 받는다. 어떤 접촉이든 해당 선수의 기록은 소비된다. */
+  judgeTiming(event, humans) {
+    const team = event.team;
+    if (!humans[team] || event.playerId !== this.state.selected[team]) return null;
+    const record = this.state.timing[team];
+    this.state.timing[team] = this.timingJudge.emptyRecord();
+    if (this.physics.players[event.playerId].grounded || !/^foot/.test(event.part || '')) return null;
+    return this.timingJudge.evaluate(record, this.state.time);
   }
 
   observeTraining() {

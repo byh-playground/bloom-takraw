@@ -1,5 +1,6 @@
 import { TAKRAW_CONFIG, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
+import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
 
 /**
  * Articulated, force-driven players. Rendering never writes back into this world.
@@ -32,6 +33,8 @@ class TakrawPhysics {
       orientationStiffness: 1000, orientationDamping: 2.0,
       orientationInertia: 0.014, maxTorque: 32,
     }, config.physics?.groundToss || {});
+    // 구형 관절의 사람 가동 범위(joint-limits.js)를 Rapier 관절 한계로 건다. 끄면 이전처럼 제한 없는 구형 관절이다.
+    this.settings.jointLimits = Object.assign({ enabled: true }, config.physics?.jointLimits || {});
     this.settings.receive = Object.assign({
       horizon: 1.4, preparation: 0.12, commitment: 0.45,
       cushionReach: 0.95, lungeReach: 0.95, slideReach: 0.95,
@@ -364,8 +367,18 @@ class TakrawPhysics {
       j.setContactsEnabled(false);
       if (hinge) { j.setLimits(0, 2.45); j.configureMotorModel(R.MotorModel.ForceBased); }
       else for (const axis of [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ]) j.configureMotorModel(axis, R.MotorModel.ForceBased);
+      const humanLimits = !hinge && this.settings.jointLimits.enabled ? (this.settings.jointLimits.table || HUMAN_JOINT_LIMITS)[name.replace(/[LR]$/, '')] : null;
+      if (humanLimits) {
+        const left = name.endsWith('L');
+        for (const [axis, key] of [[R.JointAxis.AngX, 'x'], [R.JointAxis.AngY, 'twist'], [R.JointAxis.AngZ, 'z']]) {
+          const [min, max] = humanLimits[key].map(value => value * Math.PI / 180);
+          const mirrored = left && key !== 'x';
+          j.rawSet.jointSetLimits(j.handle, axis, mirrored ? -max : min, mirrored ? -min : max);
+        }
+      }
       const item = { name, parent, child, joint: j, handle: j.handle, hinge, stiffness, damping, maxForce,
-        restAnchor1: { ...localA }, restAnchor2: { ...localB }, target: [0, 0, 0] };
+        restAnchor1: { ...localA }, restAnchor2: { ...localB }, target: [0, 0, 0],
+        anchor };
       p.joints.push(item);
       this._motor(item, item.target, 1);
     };

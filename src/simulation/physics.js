@@ -357,7 +357,8 @@ class TakrawPhysics {
     const joint = (name, parent, child, anchorArray, hinge, stiffness, damping, maxForce) => {
       const a = p.byName[parent], b = p.byName[child], anchor = this._v(...anchorArray);
       const localA = this._sub(anchor, a.local), localB = this._sub(anchor, b.local);
-      const data = hinge ? R.JointData.revolute(localA, localB, { x: 1, y: 0, z: 0 }) : R.JointData.spherical(localA, localB);
+      // 무릎은 +x 축(양수 = 정강이가 뒤로), 팔꿈치는 -x 축(양수 = 아래팔이 앞으로)이라 둘 다 0~2.45가 사람 방향이다.
+      const data = hinge ? R.JointData.revolute(localA, localB, { x: name.startsWith('elbow') ? -1 : 1, y: 0, z: 0 }) : R.JointData.spherical(localA, localB);
       let j = this.world.createImpulseJoint(data, a.body, b.body, true);
       // Rapier 0.21.0 currently returns GenericImpulseJoint for a spherical joint.
       // The public spherical wrapper exposes the valid angular motor API.

@@ -18,7 +18,7 @@
 
 `simulation/game.js`는 규칙·AI·득점·세트·훈련·스냅샷 메타데이터를 소유합니다. `simulation/physics.js`는 Rapier World·몸체·관절·접촉·신체 제어와 물리 스냅샷을 소유합니다. 복원용 SerializationPipeline은 physics 인스턴스가 생성·재사용·해제합니다. 모션 데이터/모델/매칭은 `motion/`에 있는 게임별 저작 자료입니다. `simulation/timing.js`의 `TakrawTimingJudge`는 점프·발차기 입력의 타이밍 오차 공식과 등급 창(`config.timing`)을 소유합니다. 기록은 `state.timing`에 두어 스냅샷·롤백에 함께 저장되며, 연습의 오차 기록과 접촉 판정이 같은 공식을 씁니다.
 
-`club/club.js`는 선수·편성·보상과 영속 데이터를, `presentation/view.js`는 Three.js 장면·카메라·표시 자원을, `presentation/ui.js`는 DOM·화면 전환·접근성·설정을 소유합니다. `presentation/impact.js`의 `TakrawImpactEffects`는 접촉 효과(링·입자·접점 섬광·속도선·진동량·화면 확대·공 눌림·궤적 강조)를, `presentation/field-effects.js`의 `TakrawFieldEffects`는 착지 먼지와 득점 색종이를 소유하며 view가 포함합니다. 게임 고유 Three.js 카메라와 라우팅 정책을 다른 GameKit 모듈로 교체하는 변경은 이번 구조 전환에 포함하지 않습니다.
+`club/club.js`는 선수·편성·보상과 영속 데이터를, `presentation/view.js`는 Three.js 장면·카메라·표시 자원을, `presentation/ui.js`는 DOM·화면 전환·접근성·설정을 소유합니다. `simulation/ai-brain.js`는 AI 선수 한 명의 행동 상태머신(대기·보조·받기·공격·세트·추격)과 선수 성향(Temperament)을 소유하고, `game.js`의 `decideAI`가 매 AI 틱에 이를 호출해 목표 자리를 받습니다(킥·점프 타이밍은 game.js 책임). 상태는 `ai[id].brain` 순수 데이터라 스냅샷·롤백에 포함되고, 성향은 `state.seed`·선수·랠리 번호로만 정해집니다. `presentation/impact.js`의 `TakrawImpactEffects`는 접촉 효과(링·입자·접점 섬광·속도선·진동량·화면 확대·공 눌림·궤적 강조)를, `presentation/field-effects.js`의 `TakrawFieldEffects`는 착지 먼지와 득점 색종이를 소유하며 view가 포함합니다. 게임 고유 Three.js 카메라와 라우팅 정책을 다른 GameKit 모듈로 교체하는 변경은 이번 구조 전환에 포함하지 않습니다.
 
 의존 방향은 config/data → motion/club → physics → game → UI, runtime → 각 소유자입니다. runtime의 `BodyPose`는 기존처럼 한 boot 인스턴스의 클로저 상태입니다. 변경 가능한 전역으로 분리하지 않습니다. `window.__takraw` 진단/검사 진입점을 유지합니다.
 

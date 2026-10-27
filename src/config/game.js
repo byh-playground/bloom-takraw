@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.18';
+const TAKRAW_VERSION = '0.12.19';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -57,14 +57,29 @@ const TAKRAW_CONFIG = Object.freeze({
       follow: 7, ballWeight: 0.28, maxLateral: 2.3, maxDistance: 20, frameMargin: 0.78,
       topInset: 120, narrowTopInset: 188, narrowWidth: 700, near: 0.1, far: 100,
       orbit: { sensitivity: 0.006, minPitch: 0.14, maxPitch: 1.13 } },
-    // 접촉 효과의 등급별 표시 값. 등급 이름은 timing.windows와 normal이다.
+    // 접촉 효과의 등급별 표시 값(타격감 가이드 §3·§6: 국소 hitflash·squash 먼저, 카메라 흔들림은 가장 센 사건 하나만). 등급 이름은 timing.windows와 normal이다.
     // ringScale: 링 최대 배율, dots: 입자 수, outerRing: 바깥 링 추가, hold: 링·입자를 첫 모습으로 유지하는 시간(초),
-    // shake: 카메라 진동(m, 초), trail: 공 궤적 강조 색과 지속 시간(초).
+    // shake: 카메라 진동(CSS px, 초), trail: 공 궤적 강조 색과 지속 시간(초), streaks: 속도선 수, flash: 접점 별 섬광 크기(m, 0이면 없음),
+    // fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구.
+    // spike는 payload.spike가 참일 때 등급보다 먼저 고른다.
     impact: {
-      normal: { life: 0.25, ringScale: 2.1, dots: 6, ringColor: null, outerRing: false, hold: 0, shake: null, trail: null },
-      good: { life: 0.32, ringScale: 2.8, dots: 8, ringColor: 0xfff6d2, outerRing: false, hold: 0, shake: null, trail: null },
+      normal: { life: 0.25, ringScale: 2.1, dots: 6, ringColor: null, outerRing: false, hold: 0, shake: null, trail: null,
+        streaks: 0, flash: 0.22, fovPunch: 0, squash: 0.12, pop: null },
+      good: { life: 0.32, ringScale: 2.8, dots: 8, ringColor: 0xfff6d2, outerRing: false, hold: 0, shake: null, trail: null,
+        streaks: 4, flash: 0.32, fovPunch: 0.012, squash: 0.17, pop: null },
       perfect: { life: 0.45, ringScale: 3.6, dots: 10, ringColor: 0xffe27a, outerRing: true, hold: 0.07,
-        shake: { amplitude: 0.04, duration: 0.2 }, trail: { color: 0xffe27a, duration: 0.8 } },
+        shake: { amplitude: 3, duration: 0.2 }, trail: { color: 0xffe27a, duration: 0.8 },
+        streaks: 6, flash: 0.45, fovPunch: 0.025, squash: 0.24, pop: null },
+      spike: { life: 0.62, ringScale: 5.4, dots: 16, ringColor: 0xffffff, outerRing: true, hold: 0.09,
+        shake: { amplitude: 6, duration: 0.30 }, trail: { color: 0xff9b54, duration: 1.1 },
+        streaks: 12, flash: 0.80, fovPunch: 0.06, squash: 0.34, pop: 'SPIKE!' },
+    },
+    // 화면 흔들림의 상한(CSS px). 여러 접촉이 겹쳐도 가장 센 하나만 쓰고 이 값을 넘지 않는다.
+    shakeCap: 6,
+    // 지면·득점 연출. life는 초, count는 입자 수.
+    field: {
+      land: { life: 0.55, puffs: 7, minSpeed: 2.2, color: 0xf3ecd6, radius: 0.55 },
+      confetti: { life: 1.6, count: 44, height: 2.4, spread: 3.2, colors: [0xffd75e, 0xff7f6e, 0x62d0c0, 0xfff3c4] },
     },
     colors: { ground: 0xece7d9, court: 0x467b6f, courtInset: 0x598c7d, line: 0xf6f0d9, home: 0x39b5b0, away: 0xeb785f, ball: 0xffcd61 },
   },

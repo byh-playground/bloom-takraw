@@ -664,6 +664,23 @@ class TakrawUI {
     return this.timingToken;
   }
 
+  /** 큰 글자 팝업("SPIKE!" 등). 반환된 토큰으로 hideHitPop하면 그 표시만 지운다. */
+  showHitPop(text, team) {
+    const pop = document.getElementById('hit-pop');
+    this.text('hit-pop', text);
+    pop.dataset.team = String(team === 1 ? 1 : 0);
+    pop.hidden = false;
+    pop.style.animation = 'none'; void pop.offsetWidth; pop.style.animation = '';
+    this.hitPopToken = { text };
+    return this.hitPopToken;
+  }
+
+  hideHitPop(token) {
+    if (!token || this.hitPopToken !== token) return;
+    this.hitPopToken = null;
+    document.getElementById('hit-pop').hidden = true;
+  }
+
   hideTiming(token) {
     if (!token || this.timingToken !== token) return;
     this.timingToken = null;

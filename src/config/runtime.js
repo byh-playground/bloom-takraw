@@ -54,6 +54,17 @@ const TAKRAW_RUNTIME = Object.freeze({
           { kind: 'tone', hz: 1760, end: 1760, ms: 140, gain: 0.12, type: 'sine', delay: 70 },
         ],
       },
+      // 스파이크: 킥 층 위에 낮은 쿵(무게)과 높은 갈라짐(날카로움), 짧은 상승음(성공 표식)을 얹는다.
+      kickSpike: {
+        category: 'impact',
+        priority: 4,
+        layers: [
+          ...KICK_LAYERS,
+          { kind: 'tone', hz: 140, end: 55, ms: 160, gain: 0.34, type: 'sine' },
+          { kind: 'noise', hz: 3200, ms: 70, gain: 0.2 },
+          { kind: 'tone', hz: 1175, end: 1760, ms: 110, gain: 0.16, type: 'sine', delay: 25 },
+        ],
+      },
       land: {
         category: 'impact',
         priority: 1,

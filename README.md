@@ -31,7 +31,7 @@ src/
   motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
   simulation/{game,physics,timing}.js  경기 규칙, Rapier 어댑터, 입력 타이밍 판정
   learning/                  규칙 AI 조정 값 강화학습(core: 범용, takraw: 게임 전용)
-  presentation/{view,ui,impact}.js     Three.js 표시, DOM UI, 접촉 효과
+  presentation/{view,ui,impact,field-effects}.js  Three.js 표시, DOM UI, 접촉·착지·득점 효과
 styles/app.css               화면 스타일
 scripts/                     원본 HTTP 서버·정적 참조·의존성 검사
 playwright.config.js         사용자 시나리오 실행 구성

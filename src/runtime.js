@@ -15,6 +15,7 @@ import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TakrawGame } from './simulation/game.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
+import { seedFromText } from './simulation/ai-brain.js';
 import { TakrawUI } from './presentation/ui.js';
 
 const PLAYER_STATE_LABELS = Object.freeze({
@@ -716,7 +717,9 @@ async function bootTakraw() {
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false } : null;
     clubSession.reward = null;
     game.setTeams(clubSession.team, null);
-    game.reset(nextMode);
+    // 경기마다 AI 성향·서브가 달라지도록 시드를 정한다. 온라인은 두 사람이 같은 방 코드에서 같은 시드를 얻고, 혼자 하는 경기는 새 값이다.
+    const matchSeed = nextMode === 'online' ? seedFromText(String(capability)) : nextMode === 'training' ? undefined : crypto.getRandomValues(new Uint32Array(1))[0];
+    game.reset(nextMode, undefined, matchSeed);
     latestView = game.getView();
     BodyPose = createPresentation();
     replaceJournal();

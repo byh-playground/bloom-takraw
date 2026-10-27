@@ -1,3 +1,4 @@
+import { AiBrain, Temperament, seededUnit } from './ai-brain.js';
 import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
 
@@ -26,6 +27,8 @@ class TakrawGame {
     this.config = config;
     this.physics = new TakrawPhysics(RAPIER, config);
     this.timingJudge = new TakrawTimingJudge(config.timing);
+    this.aiBrain = new AiBrain();
+    this.temperaments = { key: '', list: [] };
     this.revision = 0;
     this.tuning = [null, null]; // 팀별 학습 조정 값(이름 → 절대값). 없으면 config 기본값을 쓴다.
     this.tuners = [null, null]; // 팀별 상황 반응형 조정기: (game, playerId) → 조정 값. 상대가 공을 칠 때마다 다시 계산한다(로컬 경기 전용).
@@ -70,11 +73,12 @@ class TakrawGame {
     this.revision++;
   }
 
-  reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto') {
+  /** seed는 경기 변주(선수 성향·서브)의 원천이다. 훈련은 같은 상황이 반복되어야 하므로 기본 시드를 쓴다. */
+  reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto', seed = this.config.network.seed) {
     this.mode = mode;
     this.retuneTeam = -1;
     this.state = {
-      mode, phase: 'ready', tick: 0, time: 0,
+      mode, phase: 'ready', tick: 0, time: 0, seed: mode === 'training' ? this.config.network.seed : seed >>> 0,
       score: [0, 0], sets: [0, 0], set: 1,
       serving: 1, selected: [2, 5],
       touches: 0, possession: -1, lastTouch: -1, toss: null, play: null, defense: [null, null],
@@ -90,7 +94,7 @@ class TakrawGame {
       } : null,
     };
     if (mode === 'training') this.state.timer = this.config.training.ready;
-    this.ai = Array.from({ length: 6 }, () => ({ x: 0, z: 0, active: false, kickFrom: 0, kickUntil: 0, jumpUntil: 0, cooldown: 0, previousJump: false, previousKick: false, attack: null, receive: null }));
+    this.ai = Array.from({ length: 6 }, () => ({ x: 0, z: 0, active: false, kickFrom: 0, kickUntil: 0, jumpUntil: 0, cooldown: 0, previousJump: false, previousKick: false, attack: null, receive: null, brain: AiBrain.blankRecord() }));
     this.aiDirty = true;
     this.inputs = Array.from({ length: 6 }, () => this.emptyInput());
     this.events = [];
@@ -300,7 +304,7 @@ class TakrawGame {
     const server = this.physics.players[this.state.serving * 3];
     const pos = server.root.translation();
     this.physics.resetBall({ x: pos.x, y: 0.2, z: pos.z }, { x: 0, y: 0, z: 0 });
-    for (const ai of this.ai) Object.assign(ai, { x: 0, z: 0, active: false, kickFrom: 0, kickUntil: 0, jumpUntil: 0, cooldown: 0, previousJump: false, previousKick: false, attack: null, receive: null });
+    for (const ai of this.ai) Object.assign(ai, { x: 0, z: 0, active: false, kickFrom: 0, kickUntil: 0, jumpUntil: 0, cooldown: 0, previousJump: false, previousKick: false, attack: null, receive: null, brain: AiBrain.blankRecord() });
     this.aiDirty = true;
     this.revision++;
   }
@@ -324,7 +328,9 @@ class TakrawGame {
       const p = server.root.translation();
       const n = this.state.serving === 0 ? 1 : -1;
       // 서브의 동료 toss만 초기 속도를 지정한다. 실제 서브 킥은 같은 발 물리로 수행한다.
-      this.physics.resetBall({ x: p.x + n * 0.95, y: 2.1, z: p.z - n * 0.10 }, { x: 0, y: 1.5, z: 0 });
+      const v = this.config.ai.serve, jitter = salt => (seededUnit(this.state.seed, this.state.rally, salt) * 2 - 1);
+      this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
+        { x: 0, y: 1.5 + jitter(4) * v.rise, z: 0 });
       this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
     }
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
@@ -539,9 +545,8 @@ class TakrawGame {
   receiveCover(player, assignment) {
     const point = assignment.plan.point, distance = this.config.ai.receive.coverDistance;
     const n = player.toward, limit = this.config.court.halfWidth - 0.25;
-    const target = player.role === 'attacker' ? { ...player.home } :
-      player.role === 'setter' ? { x: player.home.x, z: point.z } :
-      { x: point.x - n * distance, z: point.z + (player.home.z < point.z ? -1 : 1) * distance };
+    // 리시버 역할의 보조 자리만 여기서 정한다. 세터·공격수의 보조 자리는 ai-brain.js의 CoverState가 정한다.
+    const target = { x: point.x - n * distance, z: point.z + (player.home.z < point.z ? -1 : 1) * distance };
     const dx = target.x - point.x, dz = target.z - point.z, length = Math.hypot(dx, dz);
     if (length < distance) {
       target.x = point.x + (length > 0.01 ? dx / length : -n) * distance;
@@ -995,6 +1000,13 @@ class TakrawGame {
     return velocity;
   }
 
+  /** 이번 랠리의 선수 성향. 시드·선수·랠리 번호가 같으면 같은 값이라 롤백·재시뮬에서도 일치한다. */
+  temperamentOf(playerId) {
+    const key = `${this.state.seed}:${this.state.rally}`;
+    if (this.temperaments.key !== key) this.temperaments = { key, list: [] };
+    return this.temperaments.list[playerId] ??= new Temperament(this.config.ai.temperament, this.state.seed, playerId, this.state.rally);
+  }
+
   decideAI(humans) {
     this.metrics.aiSteps++;
     if (this.state.phase !== 'rally') return;
@@ -1049,18 +1061,14 @@ class TakrawGame {
         const ground = groundTuned;
         const kickLead = setTarget ? ground.lead : 0.20;
         const kickWindow = setTarget ? ground.window : 0.36;
-        let target = { ...player.home };
         const attacking = this.state.possession === team && (this.state.touches >= 2 || (player.role === 'attacker' && this.state.touches >= 1));
         const highContact = !defense && attacking && aerial.reachable && aerial.time > attack.minLead;
         const aim = highContact ? aerial : intercept;
-        if (player === active) {
-          const receiveOffset = this.state.possession === team ? this.config.ai.toss.receiveOffset : this.config.ai.toss.incomingOffset;
-          const offset = highContact ? attack.offset : setTarget ? receiveOffset : 0.95;
-          target = this.approachPosition(team, aim, offset);
-        }
+        // 목표 자리와 현재 상태(대기·보조·받기·공격·세트·추격)는 상태머신이 정한다.
+        const { mode, target } = this.aiBrain.update({
+          game: this, player, team, ball: p, aim, defense, active, highContact, setTarget,
+          record: a.brain, temperament: this.temperamentOf(player.id), now: this.state.time });
         if (defense) {
-          if (player === active) target = { ...defense.plan.stance };
-          else if (player !== active) target = this.receiveCover(player, defense);
           if (player !== active) {
             // Never leave a previous chaser kicking after another teammate takes over.
             a.kickFrom = a.kickUntil = a.jumpUntil = 0;
@@ -1074,8 +1082,8 @@ class TakrawGame {
         const dx = target.x - q.x, dz = target.z - q.z;
         const dist = Math.hypot(dx, dz);
         const velocity = this.attackVelocity(player), prepare = attack.preparation;
-        const anticipating = player === active && highContact;
-        const receiving = player === active && (!!defense || (!!setTarget && !highContact && !player.jump.active));
+        const anticipating = mode === 'attack';
+        const receiving = mode === 'receive' || (mode === 'set' && !player.jump.active);
         const brakeLead = anticipating ? prepare.brakeLead : receiving ? braking : 0;
         const moveX = dx - velocity.x * brakeLead;
         const moveZ = dz - velocity.z * brakeLead;
@@ -1170,7 +1178,8 @@ class TakrawGame {
       Array.isArray(data.teamNames) && data.teamNames.length === 2 && data.teamNames.every(name => typeof name === 'string' && name.trim()) &&
       Array.isArray(data.state.defense) && data.state.defense.length === 2 && Array.from(data.state.defense).every(defense) &&
       Array.isArray(data.state.score) && data.state.score.length === 2 && data.state.score.every(Number.isFinite) &&
-      Array.isArray(data.ai) && data.ai.length === 6 && Array.from(data.ai).every(ai => ai && (ai.receive === null || receivePlan(ai.receive))) &&
+      Array.isArray(data.ai) && data.ai.length === 6 && Array.from(data.ai).every(ai => ai && (ai.receive === null || receivePlan(ai.receive)) && AiBrain.validRecord(ai.brain)) &&
+      Number.isInteger(data.state.seed) &&
       Array.isArray(data.inputs) && data.inputs.length === 6 && Array.from(data.inputs).every(input => input &&
         (!Object.hasOwn(input, 'receive') || input.receive === null || (receivePlan(input.receive) && typeof input.receive.allowSlide === 'boolean'))) &&
       Array.isArray(data.state.selected) && data.state.selected.length === 2 && data.state.selected.every((id, team) => id === team * 3 + 2);

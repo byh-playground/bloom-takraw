@@ -1,6 +1,6 @@
 {
   "name": "bloom-takraw",
-  "version": "0.12.21",
+  "version": "0.12.22",
   "private": true,
   "description": "블룸 세팍타크로 — Rapier 기반 3D 온라인 스포츠 게임",
   "engines": {

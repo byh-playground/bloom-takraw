@@ -611,6 +611,7 @@ class TakrawGame {
     if (!tuner) this.setTuning(team, null);
   }
 
+  // TOBE(learning) 받는 선수 선택: applyTuner는 착지 예상 지점에 가장 가까운 선수를 고른다. 학습 장면의 받는 선수(세터)와 다를 수 있다(docs/learning-tobe.md ①).
   /** 조정기가 있는 팀의 조정 값을 기본으로 되돌린다. 받기 학습은 첫 접촉(받는 동작)만 학습했으므로 그 뒤의 토스·공격에는 쓰지 않는다. */
   releaseTuning(team) { if (this.tuners[team] && this.tuning[team]) this.setTuning(team, null); }
 

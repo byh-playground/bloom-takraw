@@ -534,6 +534,7 @@ class TakrawUI {
     const c = this.club, L = this.learning, rule = TAKRAW_CLUB_RULES.learning, busy = ['before', 'train', 'after'].includes(L.phase);
     const percent = Math.min(100, Math.round(L.epochs / rule.epochs * 100)), pct = value => `${Math.round(value * 100)}%`;
     const phaseLabel = { before: '학습 전 실력을 재고 있어요', train: `학습 중 · ${L.epochs}/${rule.epochs}회`, after: '학습 후 실력을 재고 있어요' }[L.phase] || '';
+    // TOBE(learning) 경기 지표: 아래 비교는 같은 스파이크 장면의 성공률이다. 경기 득점으로 이어진다는 뜻이 아니므로 문구를 바꾸지 말 것(docs/learning-tobe.md ③).
     const compare = L.result?.completed ? `<div class="learning-compare"><div><small>학습 전</small><strong>${pct(L.result.before.success / L.result.before.n)}</strong></div><div><small>학습 후</small><strong>${pct(L.result.after.success / L.result.after.n)}</strong></div></div>
       <p>같은 스파이크 ${L.result.before.n}개를 다시 받아 본 성공률이에요. 성공 = 우리 코트 안쪽으로 2.0 m 이상 높이 올려 동료가 닿을 수 있는 공.</p>` : '';
     const lock = this.inGame ? '학습은 처음 화면에서 할 수 있어요.' : c.status !== 'ready' ? c.message || '팀을 먼저 불러와 주세요.' : (c.trainingPoints || 0) < rule.cost ? '훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.' : '';

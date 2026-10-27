@@ -707,6 +707,8 @@ async function bootTakraw() {
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false } : null;
     clubSession.reward = null;
     game.setTeams(clubSession.team, null);
+    // TOBE(learning) 적용 조건: 현재 정책은 경기 득점률이 규칙 AI보다 낮다(0.44~0.46, docs/verification/learning-feature.md). 득점률 ≥ 0.50이 확인되면 유지,
+    // 아니면 이 줄의 `learned`를 null로 두어 경기 적용을 끈다(docs/learning-tobe.md ④). 온라인 적용은 양쪽 가중치 해시 교환 + 규칙 AI 대체가 먼저다(⑤).
     // 학습한 받기 조정은 로컬 AI 대전의 우리 팀에만 쓴다. 온라인은 양쪽 가중치가 같다는 보장이 없어 쓰지 않는다.
     const learned = nextMode === 'match' ? club.learnedPolicy() : null, policy = learned && TeammateLearning.decode(learned.policy);
     game.setTuner(0, policy ? TeammateLearning.tuner(policy) : null);

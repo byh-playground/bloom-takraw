@@ -16,3 +16,5 @@
 - [학습 코어](learning-core.md): v0.12.12 규칙 AI 조정 값 학습 모듈의 스파이크 리시브 측정과 reset 재사용 결과 차이.
 
 - [동료 AI 학습 기능](learning-feature.md): v0.12.13 유저 기능 연결(포인트 → 학습 → 저장 → 경기 적용)의 시험 결과와 미검증 범위.
+
+- 이어서 할 일은 [동료 AI 학습 TOBE](../learning-tobe.md)에 모았다. 코드에는 `TOBE(learning)` 주석이 있다.

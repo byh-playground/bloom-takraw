@@ -1,4 +1,5 @@
 /** 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다. */
+// TOBE(learning) 학습 비용: `learning.cost`는 능력치 훈련과 같은 trainingPoints를 쓴다. 학습이 경기에 도움이 되는 것으로 확인되면 별도 포인트 분리 여부를 결정한다(docs/learning-tobe.md ⑥).
 const TAKRAW_CLUB_RULES = Object.freeze({
   initial: { credits: 600, trainingPoints: 6 },
   capacity: 9, nameLength: 18, training: { cost: 1, increase: 2, maximum: 100 }, learning: { cost: 1, epochs: 100, policyLength: 1024 },

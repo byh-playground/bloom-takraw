@@ -366,13 +366,15 @@ class TakrawGame {
       }
       this.metrics.contacts++;
       if (defendedTouch) this.metrics.defensiveTouches++;
+      // 스파이크 판정의 유일한 정의: 네트 위에서 발이 아래로 움직이며 공을 맞힘. 연출(spike 플래그)과 지표가 같은 값을 쓴다.
+      const spike = /^foot/.test(event.part || '') && !!event.footVelocity && event.footVelocity.y < -1 && event.position.y > this.config.court.netHeight;
+      event.spike = spike;
       const timing = this.judgeTiming(event, humans);
       this.emit(timing ? { ...event, timing } : event);
       if (this.state.touches > this.config.rules.contacts) {
         this.awardPoint(1 - event.team, '네 번째 터치');
         return;
       }
-      const spike = /^foot/.test(event.part || '') && !!event.footVelocity && event.footVelocity.y < -1 && event.position.y > this.config.court.netHeight;
       if (spike) this.metrics.spikes++;
       if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
       const target = this.inputs[event.playerId]?.tossTarget;

@@ -608,3 +608,10 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
 .timing-badge[data-grade="normal"]{color:#5f6b66}
 .timing-badge[data-grade="normal"] strong{font-weight:700}
 @keyframes timing-pop{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
+
+/* 타격 팝업: 화면 중앙 위쪽에 크게 튀어나왔다 사라진다. 레이아웃에 영향을 주지 않는다. */
+.hit-pop{position:fixed;left:50%;top:30%;z-index:6;pointer-events:none;transform:translate(-50%,-50%) rotate(-4deg);font-size:clamp(34px,8vw,68px);font-weight:900;letter-spacing:.04em;font-style:italic;color:#fff;-webkit-text-stroke:3px #e9602f;paint-order:stroke fill;text-shadow:0 4px 0 #b8421c,0 10px 22px #0000004d;animation:hit-pop .8s cubic-bezier(.2,1.4,.4,1) both}
+.hit-pop[hidden]{display:none}
+.hit-pop[data-team="1"]{-webkit-text-stroke-color:#d9573f}
+@keyframes hit-pop{0%{transform:translate(-50%,-50%) rotate(-12deg) scale(.2);opacity:0}25%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.25);opacity:1}45%{transform:translate(-50%,-50%) rotate(-4deg) scale(1)}85%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.05);opacity:0}}
+@media (prefers-reduced-motion:reduce){.hit-pop{animation:none}}

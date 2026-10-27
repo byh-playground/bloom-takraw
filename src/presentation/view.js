@@ -1,4 +1,5 @@
 import { TakrawImpactEffects } from './impact.js';
+import { TakrawFieldEffects } from './field-effects.js';
 
 class TakrawView {
   constructor({ THREE, canvas, config }) {
@@ -39,6 +40,8 @@ class TakrawView {
     this.makeSurroundings();
     this.makeMarkers();
     this.impacts = new TakrawImpactEffects({ THREE, scene: this.scene, config, reducedMotion: () => this.reducedMotion() });
+    this.impacts.camera = this.camera;
+    this.field = new TakrawFieldEffects({ THREE, scene: this.scene, config, reducedMotion: () => this.reducedMotion() });
     this.resize();
   }
 
@@ -630,6 +633,7 @@ class TakrawView {
     if (this.width !== this.canvas.clientWidth || this.height !== this.canvas.clientHeight) this.resize();
     this.updateCamera(viewData, context, dt);
     this.applyShake();
+    this.squashBall();
     this.updateAttackGuides(viewData, context);
     this.updateReceiveGuides(viewData, context);
     const selected = viewData.state?.selected || [2,5];
@@ -681,11 +685,40 @@ class TakrawView {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /**
+   * 맞은 방향으로 공을 눌렀다 되돌린다(외형만). 위치·회전은 물리 값 그대로 두고 월드 축 기준 비균일 스케일만 행렬에 곱한다.
+   * 부피를 보존하도록 수직 방향은 1/sqrt(축 방향 스케일)로 늘린다.
+   */
+  squashBall() {
+    const ball = this.meshes.get('ball');
+    if (!ball) return;
+    const { axis, amount } = this.reducedMotion() ? { axis: null, amount: 0 } : this.impacts.deform();
+    if (!amount) { if (!ball.matrixAutoUpdate) { ball.matrixAutoUpdate = true; ball.matrixWorldNeedsUpdate = true; } return; }
+    const along = Math.max(.55, 1 - amount), across = 1 / Math.sqrt(along), k = along - across;
+    const { x, y, z } = axis;
+    // S = across·I + (along - across)·a·aᵀ, 이어서 회전 R, 그 뒤 이동 T
+    const s = new this.THREE.Matrix4().set(
+      across + k * x * x, k * x * y, k * x * z, 0,
+      k * x * y, across + k * y * y, k * y * z, 0,
+      k * x * z, k * y * z, across + k * z * z, 0,
+      0, 0, 0, 1);
+    ball.matrixAutoUpdate = false;
+    ball.updateMatrix();
+    const rotation = new this.THREE.Matrix4().makeRotationFromQuaternion(ball.quaternion);
+    ball.matrix.copy(s).multiply(rotation).setPosition(ball.position);
+    ball.matrixWorldNeedsUpdate = true;
+  }
+
   /** 카메라를 화면 평면에서 짧게 흔든다. 위치만 바꾸므로 조준·입력·시뮬레이션에 영향이 없다. */
   applyShake() {
-    const { x, y } = this.impacts.shake(this.shakeOffset), rig = this.cameraRig;
-    if (!x && !y) return;
-    this.camera.position.addScaledVector(rig.right, x).addScaledVector(rig.up, y);
+    // 화면 펀치: 시야각을 잠깐 줄여 확대한다. 기준 시야각은 resize가 정한다.
+    const fov = this.baseFov * (1 - (this.reducedMotion() ? 0 : this.impacts.punch()));
+    if (Math.abs(fov - this.camera.fov) > 1e-4) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
+    const { x: pixelX, y: pixelY } = this.impacts.shake(this.shakeOffset), rig = this.cameraRig;
+    if (!pixelX && !pixelY || this.reducedMotion()) return;
+    // px → 월드: 초점 거리에서 한 픽셀이 차지하는 길이. 화면이 달라도 같은 크기로 흔들린다.
+    const unitsPerPixel = 2 * rig.distance * Math.tan(this.camera.fov * Math.PI / 360) / this.height;
+    this.camera.position.addScaledVector(rig.right, pixelX * unitsPerPixel).addScaledVector(rig.up, pixelY * unitsPerPixel);
     this.camera.updateMatrixWorld();
   }
 
@@ -698,7 +731,8 @@ class TakrawView {
     // A narrow viewport keeps the same horizontal view instead of cutting off
     // the court or backing the camera through the sideline scenery.
     const verticalFov = this.config.visual.camera.fov * Math.PI / 180;
-    this.camera.fov = 2 * Math.atan(Math.tan(verticalFov / 2) / Math.min(1, this.camera.aspect)) * 180 / Math.PI;
+    this.baseFov = 2 * Math.atan(Math.tan(verticalFov / 2) / Math.min(1, this.camera.aspect)) * 180 / Math.PI;
+    this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
   }
 
@@ -710,7 +744,7 @@ class TakrawView {
   }
 
   dispose() {
-    this.impacts.dispose();
+    this.impacts.dispose(); this.field.dispose();
     for (const geometry of this.geometries.values()) geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
     this.renderer.dispose(); this.meshes.clear();

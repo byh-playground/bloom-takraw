@@ -14,6 +14,7 @@ import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TakrawGame } from './simulation/game.js';
 import { TakrawView } from './presentation/view.js';
+import { impactStyleKey } from './presentation/impact.js';
 import { TakrawUI } from './presentation/ui.js';
 
 const PLAYER_STATE_LABELS = Object.freeze({
@@ -397,6 +398,12 @@ async function bootTakraw() {
   }
 
   /** 접촉 효과 한 건의 표시 자원. 우리 팀의 타이밍 등급 표시는 이벤트 수명 동안 함께 유지한다. */
+  /** 스타일에 pop 문구가 있으면 큰 글자 팝업을 띄운다. */
+  function showHitPop(payload) {
+    const text = TAKRAW_CONFIG.visual.impact[impactStyleKey(TAKRAW_CONFIG.visual.impact, payload)].pop;
+    return text ? ui.showHitPop(text, payload.team) : null;
+  }
+
   function showBadge(payload) {
     return payload.timing && (mode === 'local' || payload.team === localTeam()) ? ui.showTiming(payload.timing) : null;
   }
@@ -407,10 +414,10 @@ async function bootTakraw() {
   }
 
   /** 접촉 이벤트가 남는 시간(ms). 등급 효과의 정지·궤적 강조와 등급 표시가 끝날 때까지 유지한다. */
-  function contactDuration(timing) {
+  function contactDuration(payload) {
     const { duration, badge } = TAKRAW_RUNTIME.feedback;
-    if (!timing) return duration;
-    const impact = TAKRAW_CONFIG.visual.impact[timing.grade] ?? TAKRAW_CONFIG.visual.impact.normal;
+    const impact = TAKRAW_CONFIG.visual.impact[impactStyleKey(TAKRAW_CONFIG.visual.impact, payload)];
+    if (!payload.timing && !payload.spike) return duration;
     return Math.max(duration, badge, (impact.hold + impact.life) * 1000,
       (impact.trail?.duration ?? 0) * 1000, (impact.shake?.duration ?? 0) * 1000);
   }
@@ -424,7 +431,7 @@ async function bootTakraw() {
         contact: {
           reversible: true,
           start(event) {
-            return { impact: view.impacts.start(event.payload), badge: showBadge(event.payload), badgeKey: badgeKey(event.payload.timing) };
+            return { impact: view.impacts.start(event.payload), badge: showBadge(event.payload), badgeKey: badgeKey(event.payload.timing), pop: showHitPop(event.payload) };
           },
           update(handle, ageMs) { view.impacts.update(handle.impact, ageMs); },
           // 같은 이벤트의 재확정은 경과 시간을 유지한 채 모양과 등급 표시만 갱신한다.
@@ -439,7 +446,24 @@ async function bootTakraw() {
           stop(handle) {
             view.impacts.release(handle.impact);
             ui.hideTiming(handle.badge);
+            ui.hideHitPop(handle.pop);
           },
+        },
+        // 선수 착지 먼지: 접촉처럼 추측 이벤트라 롤백되면 사라진다.
+        land: {
+          reversible: true,
+          start(event) { return { node: view.field.startLand(event.payload) }; },
+          update(handle, ageMs) { if (handle.node) view.field.update(handle.node, ageMs); },
+          reconcile() {},
+          stop(handle) { view.field.release(handle.node); },
+        },
+        // 득점 색종이: 확정된 득점에만 터진다.
+        score: {
+          reversible: false,
+          start(event) { return { node: view.field.startConfetti(event.payload) }; },
+          update(handle, ageMs) { if (handle.node) view.field.update(handle.node, ageMs); },
+          reconcile() {},
+          stop(handle) { view.field.release(handle.node); },
         },
         sound: audio.createAdapter({ onEnded: event => journal?.finish(event) }),
       },
@@ -462,10 +486,18 @@ async function bootTakraw() {
           kind: 'contact',
           payload: { ...event, position: { ...event.position } },
           policy: 'speculative',
-          durationMs: contactDuration(event.timing),
+          durationMs: contactDuration(event),
         });
       }
-      const kickSound = { perfect: 'kickPerfect', good: 'kickGood' }[event.timing?.grade] ?? 'kick';
+      if (event.type === 'land') {
+        journal.emit({ ...identity, kind: 'land', payload: { ...event, position: { ...event.position } }, policy: 'speculative',
+          durationMs: TAKRAW_CONFIG.visual.field.land.life * 1000 });
+      } else if (event.type === 'point') {
+        const { halfLength } = TAKRAW_CONFIG.court;
+        journal.emit({ ...identity, kind: 'score', payload: { ...event, position: { x: (event.team === 0 ? -1 : 1) * halfLength / 2, y: 0, z: 0 } },
+          policy: 'confirmed', durationMs: TAKRAW_CONFIG.visual.field.confetti.life * 1000 });
+      }
+      const kickSound = event.spike ? 'kickSpike' : { perfect: 'kickPerfect', good: 'kickGood' }[event.timing?.grade] ?? 'kick';
       const soundId = { touch: kickSound, land: 'land', net: 'net', serve: 'serve', point: 'point' }[event.type];
       if (soundId) {
         const strength = event.type === 'point' || event.type === 'serve' ? 0.8 :

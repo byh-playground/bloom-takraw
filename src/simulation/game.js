@@ -164,7 +164,8 @@ class TakrawGame {
     }
     if (humans[0]?.restart) {
       if (this.mode === 'training') this.prepareRally();
-      else this.reset(this.mode);
+      // 다시 시작은 새 변주를 쓴다. 두 피어가 같은 현재 시드·랠리 번호에서 같은 새 시드를 얻는다.
+      else this.reset(this.mode, undefined, Math.floor(seededUnit(this.state.seed, this.state.rally, this.state.tick, 99) * 4294967296));
       this.state.tick = frame.tick + 1;
       return;
     }

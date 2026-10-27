@@ -15,6 +15,8 @@ const fromBase64 = text => Uint8Array.from(atob(text), c => c.charCodeAt(0));
  * 우리 팀 동료 AI의 스파이크 받기 학습. 한 번의 학습 = 정해진 epoch 수의 REINFORCE이며,
  * 이전 정책이 있으면 그 가중치에서 이어서 학습한다. 게임과 저장소는 모르고 createGame만 받는다(has-a).
  */
+// TOBE(learning) 학습 목표 검증: 이 클래스는 장면 성공률만 높인다. 경기 득점은 `scripts/learning-match-bench.mjs`로만 확인할 수 있고,
+// 학습 화면에는 경기 지표가 없다. 경기 득점률이 규칙 AI 이상임이 확인되기 전까지 화면 문구는 '장면 성공률'로 한정한다(docs/learning-tobe.md ③).
 class TeammateLearning {
   static get defaults() { return Object.freeze({ learningRate: 0.01, sigma: 0.35, batchSize: 8, evalScenes: 16, evalFirstSeed: 2001 }); }
 

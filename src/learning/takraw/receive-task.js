@@ -3,6 +3,8 @@ import { ReceiveObservation } from './observation.js';
 import { TuningSpec } from './tuning.js';
 
 /** 상대 스파이크를 받는 장면. 값은 장면 표본과 판정의 유일한 정의다. */
+// TOBE(learning) 장면 다양화: 지금은 세터(id 1) 한 명 · 고정 범위의 스파이크 한 종류만 학습한다. 경기에서는 낙하점에 가장 가까운 선수가 받고
+// 궤적이 다양해서 장면 성공률이 경기 득점으로 이어지지 않았다(docs/learning-tobe.md ①). 받는 선수·역할·위치·공 속도 분포를 경기에서 쓰는 분포로 넓힌다.
 const RECEIVE_SCENE = Object.freeze({
   defender: 1, attacker: 2, team: 0, speed: [4, 9], maxSeconds: 4, tickRate: 60,
   landing: { x: [-1.4, 1.4], z: [-1.2, 1.2], y: 0.75 }, from: { x: [0.5, 1.6], y: [2.7, 3.5], zSpread: 1.5 },
@@ -75,6 +77,8 @@ class ReceiveTask extends Task {
     return { ...result, ...this._judge(game) };
   }
 
+  // TOBE(learning) 보상 재정의: 성공 = 우리 코트 안 · 정점 2.0 m 이상 · 동료 도달. 이 판정은 이후 득점과 직접 이어지지 않는다(docs/learning-tobe.md ②).
+  // 후보: 동료의 다음 접촉까지 이어 굴려 공격 성공(상대 코트 착지)까지 보상에 포함한다.
   /** 접촉 뒤 공이 정점에 오른 시점의 판정: 우리 코트 안쪽에 충분히 높게 떨어지고 동료가 닿을 수 있어야 성공이다. */
   _judge(game) {
     const sc = this.scene, physics = game.physics, court = game.config.court, b = physics.ball.translation();

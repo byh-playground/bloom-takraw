@@ -10,6 +10,8 @@
 - 제거: `ui.js`의 학습 화면, `app.css`의 학습 화면 스타일, `runtime.js`의 `learningAction`·`onLearning`·경기 시작 시 `game.setTuner`.
 - 복구: 제거 직전 전체 구현은 커밋 `aef3a60`(v0.12.15)에 있다. `git show aef3a60:src/presentation/ui.js`, `git show aef3a60:src/runtime.js`, `git show aef3a60:styles/app.css`로 학습 화면과 연결부를 그대로 꺼낼 수 있다. 화면은 새로 설계해도 된다.
 
+**v0.12.22 추가:** 경기 단위(랠리마다 조정 값 8개를 뽑아 득실로 갱신) 학습 코드 `src/learning/match/`와 벤치 `scripts/match-learning-bench.mjs`를 넣었으나, 득점률 0.472(대조군 0.500)로 경기에는 연결하지 않았다. 상세와 다음 시도는 [verification/match-learning.md](verification/match-learning.md).
+
 아래는 v0.12.15까지의 동작과 측정이다.
 
 - 기능은 동작한다: 훈련 포인트 1 P → 스파이크 받기 100번 학습 → 4비트 저장 → 로컬 AI 대전의 우리 팀에 적용(v0.12.13~14).

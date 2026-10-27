@@ -18,3 +18,5 @@
 - [동료 AI 학습 기능](learning-feature.md): v0.12.13 유저 기능 연결(포인트 → 학습 → 저장 → 경기 적용)의 시험 결과와 미검증 범위.
 
 - 이어서 할 일은 [동료 AI 학습 TOBE](../learning-tobe.md)에 모았다. 코드에는 `TOBE(learning)` 주석이 있다.
+
+- [경기 단위 파라미터 학습](match-learning.md): v0.12.22 랠리 단위 REINFORCE의 득점률 측정(0.472, 대조군 0.500)과 미연결 판정.

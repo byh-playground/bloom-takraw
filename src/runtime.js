@@ -13,7 +13,6 @@ import { TAKRAW_VERSION, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TakrawGame } from './simulation/game.js';
-import { TeammateLearning } from './learning/teammate.js';
 import { TakrawView } from './presentation/view.js';
 import { TakrawUI } from './presentation/ui.js';
 
@@ -227,28 +226,6 @@ async function bootTakraw() {
     if (action === 'allocate') return club.allocate(payload.playerId, payload.allocations, { revision: payload.revision });
     if (action === 'recruit') return club.recruit(payload.playerId);
     throw new Error('팀 관리 동작을 확인해 주세요.');
-  }
-
-  let learningRun = null;
-
-  /** 동료 받기 학습 한 번. 끝까지 마쳤을 때만 포인트를 쓰고 결과를 저장한다. 중간에 멈추면 아무것도 바뀌지 않는다. */
-  async function learningAction(action, payload = {}) {
-    if (action === 'stop') { if (learningRun) learningRun.stop = true; return null; }
-    if (action !== 'start') throw new Error('학습 동작을 확인해 주세요.');
-    if (!club || disposed || !RAPIER) return null;
-    if (mode || ui.inGame) throw new Error('학습은 처음 화면에서 할 수 있어요.');
-    if (learningRun) throw new Error('이미 학습하고 있어요.');
-    const rule = TAKRAW_CLUB_RULES.learning;
-    if (club.getView().trainingPoints < rule.cost) throw new Error('훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.');
-    const saved = club.learnedPolicy(), run = learningRun = { stop: false };
-    try {
-      const learner = new TeammateLearning({ createGame: () => new TakrawGame({ RAPIER, config }) });
-      const result = await learner.learn({ start: saved ? TeammateLearning.decode(saved.policy) : null, epochs: rule.epochs,
-        onBatch: payload.onBatch, onPhase: payload.onPhase, shouldStop: () => run.stop || disposed });
-      if (!result.completed || disposed) return { completed: false, epochs: result.epochs };
-      const saving = await club.learn(TeammateLearning.encode(result.policy));
-      return { completed: true, epochs: result.epochs, curve: result.curve, before: result.before, after: result.after, view: saving?.view };
-    } finally { learningRun = null; }
   }
 
   function localTeam() {
@@ -707,11 +684,6 @@ async function bootTakraw() {
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false } : null;
     clubSession.reward = null;
     game.setTeams(clubSession.team, null);
-    // TOBE(learning) 적용 조건: 현재 정책은 경기 득점률이 규칙 AI보다 낮다(0.44~0.46, docs/verification/learning-feature.md). 득점률 ≥ 0.50이 확인되면 유지,
-    // 아니면 이 줄의 `learned`를 null로 두어 경기 적용을 끈다(docs/learning-tobe.md ④). 온라인 적용은 양쪽 가중치 해시 교환 + 규칙 AI 대체가 먼저다(⑤).
-    // 학습한 받기 조정은 로컬 AI 대전의 우리 팀에만 쓴다. 온라인은 양쪽 가중치가 같다는 보장이 없어 쓰지 않는다.
-    const learned = nextMode === 'match' ? club.learnedPolicy() : null, policy = learned && TeammateLearning.decode(learned.policy);
-    game.setTuner(0, policy ? TeammateLearning.tuner(policy) : null);
     game.reset(nextMode);
     latestView = game.getView();
     BodyPose = createPresentation();
@@ -1052,7 +1024,6 @@ async function bootTakraw() {
     },
     onRestart: restart,
     onClubAction: clubAction,
-    onLearning: learningAction,
     onRewardRetry: retryReward,
     onTrainingLesson(lesson) {
       const option = TAKRAW_TRAINING_LESSONS.find(item => item.id === lesson);

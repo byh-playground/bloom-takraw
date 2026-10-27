@@ -58,6 +58,11 @@ test.describe('물리 엔진 필요', () => {
       expect(game.physics.players[calls[0]].team).toBe(0);
       expect(game.tuning[0]).toEqual({ aimDx: 0.5 });
       expect(game.retuneTeam).toBe(-1);
+      game.releaseTuning(0); // 받는 첫 접촉 뒤에는 기본값으로 돌아가지만 조정기는 남는다
+      expect(game.tuning[0]).toBeNull();
+      expect(typeof game.tuners[0]).toBe('function');
+      game.retuneTeam = 0; game.applyTuner();
+      expect(game.tuning[0]).toEqual({ aimDx: 0.5 });
       game.setTuner(0, null);
       expect(game.tuning[0]).toBeNull();
       expect(() => game.setTuner(0, 3)).toThrow();

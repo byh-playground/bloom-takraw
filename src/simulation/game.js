@@ -357,6 +357,7 @@ class TakrawGame {
       }
       this.state.touches++;
       this.state.lastTouch = event.playerId;
+      this.releaseTuning(event.team);
       const defendedTouch = this.state.defense[event.team]?.playerId === event.playerId;
       if (this.mode !== 'training') {
         const defense = this.state.defense[event.team];
@@ -422,6 +423,7 @@ class TakrawGame {
 
   awardPoint(winner, reason) {
     if (this.state.phase !== 'rally') return;
+    this.releaseTuning(0); this.releaseTuning(1);
     this.state.phase = 'point';
     this.state.toss = null;
     this.state.defense = [null, null];
@@ -608,6 +610,9 @@ class TakrawGame {
     this.tuners[team] = tuner;
     if (!tuner) this.setTuning(team, null);
   }
+
+  /** 조정기가 있는 팀의 조정 값을 기본으로 되돌린다. 받기 학습은 첫 접촉(받는 동작)만 학습했으므로 그 뒤의 토스·공격에는 쓰지 않는다. */
+  releaseTuning(team) { if (this.tuners[team] && this.tuning[team]) this.setTuning(team, null); }
 
   /** 상대가 방금 공을 쳤다면, 공이 반응한 뒤 착지 예상 지점에 가장 가까운 선수 기준으로 팀 조정 값을 갱신한다. */
   applyTuner() {

@@ -53,15 +53,15 @@ test.describe('물리 엔진 필요', () => {
       game.physics.resetBall({ x: 1, y: 3, z: 0 }, { x: -6, y: 0, z: 0 });
       game.applyTuner();
       expect(calls).toEqual([]); // 상대가 치기 전에는 호출하지 않는다
-      game.retuneTeam = 0; game.applyTuner();
+      game.retune[0] = true; game.applyTuner();
       expect(calls).toHaveLength(1);
       expect(game.physics.players[calls[0]].team).toBe(0);
       expect(game.tuning[0]).toEqual({ aimDx: 0.5 });
-      expect(game.retuneTeam).toBe(-1);
+      expect(game.retune[0]).toBe(false);
       game.releaseTuning(0); // 받는 첫 접촉 뒤에는 기본값으로 돌아가지만 조정기는 남는다
       expect(game.tuning[0]).toBeNull();
       expect(typeof game.tuners[0]).toBe('function');
-      game.retuneTeam = 0; game.applyTuner();
+      game.retune[0] = true; game.applyTuner();
       expect(game.tuning[0]).toEqual({ aimDx: 0.5 });
       game.setTuner(0, null);
       expect(game.tuning[0]).toBeNull();

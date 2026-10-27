@@ -31,8 +31,9 @@ class TakrawGame {
     this.temperaments = { key: '', list: [] };
     this.revision = 0;
     this.tuning = [null, null]; // 팀별 학습 조정 값(이름 → 절대값). 없으면 config 기본값을 쓴다.
-    this.tuners = [null, null]; // 팀별 상황 반응형 조정기: (game, playerId) → 조정 값. 상대가 공을 칠 때마다 다시 계산한다(로컬 경기 전용).
-    this.retuneTeam = -1;
+    this.tuners = [null, null]; // 팀별 상황 반응형 조정기: (game, playerId) → 조정 값. 상대 스파이크 뒤(기본) 또는 모든 접촉 뒤(everyContact)에 다시 계산한다(로컬 경기 전용).
+    this.tunerEveryContact = [false, false];
+    this.retune = [false, false]; // 다음 물리 단계에서 조정기를 부를 팀
     this.isolated = false; // 학습 장면 전용: 훈련 모드에서도 상대 공에 대한 리시브 판단을 켠다.
     this.teamById = {};
     this.setTeams();
@@ -76,7 +77,7 @@ class TakrawGame {
   /** seed는 경기 변주(선수 성향·서브)의 원천이다. 훈련은 같은 상황이 반복되어야 하므로 기본 시드를 쓴다. */
   reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto', seed = this.config.network.seed) {
     this.mode = mode;
-    this.retuneTeam = -1;
+    this.retune = [false, false];
     this.state = {
       mode, phase: 'ready', tick: 0, time: 0, seed: mode === 'training' ? this.config.network.seed : seed >>> 0,
       score: [0, 0], sets: [0, 0], set: 1,
@@ -364,7 +365,7 @@ class TakrawGame {
       }
       this.state.touches++;
       this.state.lastTouch = event.playerId;
-      this.releaseTuning(event.team);
+      if (this.tunerEveryContact[event.team]) this.retune[event.team] = true; else this.releaseTuning(event.team);
       const defendedTouch = this.state.defense[event.team]?.playerId === event.playerId;
       if (this.mode !== 'training') {
         const defense = this.state.defense[event.team];
@@ -383,7 +384,8 @@ class TakrawGame {
         return;
       }
       if (spike) this.metrics.spikes++;
-      if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
+      // 기본 조정기는 스파이크 받기에만 학습했으므로 스파이크 뒤에만 부르고, everyContact 조정기는 상대의 모든 접촉 뒤에 부른다.
+      if (this.tuners[1 - event.team] && (spike || this.tunerEveryContact[1 - event.team])) this.retune[1 - event.team] = true;
       const target = this.inputs[event.playerId]?.tossTarget;
       const set = target && /^(foot|lowerLeg)/.test(event.part || '') && this.physics.players[event.playerId].kick.mode === 'ground' && !spike;
       const intent = this.inputs[event.playerId]?.intent;
@@ -613,9 +615,10 @@ class TakrawGame {
   }
 
   /** 팀의 조정기를 등록한다. null이면 해제하고 조정 값도 기본으로 되돌린다. */
-  setTuner(team, tuner) {
+  setTuner(team, tuner, { everyContact = false } = {}) {
     if (tuner !== null && typeof tuner !== 'function') throw new Error('조정기는 함수여야 합니다.');
     this.tuners[team] = tuner;
+    this.tunerEveryContact[team] = !!tuner && everyContact;
     if (!tuner) this.setTuning(team, null);
   }
 
@@ -625,20 +628,23 @@ class TakrawGame {
 
   /** 상대가 방금 공을 쳤다면, 공이 반응한 뒤 착지 예상 지점에 가장 가까운 선수 기준으로 팀 조정 값을 갱신한다. */
   applyTuner() {
-    const team = this.retuneTeam;
-    if (team < 0) return;
-    this.retuneTeam = -1;
-    const tuner = this.tuners[team];
-    if (!tuner || this.state.phase !== 'rally') return;
-    const land = this.predictAtHeight(this.config.ai.receiveHeight);
-    if (!land.reachable) return;
-    let nearest = null, best = Infinity;
-    for (const player of this.physics.players) {
-      if (player.team !== team) continue;
-      const t = player.root.translation(), d = Math.hypot(t.x - land.x, t.z - land.z);
-      if (d < best) { best = d; nearest = player.id; }
+    for (const team of [0, 1]) {
+      if (!this.retune[team]) continue;
+      this.retune[team] = false;
+      const tuner = this.tuners[team];
+      if (!tuner || this.state.phase !== 'rally') continue;
+      const land = this.predictAtHeight(this.config.ai.receiveHeight);
+      if (!land.reachable) continue;
+      // 공이 상대 쪽으로 넘어가는 중이면 우리 쪽에서 정할 것이 없다.
+      if (this.tunerEveryContact[team] && land.x * (team === 0 ? 1 : -1) > 0) { this.setTuning(team, null); continue; }
+      let nearest = null, best = Infinity;
+      for (const player of this.physics.players) {
+        if (player.team !== team) continue;
+        const t = player.root.translation(), d = Math.hypot(t.x - land.x, t.z - land.z);
+        if (d < best) { best = d; nearest = player.id; }
+      }
+      if (nearest !== null) this.setTuning(team, tuner(this, nearest));
     }
-    if (nearest !== null) this.setTuning(team, tuner(this, nearest));
   }
 
   tossTarget(player) { return this.kickIntent(player)?.target || null; }

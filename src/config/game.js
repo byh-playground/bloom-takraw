@@ -41,11 +41,15 @@ const TAKRAW_CONFIG = Object.freeze({
     // depth·lateral: 대기 자리의 앞뒤·옆 흔들림(±m).
     temperament: { reaction: [0.02, 0.24], clearance: [1.0, 1.5], depth: 0.35, lateral: 0.30 },
     // 서브 토스의 변주(±): 위치(m)와 올리는 속도(m/s). 서브가 매번 다른 궤적이 된다. 폭을 2배로 키우면 아웃이 늘어 랠리가 짧아져(120경기초 기준) 이 값으로 정했다.
+    // 대기 자리의 팀 단위 이동(m, 기본 0). 학습이 조정한다.
+    stance: { depth: 0, lateral: 0 },
     serve: { depth: 0.03, lateral: 0.08, height: 0.05, rise: 0.08 },
     receive: { claimLead: 0.75, commitLead: 0.10, claimSlack: 0.25, coverDistance: 1.25, hysteresis: 0.16, braking: 0.18 },
     toss: { receiveOffset: 0.8, incomingOffset: 0.8, airContactHeight: 3.6,
       // 동료에게 보내는 지면 토스의 목표 보정(m): dx는 동료보다 네트 쪽, dz는 옆쪽으로 둔다.
       aim: { dx: 0.70, dz: 0 },
+      // 세트 상대 고르기: 선호 역할이 아닌 동료에게 붙는 순위 벌점(작을수록 가까운 동료를 고른다).
+      allyPenalty: 6,
       ground: { lead: 0.30, followThrough: 0.15, window: 0.45 },
       lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
       attack: { offset: 0.65, lateral: 0.10, positionRadius: 0.55, minLead: 0.16, maxLead: 0.65,

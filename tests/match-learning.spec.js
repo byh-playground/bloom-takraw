@@ -1,7 +1,7 @@
 import { test, expect } from 'playwright/test';
 import { TAKRAW_CONFIG } from '../src/config/game.js';
 import { TakrawGame } from '../src/simulation/game.js';
-import { MatchLearning, MatchObservation, RallyObserver, TuningSpec, ReceiveTask } from '../src/learning/index.js';
+import { MatchLearning, MatchObservation, RallyObserver, TuningSpec, MATCH_TUNING, ReceiveTask } from '../src/learning/index.js';
 
 // 물리 엔진이 필요한 시험은 RAPIER_MODULE(rapier3d-compat 진입 파일 경로)이 있을 때만 돈다.
 const rapierPath = process.env.RAPIER_MODULE;
@@ -33,7 +33,7 @@ test.describe('경기 학습', () => {
   });
 
   test('시작 정책은 규칙 AI와 같다: 조정 값이 모두 기본값', async () => {
-    const RAPIER = await loadRapier(), game = await rallyGame(RAPIER), spec = new TuningSpec();
+    const RAPIER = await loadRapier(), game = await rallyGame(RAPIER), spec = new TuningSpec(MATCH_TUNING);
     try {
       const learner = new MatchLearning({ random: ReceiveTask.mulberry32(1) });
       expect(MatchLearning.tuner(learner.policy, 0, spec)(game, nearestOf(game, 0))).toEqual(spec.defaults(game));
@@ -44,7 +44,7 @@ test.describe('경기 학습', () => {
     const RAPIER = await loadRapier(), game = await rallyGame(RAPIER);
     try {
       const learner = new MatchLearning({ random: ReceiveTask.mulberry32(3), options: { batchSize: 16, learningRate: 0.05 } });
-      const id = nearestOf(game, 0), obs = () => MatchObservation.encode(game, 0, id);
+      const id = nearestOf(game, 0), obs = () => MatchObservation.encode(game, 0, id, learner.habit);
       for (let i = 0; i < 600; i++) {
         learner.decide(game, 0, id);
         const sample = learner.pending[0];
@@ -56,7 +56,7 @@ test.describe('경기 학습', () => {
   });
 
   test('조정 값은 항상 정해진 범위 안이다', async () => {
-    const RAPIER = await loadRapier(), game = await rallyGame(RAPIER), spec = new TuningSpec();
+    const RAPIER = await loadRapier(), game = await rallyGame(RAPIER), spec = new TuningSpec(MATCH_TUNING);
     try {
       const learner = new MatchLearning({ random: ReceiveTask.mulberry32(9), options: { sigma: 1 } });
       for (let i = 0; i < 200; i++) {
@@ -77,7 +77,9 @@ test.describe('경기 학습', () => {
       for (let tick = 1; tick < 60 * 60 && learner.rallies < 3; tick++) { game.step({ tick, tickRate: 60, inputs: [] }); observer.observe(game); }
       expect(learner.rallies).toBeGreaterThanOrEqual(1);
       expect(learner.decisions).toBeGreaterThan(learner.rallies); // 랠리당 결정이 여러 개
-      expect(learner.batch.every(entry => entry.reward === 1 || entry.reward === -1)).toBe(true);
+      const rewards = learner.batch.map(entry => entry.reward);
+      expect(rewards.every(reward => Math.abs(reward) <= 1 + 2 * learner.options.auxWeight + 1e-9)).toBe(true); // 랠리 ±1 + 접촉 보상
+      expect(rewards.some(reward => Math.abs(Math.abs(reward) - 1) > 1e-9)).toBe(true); // 접촉 보상이 실제로 붙은 결정이 있다
       expect(game.tunerEveryContact[0]).toBe(true);
     } finally { game.dispose(); }
   });
@@ -97,7 +99,7 @@ test('랠리 관찰자: 첫 관찰에 조정기를 걸고, 랠리 끝에 승패 
   const tuners = [null, null], game = { state: { phase: 'ready', pointWinner: -1 }, setTuner(team, tuner) { tuners[team] = tuner; } };
   const observer = new RallyObserver({ learner, team: 1 });
   const phase = (name, winner = -1) => { game.state.phase = name; game.state.pointWinner = winner; observer.observe(game); };
-  const decide = () => learner.pending.push({ obs: new Float64Array(MatchObservation.size), mean: new Float64Array(8), action: new Float64Array(8) });
+  const decide = () => learner.pending.push({ obs: new Float64Array(MatchObservation.size), mean: new Float64Array(15), action: new Float64Array(15), expectOwn: false, aux: 0, at: 'x' });
   phase('ready'); expect(typeof tuners[1]).toBe('function');
   phase('rally'); decide(); decide(); phase('point', 1);
   expect(learner.batch.map(e => e.reward)).toEqual([1, 1]);

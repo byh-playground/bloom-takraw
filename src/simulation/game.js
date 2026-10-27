@@ -335,6 +335,7 @@ class TakrawGame {
         { x: 0, y: 1.5 + jitter(4) * v.rise, z: 0 });
       this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
     }
+    if (this.mode !== 'training' && this.tunerEveryContact[this.state.serving]) this.retune[this.state.serving] = true; // 서브도 조정 대상
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
     this.revision++;
   }
@@ -590,7 +591,7 @@ class TakrawGame {
     candidates.sort((a, b) => {
       const rank = ally => {
         const p = ally.root.translation();
-        return (/fall|recover|down/i.test(ally.state) && !recoveringAttacker(ally) ? 20 : 0) + (ally.role === preferred ? 0 : 6) + Math.hypot(p.x - origin.x, p.z - origin.z);
+        return (/fall|recover|down/i.test(ally.state) && !recoveringAttacker(ally) ? 20 : 0) + (ally.role === preferred ? 0 : this.tuned(player.team, 'allyPenalty', this.config.ai.toss.allyPenalty)) + Math.hypot(p.x - origin.x, p.z - origin.z);
       };
       return rank(a) - rank(b) || a.id - b.id;
     });
@@ -635,8 +636,6 @@ class TakrawGame {
       if (!tuner || this.state.phase !== 'rally') continue;
       const land = this.predictAtHeight(this.config.ai.receiveHeight);
       if (!land.reachable) continue;
-      // 공이 상대 쪽으로 넘어가는 중이면 우리 쪽에서 정할 것이 없다.
-      if (this.tunerEveryContact[team] && land.x * (team === 0 ? 1 : -1) > 0) { this.setTuning(team, null); continue; }
       let nearest = null, best = Infinity;
       for (const player of this.physics.players) {
         if (player.team !== team) continue;

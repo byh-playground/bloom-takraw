@@ -4,15 +4,15 @@
 import fs from 'node:fs';
 import { TAKRAW_CONFIG } from '../src/config/game.js';
 import { TakrawGame } from '../src/simulation/game.js';
-import { MatchLearning, RallyObserver, LinearPolicy, MatchObservation, TuningSpec } from '../src/learning/index.js';
+import { MatchLearning, RallyObserver, LinearPolicy, MatchObservation, TuningSpec, MATCH_TUNING } from '../src/learning/index.js';
 import { ReceiveTask } from '../src/learning/index.js';
 
 const loaded = await import(process.env.RAPIER_MODULE || '@dimforge/rapier3d-compat');
 const RAPIER = loaded.default ?? loaded; await RAPIER.init();
 const env = (name, fallback) => process.env[name] ?? fallback;
 const TRAIN = +env('TRAIN', 40), SEC = +env('SEC', 120), SEED = +env('SEED', 1), EVAL = +env('EVAL', 24);
-const options = {}; for (const [key, name] of [['learningRate', 'LR'], ['sigma', 'SIGMA'], ['batchSize', 'BATCH']]) if (process.env[name]) options[key] = +process.env[name];
-const random = ReceiveTask.mulberry32(SEED * 7919 + 3), spec = new TuningSpec();
+const options = {}; for (const [key, name] of [['learningRate', 'LR'], ['sigma', 'SIGMA'], ['batchSize', 'BATCH'], ['auxWeight', 'AUX']]) if (process.env[name]) options[key] = +process.env[name];
+const random = ReceiveTask.mulberry32(SEED * 7919 + 3), spec = new TuningSpec(MATCH_TUNING);
 const createGame = () => new TakrawGame({ RAPIER, config: TAKRAW_CONFIG });
 
 /** 한 경기를 정해진 시간 동안 돌린다. learner: 학습/적용을 받는 팀 side의 MatchLearning(없으면 규칙 AI). */
@@ -21,13 +21,12 @@ function play({ side, learner, frozen = null, seed, offset }) {
   try {
     game.reset('match', undefined, seed);
     const observer = learner ? new RallyObserver({ learner, team: side }) : null;
-    if (frozen) game.setTuner(side, null); // 평가: 고정 정책은 랠리마다 평균 조정만 적용(아래)
+    if (frozen) game.setTuner(side, MatchLearning.tuner(frozen, side, spec), { everyContact: true }); // 평가: 고정 정책은 접촉마다 평균 조정만 적용
     let previous = game.state.phase;
     for (let tick = offset; tick < offset + SEC * 60 && game.state.phase !== 'finished'; tick++) {
       game.step({ tick, tickRate: 60, inputs: [] });
       const phase = game.state.phase;
       if (observer) observer.observe(game);
-      if (frozen && previous !== 'rally' && phase === 'rally') game.setTuning(side, MatchLearning.tuner(frozen, spec)(game, side));
       if (previous === 'rally' && phase !== 'rally') points[game.state.pointWinner]++;
       previous = phase;
     }
@@ -35,7 +34,7 @@ function play({ side, learner, frozen = null, seed, offset }) {
   } finally { game.dispose(); }
 }
 
-const learner = new MatchLearning({ random, options });
+const learner = new MatchLearning({ random, options, spec });
 const log = [];
 console.log(`학습 경기 ${TRAIN}판 (경기당 ${SEC}초), 옵션`, learner.options);
 for (let m = 0; m < TRAIN; m++) {
@@ -45,7 +44,7 @@ for (let m = 0; m < TRAIN; m++) {
   if ((m + 1) % 5 === 0) {
     const block = log.slice(-5), mean = block.reduce((x, y) => x + y, 0) / block.length;
     const mu = learner.policy.layers[0].weights, norm = Math.hypot(...mu);
-    console.log(`  ${m + 1}판: 최근 5판 득점률 ${mean.toFixed(3)}, 랠리 ${learner.rallies}, 승 ${learner.wins}, |가중치| ${norm.toFixed(2)}`);
+    console.log(`  ${m + 1}판: 최근 5판 득점률 ${mean.toFixed(3)}, 랠리 ${learner.rallies}, 결정 ${learner.decisions}, 승 ${learner.wins}, |가중치| ${norm.toFixed(2)}`);
   }
 }
 if (env('OUT', '')) fs.writeFileSync(env('OUT', ''), MatchLearning.encode(learner.policy));

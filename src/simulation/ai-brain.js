@@ -59,10 +59,12 @@ class AiState {
 
 /** 기본 자리에서 성향만큼 앞뒤·옆으로 선 자리. 대기와 보조(공격수·세터의 x)가 같이 쓴다. */
 function stanceTarget({ player, game, temperament }) {
-  const n = player.toward, { halfLength, halfWidth } = game.config.court;
+  const n = player.toward, { halfLength, halfWidth } = game.config.court, { stance } = game.config.ai;
+  const depth = temperament.depth + game.tuned(player.team, 'stanceDepth', stance.depth);
+  const lateral = game.tuned(player.team, 'stanceLateral', stance.lateral);
   return {
-    x: n * clamp(player.home.x * n + temperament.depth, -halfLength + 0.35, -0.6),
-    z: clamp(player.home.z + temperament.lateral, -halfWidth + 0.25, halfWidth - 0.25),
+    x: n * clamp(player.home.x * n + depth, -halfLength + 0.35, -0.6),
+    z: clamp(player.home.z + temperament.lateral + n * lateral, -halfWidth + 0.25, halfWidth - 0.25),
   };
 }
 

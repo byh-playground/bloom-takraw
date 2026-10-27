@@ -13,6 +13,7 @@ class TakrawPhysics {
     this.motionMatcher = new MotionMatcher();
     this.tossTuning = [null, null]; // 팀별 지면 토스 보정 값(조정이 없으면 null)
     this._toss = [null, null];
+    this._shot = [null, null]; // 팀별 공중 타격(서브·스파이크) 보정 값(없으면 null)
     this.settings = Object.assign({
       gravity: 9.81, ballRadius: 0.095, ballMass: 0.18,
       ballRestitution: 0.57, ballDamping: 0.035,
@@ -58,6 +59,7 @@ class TakrawPhysics {
     this.settings.airKick.contact = Object.assign({
       horizon: 0.7, strokeTime: 0.14, maxSpeed: 14, netClearance: 0.18, downwardGain: 2,
       preparationTime: 0.08, driveMass: 8,
+      lateral: 0, speedScale: 1, // 타격 방향의 옆 속도(m/s, 팀 방향 기준)와 앞 속도 배율. 기본은 정면·원래 속도
     }, config.physics?.airKick?.contact || {});
     this.settings.airReady = Object.assign({
       hipPitch: 1.0, kneeBend: 1.8, strength: 0.72, bodyStrength: 0.25,
@@ -1092,7 +1094,7 @@ class TakrawPhysics {
     const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * lead, z: ballVel.z };
     const impact = this._add(ballPos, this._mul(ballVel, lead));
     impact.y -= 0.5 * s.gravity * lead * lead;
-    const shot = kick.contact;
+    const shot = this.shotFor(p);
     // A falling set needs a downward change in velocity for an instep-leading
     // smash. The net clearance constraint below limits how steep it can be.
     const down = Math.max(kick.speed * kick.downward, -incoming.y + shot.downwardGain);
@@ -1102,10 +1104,10 @@ class TakrawPhysics {
     // Only the foot's target face/speed changes: the ball remains solver-owned.
     const drop = Math.max(0, impact.y - clearance);
     const crossingTime = (Math.sqrt(down * down + 2 * s.gravity * drop) - down) / s.gravity;
-    const forwardSpeed = this._clamp(distance / Math.max(0.01, crossingTime), kick.speed, shot.maxSpeed);
+    const forwardSpeed = this._clamp(distance / Math.max(0.01, crossingTime) * shot.speedScale, kick.speed, shot.maxSpeed);
     const flight = Math.max(0.02, distance / forwardSpeed);
     const verticalSpeed = Math.max(-down, (clearance - impact.y) / flight + 0.5 * s.gravity * flight);
-    const wanted = { x: p.toward * forwardSpeed, y: Math.min(kick.speed, verticalSpeed), z: 0 };
+    const wanted = { x: p.toward * forwardSpeed, y: Math.min(kick.speed, verticalSpeed), z: p.toward * shot.lateral };
     const delta = this._sub(wanted, incoming);
     const normal = this._unit(delta, this._v(p.toward, -kick.downward, 0));
     const vn = this._dot(incoming, normal);
@@ -1395,10 +1397,17 @@ class TakrawPhysics {
 
   /** 학습 조정 값(contactHeight, strokeTime, attackApex)을 팀 단위로 덮어쓴다. null이면 기본으로 되돌린다. */
   setTossTuning(team, values) {
-    const keys = ['contactHeight', 'strokeTime', 'attackApex'];
-    this.tossTuning[team] = values ? Object.fromEntries(keys.filter(key => Number.isFinite(values[key])).map(key => [key, values[key]])) : null;
+    const pick = keys => values ? Object.fromEntries(keys.filter(key => Number.isFinite(values[key])).map(key => [key, values[key]])) : null;
+    this.tossTuning[team] = pick(['contactHeight', 'strokeTime', 'attackApex', 'receiveApex']);
     this._toss[team] = this.tossTuning[team] ? Object.freeze({ ...this.settings.groundToss, ...this.tossTuning[team] }) : null;
+    // 공중 타격 값은 이름을 풀어 쓴다: shotLateral → contact.lateral, shotSpeed → contact.speedScale, shotClearance → contact.netClearance.
+    const shot = pick(['shotLateral', 'shotSpeed', 'shotClearance']);
+    this._shot[team] = shot && Object.keys(shot).length ? Object.freeze({ ...this.settings.airKick.contact,
+      ...(shot.shotLateral !== undefined && { lateral: shot.shotLateral }), ...(shot.shotSpeed !== undefined && { speedScale: shot.shotSpeed }),
+      ...(shot.shotClearance !== undefined && { netClearance: shot.shotClearance }) }) : null;
   }
+
+  shotFor(p) { return this._shot[p.team] || this.settings.airKick.contact; }
 
   _receiveFootTarget(p, input, ballPos, ballVel, dt) {
     const s = this.settings, toss = this.tossFor(p);

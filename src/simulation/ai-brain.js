@@ -68,9 +68,11 @@ class AiState {
 /** 기본 자리에서 성향만큼 앞뒤·옆으로 선 자리. 대기와 보조(공격수·세터의 x)가 같이 쓴다. */
 function stanceTarget({ player, game, temperament }) {
   const n = player.toward, { halfLength, halfWidth } = game.config.court;
+  // 사람이 자리를 떠난 팀이면 game.fillStance가 동료의 기본 자리를 비운 구역 쪽으로 옮겨 준다.
+  const base = game.fillStance?.[player.team]?.get(player.id) || player.home;
   return {
-    x: n * clamp(player.home.x * n + temperament.depth, -halfLength + 0.35, -0.6),
-    z: clamp(player.home.z + temperament.lateral, -halfWidth + 0.25, halfWidth - 0.25),
+    x: n * clamp(base.x * n + temperament.depth, -halfLength + 0.35, -0.6),
+    z: clamp(base.z + temperament.lateral, -halfWidth + 0.25, halfWidth - 0.25),
   };
 }
 

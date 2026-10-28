@@ -1,4 +1,5 @@
 import { AiBrain, Temperament, seededUnit } from './ai-brain.js';
+import { AiFormation } from './ai-formation.js';
 import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
 
@@ -28,6 +29,8 @@ class TakrawGame {
     this.physics = new TakrawPhysics(RAPIER, config);
     this.timingJudge = new TakrawTimingJudge(config.timing);
     this.aiBrain = new AiBrain();
+    this.formation = new AiFormation(config.ai.fill, { speed: this.physics.settings.movementSpeed, court: config.court });
+    this.fillStance = [null, null]; // 사람이 있는 팀의 동료 대기 자리(AI 판단 한 번 동안만 쓰는 임시 값, 저장하지 않는다)
     this.temperaments = { key: '', list: [] };
     this.temperamentProfiles = [null, null];
     this.revision = 0;
@@ -545,6 +548,19 @@ class TakrawGame {
     return assignment;
   }
 
+  /** 사람이 있는 팀의 AI 동료 대기 자리(월드 좌표 Map). 사람이 없거나 기능이 꺼져 있으면 null이라 기본 자리를 쓴다. */
+  fillTargets(team, human) {
+    const options = this.config.ai.fill;
+    if (!human || !options?.enabled) return null;
+    const selected = this.physics.players[this.state.selected[team]];
+    if (!selected || selected.team !== team) return null;
+    const n = selected.toward, position = selected.root.translation();
+    const allies = this.physics.players.filter(player => player.team === team && player !== selected)
+      .map(player => ({ id: player.id, role: player.role, home: { x: player.home.x * n, z: player.home.z * n } }));
+    const plan = this.formation.plan({ x: position.x * n, z: position.z * n }, allies, { x: selected.home.x * n, z: selected.home.z * n });
+    return new Map([...plan].map(([id, point]) => [id, { x: point.x * n, z: point.z * n }]));
+  }
+
   /** 사람이 발차기를 누르고 받을 자리로 달릴 때 자리에서 멈추게 입력 크기만 줄인다. 방향·점프·발차기는 건드리지 않는다. */
   assistReceive(team, human) {
     const settings = this.config.ai.receive.assist;
@@ -1051,6 +1067,7 @@ class TakrawGame {
         continue;
       }
       const human = humans[team];
+      this.fillStance[team] = this.mode === 'training' ? null : this.fillTargets(team, human);
       const available = this.physics.players.filter(player => player.team === team && (!human || this.state.selected[team] !== player.id) && (this.mode !== 'training' || player.id === 1));
       for (let id = team * 3; id < team * 3 + 3; id++) this.ai[id].active = false;
       const pass = this.state.toss?.team === team ? this.state.toss : null;

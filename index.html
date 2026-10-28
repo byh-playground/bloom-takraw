@@ -51,6 +51,7 @@
         <strong id="score-1" class="score-number">0</strong>
         <div class="score-team team-coral"><span class="team-label" id="team-label-1">상대 팀</span><div class="set-marks" id="sets-1" aria-label="획득 세트"><i></i><i></i></div></div>
       </div>
+      <div id="match-banner" class="match-banner" role="status" aria-live="polite" hidden></div>
       <div class="rally-strip">
         <div class="rally-status-row"><span id="rally-status">서브 준비</span><span class="strip-divider"></span><span id="touch-indicator"><span id="touch-team">터치</span> <b>0</b><i>/ 3</i></span></div>
         <div id="rally-callout" class="rally-callout" data-tone="neutral" role="status" aria-live="polite" aria-atomic="true" hidden=""><strong id="rally-notice"></strong><span id="rally-detail"></span></div>
@@ -61,7 +62,7 @@
       <div class="drive-feedback"><span id="jump-light"><i></i>점프</span><span id="kick-light"><i></i>발차기</span></div>
       <div class="bottom-guide"><span><kbd>W A S D</kbd> 이동</span><span><kbd>Space</kbd> 길게 누르면 높게</span><span><kbd>좌클</kbd> 누르는 동안 발에 힘</span><span><kbd>우클 드래그</kbd> 시점 · <kbd>C</kbd> 복원</span></div>
       <div id="local-guide" class="local-guide" hidden="">2P · 공격수 <kbd>방향키</kbd> 이동 <kbd>Enter</kbd> 점프 <kbd>오른쪽 Shift</kbd> 발차기</div>
-      <div id="end-actions" class="end-actions" hidden=""><strong id="match-result">경기 종료</strong><span id="match-reward" role="status"></span><button id="reward-retry" type="button" class="secondary-small" hidden="">보상 저장 재시도</button><button id="rematch-button" type="button" class="primary-small">다시 경기</button><button id="result-home" type="button" class="secondary-small">처음으로</button></div>
+      <div id="end-actions" class="end-actions" hidden=""><strong id="match-result">경기 종료</strong><span id="school-result" hidden></span><span id="match-reward" role="status"></span><button id="reward-retry" type="button" class="secondary-small" hidden="">보상 저장 재시도</button><button id="rematch-button" type="button" class="primary-small">다시 경기</button><button id="result-home" type="button" class="secondary-small">처음으로</button></div>
       <section id="training-actions" class="training-actions" aria-label="스파이크 연습 가이드" hidden="">
         <div class="training-heading"><span>스파이크 레슨</span><span id="training-count">첫 번째 토스</span></div>
         <label class="training-lessons" for="training-lesson"><span>연습할 동작</span><select id="training-lesson" aria-label="연습할 동작"></select></label>

@@ -1,4 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
+import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS } from '../simulation/game.js';
@@ -726,12 +727,29 @@ class TakrawUI {
       this.text('team-label-0', hud.teamNames[0]); this.text('team-label-1', hud.teamNames[1]);
     }
     this.text('selected-state', hud.selectedState || '준비');
+    const status = takrawMatchStatus(hud, TAKRAW_CONFIG.rules), banner = document.getElementById('match-banner');
+    const teamName = team => document.getElementById(`team-label-${team}`).textContent;
+    banner.textContent = status.matchPointTeams.length ? (status.matchPointTeams.length === 2 ? '양 팀 매치 포인트' :
+      `${teamName(status.matchPointTeams[0])} 매치 포인트`) : status.deuce ? `${hud.score[0]} : ${hud.score[1]} · 듀스` : '';
+    banner.hidden = this.mode === 'training' || !banner.textContent;
     document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld); document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
     if (this.mode === 'training' && hud.training) this.updateTraining(hud.training);
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;
+    this.nodes['end-actions'].dataset.result = hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';
+    if (ended) {
+      const winnerSchool = hud.matchWinner === 0 ? TAKRAW_SCHOOLS[0] :
+        TAKRAW_SCHOOLS.find(value => value.name === hud.teamNames?.[1]) || TAKRAW_SCHOOLS[1];
+      this.nodes['end-actions'].style.setProperty('--result-accent', `#${winnerSchool.uniform.primary.toString(16).padStart(6, '0')}`);
+    }
+    const school = TAKRAW_SCHOOLS.find(value => value.id === hud.campaignSchoolId), schoolResult = document.getElementById('school-result');
+    schoolResult.hidden = !ended || !school;
+    if (school && ended) {
+      const clear = hud.matchReward?.status === 'saved' ? 'CLEAR' : hud.matchReward?.status === 'error' ? '저장 재시도 필요' : '클리어 저장 중';
+      schoolResult.textContent = hud.matchWinner === 0 ? `${school.name} 격파 · ${clear}` : `${school.name} · 다시 도전해요`;
+    }
     this.text('match-reward', hud.matchReward?.message || '');
     document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
-    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : this.mode === 'online' ? `${hud.matchWinner === 0 ? '청록' : '코랄'} 팀 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '다음 경기를 노려봐요');
+    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : this.mode === 'online' ? `${hud.matchWinner === 0 ? '청록' : '코랄'} 팀 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '패배 · 다시 도전해요');
   }
 
   updateTraining(training) {

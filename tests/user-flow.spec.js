@@ -53,7 +53,7 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
     await Promise.all(pages.map(page => page.locator('#start-match').click()));
     await Promise.all(pages.map(page => page.evaluate(() => {
       const game = window.__takraw.game;
-      const witness = window.__teamPlayWitness = { trials: [], completed: null };
+      const witness = window.__teamPlayWitness = { seed: game.state.seed, trials: [], completed: null };
       let seen = game.metrics.contacts, trial = null, rally = -1;
       function finish(reason) {
         trial.reason = reason;

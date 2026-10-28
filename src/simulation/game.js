@@ -522,9 +522,14 @@ class TakrawGame {
     const action = previousActor?.receive;
     const held = previousActor === controlled ? intends : previousActor && this.ai[previousActor.id].kickUntil > this.state.time &&
       this.ai[previousActor.id].kickFrom <= this.state.time;
-    const physicalCommit = held && action?.committed && action.hitAt === null && action.phase !== 'recover' && this.physics.time < action.until;
-    const closeCommit = held && previous?.plan.reachable && previous.plan.at + previous.plan.time - this.physics.time <= settings.commitLead &&
-      previous.plan.at + previous.plan.time + this.config.ai.toss.ground.followThrough >= this.physics.time;
+    const plannedAt = plan ? plan.at + plan.time : null;
+    const trajectoryChanged = previousActor !== controlled && action?.hitAt === null && plannedAt !== null &&
+      Math.abs(plannedAt - action.contactAt) > settings.commitLead;
+    const physicalCommit = !trajectoryChanged && held && action?.committed && action.hitAt === null && action.phase !== 'recover' && this.physics.time < action.until;
+    const contactAt = action?.contactAt ?? (previous ? previous.plan.at + previous.plan.time : 0);
+    // 남은0초를 현재 시각으로 바꿔 만료된 예약을 계속 갱신하지 않는다.
+    const closeCommit = !trajectoryChanged && held && action?.phase !== 'recover' && previous?.plan.reachable && contactAt - this.physics.time <= settings.commitLead &&
+      contactAt + this.config.ai.toss.ground.followThrough >= this.physics.time;
     if (physicalCommit || closeCommit) {
       actor = previousActor;
       plan = { ...previous.plan, point: { ...(action?.point || previous.plan.point) },
@@ -1097,14 +1102,20 @@ class TakrawGame {
         if (player === active) {
           const saving = !!defense && defense.plan.reachable && defense.plan.time <= ground.window &&
             p.y > this.physics.settings.ballRadius && v.y < 1.5 && !player.jump.active;
+          const receiveAction = player.receive;
+          const restartReceive = !!defense && receiveAction?.hitAt === null && (receiveAction.phase === 'recover' ||
+            Math.abs(this.state.time + defense.plan.time - receiveAction.contactAt) > this.config.ai.receive.commitLead);
+          if (restartReceive) a.kickUntil = this.state.time;
           if (saving) {
             // Re-time BEFORE contact as the ball trajectory changes. The old
             // cooldown was set at reservation time, so it could prevent a save
             // even when the foot never made contact. No ball impulse is added.
             const arrivalAt = this.state.time + defense.plan.time;
-            const from = Math.max(this.state.time, arrivalAt - ground.lead);
+            const restart = restartReceive;
+            // AI도 실제 입력을 한 틱 해제한 뒤 새 킥 edge로 재계획한다.
+            const from = Math.max(this.state.time + (restart ? 1 / this.config.simulation.tickRate : 0), arrivalAt - ground.lead);
             const until = arrivalAt + ground.followThrough;
-            const strokeHeld = a.kickFrom <= this.state.time && a.kickUntil > this.state.time;
+            const strokeHeld = !restart && a.kickFrom <= this.state.time && a.kickUntil > this.state.time;
             if (!strokeHeld) a.kickFrom = from;
             a.kickUntil = strokeHeld ? Math.max(a.kickUntil, until) : until;
             a.cooldown = a.kickUntil + 0.16;

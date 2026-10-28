@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.33';
+const TAKRAW_VERSION = '0.12.34';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -43,7 +43,10 @@ const TAKRAW_CONFIG = Object.freeze({
     temperament: { reaction: [0.02, 0.24], clearance: [1.0, 1.5], depth: 0.35, lateral: 0.30 },
     // 서브 토스의 변주(±): 위치(m)와 올리는 속도(m/s). 서브가 매번 다른 궤적이 된다. 폭을 2배로 키우면 아웃이 늘어 랠리가 짧아져(120경기초 기준) 이 값으로 정했다.
     serve: { depth: 0.03, lateral: 0.08, height: 0.05, rise: 0.08 },
-    receive: { claimLead: 0.75, commitLead: 0.10, claimSlack: 0.25, coverDistance: 1.25, hysteresis: 0.16, braking: 0.18 },
+    receive: { claimLead: 0.75, commitLead: 0.10, claimSlack: 0.25, coverDistance: 1.25, hysteresis: 0.16, braking: 0.18,
+      // 사람이 발차기를 누른 채 받을 공을 향해 달릴 때, 받는 자리(stance)에 멈추도록 속도만 줄여 준다(방향은 그대로).
+      // window: 착지 몇 초 전부터, brake: 남은 거리(m)당 허용 입력 크기, cone: 입력이 자리 방향과 이룰 최소 내적(이보다 벗어나면 돕지 않는다).
+      assist: { window: 0.9, brake: 2.2, cone: 0.35, minInput: 0.25 } },
     toss: { receiveOffset: 0.8, incomingOffset: 0.8, airContactHeight: 3.6,
       // 동료에게 보내는 지면 토스의 목표 보정(m): dx는 동료보다 네트 쪽, dz는 옆쪽으로 둔다.
       aim: { dx: 0.70, dz: 0 },

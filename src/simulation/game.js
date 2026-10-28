@@ -171,6 +171,7 @@ class TakrawGame {
       return;
     }
     if (this.mode === 'match' || this.mode === 'training') humans[1] = null;
+    for (let team = 0; team < 2; team++) humans[team] = this.assistReceive(team, humans[team]);
 
     // Claim/release is an input edge. Re-evaluate that change immediately,
     // while ordinary pursuit decisions remain on the configured AI clock.
@@ -542,6 +543,25 @@ class TakrawGame {
     if (previous && previous.playerId !== actor.id) this.metrics.defensiveSwitches++;
     if (actor !== controlled) this.ai[actor.id].receive = structuredClone(plan);
     return assignment;
+  }
+
+  /** 사람이 발차기를 누르고 받을 자리로 달릴 때 자리에서 멈추게 입력 크기만 줄인다. 방향·점프·발차기는 건드리지 않는다. */
+  assistReceive(team, human) {
+    const settings = this.config.ai.receive.assist;
+    if (!human || !settings || this.mode === 'training' || this.state.phase !== 'rally') return human;
+    if (!(human.kick || human.kickPressed) || human.jump || human.jumpPressed) return human;
+    const assignment = this.state.defense[team], plan = assignment?.humanPlan || (assignment?.human ? assignment.plan : null);
+    const player = this.physics.players[this.state.selected[team]];
+    if (!plan || plan.mode === 'slide' || player.receive?.mode === 'slide' || !plan.stance) return human;
+    const remaining = plan.at + plan.time - this.physics.time;
+    if (!(remaining > 0 && remaining <= settings.window)) return human;
+    const magnitude = Math.hypot(human.x, human.z);
+    if (magnitude <= settings.minInput) return human;
+    const root = player.root.translation(), dx = plan.stance.x - root.x, dz = plan.stance.z - root.z, distance = Math.hypot(dx, dz);
+    if (distance < 0.02) return { ...human, x: 0, z: 0 };
+    if ((human.x * dx + human.z * dz) / (magnitude * distance) <= settings.cone) return human;
+    const scale = Math.min(1, distance * settings.brake / magnitude);
+    return scale >= 1 ? human : { ...human, x: human.x * scale, z: human.z * scale };
   }
 
   receiveCover(player, assignment) {

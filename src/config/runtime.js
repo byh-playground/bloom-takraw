@@ -4,6 +4,15 @@ const KICK_LAYERS = [
   { kind: 'noise', hz: 1800, ms: 45, gain: 0.24 },
 ];
 
+// 기존 득점 신호에 짧은 합성 함성을 합친다. 별도 중복 재생은 하지 않는다.
+const POINT_LAYERS = [
+  { kind: 'tone', hz: 620, end: 620, ms: 95, gain: .3, type: 'sine' },
+  { kind: 'tone', hz: 830, end: 830, ms: 160, gain: .26, type: 'sine', delay: 95 },
+  { kind: 'noise', hz: 1200, ms: 380, gain: .18, delay: 80 },
+  { kind: 'tone', hz: 190, end: 260, ms: 320, gain: .06, type: 'triangle', delay: 90 },
+  { kind: 'tone', hz: 285, end: 365, ms: 340, gain: .05, type: 'triangle', delay: 105 },
+];
+
 const TAKRAW_RUNTIME = Object.freeze({
   input: { size: 6, axisScale: 127 },
   clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },
@@ -88,9 +97,15 @@ const TAKRAW_RUNTIME = Object.freeze({
       point: {
         category: 'signal',
         priority: 5,
+        layers: POINT_LAYERS,
+      },
+      matchPoint: {
+        category: 'signal',
+        priority: 5,
         layers: [
-          { kind: 'tone', hz: 620, end: 620, ms: 95, gain: 0.3, type: 'sine' },
-          { kind: 'tone', hz: 830, end: 830, ms: 160, gain: 0.26, type: 'sine', delay: 95 },
+          ...POINT_LAYERS,
+          { kind: 'tone', hz: 988, end: 1175, ms: 120, gain: .2, type: 'sine', delay: 260 },
+          { kind: 'tone', hz: 1319, end: 1319, ms: 150, gain: .16, type: 'sine', delay: 390 },
         ],
       },
     },

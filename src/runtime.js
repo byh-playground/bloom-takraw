@@ -17,6 +17,7 @@ import { TAKRAW_TRAINING_LESSONS, TakrawGame } from './simulation/game.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
+import { takrawMatchStatus } from './presentation/match-status.js';
 import { seedFromText } from './simulation/ai-brain.js';
 import { TakrawUI } from './presentation/ui.js';
 
@@ -354,6 +355,7 @@ async function bootTakraw() {
     }
     presentation = new PresentationRuntime({ stepMs, delayMs: stepMs });
     view.scoreMotion.reset();
+    view.resetCheer();
     lastContact = null;
     poseCache.clear();
     poseEntities.length = 0;
@@ -472,6 +474,7 @@ async function bootTakraw() {
         score: {
           reversible: false,
           start(event) {
+            view.startCheer(performance.now());
             if (mode === 'match' && event.payload.winningSpike && !view.reducedMotion()) view.scoreMotion.start(performance.now());
             return { node: view.field.startConfetti(event.payload) };
           },
@@ -514,7 +517,8 @@ async function bootTakraw() {
           policy: 'confirmed', durationMs: TAKRAW_CONFIG.visual.field.confetti.life * 1000 });
       }
       const kickSound = event.spike ? 'kickSpike' : { perfect: 'kickPerfect', good: 'kickGood' }[event.timing?.grade] ?? 'kick';
-      const soundId = { touch: kickSound, land: 'land', net: 'net', serve: 'serve', point: 'point' }[event.type];
+      const pointSound = takrawMatchStatus(data.state, config.rules).matchPointTeams.length ? 'matchPoint' : 'point';
+      const soundId = { touch: kickSound, land: 'land', net: 'net', serve: 'serve', point: pointSound }[event.type];
       if (soundId) {
         const strength = event.type === 'point' || event.type === 'serve' ? 0.8 :
           Math.max(0.2, Math.min(1.2, event.speed / TAKRAW_RUNTIME.feedback.soundReferenceSpeed));

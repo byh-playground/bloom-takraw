@@ -52,3 +52,7 @@ runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(hand
 
 v0.12.13~15에는 유저 기능에 연결되었고 v0.12.16에서 화면과 경기 연결을 제거했다(아래는 연결 당시의 설계이며 복구 방법은 docs/learning-tobe.md). 접점이 하나 더 늘었다: `game.setTuner(team, fn)`. 상대가 스파이크를 칠 때마다 공이 반응한 뒤(`applyTuner`) 착지 예상 지점에 가장 가까운 팀 선수 기준으로 `fn(game, playerId)`를 불러 `setTuning`에 넘긴다. 학습 한 번의 규칙(비용·epoch 수·정책 최대 길이)은 `TAKRAW_CLUB_RULES.learning`이 유일한 정의이고, 학습 결과는 클럽 레코드의 선택 필드 `learning: { runs, policy(base64 양자화) }`에 저장한다. `TeammateLearning`(`src/learning/teammate.js`)이 학습·평가·저장 형식 변환·경기용 조정기를 소유하고, 런타임은 학습을 마친 뒤에만 `club.learn()`을 호출한다. 로컬 AI 대전(`mode === 'match'`)의 우리 팀에만 적용하고 온라인에는 쓰지 않는다. 학습은 받는 첫 접촉만 다뤘으므로 조정은 그 접촉(또는 득점)까지만 유지하고 `releaseTuning`이 기본값으로 되돌린다.
 
+
+## 학교 외형
+
+`src/config/schools.js`가 학교 이름·Uniform(주색·보조색·하의·양말)·머리 3종·등번호의 단일 원본이다. 이름과 팔레트는 출시 전 임시안이다. runtime이 세션을 열 때 두 학교를 정하고 view에 전달한다. simulation은 학교 외형을 알지 않으며 저장과 입력 계약은 그대로다. 홈의 임시 상대 선택은 도장깨기 목록으로 대체할 예정이다. view는 등번호 CanvasTexture와 재질을 캐시하고 종료 시 해제한다. 학교 교체 시 선수 메시와 늘어나는 다리 geometry를 해제한 뒤 현재 pose로 재구성한다.

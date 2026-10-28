@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.22';
+const TAKRAW_VERSION = '0.12.23';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -87,7 +87,7 @@ const TAKRAW_CONFIG = Object.freeze({
       land: { life: 0.55, puffs: 7, minSpeed: 2.2, color: 0xf3ecd6, radius: 0.55 },
       confetti: { life: 1.6, count: 44, height: 2.4, spread: 3.2, colors: [0xffd75e, 0xff7f6e, 0x62d0c0, 0xfff3c4] },
     },
-    colors: { ground: 0xece7d9, court: 0x467b6f, courtInset: 0x598c7d, line: 0xf6f0d9, home: 0x39b5b0, away: 0xeb785f, ball: 0xffcd61 },
+    colors: { ground: 0xece7d9, court: 0x467b6f, courtInset: 0x598c7d, line: 0xf6f0d9, ball: 0xffcd61 },
   },
 });
 

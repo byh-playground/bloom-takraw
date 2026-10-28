@@ -45,6 +45,7 @@ async function bootTakraw() {
   const cameraDrag = { pointer: null, x: 0, y: 0 };
   const stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
   const clubSession = { team: null, match: null, reward: null };
+  let campaignSchoolId = null;
   const rewards = { jobs: [], running: false, timer: null };
 
   let ui;
@@ -178,7 +179,7 @@ async function bootTakraw() {
     if (disposed || mode !== 'match' || !match || match.finished || state?.phase !== 'finished' || ![0,1].includes(state.matchWinner)) return;
     match.finished = true;
     const won = state.matchWinner === 0, reward = TAKRAW_CLUB_RULES.rewards[won ? 'win' : 'loss'];
-    const job = { id: match.id, won, mode: 'match', status: 'queued', message: '경기 보상을 저장하고 있어요.', ...reward };
+    const job = { id: match.id, won, mode: 'match', schoolId: match.schoolId, status: 'queued', message: '경기 보상을 저장하고 있어요.', ...reward };
     rewards.jobs.push(job); clubSession.reward = job;
     // 완료 관측은 한 번만 한다. 영속 I/O는 시뮬레이션 콜백 밖에서 실행한다.
     scheduleRewards();
@@ -199,7 +200,7 @@ async function bootTakraw() {
       while (!disposed && (job = rewards.jobs.find(value => value.status === 'queued'))) {
         job.status = 'saving'; job.message = '경기 보상을 저장하고 있어요.'; publishClub(); hudTime = -Infinity;
         try {
-          await club.rewardMatch({ id: job.id, won: job.won, mode: job.mode });
+          await club.rewardMatch({ id: job.id, won: job.won, mode: job.mode, schoolId: job.schoolId });
           job.status = 'saved'; job.message = `보상 저장 완료 · ${job.credits} C + ${job.trainingPoints} P`;
           rewards.jobs.splice(rewards.jobs.indexOf(job), 1);
         } catch (error) {
@@ -713,11 +714,11 @@ async function bootTakraw() {
 
   function openSession(nextMode, capability, token) {
     mode = nextMode;
-    const opponent = TAKRAW_SCHOOLS.find(school => school.id === document.getElementById('opponent-school')?.value) || TAKRAW_SCHOOLS[1];
+    const opponent = TAKRAW_SCHOOLS.find(school => school.id === campaignSchoolId) || TAKRAW_SCHOOLS[1];
     view.setSchools([TAKRAW_SCHOOLS[0], nextMode === 'match' ? opponent : TAKRAW_SCHOOLS[1]]);
     paused = false;
     clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
-    clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false } : null;
+    clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false, schoolId: campaignSchoolId } : null;
     clubSession.reward = null;
     game.setTeams(clubSession.team, null);
     // 경기마다 AI 성향·서브가 달라지도록 시드를 정한다. 온라인은 두 사람이 같은 방 코드에서 같은 시드를 얻고, 혼자 하는 경기는 새 값이다.
@@ -978,6 +979,7 @@ async function bootTakraw() {
     observeMatchResult();
     stopSession();
     clubSession.team = null; clubSession.match = null; clubSession.reward = null;
+    campaignSchoolId = null;
     game.setTeams(null, null);
     game.reset('match');
     latestView = game.getView();
@@ -1056,11 +1058,17 @@ async function bootTakraw() {
   ui = new TakrawUI({
     canStart,
     onStart(nextMode) {
+      campaignSchoolId = null;
       if (nextMode === 'online') {
         setNetwork({ state: 'idle', count: 0, message: '방을 만들거나 친구의 방 코드로 참가해 주세요.' });
       } else startLocal(nextMode);
     },
     onRestart: restart,
+    onCampaign(schoolId) {
+      const index = TAKRAW_SCHOOLS.findIndex(school => school.id === schoolId);
+      if (index < 0 || index > club.getView().campaign.cleared.length || !canStart('match')) return;
+      campaignSchoolId = schoolId; startLocal('match');
+    },
     onClubAction: clubAction,
     onRewardRetry: retryReward,
     onTrainingLesson(lesson) {

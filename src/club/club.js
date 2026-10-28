@@ -1,5 +1,7 @@
 /** 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다. */
 // TOBE(learning) 학습 비용: `learning.cost`는 능력치 훈련과 같은 trainingPoints를 쓴다. 학습이 경기에 도움이 되는 것으로 확인되면 별도 포인트 분리 여부를 결정한다(docs/learning-tobe.md ⑥).
+import { TAKRAW_SCHOOLS } from '../config/schools.js';
+
 const TAKRAW_CLUB_RULES = Object.freeze({
   initial: { credits: 600, trainingPoints: 6 },
   capacity: 9, nameLength: 18, training: { cost: 1, increase: 2, maximum: 100 }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
@@ -58,7 +60,7 @@ class TakrawClub {
     return { schema: 1, revision: 0, name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
       owned: TAKRAW_CLUB_PLAYERS.filter(player => !player.price).map(player => player.id), trained: {},
       lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
-      record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null } };
+      record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null }, campaign: { cleared: [] } };
   }
 
   _validate(record) {
@@ -81,6 +83,13 @@ class TakrawClub {
       if (!learning || typeof learning !== 'object' || !integer(learning.runs) ||
         !(policy === null || (typeof policy === 'string' && policy.length <= TAKRAW_CLUB_RULES.learning.policyLength && /^[A-Za-z\d+/]+={0,2}$/.test(policy))) ||
         (policy === null) !== (learning.runs === 0)) fail();
+    }
+    if (record.campaign !== undefined) {
+      const campaign = record.campaign;
+      if (!campaign || typeof campaign !== 'object' || Array.isArray(campaign) ||
+          Object.keys(campaign).length !== 1 || !Object.hasOwn(campaign, 'cleared') || !Array.isArray(campaign.cleared) ||
+          campaign.cleared.length > TAKRAW_SCHOOLS.length ||
+          Array.from(campaign.cleared).some((id, index) => id !== TAKRAW_SCHOOLS[index].id)) fail();
     }
     for (const [id, training] of Object.entries(record.trained)) {
       const player = TAKRAW_CLUB_PLAYERS.find(value => value.id === id);
@@ -246,11 +255,18 @@ class TakrawClub {
     }, '선수를 영입했어요. 원하는 자리에 편성해 보세요.');
   }
 
-  rewardMatch({ id, won, mode } = {}) {
+  rewardMatch({ id, won, mode, schoolId = null } = {}) {
+    const schoolIndex = schoolId === null ? -1 : TAKRAW_SCHOOLS.findIndex(school => school.id === schoolId);
+    if (schoolId !== null && schoolIndex < 0) return Promise.reject(this._error('도전한 학교를 확인해 주세요.'));
     if (mode !== 'match' || typeof won !== 'boolean' || typeof id !== 'string' || !/^[a-f\d]{32}$/.test(id)) return Promise.reject(this._error('완료된 AI 대전의 보상 정보가 필요해요.'));
     if (this.record?.rewards.includes(id)) return Promise.resolve({ changed: false, view: this.getView() });
     return this._mutate(record => {
       if (record.rewards.includes(id)) return false;
+      if (schoolIndex >= 0) {
+        const campaign = record.campaign ??= { cleared: [] };
+        if (schoolIndex > campaign.cleared.length) throw this._error('앞 학교를 먼저 클리어해 주세요.');
+        if (won && schoolIndex === campaign.cleared.length) campaign.cleared.push(schoolId);
+      }
       const reward = TAKRAW_CLUB_RULES.rewards[won ? 'win' : 'loss'];
       record.credits += reward.credits; record.trainingPoints += reward.trainingPoints;
       record.record.played++; record.record[won ? 'won' : 'lost']++; record.rewards.push(id);
@@ -288,7 +304,7 @@ class TakrawClub {
       trainingPoints: record?.trainingPoints || 0, roster: record ? record.owned.map(id => this._player(id)) : [], lineup: { ...record?.lineup },
       scouts: record ? TAKRAW_CLUB_PLAYERS.filter(player => player.price && !record.owned.includes(player.id)).map(player => this._player(player.id)) : [],
       record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 }, learning: { runs: record?.learning?.runs || 0 }, lastReward: record?.lastReward ? { ...record.lastReward } : null,
-      revision: record?.revision ?? null };
+      campaign: { cleared: [...(record?.campaign?.cleared || [])] }, revision: record?.revision ?? null };
   }
 
   matchTeam() {

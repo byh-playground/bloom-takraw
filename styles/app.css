@@ -624,3 +624,18 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
 body .end-actions{left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(360px,calc(100vw - 32px));max-width:none;align-items:center;text-align:center;padding:24px;border-top:5px solid var(--result-accent);z-index:8;box-shadow:0 18px 80px #193d3540}
 body .end-actions strong{font-size:24px}#school-result{font-weight:800}
 @media(max-width:600px){.match-banner{top:225px;padding:8px 14px;font-size:12px}}
+/* 좁은 화면에서도 조작 영역과 경기 화면의 상단 여백을 지킨다. */
+@media(max-width:600px){
+  body button{min-width:44px;min-height:44px}
+  body .icon-button{width:44px;height:44px}
+  body .match-banner{top:calc(132px + env(safe-area-inset-top));max-width:calc(100% - 32px);white-space:normal;text-align:center}
+  #match-banner:not([hidden])~.rally-strip{visibility:hidden}
+  body .end-actions{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:20px}
+  body .end-actions>strong,body .end-actions>span{grid-column:1/-1}
+  body .end-actions strong{font-size:22px;line-height:1.4}
+  body .end-actions button{width:100%}
+  body .campaign-card{gap:8px;padding:12px}
+  body .campaign-card h3{font-size:14px}
+  body .campaign-card p{line-height:1.5;overflow-wrap:anywhere}
+  body .dialog-content{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+}

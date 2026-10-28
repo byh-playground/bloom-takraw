@@ -12,6 +12,7 @@ class TakrawView {
     this.meshes = new Map();
     this.geometries = new Map();
     this.materials = new Map();
+    this.venueMaterials = new Map();
     this.quality = 'high';
     this.lastMs = 0;
     this.motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -41,6 +42,8 @@ class TakrawView {
     this.makeLights();
     this.makeCourt();
     this.makeSurroundings();
+    this.makeVenueBanners();
+    this.applyVenue();
     this.makeMarkers();
     this.impacts = new TakrawImpactEffects({ THREE, scene: this.scene, config, reducedMotion: () => this.reducedMotion() });
     this.impacts.camera = this.camera;
@@ -57,6 +60,52 @@ class TakrawView {
       this.materials.set(key, options.basic ? new this.THREE.MeshBasicMaterial(properties) : new this.THREE.MeshStandardMaterial(properties));
     }
     return this.materials.get(key);
+  }
+
+  venueMaterial(channel) {
+    if (!this.venueMaterials.has(channel)) {
+      const material = new this.THREE.MeshStandardMaterial({ color: this.schools[1].venue[channel], roughness: .85 });
+      this.venueMaterials.set(channel, material);
+      this.materials.set(`venue:${channel}`, material);
+    }
+    return this.venueMaterials.get(channel);
+  }
+
+  makeVenueBanners() {
+    this.venueBanners = [-3.7, 0, 3.7].map((z, index) => {
+      const banner = this.mesh(this.geometry('venue-banner', () => new this.THREE.PlaneGeometry(3.4, .72)),
+        this.bannerMaterial(index));
+      banner.position.set(7.8, 2.65, z); banner.rotation.y = -Math.PI / 2;
+      banner.castShadow = false; banner.receiveShadow = false;
+      return banner;
+    });
+  }
+
+  bannerMaterial(index) {
+    const school = this.schools[1], key = `venue-banner:${school.id}:${index}`;
+    if (!this.materials.has(key)) {
+      const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 136;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = `#${school.uniform.primary.toString(16).padStart(6, '0')}`; ctx.fillRect(0, 0, 640, 136);
+      ctx.fillStyle = `#${school.venue.line.toString(16).padStart(6, '0')}`;
+      ctx.font = 'bold 43px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(school.venue.banners[index], 320, 68, 600);
+      const texture = new this.THREE.CanvasTexture(canvas); texture.colorSpace = this.THREE.SRGBColorSpace;
+      this.textures.set(key, texture);
+      this.materials.set(key, new this.THREE.MeshBasicMaterial({ map: texture, side: this.THREE.DoubleSide }));
+    }
+    return this.materials.get(key);
+  }
+
+  applyVenue() {
+    const venue = this.schools[1].venue, color = new this.THREE.Color();
+    for (const [channel, material] of this.venueMaterials) material.color.set(venue[channel]);
+    this.scene.background.set(venue.fog.color);
+    this.scene.fog.color.set(venue.fog.color); this.scene.fog.near = venue.fog.near; this.scene.fog.far = venue.fog.far;
+    const bodies = this.crowd[0];
+    for (let i = 0; i < bodies.count; i++) bodies.setColorAt(i, color.set(venue.shirts[i % venue.shirts.length]));
+    bodies.instanceColor.needsUpdate = true;
+    this.venueBanners.forEach((banner, index) => { banner.material = this.bannerMaterial(index); });
   }
 
   geometry(key, factory) {
@@ -112,7 +161,6 @@ class TakrawView {
 
   makeCourt() {
     const T = this.THREE, { halfLength: x, halfWidth: z, netHeight } = this.config.court;
-    const palette = this.config.visual?.colors || {};
     const ground = this.mesh(new T.PlaneGeometry(160, 160), this.material(0xe8eee3));
     this.geometries.set('ground', ground.geometry);
     ground.rotation.x = -Math.PI / 2;
@@ -121,18 +169,18 @@ class TakrawView {
     this.box(17.6, .22, 10.0, 0xd7d6bc, 0, -.145, 0);
     this.box(17.45, .055, 9.85, 0xece7d4, 0, -.02, 0);
     this.box(x * 2 + .28, .018, z * 2 + .28, 0x2f6257, 0, .016, 0);
-    this.box(x, .018, z * 2, palette.court || 0x467b6f, -x / 2, .028, 0);
-    this.box(x, .018, z * 2, palette.courtInset || 0x598c7d, x / 2, .028, 0);
-    const line = palette.line || 0xf6f0d9;
+    this.box(x, .018, z * 2, this.venueMaterial('court'), -x / 2, .028, 0);
+    this.box(x, .018, z * 2, this.venueMaterial('courtInset'), x / 2, .028, 0);
+    const line = this.venueMaterial('line');
     for (const side of [-1, 1]) {
       this.box(.035, .007, z * 2, line, side * x, .043, 0);
       this.box(x * 2, .007, .035, line, 0, .043, side * z);
-      const service = this.mesh(this.geometry('serve-ring', () => new T.RingGeometry(.27, .30, 48)), this.material(line));
+      const service = this.mesh(this.geometry('serve-ring', () => new T.RingGeometry(.27, .30, 48)), line);
       service.rotation.x = -Math.PI / 2;
       service.position.set(side * 4.25, .047, 0);
       service.castShadow = false;
       for (const corner of [-1, 1]) {
-        const arc = this.mesh(this.geometry(`quarter:${side}:${corner}`, () => new T.RingGeometry(.87, .90, 30, 1, side < 0 ? (corner < 0 ? Math.PI : Math.PI * .5) : (corner < 0 ? Math.PI * 1.5 : 0), Math.PI * .5)), this.material(line));
+        const arc = this.mesh(this.geometry(`quarter:${side}:${corner}`, () => new T.RingGeometry(.87, .90, 30, 1, side < 0 ? (corner < 0 ? Math.PI : Math.PI * .5) : (corner < 0 ? Math.PI * 1.5 : 0), Math.PI * .5)), line);
         arc.rotation.x = -Math.PI / 2;
         arc.position.set(0, .046, corner * z);
         arc.castShadow = false;
@@ -180,7 +228,7 @@ class TakrawView {
     const heads = new T.InstancedMesh(headGeometry, crowdMaterial, count);
     bodies.castShadow = true; heads.castShadow = true;
     const object = new T.Object3D(), color = new T.Color();
-    const shirts = [0x669c83,0xd29878,0xe4d6aa,0x809f8d,0x778d87,0xb7aa8b];
+    const shirts = this.schools[1].venue.shirts;
     for (let i = 0; i < count; i++) {
       const row = Math.floor(i / 9);
       const x = -4.6 + (i % 9) * 1.05 + (row === 1 ? .22 : 0);
@@ -460,6 +508,7 @@ class TakrawView {
   setSchools(schools) {
     if (schools.every((school, i) => school === this.schools[i])) return;
     this.schools = schools;
+    this.applyVenue();
     // 다음 pose publish가 같은 ID로 새 외형을 연결합니다.
     for (const group of this.meshes.values()) group.removeFromParent();
     this.meshes.clear();

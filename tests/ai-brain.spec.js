@@ -2,10 +2,41 @@ import { test, expect } from 'playwright/test';
 import { TAKRAW_CONFIG } from '../src/config/game.js';
 import { AiBrain, Temperament, seededUnit } from '../src/simulation/ai-brain.js';
 import { TakrawGame } from '../src/simulation/game.js';
+import { TAKRAW_SCHOOLS } from '../src/config/schools.js';
 
 const rapierPath = process.env.RAPIER_MODULE;
 const loadRapier = async () => { const loaded = await import(rapierPath); const RAPIER = loaded.default ?? loaded; await RAPIER.init(); return RAPIER; };
 const cfg = TAKRAW_CONFIG.ai.temperament;
+
+test('학교 성향: 고정 seed 해시를 유지하고 반응·간격·기본 위치 범위를 적용한다', () => {
+  for (const school of TAKRAW_SCHOOLS) {
+    expect(Temperament.validConfig(school.ai.temperament)).toBeTruthy();
+    const a = new Temperament(school.ai.temperament, 11, 4, 3), b = new Temperament(school.ai.temperament, 11, 4, 3);
+    expect(a).toEqual(b);
+    expect(a.side).toBe(new Temperament(cfg, 11, 4, 3).side);
+    expect(a.reaction).toBeGreaterThanOrEqual(school.ai.temperament.reaction[0]);
+    expect(a.reaction).toBeLessThanOrEqual(school.ai.temperament.reaction[1]);
+    for (const player of school.ai.players) for (const score of Object.values(player.stats)) {
+      expect(score).toBeGreaterThanOrEqual(TAKRAW_CONFIG.athletes.base);expect(score).toBeLessThanOrEqual(TAKRAW_CONFIG.athletes.max);
+    }
+  }
+  for (const invalid of [null, [], {}, {...cfg,reaction:[1,0]}, {...cfg,lateral:-1}, {...cfg,depth:NaN}, {...cfg,clearance:new Array(2)}]) {
+    expect(Temperament.validConfig(invalid)).toBeFalsy();
+  }
+});
+
+test('학교 성향 snapshot: 저장·복구와 기본 프로필 복귀', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE 필요');
+  const game = new TakrawGame({ RAPIER: await loadRapier(), config: TAKRAW_CONFIG });
+  try {
+    game.setTemperaments([null,TAKRAW_SCHOOLS[4].ai.temperament]);game.reset('match',undefined,11);
+    const before = game.temperamentOf(4), saved = game.save();
+    expect(game.validate(saved)).toBeTruthy();
+    game.setTemperaments();expect(game.temperamentOf(4)).toEqual(new Temperament(cfg,11,4,0));
+    game.load(saved);expect(game.temperamentOf(4)).toEqual(before);
+    expect(game.validate({...saved,temperamentProfiles:[null,{}]})).toBeFalsy();
+  } finally {game.dispose();}
+});
 
 test('성향: 같은 시드·선수·랠리는 같은 값, 시드가 다르면 값이 다르고 범위 안이다', () => {
   const a = new Temperament(cfg, 11, 1, 3), b = new Temperament(cfg, 11, 1, 3), c = new Temperament(cfg, 12, 1, 3);

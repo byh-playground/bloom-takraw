@@ -33,6 +33,14 @@ function seedFromText(text) {
 }
 
 class Temperament {
+  static validConfig(value) {
+    const range = (array, minimum) => Array.isArray(array) && array.length === 2 &&
+      Array.from(array).every(number => Number.isFinite(number) && number >= minimum) && array[0] <= array[1];
+    return !!value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 4 &&
+      ['reaction', 'clearance', 'depth', 'lateral'].every(key => Object.hasOwn(value, key)) &&
+      range(value.reaction, 0) && range(value.clearance, 0) &&
+      Number.isFinite(value.depth) && value.depth >= 0 && Number.isFinite(value.lateral) && value.lateral >= 0;
+  }
   /** personality는 경기 내내 같고(반응·간격), jitter는 랠리마다 바뀐다(위치 흔들림·옆 선택). */
   constructor(config, seed, playerId, rally) {
     const u = (...salt) => seededUnit(seed, playerId, ...salt);

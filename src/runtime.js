@@ -720,7 +720,12 @@ async function bootTakraw() {
     clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false, schoolId: campaignSchoolId } : null;
     clubSession.reward = null;
-    game.setTeams(clubSession.team, null);
+    const schoolAi = nextMode === 'match' ? opponent.ai : null;
+    const away = schoolAi ? { name: opponent.name, players: schoolAi.players.map((preset, index) => ({
+      id: `${opponent.id}-${preset.role}`, name: ['리시버', '세터', '공격수'][index], role: preset.role, stats: { ...preset.stats },
+    })) } : null;
+    game.setTeams(clubSession.team, away);
+    game.setTemperaments([null, schoolAi?.temperament || null]);
     // 경기마다 AI 성향·서브가 달라지도록 시드를 정한다. 온라인은 두 사람이 같은 방 코드에서 같은 시드를 얻고, 혼자 하는 경기는 새 값이다.
     const matchSeed = nextMode === 'online' ? seedFromText(String(capability)) : nextMode === 'training' ? undefined : crypto.getRandomValues(new Uint32Array(1))[0];
     game.reset(nextMode, undefined, matchSeed);
@@ -981,6 +986,7 @@ async function bootTakraw() {
     clubSession.team = null; clubSession.match = null; clubSession.reward = null;
     campaignSchoolId = null;
     game.setTeams(null, null);
+    game.setTemperaments();
     game.reset('match');
     latestView = game.getView();
     BodyPose = createPresentation();

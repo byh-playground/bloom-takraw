@@ -1,3 +1,4 @@
+import { TAKRAW_SCHOOLS } from './config/schools.js';
 import * as THREE from 'three';
 import RAPIER from 'rapier';
 import { ActionState, createDOMInput } from '@bloom-gamekit/input';
@@ -712,6 +713,8 @@ async function bootTakraw() {
 
   function openSession(nextMode, capability, token) {
     mode = nextMode;
+    const opponent = TAKRAW_SCHOOLS.find(school => school.id === document.getElementById('opponent-school')?.value) || TAKRAW_SCHOOLS[1];
+    view.setSchools([TAKRAW_SCHOOLS[0], nextMode === 'match' ? opponent : TAKRAW_SCHOOLS[1]]);
     paused = false;
     clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false } : null;

@@ -1,3 +1,4 @@
+import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { TAKRAW_VERSION } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS } from '../simulation/game.js';
@@ -26,6 +27,11 @@ class TakrawUI {
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
+    const select = document.getElementById('opponent-school');
+    for (const school of TAKRAW_SCHOOLS) {
+      const option = document.createElement('option'); option.value = school.id; option.textContent = school.name;
+      option.selected = school === TAKRAW_SCHOOLS[1]; select.append(option);
+    }
     this.bind();
     this.syncInputMode();
     this.applyRoute();

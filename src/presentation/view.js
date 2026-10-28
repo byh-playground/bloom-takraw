@@ -1,3 +1,4 @@
+import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 
@@ -6,6 +7,8 @@ class TakrawView {
     this.THREE = THREE;
     this.canvas = canvas;
     this.config = config;
+    this.schools = [TAKRAW_SCHOOLS[0], TAKRAW_SCHOOLS[1]];
+    this.textures = new Map();
     this.meshes = new Map();
     this.geometries = new Map();
     this.materials = new Map();
@@ -454,12 +457,39 @@ class TakrawView {
     }
   }
 
+  setSchools(schools) {
+    if (schools.every((school, i) => school === this.schools[i])) return;
+    this.schools = schools;
+    // 다음 pose publish가 같은 ID로 새 외형을 연결합니다.
+    for (const group of this.meshes.values()) group.removeFromParent();
+    this.meshes.clear();
+    for (const [key, geometry] of this.geometries) if (key.startsWith('elastic:')) {
+      geometry.dispose(); this.geometries.delete(key);
+    }
+  }
+
+  numberMaterial(number, color) {
+    const key = `number:${number}:${color}`;
+    if (!this.materials.has(key)) {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+      ctx.font = 'bold 52px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(number), 32, 34);
+      const texture = new this.THREE.CanvasTexture(canvas); texture.colorSpace = this.THREE.SRGBColorSpace;
+      this.textures.set(key, texture);
+      this.materials.set(key, new this.THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }));
+    }
+    return this.materials.get(key);
+  }
+
   createEntity(entity) {
     const T = this.THREE, group = new T.Group();
     this.scene.add(group);
     group.userData.entity = entity;
     const team = entity.team === 1 ? 1 : 0;
-    const color = team ? (this.config.visual?.colors?.away || 0xe27e62) : (this.config.visual?.colors?.home || 0x39a58f);
+    const school = this.schools[team], { uniform, hair: hairstyle } = school;
+    const color = uniform.primary;
     const playerId = Number((entity.id.match(/^p(\d+):/) || [0,0])[1]);
     const skinPalette = [0xe9c49e,0xd0a77f,0xf1d2ac,0xe1b88e,0xb98a65,0xf0c6a1];
     const skin = skinPalette[playerId % 6];
@@ -476,7 +506,7 @@ class TakrawView {
     } else {
       let surface = skin;
       if (part === 'torso' || part.startsWith('upperArm')) surface = color;
-      if (part === 'pelvis' || part.startsWith('upperLeg')) surface = team ? 0x725347 : 0x214f49;
+      if (part === 'pelvis' || part.startsWith('upperLeg')) surface = uniform.stripe;
       if (part.startsWith('foot')) surface = 0xfcf4d9;
       if (/^(upperLeg|lowerLeg)/.test(part)) {
         const rest = { ...entity, halfHeight: entity.restHalfHeight };
@@ -487,17 +517,21 @@ class TakrawView {
       } else this.mesh(this.bodyGeometry(entity), this.material(surface), group);
       if (part === 'head') {
         const r = entity.radius;
-        const hair = this.geometry(`hair:${r}`, () => new T.SphereGeometry(r * 1.025, 14, 8, 0, Math.PI * 2, 0, Math.PI * .45));
-        this.mesh(hair, this.material(playerId % 3 === 1 ? 0x544b3b : 0x37483f), group);
+        const shape = hairstyle.shape;
+        const hair = this.geometry(`hair:${r}:${shape}`, () => new T.SphereGeometry(r * 1.025, 14, 8, 0, Math.PI * 2, 0, Math.PI * (shape === 'bob' ? .61 : .45)));
+        this.mesh(hair, this.material(hairstyle.color), group);
+        if (shape === 'crest') this.box(r * .55, r * .65, r * 1.3, hairstyle.color, 0, r * .85, 0, group);
         for (const side of [-1, 1]) this.sphere(r * .105, 0x2d3c33, side * r * .38, r * .05, r * .93, group, 8);
         const nose = this.sphere(r * .14, skin, 0, -r * .10, r * .99, group, 8); nose.scale.y = .8;
         this.box(r * .24, r * .035, r * .025, 0x9d7054, 0, -r * .34, r * .93, group);
       }
       if (part === 'torso') {
         const { x, y, z } = entity.halfExtents;
-        this.box(x * 1.72, y * .13, .012, 0xf7efcf, 0, y * .50, z + .004, group);
-        this.box(x * 1.72, y * .13, .012, 0xf7efcf, 0, y * .50, -z - .004, group);
-        for (let i = 0; i <= playerId % 3; i++) this.box(.025, .065, .008, 0xf6efd4, (i - (playerId % 3) / 2) * .052, -y * .25, z + .007, group);
+        for (const side of [-1, 1]) this.box(x * 1.85, y * .22, .014, uniform.secondary, 0, -y * .72, side * (z + .005), group);
+        const number = this.mesh(this.geometry('backnumber', () => new T.PlaneGeometry(.19, .19)),
+          this.numberMaterial(school.backnumber[playerId % 3], uniform.secondary), group);
+        number.position.set(0, y * .12, -z - .015); number.rotation.y = Math.PI;
+        number.castShadow = number.receiveShadow = false;
       }
       if (part.startsWith('lowerLeg')) {
         const rest = entity.restHalfHeight;
@@ -505,12 +539,12 @@ class TakrawView {
           new T.CapsuleGeometry(entity.radius * 1.025, rest * .60, 3, 10)).clone();
         this.geometries.set(`elastic:${entity.id}:sock`, sock);
         const leg = group.userData.legGeometry;
-        leg.sockMesh = this.mesh(sock, this.material(0xf6edcf), group);
+        leg.sockMesh = this.mesh(sock, this.material(uniform.sock), group);
         leg.sock = this.stretchCapsule(sock, rest * .30);
       }
       if (part.startsWith('foot')) {
         const { x, y, z } = entity.halfExtents;
-        this.box(x * 1.94, y * .28, z * 1.92, team ? 0xb46f55 : 0x398b76, 0, -y * .78, 0, group);
+        this.box(x * 1.94, y * .28, z * 1.92, uniform.stripe, 0, -y * .78, 0, group);
         this.box(x * 1.76, y * .80, z * .22, color, 0, y * .12, -z * .77, group);
         for (let i = 0; i < 2; i++) this.box(x * .90, .006, .009, 0xbcc2ac, 0, y + .002, z * (.05 + i * .26), group);
       }
@@ -747,6 +781,7 @@ class TakrawView {
     this.impacts.dispose(); this.field.dispose();
     for (const geometry of this.geometries.values()) geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
+    for (const texture of this.textures.values()) texture.dispose();
     this.renderer.dispose(); this.meshes.clear();
   }
 }

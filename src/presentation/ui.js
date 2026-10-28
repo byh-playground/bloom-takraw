@@ -28,11 +28,6 @@ class TakrawUI {
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1', 'set-number']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
-    const select = document.getElementById('opponent-school');
-    for (const school of TAKRAW_SCHOOLS) {
-      const option = document.createElement('option'); option.value = school.id; option.textContent = school.name;
-      option.selected = school === TAKRAW_SCHOOLS[1]; select.append(option);
-    }
     this.bind();
     this.syncInputMode();
     this.applyRoute();
@@ -57,6 +52,7 @@ class TakrawUI {
       });
     };
     click('start-match', () => this.start('match'));
+    click('open-campaign', () => this.navigate('campaign'));
     click('start-training', () => this.start('training'));
     click('start-local', () => this.start('local'));
     click('open-network', () => { this.callbacks.onStart?.('online'); this.navigate('network'); });
@@ -192,7 +188,7 @@ class TakrawUI {
   }
 
   showHome() {
-    const initialDialog = !this.homeShown && !this.inGame && ['help','settings','network','club'].includes(this.dialog) ? this.dialog : '';
+    const initialDialog = !this.homeShown && !this.inGame && ['help','settings','network','club','campaign'].includes(this.dialog) ? this.dialog : '';
     this.homeShown = true;
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
@@ -223,7 +219,7 @@ class TakrawUI {
 
   applyRoute() {
     const route = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-    if (['help','settings','pause','network','club'].includes(route)) {
+    if (['help','settings','pause','network','club','campaign'].includes(route)) {
       if (route === 'pause' && !this.inGame) { this.setRoute('', true); this.hideDialog(false); return; }
       this.openDialog(route);
     } else {
@@ -240,7 +236,8 @@ class TakrawUI {
     const meta = { help:['플레이 가이드','발끝의 타이밍'], club:['선수단 · 편성 · 훈련','내 팀 관리'], settings:['내게 맞는 플레이','설정'], pause:[this.mode === 'online' ? '경기는 계속 진행돼요' : '잠깐 숨 고르기', this.mode === 'online' ? '경기 메뉴' : '일시 정지'], network:['둘이서, 하나의 코트','친구와 온라인 1대1'] }[route];
     this.nodes['dialog-panel'].classList.toggle('is-club', route === 'club');
     this.nodes['modal-layer'].classList.toggle('is-club-layer', route === 'club');
-    this.nodes['dialog-kicker'].textContent = meta[0]; this.nodes['dialog-title'].textContent = meta[1];
+    const heading = meta || ['하나씩 도전하는 우리 팀', '도장깨기'];
+    this.nodes['dialog-kicker'].textContent = heading[0]; this.nodes['dialog-title'].textContent = heading[1];
     this.nodes['dialog-content'].innerHTML = this[`${route}Content`](); this.nodes['dialog-content'].scrollTop = 0;
     if (route === 'network') this.renderNetwork();
     if (route === 'help') this.refreshDiagnostics();
@@ -277,11 +274,23 @@ class TakrawUI {
 
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); }
 
+  campaignContent() {
+    const cleared = new Set(this.club.campaign?.cleared || []), ready = this.club.status === 'ready' && !this.inGame;
+    return `<p>학교 이름과 색상은 임시예요. 앞 학교를 이기면 다음 학교에 도전할 수 있어요.</p><div class="campaign-list">${TAKRAW_SCHOOLS.map((school, index) => {
+      const unlocked = index === 0 || cleared.has(TAKRAW_SCHOOLS[index - 1].id), done = cleared.has(school.id);
+      return `<article class="campaign-card"><span class="campaign-uniform" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:#${school.uniform.primary.toString(16).padStart(6, '0')};--uniform-secondary:#${school.uniform.secondary.toString(16).padStart(6, '0')}"></span><div><h3>${this.escape(school.name)}</h3><p>${done ? '클리어' : unlocked ? '도전 가능' : '잠김 · 앞 학교를 먼저 클리어하세요'}</p></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready || !unlocked ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
+    }).join('')}</div>`;
+  }
+
   setClub(value) {
     this.club = value; this.updateStartButtons();
     const status = { loading:'팀을 불러오는 중', saving:'팀을 저장하는 중', conflict:'다른 탭에서 변경됨 · 최신 저장 불러오기', error:'팀 저장 확인 필요 · 관리에서 다시 불러오기' }[value.status];
     this.text('club-home-summary', status || (value.teamName ? `${value.teamName} · 선수 ${value.roster.length}명` : '선수단 · 편성 · 훈련'));
     if (this.dialog === 'club') this.renderClub();
+    if (this.dialog === 'campaign') {
+      const content = this.nodes['dialog-content'], scroll = content.scrollTop;
+      content.innerHTML = this.campaignContent(); content.scrollTop = scroll;
+    }
   }
 
   rememberClubPosition() {
@@ -580,6 +589,8 @@ class TakrawUI {
   }
 
   dialogClick(event) {
+    const challenge = event.target.closest('[data-campaign-school]');
+    if (challenge) { if (!challenge.disabled) this.callbacks.onCampaign?.(challenge.dataset.campaignSchool); return; }
     const clubButton = event.target.closest('[data-club-action]');
     if (clubButton) { this.clubClick(clubButton); return; }
     const button = event.target.closest('[data-dialog-action]'); if (!button) return;

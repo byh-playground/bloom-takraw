@@ -615,3 +615,7 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
 .hit-pop[data-team="1"]{-webkit-text-stroke-color:#d9573f}
 @keyframes hit-pop{0%{transform:translate(-50%,-50%) rotate(-12deg) scale(.2);opacity:0}25%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.25);opacity:1}45%{transform:translate(-50%,-50%) rotate(-4deg) scale(1)}85%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-4deg) scale(1.05);opacity:0}}
 @media (prefers-reduced-motion:reduce){.hit-pop{animation:none}}
+.campaign-list{display:grid;gap:12px;padding:8px 0 16px}
+.campaign-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:12px;padding:16px;border:1px solid #d8e3d2;border-radius:16px;background:#fbfcf7}
+.campaign-card h3{margin:0 0 4px;font-size:16px}.campaign-card p{margin:0;font-size:12px}.campaign-card button{min-height:44px;min-width:64px}
+.campaign-uniform{display:block;width:44px;height:46px;background:linear-gradient(to bottom,var(--uniform-primary) 75%,var(--uniform-secondary) 75%);clip-path:polygon(25% 0,40% 6%,60% 6%,75% 0,100% 20%,85% 40%,75% 30%,75% 100%,25% 100%,25% 30%,15% 40%,0 20%)}

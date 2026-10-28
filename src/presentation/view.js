@@ -102,7 +102,7 @@ class TakrawView {
   applyVenue() {
     const venue = this.schools[1].venue, color = new this.THREE.Color();
     for (const [channel, material] of this.venueMaterials) material.color.set(venue[channel]);
-    this.scene.background.set(venue.fog.color);
+    this.scene.background.set(venue.fog.color); this.groundMaterial?.color.set(venue.fog.color); // 바닥도 안개색과 같아야 먼 곳에서 이음매가 안 보인다.
     this.scene.fog.color.set(venue.fog.color); this.scene.fog.near = venue.fog.near; this.scene.fog.far = venue.fog.far;
     const bodies = this.crowd[0];
     for (let i = 0; i < bodies.count; i++) bodies.setColorAt(i, color.set(venue.shirts[i % venue.shirts.length]));
@@ -163,7 +163,8 @@ class TakrawView {
 
   makeCourt() {
     const T = this.THREE, { halfLength: x, halfWidth: z, netHeight } = this.config.court;
-    const ground = this.mesh(new T.PlaneGeometry(160, 160), this.material(0xe8eee3));
+    this.groundMaterial = this.material(0xe8eee3);
+    const ground = this.mesh(new T.PlaneGeometry(160, 160), this.groundMaterial);
     this.geometries.set('ground', ground.geometry);
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -.26;

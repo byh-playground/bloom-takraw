@@ -242,6 +242,8 @@ class TakrawView {
     }
     this.scene.add(bodies, heads);
     this.crowd = [bodies, heads];
+    this.crowdBase = this.crowd.map(mesh => mesh.instanceMatrix.array.slice());
+    this.crowdCheerAt = null;
     // Far-side rail and the low entrance opening.
     for (let i = -5; i <= 5; i++) this.cylinder(.025, .95, 0xb4c3ad, i * 1.05, .25, -7.05);
     for (const height of [.18, .68]) {
@@ -703,6 +705,30 @@ class TakrawView {
     rig.initialized = true; rig.team = team; rig.mode = mode; rig.phase = phase;
   }
 
+  startCheer(now) { if (!this.reducedMotion()) this.crowdCheerAt = now; }
+
+  resetCheer() {
+    this.crowd.forEach((mesh, group) => {
+      mesh.instanceMatrix.array.set(this.crowdBase[group]);
+      mesh.instanceMatrix.needsUpdate = true;
+    });
+    this.crowdCheerAt = null;
+  }
+
+  updateCrowd(now) {
+    if (this.crowdCheerAt === null) return;
+    const age = Math.max(0, now - this.crowdCheerAt);
+    if (age >= 500 || this.reducedMotion()) { this.resetCheer(); return; }
+    this.crowd.forEach((mesh, group) => {
+      const array = mesh.instanceMatrix.array, base = this.crowdBase[group];
+      for (let i = 0; i < mesh.count; i++) {
+        const phase = Math.max(0, Math.min(1, (age - i % 5 * 18) / 360));
+        array[i * 16 + 13] = base[i * 16 + 13] + Math.sin(Math.PI * phase) * .15;
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+    });
+  }
+
   render(presentationFrame, viewData, nowMs, context = {}) {
     if (!viewData) return;
     const dt = Math.min(.05, Math.max(0, (nowMs - this.lastMs) / 1000)); this.lastMs = nowMs;
@@ -767,6 +793,7 @@ class TakrawView {
       }
       this.trail.visible = (viewData.state?.ballSpeed || 0) > 4 && this.trailCount > 1;
     }
+    this.updateCrowd(nowMs);
     this.renderer.render(this.scene, this.camera);
   }
 

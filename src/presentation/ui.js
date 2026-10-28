@@ -28,7 +28,7 @@ class TakrawUI {
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
-    for (const id of ['sets-0', 'sets-1', 'set-number']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
+    for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
     this.bind();
     this.syncInputMode();
     this.applyRoute();
@@ -709,6 +709,7 @@ class TakrawUI {
   update(hud) {
     if (!hud) return;
     this.text('score-0', hud.score?.[0] ?? 0); this.text('score-1', hud.score?.[1] ?? 0);
+    document.getElementById('set-number').hidden = TAKRAW_CONFIG.rules.sets === 1 && this.mode !== 'training'; // 훈련은 이 칸을 안내 문구로 쓴다.
     this.text('set-number', this.mode === 'training' ? '높은 토스 · 네 가지 발차기' : `${hud.set ?? 1}세트`);
     for (let team = 0; team < 2; team++) { const count = hud.sets?.[team] ?? 0, node = document.getElementById(`sets-${team}`); for (let i = 0; i < node.children.length; i++) node.children[i].classList.toggle('won', i < count); node.setAttribute('aria-label', `${count}세트 획득`); }
     const phases = { ready:'서브 준비', rally:'랠리 진행 중', point:'다음 랠리 준비', finished:'경기 종료' };

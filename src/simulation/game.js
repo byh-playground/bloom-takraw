@@ -29,6 +29,7 @@ class TakrawGame {
     this.timingJudge = new TakrawTimingJudge(config.timing);
     this.aiBrain = new AiBrain();
     this.temperaments = { key: '', list: [] };
+    this.temperamentProfiles = [null, null];
     this.revision = 0;
     this.tuning = [null, null]; // 팀별 학습 조정 값(이름 → 절대값). 없으면 config 기본값을 쓴다.
     this.tuners = [null, null]; // 팀별 상황 반응형 조정기: (game, playerId) → 조정 값. 상대가 공을 칠 때마다 다시 계산한다(로컬 경기 전용).
@@ -1001,11 +1002,20 @@ class TakrawGame {
     return velocity;
   }
 
-  /** 이번 랠리의 선수 성향. 시드·선수·랠리 번호가 같으면 같은 값이라 롤백·재시뮬에서도 일치한다. */
+  /** 팀별 성향 데이터만 받는다. 학교·유니폼·도장깨기 진행은 시뮬레이션이 알지 않는다. */
+  setTemperaments(profiles = [null, null]) {
+    if (!Array.isArray(profiles) || profiles.length !== 2 ||
+        !Array.from(profiles).every(value => value === null || Temperament.validConfig(value))) throw new TypeError('팀별 AI 성향을 확인해 주세요.');
+    this.temperamentProfiles = structuredClone(profiles);
+    this.temperaments = { key: '', list: [] };
+  }
+
+  /** 시드·선수·랠리 번호와 프로필이 같으면 롤백·재실행에서도 같은 성향을 만든다. */
   temperamentOf(playerId) {
     const key = `${this.state.seed}:${this.state.rally}`;
     if (this.temperaments.key !== key) this.temperaments = { key, list: [] };
-    return this.temperaments.list[playerId] ??= new Temperament(this.config.ai.temperament, this.state.seed, playerId, this.state.rally);
+    return this.temperaments.list[playerId] ??= new Temperament(this.temperamentProfiles[Math.floor(playerId / 3)] || this.config.ai.temperament,
+      this.state.seed, playerId, this.state.rally);
   }
 
   decideAI(humans) {
@@ -1159,7 +1169,7 @@ class TakrawGame {
   }
 
   save() {
-    return { version: this.config.version, mode: this.mode, state: structuredClone(this.state), teamNames: [...this.teamNames], teamById: { ...this.teamById }, ai: structuredClone(this.ai), aiDirty: this.aiDirty, inputs: structuredClone(this.inputs), rallyStart: this.rallyStart || 0, metrics: { ...this.metrics }, physics: this.physics.save(), tuning: structuredClone(this.tuning) };
+    return { version: this.config.version, mode: this.mode, state: structuredClone(this.state), teamNames: [...this.teamNames], teamById: { ...this.teamById }, ai: structuredClone(this.ai), aiDirty: this.aiDirty, inputs: structuredClone(this.inputs), rallyStart: this.rallyStart || 0, metrics: { ...this.metrics }, physics: this.physics.save(), tuning: structuredClone(this.tuning), temperamentProfiles: structuredClone(this.temperamentProfiles) };
   }
   validate(data) {
     const vector = (value, axes) => value && axes.every(axis => Number.isFinite(value[axis]));
@@ -1175,6 +1185,8 @@ class TakrawGame {
       (assignment.humanPlan === null || receivePlan(assignment.humanPlan)));
     const tuning = value => value === null || (value && typeof value === 'object' && Object.values(value).every(Number.isFinite));
     return data && data.version === this.config.version && data.physics && data.state &&
+      Array.isArray(data.temperamentProfiles) && data.temperamentProfiles.length === 2 &&
+      Array.from(data.temperamentProfiles).every(value => value === null || Temperament.validConfig(value)) &&
       Array.isArray(data.tuning) && data.tuning.length === 2 && data.tuning.every(tuning) &&
       Array.isArray(data.teamNames) && data.teamNames.length === 2 && data.teamNames.every(name => typeof name === 'string' && name.trim()) &&
       Array.isArray(data.state.defense) && data.state.defense.length === 2 && Array.from(data.state.defense).every(defense) &&
@@ -1188,6 +1200,7 @@ class TakrawGame {
   load(data) {
     if (!this.validate(data)) throw new Error('경기 상태 형식 또는 버전이 맞지 않습니다.');
     this.physics.load(data.physics);
+    this.setTemperaments(data.temperamentProfiles);
     this.tuning = structuredClone(data.tuning);
     data.tuning.forEach((values, team) => this.physics.setTossTuning(team, values));
     this.mode = data.mode; this.state = structuredClone(data.state); this.teamById = { ...data.teamById };

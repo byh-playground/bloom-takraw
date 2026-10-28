@@ -59,6 +59,11 @@ class TakrawPhysics {
       horizon: 0.7, strokeTime: 0.14, maxSpeed: 14, netClearance: 0.18, downwardGain: 2,
       preparationTime: 0.08, driveMass: 8,
     }, config.physics?.airKick?.contact || {});
+    // 블로킹: 공중에서 발차기를 누른 선수의 다리·발이 네트 앞에서 내려꽂히는 공을 맞히면, 발이 휘두르는 방향과 상관없이 네트를 넘겨 되받아친다.
+    this.settings.block = Object.assign({
+      enabled: true, parts: ['foot', 'lowerLeg', 'upperLeg', 'pelvis', 'torso', 'head'], zone: 1.8, minHeight: 0.9, minIncoming: 3.5,
+      speedRatio: 0.45, minSpeed: 3.5, maxSpeed: 8, netClearance: 0.22, separation: 0.2, netGap: 0.15,
+    }, config.physics?.block || {});
     this.settings.airReady = Object.assign({
       hipPitch: 1.0, kneeBend: 1.8, strength: 0.72, bodyStrength: 0.25,
     }, config.physics?.airReady || {});
@@ -1675,6 +1680,16 @@ class TakrawPhysics {
         if (p.receive && p.receive.phase !== 'recover' && p.receive.hitAt === null) {
           p.receive.hitAt = this.time; p.receive.phase = 'contact';
         }
+        const block = this._blockReturn(p, other.part, position, before);
+        if (block) {
+          // 발이 계속 내려가며 공을 다시 밀지 못하도록 되받아치는 방향으로 공을 접촉면 밖으로 살짝 옮긴다.
+          const length = this._length(block), settings = this.settings.block;
+          // 네트 쪽으로 옮길 때는 네트 앞 netGap 안으로 들어가지 않게 한다.
+          const room = block.x * p.toward > 0 ? Math.max(0, -position.x * p.toward - settings.netGap) / (block.x * p.toward) : Infinity;
+          const gap = Math.min(settings.separation / length, room);
+          this.ball.setLinvel(block, true);
+          this.ball.setTranslation({ x: position.x + block.x * gap, y: position.y + block.y * gap, z: position.z + block.z * gap }, true);
+        }
         events.push({ type: 'touch', playerId: p.id, team: p.team, part: other.part,
           position, speed: this._length(this.ball.linvel()), footVelocity: { ...part.body.velocityAtPoint(position) },
           incomingSpeed: this._length(before.ballVelocity), reactionSeverity });
@@ -1683,6 +1698,20 @@ class TakrawPhysics {
       }
     }
     return events;
+  }
+
+  // 블로킹 되받아치기 속도. 조건: 공중 + 발차기 누름 + 다리/발 접촉 + 공이 우리 코트 쪽 네트 앞 zone m 안,
+  // minHeight 이상에서 minIncoming 이상으로 우리 쪽으로 오는 중. 현재 상태만으로 정해지므로 저장할 값이 없다.
+  _blockReturn(p, part, position, before) {
+    const s = this.settings.block;
+    if (!s?.enabled || p.grounded || !p.kick.held || !s.parts.some(name => part.startsWith(name))) return null;
+    const x = position.x * p.toward, incoming = before.ballVelocity, towardUs = incoming.x * p.toward;
+    if (x > 0 || x < -s.zone || position.y < s.minHeight || towardUs > -s.minIncoming) return null;
+    const speed = this._clamp(this._length(incoming) * s.speedRatio, s.minSpeed, s.maxSpeed);
+    const forward = Math.max(0.5, speed), flight = Math.max(0.03, -x / forward);
+    const clearance = this.settings.netHeight + this.settings.ballRadius + s.netClearance;
+    const up = (clearance - position.y) / flight + 0.5 * this.settings.gravity * flight;
+    return { x: p.toward * forward, y: Math.max(0.5, up), z: incoming.z * 0.3 };
   }
 
   getEntities() {

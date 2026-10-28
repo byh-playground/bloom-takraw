@@ -278,7 +278,7 @@ class TakrawUI {
     const cleared = new Set(this.club.campaign?.cleared || []), ready = this.club.status === 'ready' && !this.inGame;
     return `<p>학교 이름과 색상은 임시예요. 앞 학교를 이기면 다음 학교에 도전할 수 있어요.</p><div class="campaign-list">${TAKRAW_SCHOOLS.map((school, index) => {
       const unlocked = index === 0 || cleared.has(TAKRAW_SCHOOLS[index - 1].id), done = cleared.has(school.id);
-      return `<article class="campaign-card"><span class="campaign-uniform" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:#${school.uniform.primary.toString(16).padStart(6, '0')};--uniform-secondary:#${school.uniform.secondary.toString(16).padStart(6, '0')}"></span><div><h3>${this.escape(school.name)}</h3><p>${done ? '클리어' : unlocked ? '도전 가능' : '잠김 · 앞 학교를 먼저 클리어하세요'}</p></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready || !unlocked ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
+      return `<article class="campaign-card"><span class="campaign-uniform" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:#${school.uniform.primary.toString(16).padStart(6, '0')};--uniform-secondary:#${school.uniform.secondary.toString(16).padStart(6, '0')}"></span><div><h3>${this.escape(school.name)}</h3><p>${done ? '클리어' : unlocked ? '도전 가능' : '잠김 · 앞 학교를 먼저 클리어하세요'}</p><small>${done ? '훈련 포인트 수령 완료' : `첫 클리어 ${school.firstClearTrainingPoints} P · 임시 보상`}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready || !unlocked ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
     }).join('')}</div>`;
   }
 

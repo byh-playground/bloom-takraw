@@ -96,8 +96,20 @@ class TakrawClub {
       if (!record.owned.includes(id) || !player || !training || typeof training !== 'object' || Array.isArray(training)) fail();
       for (const [stat, amount] of Object.entries(training)) if (!Object.hasOwn(player.stats, stat) || !integer(amount) || amount + player.stats[stat] > 100) fail();
     }
-    if (record.lastReward !== null && (!record.lastReward || !record.rewards.includes(record.lastReward.id) || typeof record.lastReward.won !== 'boolean' ||
-      ['credits','trainingPoints'].some(key => record.lastReward[key] !== TAKRAW_CLUB_RULES.rewards[record.lastReward.won ? 'win' : 'loss'][key]))) fail();
+    if (record.lastReward !== null) {
+      const receipt = record.lastReward;
+      if (!receipt || !record.rewards.includes(receipt.id) || typeof receipt.won !== 'boolean') fail();
+      const base = TAKRAW_CLUB_RULES.rewards[receipt.won ? 'win' : 'loss'];
+      if (receipt.credits !== base.credits) fail();
+      if (receipt.schoolId === undefined) { if (receipt.trainingPoints !== base.trainingPoints) fail(); }
+      else {
+        const index = TAKRAW_SCHOOLS.findIndex(school => school.id === receipt.schoolId);
+        // 영수증의 과거 금액은 임시 보상값 변경 뒤에도 읽는다. 지급 판정은 cleared뿐이다.
+        if (index < 0 || !integer(receipt.trainingPoints) || (!receipt.won && receipt.trainingPoints !== 0) ||
+            !record.campaign || index > record.campaign.cleared.length ||
+            (receipt.won && !record.campaign.cleared.includes(receipt.schoolId))) fail();
+      }
+    }
     this.metrics.restoreMs += this._clock() - start; return record;
   }
 
@@ -262,15 +274,21 @@ class TakrawClub {
     if (this.record?.rewards.includes(id)) return Promise.resolve({ changed: false, view: this.getView() });
     return this._mutate(record => {
       if (record.rewards.includes(id)) return false;
+      const baseReward = TAKRAW_CLUB_RULES.rewards[won ? 'win' : 'loss'];
+      let trainingPoints = baseReward.trainingPoints;
       if (schoolIndex >= 0) {
+        trainingPoints = 0;
         const campaign = record.campaign ??= { cleared: [] };
         if (schoolIndex > campaign.cleared.length) throw this._error('앞 학교를 먼저 클리어해 주세요.');
-        if (won && schoolIndex === campaign.cleared.length) campaign.cleared.push(schoolId);
+        if (won && schoolIndex === campaign.cleared.length) {
+          trainingPoints = TAKRAW_SCHOOLS[schoolIndex].firstClearTrainingPoints;
+          campaign.cleared.push(schoolId);
+        }
       }
-      const reward = TAKRAW_CLUB_RULES.rewards[won ? 'win' : 'loss'];
+      const reward = { ...baseReward, trainingPoints };
       record.credits += reward.credits; record.trainingPoints += reward.trainingPoints;
       record.record.played++; record.record[won ? 'won' : 'lost']++; record.rewards.push(id);
-      record.lastReward = { id, won, ...reward };
+      record.lastReward = { id, won, ...reward, ...(schoolId === null ? {} : { schoolId }) };
     }, '경기 보상을 저장했어요.');
   }
 

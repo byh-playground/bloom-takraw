@@ -1,6 +1,7 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
+import { TakrawScoreMotion } from './score-motion.js';
 
 class TakrawView {
   constructor({ THREE, canvas, config }) {
@@ -15,6 +16,7 @@ class TakrawView {
     this.venueMaterials = new Map();
     this.quality = 'high';
     this.lastMs = 0;
+    this.scoreMotion = new TakrawScoreMotion();
     this.motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
     this.shakeOffset = { x: 0, y: 0 };
     this.scene = new THREE.Scene();
@@ -711,7 +713,7 @@ class TakrawView {
       mesh.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
       this.updateLegGeometry(mesh, model.halfHeight);
     };
-    if (presentationFrame) presentationFrame.forEach(apply);
+    if (presentationFrame) this.scoreMotion.apply(presentationFrame, nowMs, apply, context.mode === 'match' && !this.reducedMotion());
     else for (const entity of viewData.entities) apply(entity, entity.id);
     if (this.width !== this.canvas.clientWidth || this.height !== this.canvas.clientHeight) this.resize();
     this.updateCamera(viewData, context, dt);

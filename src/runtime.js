@@ -603,6 +603,7 @@ async function bootTakraw() {
       teamPlay: latestView.teamPlay?.[team] || null,
       teamNames: latestView.teamNames,
       matchReward: clubSession.match?.id === clubSession.reward?.id ? clubSession.reward : null,
+      campaignSchoolId: clubSession.match?.schoolId || null,
       localTeam: team,
       selectedName: player?.name ? `${player.name} · 공격수` : '공격수',
       selectedState: motionName || (player ? PLAYER_STATE_LABELS[player.state] || (player.grounded ? '준비' : '공중') : ''),

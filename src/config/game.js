@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.24';
+const TAKRAW_VERSION = '0.12.25';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -20,7 +20,8 @@ const TAKRAW_CONFIG = Object.freeze({
     setter: { x: -3.2, z: -1.25 },
     attacker: { x: -2.0, z: 1.3 },
   },
-  rules: { contacts: 3, points: 15, deuce: 14, cap: 17, sets: 2, ready: 1.25, point: 2 },
+  // 출시 전 임시 경기 길이: 7점, 6:6부터 기존 듀스 방식으로 9점 상한, 단판.
+  rules: { contacts: 3, points: 7, deuce: 6, cap: 9, sets: 1, ready: 1.25, point: 2 },
   // 접촉 타이밍 등급 창(초). 오차 크기가 perfect 이하면 perfect, good 이하면 good, 그 외 normal.
   // 헤드리스 실측(docs/verification/timing-impact.md)에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
   // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.

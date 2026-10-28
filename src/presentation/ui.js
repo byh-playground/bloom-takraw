@@ -1,5 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
-import { TAKRAW_VERSION } from '../config/game.js';
+import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS } from '../simulation/game.js';
 
@@ -27,6 +27,7 @@ class TakrawUI {
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
+    for (const id of ['sets-0', 'sets-1', 'set-number']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
     const select = document.getElementById('opponent-school');
     for (const school of TAKRAW_SCHOOLS) {
       const option = document.createElement('option'); option.value = school.id; option.textContent = school.name;
@@ -549,7 +550,7 @@ class TakrawUI {
       <p>바닥 발자국에서 이동을 멈추고, 고리가 닫히면 점프하세요. 내려찍기는 먼저 좌클을 유지하고, 다른 회전킥은 점프 뒤 공중 타점의 고리에 맞춰 좌클을 유지해요. 낮은 공은 점프를 짧게, 높은 공은 길게 누르세요. 시도가 끝나면 결과를 보고 자동으로 이어지는 토스나 ‘다시 토스’로 반복하세요.</p>
       <h3>공의 높이와 거리 읽기</h3><p>카메라는 우리 팀 뒤에서 공격수와 공을 함께 보여줘요. 공 아래 바닥 링으로 앞뒤·좌우 위치를, 공까지 이어지는 점선과 눈금으로 높이를 확인하세요. 점프할 때 카메라가 몸을 따라 위로 올라가지 않아 공과 발의 높이를 비교할 수 있어요.</p>
       <p>바닥의 발자국은 점프를 준비할 위치, 공중의 작은 십자는 예상 타점이에요. 발자국 안에 자리 잡고 점프 시점이 가까워지면 둘레가 밝은 원으로 이어져요. 공이 다른 선수나 네트에 닿으면 예상 위치도 바뀌어요. 표시는 준비를 돕는 안내이며, 점프 높이와 발차기 타이밍은 직접 맞춰야 해요.</p>
-      <h3>경기 규칙</h3><ul class="rule-list"><li>각 진영에 선수 3명. 유저는 자기 팀 공격수 한 명을 조작하고, 동료 두 명은 AI가 움직여요.</li><li>손·팔을 제외한 신체 부위로 공을 넘겨요. 한 팀은 최대 3번까지 공에 닿을 수 있어요.</li><li>공이 코트 바닥에 닿거나, 상대 코트 밖으로 나가거나, 팀이 네 번 터치하면 점수가 나요.</li><li>네트에 몸이 닿으면 반칙이에요. 서브는 점수마다 번갈아 해요.</li><li>15점을 먼저 얻으면 세트 승리. 14 대 14에서는 17점을 먼저 얻는 팀이 이겨요. 두 세트를 먼저 이기면 경기 승리예요.</li></ul>
+      <h3>경기 규칙</h3><ul class="rule-list"><li>각 진영에 선수 3명. 유저는 자기 팀 공격수 한 명을 조작하고, 동료 두 명은 AI가 움직여요.</li><li>손·팔을 제외한 신체 부위로 공을 넘겨요. 한 팀은 최대 3번까지 공에 닿을 수 있어요.</li><li>공이 코트 바닥에 닿거나, 상대 코트 밖으로 나가거나, 팀이 네 번 터치하면 점수가 나요.</li><li>네트에 몸이 닿으면 반칙이에요. 서브는 점수마다 번갈아 해요.</li><li>7점을 먼저 얻으면 경기 승리예요. 6 대 6부터는 기존 듀스 방식으로 9점을 먼저 얻는 팀이 이겨요. 출시 전 임시 단판 규칙이에요.</li></ul>
       <h3>로컬 2인 · 두 번째 플레이어</h3><p>두 번째 플레이어는 코랄 팀 공격수를 조작해요. 두 사람 모두 같은 화면 방향으로 움직여요.</p><p class="key-tip"><kbd>방향키</kbd> 이동 · <kbd>Enter</kbd> 또는 <kbd>숫자패드 0</kbd> 점프<br><kbd>오른쪽 Shift</kbd> 발차기</p>
       <h3>터치 화면</h3><p>왼쪽 스틱으로 이동하고 오른쪽 점프·발차기 버튼을 누르세요. 두 버튼을 함께 누를 수 있어요. 가로 화면에서 코트와 공의 높이를 보기 편해요.</p>
       <h3>내 팀을 꾸려요</h3><p>내 팀 관리에서 선수를 선택해 리시버·세터·공격수에 편성하고, 훈련과 스카우트로 선수단을 성장시키세요. 선발 선수를 다른 자리에 배치하면 두 선수가 자리를 바꿔요. 후보 선수를 넣으면 기존 선발은 후보가 돼요. 추천 역할과 관계없이 세 자리에 자유롭게 배치할 수 있어요.</p>

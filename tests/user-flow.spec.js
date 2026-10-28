@@ -53,7 +53,7 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
     await Promise.all(pages.map(page => page.locator('#start-match').click()));
     await Promise.all(pages.map(page => page.evaluate(() => {
       const game = window.__takraw.game;
-      const witness = window.__teamPlayWitness = { trials: [], completed: null };
+      const witness = window.__teamPlayWitness = { trials: [], completed: null, seeds: [game.state.seed] };
       let seen = game.metrics.contacts, trial = null, rally = -1;
       function finish(reason) {
         trial.reason = reason;
@@ -66,7 +66,7 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
         const state = game.state, ball = game.physics.ball.translation();
         if (state.phase === 'rally' && state.rally !== rally) {
           rally = state.rally;
-          trial = state.serving === 0 ? { rally, eligible: false, success: false, sequence: [] } : null;
+          trial = state.serving === 0 ? { seed: state.seed, rally, eligible: false, success: false, sequence: [] } : null;
         }
         if (trial && state.phase === 'rally') {
           if (!trial.sequence.length && state.lastTouch >= 0 && state.lastTouch < 3 &&
@@ -91,7 +91,13 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
           }
         }
         seen = game.metrics.contacts;
-        if (trial && state.phase === 'point') finish(state.pointReason);
+        if (trial && (state.phase === 'point' || state.phase === 'finished')) finish(state.pointReason);
+        // A short single-set match may finish before five ordinary serves.
+        // Continue through the real rematch control without selecting seeds or results.
+        if (state.phase === 'finished' && witness.trials.length < 5) {
+          document.getElementById('rematch-button').click();
+          witness.seeds.push(game.state.seed); seen = game.metrics.contacts; rally = -1;
+        }
         if (witness.trials.length < 5) requestAnimationFrame(observe);
       }
       observe();

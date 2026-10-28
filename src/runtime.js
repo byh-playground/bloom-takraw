@@ -201,7 +201,12 @@ async function bootTakraw() {
         job.status = 'saving'; job.message = '경기 보상을 저장하고 있어요.'; publishClub(); hudTime = -Infinity;
         try {
           await club.rewardMatch({ id: job.id, won: job.won, mode: job.mode, schoolId: job.schoolId });
-          job.status = 'saved'; job.message = `보상 저장 완료 · ${job.credits} C + ${job.trainingPoints} P`;
+          const actual = club.getView().lastReward;
+          job.status = 'saved';
+          if (actual?.id === job.id) {
+            job.credits = actual.credits; job.trainingPoints = actual.trainingPoints;
+            job.message = `보상 저장 완료 · ${job.credits} C + ${job.trainingPoints} P`;
+          } else job.message = '이미 저장된 경기 보상을 확인했어요.';
           rewards.jobs.splice(rewards.jobs.indexOf(job), 1);
         } catch (error) {
           job.status = 'error'; job.message = '보상을 아직 저장하지 못했어요. 탭을 닫기 전에 재시도해 주세요.';

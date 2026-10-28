@@ -1,5 +1,31 @@
 import { test, expect } from 'playwright/test';
 import { TakrawClub } from '../src/club/club.js';
+import { TAKRAW_SCHOOLS } from '../src/config/schools.js';
+
+test('첫 클리어 포인트: 저장 복구·동일 경기 재시도·재클리어는 중복 지급하지 않는다', async () => {
+  const club = new TakrawClub({});
+  const legacy = club._default(); delete legacy.campaign; club.record = legacy;
+  club._mutate = async mutate => {
+    const next = structuredClone(club.record), result = mutate(next);
+    if (result !== false) { club._validate(next); club.record = next; }
+    return { changed: result !== false };
+  };
+  let number = 0;
+  const award = (schoolId, won = true, id = (++number).toString(16).padStart(32, '0')) => club.rewardMatch({id,won,mode:'match',schoolId});
+  try {
+    const initial = club.record.trainingPoints, amount = TAKRAW_SCHOOLS[0].firstClearTrainingPoints;
+    const id = 'e'.repeat(32);
+    await award('sprout',true,id); expect(club.record.trainingPoints).toBe(initial+amount);
+    await award('sprout',true,id); expect(club.record.trainingPoints).toBe(initial+amount);
+    club.record = structuredClone(club.record); club._validate(club.record);
+    await award('sprout'); expect(club.record.trainingPoints).toBe(initial+amount);
+    expect(club.record.lastReward.trainingPoints).toBe(0);
+    await award('flame',false); expect(club.record.trainingPoints).toBe(initial+amount);
+    await award('flame'); expect(club.record.trainingPoints).toBe(initial+amount+TAKRAW_SCHOOLS[1].firstClearTrainingPoints);
+    const before = club.record.trainingPoints;
+    await award(null); expect(club.record.trainingPoints).toBe(before+3);
+  } finally {club.dispose();}
+});
 
 test('도장깨기 형식: 구 저장 호환과 학교 순서·중복·형식 검증', () => {
   const club = new TakrawClub({});

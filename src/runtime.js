@@ -16,6 +16,7 @@ import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TakrawGame } from './simulation/game.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
+import { winningSpikeScore } from './presentation/score-motion.js';
 import { seedFromText } from './simulation/ai-brain.js';
 import { TakrawUI } from './presentation/ui.js';
 
@@ -352,6 +353,8 @@ async function bootTakraw() {
       };
     }
     presentation = new PresentationRuntime({ stepMs, delayMs: stepMs });
+    view.scoreMotion.reset();
+    lastContact = null;
     poseCache.clear();
     poseEntities.length = 0;
     publishedTick = -1;
@@ -468,7 +471,10 @@ async function bootTakraw() {
         // 득점 색종이: 확정된 득점에만 터진다.
         score: {
           reversible: false,
-          start(event) { return { node: view.field.startConfetti(event.payload) }; },
+          start(event) {
+            if (mode === 'match' && event.payload.winningSpike && !view.reducedMotion()) view.scoreMotion.start(performance.now());
+            return { node: view.field.startConfetti(event.payload) };
+          },
           update(handle, ageMs) { if (handle.node) view.field.update(handle.node, ageMs); },
           reconcile() {},
           stop(handle) { view.field.release(handle.node); },
@@ -480,7 +486,9 @@ async function bootTakraw() {
 
   function emitEvents(frame, data) {
     if (!journal || frame.recovering || frame.replaying) return;
+    let previousEvent = null;
     for (const event of data.events) {
+      if (event.type === 'serve') lastContact = null;
       const identity = {
         tick: event.tick,
         sequence: event.sequence,
@@ -502,7 +510,7 @@ async function bootTakraw() {
           durationMs: TAKRAW_CONFIG.visual.field.land.life * 1000 });
       } else if (event.type === 'point') {
         const { halfLength } = TAKRAW_CONFIG.court;
-        journal.emit({ ...identity, kind: 'score', payload: { ...event, position: { x: (event.team === 0 ? -1 : 1) * halfLength / 2, y: 0, z: 0 } },
+        journal.emit({ ...identity, kind: 'score', payload: { ...event, winningSpike: winningSpikeScore(event, previousEvent, lastContact), position: { x: (event.team === 0 ? -1 : 1) * halfLength / 2, y: 0, z: 0 } },
           policy: 'confirmed', durationMs: TAKRAW_CONFIG.visual.field.confetti.life * 1000 });
       }
       const kickSound = event.spike ? 'kickSpike' : { perfect: 'kickPerfect', good: 'kickGood' }[event.timing?.grade] ?? 'kick';
@@ -512,6 +520,7 @@ async function bootTakraw() {
           Math.max(0.2, Math.min(1.2, event.speed / TAKRAW_RUNTIME.feedback.soundReferenceSpeed));
         journal.emit({ ...identity, kind: 'sound', payload: { soundId, strength }, policy: 'confirmed' });
       }
+      previousEvent = event;
     }
   }
 

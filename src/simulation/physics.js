@@ -808,14 +808,16 @@ class TakrawPhysics {
       targetMap.kneeL = [0.25, 0, 0]; targetMap.kneeR = [0.25, 0, 0];
       targetMap.shoulderL = [-0.35, 0, -0.65]; targetMap.shoulderR = [-0.35, 0, 0.65];
     }
-    if (motion) {
+    if (motion || (mode === 'ground' && input.tossTarget)) {
+      const tuck = motion ? receiveBlend : 1;
+      // 일반 cushion 토스도 발 접촉 높이에서 손을 접는다. 팔 충돌은 그대로 유지한다.
       // Keep the hands against the torso while the foot saves a low ball.
       // Wide balancing arms otherwise cross the newly rising pass; every
       // collider remains active and these are ordinary bounded joint motors.
-      targetMap.shoulderL = [-1.6 * receiveBlend, 0, 0.55 * receiveBlend];
-      targetMap.shoulderR = [-1.6 * receiveBlend, 0, -0.55 * receiveBlend];
-      targetMap.elbowL = [2.05 * receiveBlend, 0, 0]; targetMap.elbowR = [2.05 * receiveBlend, 0, 0];
-      targetMap.waist = [0.15 * receiveBlend, 0, 0];
+      targetMap.shoulderL = [-1.6 * tuck, 0, 0.55 * tuck];
+      targetMap.shoulderR = [-1.6 * tuck, 0, -0.55 * tuck];
+      targetMap.elbowL = [2.05 * tuck, 0, 0]; targetMap.elbowR = [2.05 * tuck, 0, 0];
+      targetMap.waist = [0.15 * tuck, 0, 0];
     }
     if (ready) {
       // A jump can tuck both legs before the first click. These are fixed

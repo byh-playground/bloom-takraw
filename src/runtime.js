@@ -1,4 +1,4 @@
-import { TAKRAW_SCHOOLS } from './config/schools.js';
+import { TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from './config/schools.js';
 import * as THREE from 'three';
 import RAPIER from 'rapier';
 import { ActionState, createDOMInput } from '@bloom-gamekit/input';
@@ -735,8 +735,11 @@ async function bootTakraw() {
 
   function openSession(nextMode, capability, token) {
     mode = nextMode;
-    const opponent = TAKRAW_SCHOOLS.find(school => school.id === campaignSchoolId) || TAKRAW_SCHOOLS[1];
-    view.setSchools([TAKRAW_SCHOOLS[0], nextMode === 'match' ? opponent : TAKRAW_SCHOOLS[1]]);
+    // 내 학교는 저장된 값이다. 온라인은 두 사람의 화면이 같도록 고정 학교 쌍을 쓴다. 퀵 대전(도전 학교 없음)의 상대는 가장 높은 단계다.
+    const home = nextMode === 'online' ? TAKRAW_SCHOOLS[0] : takrawSchool(club.getView().campaign.home) || TAKRAW_SCHOOLS[0];
+    const opponents = takrawOpponents(home.id);
+    const opponent = opponents.find(school => school.id === campaignSchoolId) || opponents[opponents.length - 1];
+    view.setSchools([home, nextMode === 'match' ? opponent : opponents[0]]);
     paused = false;
     clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false, schoolId: campaignSchoolId } : null;
@@ -1092,8 +1095,8 @@ async function bootTakraw() {
     },
     onRestart: restart,
     onCampaign(schoolId) {
-      const index = TAKRAW_SCHOOLS.findIndex(school => school.id === schoolId);
-      if (index < 0 || index > club.getView().campaign.cleared.length || !canStart('match')) return;
+      const { home, cleared } = club.getView().campaign, index = home ? takrawOpponents(home).findIndex(school => school.id === schoolId) : -1;
+      if (index < 0 || index > cleared.length || !canStart('match')) return;
       campaignSchoolId = schoolId; startLocal('match');
     },
     onClubAction: clubAction,

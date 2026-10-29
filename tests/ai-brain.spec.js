@@ -2,14 +2,14 @@ import { test, expect } from 'playwright/test';
 import { TAKRAW_CONFIG } from '../src/config/game.js';
 import { AiBrain, Temperament, seededUnit } from '../src/simulation/ai-brain.js';
 import { TakrawGame } from '../src/simulation/game.js';
-import { TAKRAW_SCHOOLS } from '../src/config/schools.js';
+import { TAKRAW_LADDER } from '../src/config/schools.js';
 
 const rapierPath = process.env.RAPIER_MODULE;
 const loadRapier = async () => { const loaded = await import(rapierPath); const RAPIER = loaded.default ?? loaded; await RAPIER.init(); return RAPIER; };
 const cfg = TAKRAW_CONFIG.ai.temperament;
 
-test('학교 성향: 고정 seed 해시를 유지하고 반응·간격·기본 위치 범위를 적용한다', () => {
-  for (const school of TAKRAW_SCHOOLS) {
+test('도전 단계 성향: 고정 seed 해시를 유지하고 반응·간격·기본 위치 범위를 적용한다', () => {
+  for (const school of TAKRAW_LADDER) {
     expect(Temperament.validConfig(school.ai.temperament)).toBeTruthy();
     const a = new Temperament(school.ai.temperament, 11, 4, 3), b = new Temperament(school.ai.temperament, 11, 4, 3);
     expect(a).toEqual(b);
@@ -29,7 +29,7 @@ test('학교 성향 snapshot: 저장·복구와 기본 프로필 복귀', async 
   test.skip(!rapierPath, 'RAPIER_MODULE 필요');
   const game = new TakrawGame({ RAPIER: await loadRapier(), config: TAKRAW_CONFIG });
   try {
-    game.setTemperaments([null,TAKRAW_SCHOOLS[4].ai.temperament]);game.reset('match',undefined,11);
+    game.setTemperaments([null,TAKRAW_LADDER[4].ai.temperament]);game.reset('match',undefined,11);
     const before = game.temperamentOf(4), saved = game.save();
     expect(game.validate(saved)).toBeTruthy();
     game.setTemperaments();expect(game.temperamentOf(4)).toEqual(new Temperament(cfg,11,4,0));

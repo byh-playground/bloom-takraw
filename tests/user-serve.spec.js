@@ -121,3 +121,24 @@ test('서브 라인 반칙은 AI 서버에도 같은 규칙: 서브 자리가 �
   expect(inside.reason).toBe('서브 라인 반칙'); expect(inside.winner).toBe(0);
   expect(behind.reason).not.toBe('서브 라인 반칙');
 });
+
+test('AI 서브: 꼭짓점이 jumpApex 이상으로 던진 공은 서버가 점프해서 치고, 낮게 던진 공은 점프하지 않는다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
+  const game = new TakrawGame({ RAPIER: await loadRapier(), config: structuredClone(TAKRAW_CONFIG) });
+  try {
+    game.reset('ai', undefined, 1);
+    const st = game.state, jumpApex = TAKRAW_CONFIG.ai.serve.toss.jumpApex, serves = [];
+    let rally = 0, cur = null;
+    for (let tick = 1; tick < 60 * 45; tick++) {
+      game.step({ tick, tickRate: 60, inputs: [] });
+      if (st.phase === 'rally' && st.rally !== rally) { rally = st.rally; cur = { apex: 0, jumped: false }; serves.push(cur); }
+      if (cur && st.phase === 'rally' && st.lastTouch < 0 && st.serveToss?.stage === 'thrown') {
+        cur.apex = st.serveToss.apex; if (game.physics.players[game.serverId(st.serving)].jump.active) cur.jumped = true;
+      }
+    }
+    const high = serves.filter(s => s.apex >= jumpApex), low = serves.filter(s => s.apex > 0 && s.apex < jumpApex);
+    expect(high.length).toBeGreaterThan(1); expect(low.length).toBeGreaterThan(0);
+    expect(high.filter(s => s.jumped).length / high.length).toBeGreaterThan(0.8);
+    expect(low.filter(s => s.jumped).length).toBe(0);
+  } finally { game.dispose(); }
+});

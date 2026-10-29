@@ -254,11 +254,11 @@ class TakrawGame {
         jumpPressed: h.jumpPressed, kickPressed: h.kickPressed,
       };
     }
-    // AI 서버: 공을 던질 때까지 자기 자리에 서 있고(이동·점프·발차기 없음), 던진 공이 올라가는 동안은 차지 않는다(내려오는 공만 찬다).
+    // AI 서버: 공을 던질 때까지 자기 자리에 서 있고(이동·점프·발차기 없음), 지상서브는 던진 공이 올라가는 동안 차지 않는다(내려오는 공만 찬다).
     const serveToss = this.state.serveToss, aiServerId = this.serverId(this.state.serving);
     if (serveToss && this.state.phase === 'rally' && this.state.lastTouch < 0 && !humans[this.state.serving]) {
       if (serveToss.stage === 'hold') this.inputs[aiServerId] = { x: 0, z: 0, jump: false, kick: false, jumpPressed: false, kickPressed: false, receive: null };
-      else if (this.physics.ball.linvel().y > 0) Object.assign(this.inputs[aiServerId], { jump: false, kick: false, jumpPressed: false, kickPressed: false });
+      else if (!this.isJumpServe(this.state.serving) && this.physics.ball.linvel().y > 0) Object.assign(this.inputs[aiServerId], { jump: false, kick: false, jumpPressed: false, kickPressed: false });
     }
     this.updateServeToss(humans, dt);
     if (this.mode === 'training') this.recordTrainingInput();
@@ -389,6 +389,12 @@ class TakrawGame {
     if (!['footL', 'footR'].some(name => server.byName[name].body.translation().x * n > -this.config.court.halfLength)) return false;
     this.awardPoint(1 - team, '서브 라인 반칙');
     return true;
+  }
+
+  /** 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브다(사람·AI 같은 기준: 높이 올린 공은 점프해서 친다). AI만 이 기준으로 점프를 정한다. */
+  isJumpServe(team) {
+    const toss = this.state.serveToss;
+    return this.state.lastTouch < 0 && this.state.serving === team && toss?.stage === 'thrown' && toss.apex >= this.config.ai.serve.toss.jumpApex;
   }
 
   /** 공 던지기 전: 공을 서버 앞 손 높이에 가만히 둔다(서버가 움직이면 따라간다). */
@@ -1251,7 +1257,9 @@ class TakrawGame {
         const ground = groundTuned;
         const kickLead = setTarget ? ground.lead : 0.20;
         const kickWindow = setTarget ? ground.window : 0.36;
-        const attacking = this.state.possession === team && (this.state.touches >= 2 || (player.role === 'attacker' && this.state.touches >= 1));
+        // 서브: 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브(공중 공격과 같은 점프·발차기), 아니면 지상서브다(사람과 같은 기준).
+        const jumpServe = this.isJumpServe(team);
+        const attacking = jumpServe || (this.state.possession === team && (this.state.touches >= 2 || (player.role === 'attacker' && this.state.touches >= 1)));
         const highContact = !defense && attacking && aerial.reachable && aerial.time > attack.minLead;
         const aim = highContact ? aerial : intercept;
         // 목표 자리와 현재 상태(대기·보조·받기·공격·세트·추격)는 상태머신이 정한다.

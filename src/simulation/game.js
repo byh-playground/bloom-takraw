@@ -25,7 +25,7 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
 /** 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다. */
 const TAKRAW_TRAINING_TEMPOS = Object.freeze([
   { id: 'high', command: 21, title: '높은 토스', detail: '세터가 높게 올려요. 점프 버튼을 잠깐 유지하며 여유 있게 타이밍을 맞춰요.' },
-  { id: 'quick', command: 22, title: '속공 (낮고 빠른 토스)', detail: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.' },
+  { id: 'quick', command: 22, title: '속공', detail: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.' },
 ]);
 
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */

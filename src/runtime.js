@@ -13,7 +13,7 @@ import { createValueCodec } from '@bloom-gamekit/deterministic';
 import { TAKRAW_VERSION, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
-import { TAKRAW_TRAINING_LESSONS, TakrawGame } from './simulation/game.js';
+import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
@@ -1098,6 +1098,14 @@ async function bootTakraw() {
     onRewardRetry: retryReward,
     onTrainingLesson(lesson) {
       const option = TAKRAW_TRAINING_LESSONS.find(item => item.id === lesson);
+      if (mode !== 'training' || !controlsAllowed() || !option) return;
+      releaseControls();
+      pendingCommands.push(option.command);
+      observeSoon();
+      ui.canvas.focus({ preventScroll: true });
+    },
+    onTrainingTempo(tempo) {
+      const option = TAKRAW_TRAINING_TEMPOS.find(item => item.id === tempo);
       if (mode !== 'training' || !controlsAllowed() || !option) return;
       releaseControls();
       pendingCommands.push(option.command);

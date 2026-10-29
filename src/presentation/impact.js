@@ -64,12 +64,15 @@ class TakrawImpactEffects {
       streaks.push({ mesh, dx: 0, dy: 0, dz: 1, direction: new T.Vector3(0, 0, 1), length: 1, reach: 1 });
     }
     const elementMaterials = Array.from({ length: 4 }, () => new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, side: T.DoubleSide }));
+    const edgeMaterial = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, side: T.DoubleSide });
     const particles = [];
     for (let i = 0; i < this.elementConfig.maxParticles; i++) {
-      const mesh = new T.Mesh(this.shapeGeometries.dot, elementMaterials[0]); mesh.visible = false; group.add(mesh);
-      particles.push({ mesh, shape: 'dot', vx: 0, vy: 0, vz: 0, g: 0, size: 0, start: 0, life: 1, spin: 0, roll: 0, grow: 1, flicker: false, swirl: 0, radius: 0, direction: new T.Vector3(0, 0, 1), length: 1 });
+      // rim: 같은 모양을 조금 크게 뒤에 깔아 어두운 테두리로 보이게 한다(밝은 배경에서 윤곽이 보인다).
+      const rim = new T.Mesh(this.shapeGeometries.dot, edgeMaterial); rim.visible = false; rim.renderOrder = 1; group.add(rim);
+      const mesh = new T.Mesh(this.shapeGeometries.dot, elementMaterials[0]); mesh.visible = false; mesh.renderOrder = 2; group.add(mesh);
+      particles.push({ mesh, rim, shape: 'dot', vx: 0, vy: 0, vz: 0, g: 0, size: 0, start: 0, life: 1, spin: 0, roll: 0, grow: 1, flicker: false, swirl: 0, radius: 0, direction: new T.Vector3(0, 0, 1), length: 1 });
     }
-    const node = { group, ring, outer, dots, dotMaterial, ringMaterial, flash, flashMaterial, streaks, particles, elementMaterials, particleCount: 0, trail: null, elementLife: 0, flashScale: 1,
+    const node = { group, ring, outer, dots, dotMaterial, ringMaterial, flash, flashMaterial, streaks, particles, elementMaterials, edgeMaterial, particleCount: 0, trail: null, elementLife: 0, flashScale: 1,
       style: null, hold: 0, outerRing: false, shake: null, flashRoll: 0, fov: 0, squash: 0, squashAxis: new T.Vector3(), age: 0 };
     this.nodes.push(node);
     return node;
@@ -155,14 +158,14 @@ class TakrawImpactEffects {
   configureElement(node, payload, unit, reduced) {
     const element = payload.spike ? this.elementConfig.byElement[this.elements[payload.team === 1 ? 1 : 0]] : null;
     node.particleCount = 0; node.trail = null; node.flashScale = 1;
-    for (const particle of node.particles) particle.mesh.visible = false;
+    for (const particle of node.particles) particle.mesh.visible = particle.rim.visible = false;
     if (!element) return;
     // 속성 연출은 팀 색 점·속도선을 대신한다(링·섬광·진동·눌림은 그대로).
     for (const dot of node.dots) dot.mesh.visible = false;
     for (const streak of node.streaks) streak.mesh.visible = false;
     node.flashScale = this.elementConfig.flash;
     node.trail = this.elementTrails[this.elements[payload.team === 1 ? 1 : 0]];
-    node.ringMaterial.color.setHex(element.ring);
+    node.ringMaterial.color.setHex(element.ring); node.edgeMaterial.color.setHex(element.edge);
     element.colors.forEach((color, index) => node.elementMaterials[index].color.setHex(color));
     const fv = payload.footVelocity, fl = fv ? Math.hypot(fv.x, fv.y, fv.z) : 0;
     let index = 0;
@@ -171,7 +174,7 @@ class TakrawImpactEffects {
       for (let k = 0; k < count && index < node.particles.length; k++, index++) {
         const particle = node.particles[index], angle = unit() * Math.PI * 2, lift = unit();
         const speed = part.speed * (.6 + unit() * .8), up = part.dir === 'flat' ? 0 : part.up * (.4 + lift * .8);
-        particle.shape = part.shape; particle.mesh.geometry = this.shapeGeometries[part.shape];
+        particle.shape = part.shape; particle.mesh.geometry = particle.rim.geometry = this.shapeGeometries[part.shape];
         particle.mesh.material = node.elementMaterials[part.c]; particle.mesh.visible = true;
         particle.vx = Math.cos(angle) * speed; particle.vz = Math.sin(angle) * speed; particle.vy = up;
         if (part.dir === 'up') { particle.vx *= .45; particle.vz *= .45; }
@@ -226,11 +229,11 @@ class TakrawImpactEffects {
   applyParticles(node, t) {
     if (!node.particleCount) return;
     const life = this.elementConfig.life;
-    node.elementMaterials.forEach(material => { material.opacity = .92; });
+    node.elementMaterials.forEach(material => { material.opacity = 1; }); node.edgeMaterial.opacity = .85;
     for (let i = 0; i < node.particleCount; i++) {
       const particle = node.particles[i], local = t - particle.start, progress = local / particle.life, mesh = particle.mesh;
-      if (local < 0 || progress >= 1 || (particle.flicker && Math.floor(local * 32 + i) % 3 === 0)) { mesh.visible = false; continue; }
-      mesh.visible = true;
+      if (local < 0 || progress >= 1 || (particle.flicker && Math.floor(local * 32 + i) % 3 === 0)) { mesh.visible = particle.rim.visible = false; continue; }
+      mesh.visible = particle.rim.visible = true;
       let x = particle.vx * local, z = particle.vz * local;
       if (particle.swirl) { // 접촉점 둘레를 돌며 퍼진다.
         const a = Math.atan2(particle.vz, particle.vx) + particle.swirl * local, r = particle.radius + Math.hypot(particle.vx, particle.vz) * local * .8;
@@ -248,6 +251,11 @@ class TakrawImpactEffects {
         if (this.camera) mesh.quaternion.copy(this.camera.quaternion);
         mesh.rotateZ(particle.roll + particle.spin * local);
       }
+      // 테두리: 본체와 같은 위치·방향에서 모양만 rim 배율로 키운다. 길이 방향 모양은 굵기만 키운다.
+      const rim = particle.rim, grow = this.elementConfig.rim;
+      rim.position.copy(mesh.position); rim.quaternion.copy(mesh.quaternion);
+      if (particle.shape === 'streak' || particle.shape === 'bolt') rim.scale.set(grow * 2, grow * 2, mesh.scale.z * 1.06);
+      else rim.scale.setScalar(mesh.scale.x * grow);
     }
   }
 
@@ -339,7 +347,7 @@ class TakrawImpactEffects {
   dispose() {
     for (const node of this.nodes) {
       this.scene.remove(node.group);
-      node.dotMaterial.dispose(); node.ringMaterial.dispose(); node.flashMaterial.dispose();
+      node.dotMaterial.dispose(); node.ringMaterial.dispose(); node.flashMaterial.dispose(); node.edgeMaterial.dispose();
     }
     for (const node of this.nodes) for (const material of node.elementMaterials) material.dispose();
     for (const [id, geometry] of Object.entries(this.shapeGeometries)) if (id !== 'streak') geometry.dispose();

@@ -652,3 +652,8 @@ body .end-actions strong{font-size:24px}#school-result{font-weight:800}
 .watch-form button[type=submit]{background:var(--green);color:#fffef1;border-color:transparent}
 .watch-form #watch-tick{min-width:62px;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
 body[data-mode="watch"] .player-panel,body[data-mode="watch"] .drive-feedback,body[data-mode="watch"] .bottom-guide{display:none}
+
+/* 소개영상 안의 게임(?showcaseDemo=1): 조작·메뉴는 감추고 경기 화면만 보여준다. 입력은 받지 않는다. */
+body[data-showcase]{pointer-events:none}
+body[data-showcase] .site-header,body[data-showcase] .site-footer,body[data-showcase] .watch-form,body[data-showcase] .rotate-note,body[data-showcase] #end-actions,body[data-showcase] .modal-layer,body[data-showcase] .boot-status{display:none!important}
+.home-panel .bloom-showcase-link{margin:0 0 14px;min-height:40px;padding:8px 16px;font-size:12px;border-radius:12px;background:#fafcf4cc;color:var(--green)}

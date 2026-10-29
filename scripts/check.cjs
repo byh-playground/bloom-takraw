@@ -30,5 +30,12 @@ for (const [name, entry] of Object.entries(lock.modules)) {
   requireCondition(used.has(alias), `Unused dependency: ${name}`);
 }
 for (const [name, url] of Object.entries(lock.external)) requireCondition(map[name] === url, `External link drift: ${name}`);
+// 게임 이름의 단일 출처(src/config/game.js)와 정적 파일의 일치를 검사한다.
+const product = fs.readFileSync(path.join(root, 'src/config/game.js'), 'utf8').match(/TAKRAW_GAME_NAME = '([^']+)'/)[1];
+const productName = `블룸 ${product}`;
+requireCondition(html.includes(`<title>${productName}</title>`), `index.html 제목이 ${productName}과 다르다`);
+requireCondition(fs.readFileSync(path.join(root, 'README.md'), 'utf8').startsWith(`# ${productName}`), `README 제목이 ${productName}과 다르다`);
+requireCondition(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').startsWith(`# ${productName}`), `AGENTS 제목이 ${productName}과 다르다`);
+requireCondition(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).description.startsWith(productName), `package.json 설명이 ${productName}과 다르다`);
 execFileSync(process.execPath, ['--check', path.join(root, 'playwright.config.js')]);
 console.log('Source syntax, native import paths, and pinned dependency links are valid.');

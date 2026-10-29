@@ -10,7 +10,7 @@ import { AudioPlayer } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { createValueCodec } from '@bloom-gamekit/deterministic';
 
-import { TAKRAW_VERSION, TAKRAW_CONFIG } from './config/game.js';
+import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
@@ -156,7 +156,7 @@ async function bootTakraw() {
     const value = error instanceof Error ? error : new Error(String(error));
     errors.push({ source, message: value.message, stack: value.stack || '', time: performance.now() });
     if (errors.length > 12) errors.shift();
-    console.error('[블룸 세팍타크로]', source, value);
+    console.error(`[${TAKRAW_PRODUCT_NAME}]`, source, value);
     return value;
   }
 
@@ -1040,7 +1040,7 @@ async function bootTakraw() {
     get ready() { return isReady(); },
     diagnostics() {
       return {
-        product: '블룸 세팍타크로',
+        product: TAKRAW_PRODUCT_NAME,
         version: TAKRAW_VERSION,
         status: config.status,
         ready: isReady(), bootstrapStage, mode, paused, failed,

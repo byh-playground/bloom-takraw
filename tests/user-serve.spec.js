@@ -54,3 +54,46 @@ test('공 던지기: 누르는 동안 공이 손에서 점점 올라가 높이 �
 test('사람 서브: 서브 자리는 엔드라인 뒤다', async () => {
   expect(Math.abs(TAKRAW_CONFIG.ai.serve.spot.x)).toBeGreaterThan(TAKRAW_CONFIG.court.halfLength);
 });
+
+test('공 던지기 전: 서버가 공 쪽으로 돌아다니며 몸이 부딪혀도 터치·반칙 없이 공이 손에 머문다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
+  const game = new TakrawGame({ RAPIER: await loadRapier(), config: structuredClone(TAKRAW_CONFIG) });
+  try {
+    game.reset('match', undefined, 6);
+    const st = game.state; st.serving = 0; game.step({ tick: 1, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] }); game.placeServe();
+    const byte = v => Math.round(Math.max(-1, Math.min(1, v)) * 127) & 255;
+    let tick = 2, held = 0, maxGap = 0;
+    for (; tick < 1800 && st.phase !== 'rally'; tick++) game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
+    for (let i = 0; i < 360; i++, tick++) { // 6초: 공 쪽으로 걷고 뒤로 걷고 옆으로 걷는다.
+      const phase = Math.floor(i / 60) % 3, move = phase === 0 ? [0, 1] : phase === 1 ? [-1, 0.5] : [0, -1]; // 엔드라인 안쪽은 밟지 않는다.
+      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [byte(move[0]), byte(move[1]), 0], commands: [] }] });
+      if (st.serveToss?.stage === 'hold') held++;
+      const b = game.physics.ball.translation(), s = game.physics.players[st.selected[0]].root.translation();
+      maxGap = Math.max(maxGap, Math.hypot(b.x - s.x, b.z - s.z));
+    }
+    expect(held).toBe(360); expect(st.phase).toBe('rally'); expect(st.lastTouch).toBe(-1); expect(st.touches).toBe(0);
+    expect(maxGap).toBeLessThan(1.5);
+  } finally { game.dispose(); }
+});
+
+test('서브 라인 반칙: 공을 든 채 엔드라인 안쪽을 밟으면 서브 팀이 실점하고, 던진 뒤에는 코트로 들어가도 된다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
+  const play = async (throwFirst) => {
+    const game = new TakrawGame({ RAPIER: await loadRapier(), config: structuredClone(TAKRAW_CONFIG) });
+    try {
+      game.reset('match', undefined, 7);
+      const st = game.state; st.serving = 0; game.step({ tick: 1, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] }); game.placeServe();
+      let tick = 2; for (; tick < 1800 && st.phase !== 'rally'; tick++) game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
+      const score = [...st.score];
+      for (let i = 0; i < 240 && st.phase === 'rally'; i++, tick++) {
+        const tossing = throwFirst && i < 2; // 처음 두 틱에 짧게 눌러 바로 던진다.
+        game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [127, 0, tossing ? 2 : 0], commands: i === 0 && throwFirst ? [{ payload: [2] }] : [] }] });
+      }
+      return { reason: st.pointReason, winner: st.pointWinner, phase: st.phase, score, after: [...st.score] };
+    } finally { game.dispose(); }
+  };
+  const fault = await play(false);
+  expect(fault.reason).toBe('서브 라인 반칙'); expect(fault.winner).toBe(1);
+  const legal = await play(true);
+  expect(legal.reason).not.toBe('서브 라인 반칙');
+});

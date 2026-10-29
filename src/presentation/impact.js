@@ -70,7 +70,7 @@ class TakrawImpactEffects {
       // rim: 같은 모양을 조금 크게 뒤에 깔아 어두운 테두리로 보이게 한다(밝은 배경에서 윤곽이 보인다).
       const rim = new T.Mesh(this.shapeGeometries.dot, edgeMaterial); rim.visible = false; rim.renderOrder = 1; group.add(rim);
       const mesh = new T.Mesh(this.shapeGeometries.dot, elementMaterials[0]); mesh.visible = false; mesh.renderOrder = 2; group.add(mesh);
-      particles.push({ mesh, rim, shape: 'dot', vx: 0, vy: 0, vz: 0, g: 0, size: 0, start: 0, life: 1, spin: 0, roll: 0, grow: 1, flicker: false, swirl: 0, radius: 0, direction: new T.Vector3(0, 0, 1), length: 1 });
+      particles.push({ mesh, rim, shape: 'dot', angle: 0, vx: 0, vy: 0, vz: 0, g: 0, size: 0, start: 0, life: 1, spin: 0, roll: 0, grow: 1, flicker: false, swirl: 0, radius: 0, direction: new T.Vector3(0, 0, 1), length: 1 });
     }
     const node = { group, ring, outer, dots, dotMaterial, ringMaterial, flash, flashMaterial, streaks, particles, elementMaterials, edgeMaterial, particleCount: 0, trail: null, elementLife: 0, flashScale: 1,
       style: null, hold: 0, outerRing: false, shake: null, flashRoll: 0, fov: 0, squash: 0, squashAxis: new T.Vector3(), age: 0 };
@@ -176,6 +176,7 @@ class TakrawImpactEffects {
         const speed = part.speed * (.6 + unit() * .8), up = part.dir === 'flat' ? 0 : part.up * (.4 + lift * .8);
         particle.shape = part.shape; particle.mesh.geometry = particle.rim.geometry = this.shapeGeometries[part.shape];
         particle.mesh.material = node.elementMaterials[part.c]; particle.mesh.visible = true;
+        particle.angle = angle;
         particle.vx = Math.cos(angle) * speed; particle.vz = Math.sin(angle) * speed; particle.vy = up;
         if (part.dir === 'up') { particle.vx *= .45; particle.vz *= .45; }
         particle.g = part.g; particle.size = part.size * (.7 + unit() * .6);
@@ -234,10 +235,11 @@ class TakrawImpactEffects {
       const particle = node.particles[i], local = t - particle.start, progress = local / particle.life, mesh = particle.mesh;
       if (local < 0 || progress >= 1 || (particle.flicker && Math.floor(local * 32 + i) % 3 === 0)) { mesh.visible = particle.rim.visible = false; continue; }
       mesh.visible = particle.rim.visible = true;
-      let x = particle.vx * local, z = particle.vz * local;
+      const margin = this.elementConfig.ballMargin;
+      let x = particle.vx * local + Math.cos(particle.angle) * margin, z = particle.vz * local + Math.sin(particle.angle) * margin;
       if (particle.swirl) { // 접촉점 둘레를 돌며 퍼진다.
         const a = Math.atan2(particle.vz, particle.vx) + particle.swirl * local, r = particle.radius + Math.hypot(particle.vx, particle.vz) * local * .8;
-        x = Math.cos(a) * r; z = Math.sin(a) * r;
+        x = Math.cos(a) * (r + margin); z = Math.sin(a) * (r + margin);
       }
       const y = particle.vy * local - .5 * particle.g * local * local;
       mesh.position.set(x, y, z);
@@ -304,6 +306,14 @@ class TakrawImpactEffects {
     }
     if (out.axis.lengthSq() === 0) out.amount = 0;
     return out;
+  }
+
+  /** 속성 연출 중이면 공을 입자 위에 다시 그릴 때 쓸 { edge }를, 아니면 null을 돌려준다(공이 입자에 가려지지 않게 한다). */
+  ballEmphasis() {
+    for (const node of this.active) {
+      if (node.particleCount && node.age / 1000 - node.hold < this.elementConfig.ballLife) return { edge: node.edgeMaterial.color.getHex() };
+    }
+    return null;
   }
 
   /** 공 궤적을 강조 중이면 { color, duration }, 아니면 null. */

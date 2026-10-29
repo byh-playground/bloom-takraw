@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.57';
+const TAKRAW_VERSION = '0.12.58';
 // 게임 이름의 단일 출처. 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일(index.html·README·AGENTS·package.json)은 scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_GAME_NAME = '발 배구';
 const TAKRAW_PRODUCT_NAME = `블룸 ${TAKRAW_GAME_NAME}`;
@@ -112,6 +112,8 @@ const TAKRAW_CONFIG = Object.freeze({
       life: 1.2,
       maxParticles: 40,
       rim: 1.35, // 입자 바깥 어두운 테두리(edge 색) 배율: 밝은 배경에서 윤곽이 보이게 한다
+      ballLife: .7, // 속성 연출 동안 공을 입자 위에 평면 원으로 다시 그리는 시간(초). 입자에 가려지지 않게 한다
+      ballMargin: .16, // 입자가 공 중심에서 이 거리(m) 밖에서 시작한다(공 반지름 .095 + 여유)
       flash: .5, // 속성 연출이 있을 때 기본 별 섬광의 배율(입자가 묻히지 않게 줄인다)
       byElement: {
         grass: { colors: [0x00deb1, 0x33ff74, 0x88ff33, 0xffd033], ring: 0x52ff71, trail: 0x3dff7b, edge: 0x007059, parts: [

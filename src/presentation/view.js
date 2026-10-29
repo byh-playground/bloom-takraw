@@ -329,6 +329,13 @@ class TakrawView {
     this.haloMaterial = haloMaterial;
     this.ballHalo = this.mesh(this.geometry('ballHalo', () => new T.RingGeometry(.118, .140, 40)), haloMaterial);
     this.ballHalo.castShadow = false; this.ballHalo.receiveShadow = false; this.ballHalo.renderOrder = 4;
+    // 속성 스파이크 연출 동안 공을 입자 위에 평면 원(밝은 공 색 + 어두운 테두리)으로 다시 그린다.
+    this.ballFrontEdge = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, depthTest: false });
+    this.ballFront = new T.Group(); this.ballFront.visible = false;
+    const frontFill = new T.MeshBasicMaterial({ color: 0xffe3a0, transparent: true, depthWrite: false, depthTest: false });
+    const edgeDisc = new T.Mesh(new T.CircleGeometry(1.4, 28), this.ballFrontEdge), fillDisc = new T.Mesh(new T.CircleGeometry(1, 28), frontFill);
+    edgeDisc.renderOrder = 5; fillDisc.renderOrder = 6; this.ballFront.add(edgeDisc, fillDisc); this.scene.add(this.ballFront);
+    this.ballFrontMaterials = [this.ballFrontEdge, frontFill]; this.ballFrontGeometries = [edgeDisc.geometry, fillDisc.geometry];
     this.trailData = new Float32Array(20 * 3);
     this.trailGeometry = new T.BufferGeometry(); this.trailGeometry.setAttribute('position', new T.BufferAttribute(this.trailData, 3)); this.trailGeometry.setDrawRange(0, 0);
     this.geometries.set('ballTrail', this.trailGeometry);
@@ -785,6 +792,13 @@ class TakrawView {
       const boost = this.impacts.trailBoost();
       this.ballHalo.scale.setScalar(Math.max(1, 7 * unitsPerPixel / .14) * (boost ? 1.8 : 1));
       this.haloMaterial.color.setHex(boost ? boost.color : this.haloBaseColor);
+      const emphasis = this.impacts.ballEmphasis();
+      this.ballFront.visible = !!emphasis;
+      if (emphasis) {
+        this.ballFrontEdge.color.setHex(emphasis.edge);
+        this.ballFront.position.copy(ball.position); this.ballFront.quaternion.copy(this.camera.quaternion);
+        this.ballFront.scale.setScalar(Math.max((ball.userData.entity?.radius ?? .095) * 1.5, 7 * unitsPerPixel));
+      }
       this.trailMaterial.color.setHex(boost ? boost.color : this.trailBase.color);
       this.trailMaterial.opacity = boost ? 1 : this.trailBase.opacity;
       const distance = ball.position.distanceTo(this.trailLast);
@@ -860,6 +874,8 @@ class TakrawView {
 
   dispose() {
     this.impacts.dispose(); this.field.dispose();
+    for (const geometry of this.ballFrontGeometries) geometry.dispose();
+    for (const material of this.ballFrontMaterials) material.dispose();
     for (const geometry of this.geometries.values()) geometry.dispose();
     for (const material of this.materials.values()) material.dispose();
     for (const texture of this.textures.values()) texture.dispose();

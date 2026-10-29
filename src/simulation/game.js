@@ -372,12 +372,24 @@ class TakrawGame {
         this.state.serveToss = { stage: 'hold', charge: 0 };
         this.holdServeBall();
         this.state.lastMessage = '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 올라갑니다. 올린 뒤 점프·발차기로 서브하고 자기 자리로 돌아가세요. 던지기 전에 엔드라인 안쪽을 밟으면 반칙입니다.';
-      } else this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
+      } else if (this.callServeFootFault()) return;
+      else this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
         { x: 0, y: 1.5 + jitter(4) * v.rise, z: 0 });
       if (!this.state.serveToss) this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
     }
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
     this.revision++;
+  }
+
+  /**
+   * 서브 라인 반칙(사람·AI 같은 규칙): 서버가 공을 던지기 전에 발이 엔드라인 안쪽(코트 쪽)을 밟으면 서브 팀이 실점한다.
+   * 사람은 던지기 버튼을 뗄 때까지 매 틱, AI는 공을 던지는 순간(서브 시작)에 검사한다. 반칙이면 점수를 주고 true.
+   */
+  callServeFootFault() {
+    const team = this.state.serving, n = team === 0 ? 1 : -1, server = this.physics.players[this.serverId(team)];
+    if (!['footL', 'footR'].some(name => server.byName[name].body.translation().x * n > -this.config.court.halfLength)) return false;
+    this.awardPoint(1 - team, '서브 라인 반칙');
+    return true;
   }
 
   /** 공 던지기 전: 공을 서버 앞 손 높이에 가만히 둔다(서버가 움직이면 따라간다). */
@@ -396,12 +408,8 @@ class TakrawGame {
     const toss = this.state.serveToss;
     if (!toss || toss.stage === 'thrown' || this.state.phase !== 'rally' || this.state.lastTouch >= 0) return;
     const human = humans[this.state.serving], cfg = this.config.ai.serve.toss;
-    // 서브 라인 반칙: 공을 든 채(던지기 전) 서버의 발이 엔드라인 안쪽(코트 쪽)을 밟으면 서브 팀의 실점이다.
-    const team = this.state.serving, n = team === 0 ? 1 : -1, server = this.physics.players[this.serverId(team)];
-    if (['footL', 'footR'].some(name => server.byName[name].body.translation().x * n > -this.config.court.halfLength)) {
-      this.awardPoint(1 - team, '서브 라인 반칙');
-      return;
-    }
+    if (this.callServeFootFault()) return;
+    const n = this.state.serving === 0 ? 1 : -1;
     const held = !!human?.toss, pressed = !!human?.tossPressed;
     if (held || pressed) { toss.charging = true; toss.charge += dt; }
     const idle = this.state.time - this.rallyStart > cfg.maxHold;

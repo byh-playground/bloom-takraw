@@ -97,3 +97,21 @@ test('서브 라인 반칙: 공을 든 채 엔드라인 안쪽을 밟으면 서�
   const legal = await play(true);
   expect(legal.reason).not.toBe('서브 라인 반칙');
 });
+
+test('서브 라인 반칙은 AI 서버에도 같은 규칙: 서브 자리가 엔드라인 안쪽이면 AI 서브도 반칙, 뒤쪽이면 정상', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
+  const play = async spotX => {
+    const config = structuredClone(TAKRAW_CONFIG); config.ai.serve.spot.x = spotX;
+    const game = new TakrawGame({ RAPIER: await loadRapier(), config });
+    try {
+      game.reset('match', undefined, 9); // 첫 서브는 상대(AI) 팀이다.
+      const st = game.state; let tick = 1;
+      for (; tick < 1800 && st.phase !== 'point' && !(st.phase === 'rally' && st.time > 0); tick++) game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
+      for (let i = 0; i < 30 && st.phase === 'rally'; i++, tick++) game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
+      return { serving: st.serving, phase: st.phase, reason: st.pointReason, winner: st.pointWinner };
+    } finally { game.dispose(); }
+  };
+  const inside = await play(-5.5), behind = await play(-7.2);
+  expect(inside.reason).toBe('서브 라인 반칙'); expect(inside.winner).toBe(0);
+  expect(behind.reason).not.toBe('서브 라인 반칙');
+});

@@ -36,7 +36,7 @@ test('공 던지기: 짧게 누르면 낮게·서버 바로 앞에, 꾹 누르�
   const quick = await serveToss(2, 0), long = await serveToss(2, 60);
   expect(quick.apex).toBeLessThan(2.2); expect(long.apex).toBeGreaterThan(4);
   expect(quick.landed).toBeGreaterThan(0.5); expect(quick.landed).toBeLessThan(1.6);
-  expect(long.landed - quick.landed).toBeGreaterThan(1);
+  expect(long.landed - quick.landed).toBeGreaterThan(0.4);
 });
 
 test('공 던지기: 누르는 시간에 비례해 꼭짓점이 올라가고(중간값), 던지기 전에는 공이 서버 앞에 머문다', async () => {

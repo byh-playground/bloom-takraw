@@ -40,7 +40,7 @@ for (let k = 0; k < TRIALS; k++) {
         if (!ground && hold > 0 && !jumpPressed) { jump = !me.grounded; hold--; }
         if (!ground && me.jump.active && me.jump.time >= Number(process.env.KD || TAKRAW_CONFIG.ai.toss.lowAttack.kickDelay)) { kick = true; kickPressed = !game.inputs[me.id]?.kick; }
       }
-      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [byte(ix), byte(iz), (jump ? 1 : 0) | (kick ? 2 : 0) | (toss ? 4 : 0)], commands: [...(tossPressed ? [{ payload: [8] }] : []), ...(jumpPressed ? [{ payload: [1] }] : []), ...(kickPressed ? [{ payload: [2] }] : [])] }] });
+      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [byte(ix), byte(iz), (jump ? 1 : 0) | (kick ? 2 : 0) | (toss ? 2 : 0)], commands: [...(tossPressed ? [{ payload: [2] }] : []), ...(jumpPressed ? [{ payload: [1] }] : []), ...(kickPressed ? [{ payload: [2] }] : [])] }] });
       for (const e of game.events || []) {
         if (e.type === 'touch' && e.playerId === st.selected[0] && !touched) touched = { part: e.part, t: +(st.time - serveStart).toFixed(2), x: +e.position.x.toFixed(2), z: +e.position.z.toFixed(2) };
       }

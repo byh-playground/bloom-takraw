@@ -641,5 +641,4 @@ body .end-actions strong{font-size:24px}#school-result{font-weight:800}
   body .dialog-content{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 }
 
-body .touch-actions .touch-toss{width:68px;height:68px;background:#f2e7c0e6}
-.touch-toss[hidden],#toss-light[hidden]{display:none}
+#toss-meter{display:flex;align-items:center;gap:8px;font-size:11px}#toss-meter[hidden]{display:none}#toss-meter u{display:block;width:90px;height:8px;border-radius:5px;background:#31583f26;overflow:hidden;text-decoration:none}#toss-meter i{display:block;height:100%;width:0;background:#d4a93c}

@@ -36,7 +36,7 @@ async function bootTakraw() {
   const errors = [];
   const listeners = [];
   const actionNames = [
-    'left', 'right', 'forward', 'back', 'jump', 'kick', 'toss',
+    'left', 'right', 'forward', 'back', 'jump', 'kick',
     'p2Left', 'p2Right', 'p2Forward', 'p2Back', 'p2Jump', 'p2Kick',
   ];
   const samples = Object.fromEntries(actionNames.map(name => [name, {}]));
@@ -328,8 +328,7 @@ async function bootTakraw() {
       writeMovement(input, 0,
         Number(samples.right.held) - Number(samples.left.held) + axis.x,
         Number(samples.back.held) - Number(samples.forward.held) + axis.z);
-      input[2] = (samples.jump.held ? 1 : 0) | (samples.kick.held ? 2 : 0) | (samples.toss.held ? 4 : 0);
-      if (samples.toss.pressed) commands.push({ payload: Uint8Array.of(8) });
+      input[2] = (samples.jump.held ? 1 : 0) | (samples.kick.held ? 2 : 0);
       if (samples.jump.pressed) commands.push({ payload: Uint8Array.of(1) });
       if (samples.kick.pressed) commands.push({ payload: Uint8Array.of(2) });
       if (mode === 'local') {
@@ -624,6 +623,7 @@ async function bootTakraw() {
       kickHeld: Boolean(player?.kickHeld),
       jumpHeld: Boolean(player?.jumpHeld),
       tossReady: Boolean(player?.tossReady),
+      tossCharge: Number(player?.tossCharge) || 0,
       connection: mode === 'online' ? network.message : '',
     };
   }
@@ -1124,7 +1124,7 @@ async function bootTakraw() {
     onNetwork: connect,
     onDiagnostics: () => runtime.diagnostics(),
     onTouch(action, source, down) {
-      if (!actions || !['jump', 'kick', 'toss'].includes(action)) return;
+      if (!actions || !['jump', 'kick'].includes(action)) return;
       if (down && !controlsAllowed()) return;
       actions.set(action, `touch:${source}`, Boolean(down));
       if (down) audio?.unlock();
@@ -1164,7 +1164,7 @@ async function bootTakraw() {
       state: actions,
       keys: {
         KeyA: 'left', KeyD: 'right', KeyW: 'forward', KeyS: 'back',
-        Space: 'jump', KeyE: 'toss',
+        Space: 'jump',
         ArrowLeft: 'p2Left', ArrowRight: 'p2Right', ArrowUp: 'p2Forward', ArrowDown: 'p2Back',
         Enter: 'p2Jump', Numpad0: 'p2Jump', ShiftRight: 'p2Kick',
       },

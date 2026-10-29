@@ -154,7 +154,6 @@ class TakrawGame {
       x: signed(input[offset] || 0), z: signed(input[offset + 1] || 0),
       jump: !!((input[offset + 2] || 0) & 1), kick: !!((input[offset + 2] || 0) & 2),
       jumpPressed: has(1), kickPressed: has(2), restart: has(4),
-      toss: !!((input[offset + 2] || 0) & 4), tossPressed: has(8),
       trainingLesson: TAKRAW_TRAINING_LESSONS.find(lesson => has(lesson.command))?.id || null,
       trainingTempo: TAKRAW_TRAINING_TEMPOS.find(tempo => has(tempo.command))?.id || null,
     };
@@ -201,6 +200,10 @@ class TakrawGame {
     // 사람이 처음 들어온 순간 서브 전 배치를 다시 한다(첫 서브가 사람 팀일 때 공격수를 서브 자리에 세운다).
     if (changed && this.state.phase === 'ready' && this.state.rally === 0) this.placeServe();
     for (let team = 0; team < 2; team++) humans[team] = this.assistReceive(team, humans[team]);
+    // 서브 시작에는 발차기 버튼이 공 던지기다: 던질 때까지 발차기 입력은 발이 아니라 던지기 힘 모으기로만 쓴다.
+    const toss = this.state.serveToss, server = humans[this.state.serving];
+    if (toss && toss.stage === 'hold' && this.state.phase === 'rally' && this.state.lastTouch < 0 && server)
+      humans[this.state.serving] = { ...server, kick: false, kickPressed: false, toss: server.kick, tossPressed: server.kickPressed };
 
     // Claim/release is an input edge. Re-evaluate that change immediately,
     // while ordinary pursuit decisions remain on the configured AI clock.
@@ -380,11 +383,12 @@ class TakrawGame {
   /** 공 던지기 전: 공을 서버 앞 손 높이에 가만히 둔다(서버가 움직이면 따라간다). */
   holdServeBall() {
     const { toss } = this.config.ai.serve, p = this.physics.players[this.serverId(this.state.serving)].root.translation(), n = this.state.serving === 0 ? 1 : -1;
-    this.physics.resetBall({ x: p.x + n * toss.offset, y: toss.height, z: p.z - n * 0.10 }, { x: 0, y: 0, z: 0 });
+    const ratio = Math.min(1, (this.state.serveToss?.charge || 0) / toss.fullCharge);
+    this.physics.resetBall({ x: p.x + n * toss.offset, y: toss.height + toss.lift * ratio, z: p.z - n * 0.10 }, { x: 0, y: 0, z: 0 });
   }
 
   /**
-   * 사람 서브의 공 던지기: 던지기 키를 누르는 동안 힘을 모으고(charge), 떼는 순간 공을 위로 던진다.
+   * 사람 서브의 공 던지기: 발차기 버튼을 누르는 동안 힘을 모으고(charge), 떼는 순간 공을 위로 던진다.
    * 꼭짓점(위)과 앞쪽 속도는 짧게 누르면 minApex·minForward, fullCharge초 이상 누르면 maxApex·maxForward이고 그 사이는 선형이다(짧게는 바로 발로 차고, 길게는 앞으로 달려가 점프해서 찬다). 던진 뒤 공은 일반 물리로 움직인다.
    * 상태는 state.serveToss(저장됨)에만 있어 롤백해도 같다.
    */
@@ -468,7 +472,7 @@ class TakrawGame {
       if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
       const target = this.inputs[event.playerId]?.tossTarget;
       const set = target && /^(foot|lowerLeg)/.test(event.part || '') && this.physics.players[event.playerId].kick.mode === 'ground' && !spike;
-      if (set && target.playerId === -1) this.physics.assistServe(this.physics.players[event.playerId], event.position, target);
+      if (target?.playerId === -1 && /^(foot|lowerLeg)/.test(event.part || '') && !spike) this.physics.assistServe(this.physics.players[event.playerId], event.position, target);
       else if (set && target.playerId % 3 === 2) this.physics.assistSet(this.physics.players[event.playerId], event.position, target);
       const intent = this.inputs[event.playerId]?.intent;
       this.state.play = { team: event.team, from: event.playerId, to: target?.playerId ?? null,
@@ -1322,7 +1326,7 @@ class TakrawGame {
         receive: player.receive ? { mode: player.receive.mode, phase: player.receive.phase } : null,
         motionId: player.kick.airPlan?.motion?.id || null,
         kickHeld: !!this.inputs[player.id]?.kick, jumpHeld: !!this.inputs[player.id]?.jump,
-        tossReady: this.state.serveToss?.stage === 'hold' && player.id === this.state.selected[this.state.serving], tossCharge: player.id === this.state.selected[this.state.serving] ? (this.state.serveToss?.stage === 'hold' ? this.state.serveToss.charge : 0) : 0,
+        tossReady: this.state.serveToss?.stage === 'hold' && player.id === this.state.selected[this.state.serving], tossCharge: player.id === this.state.selected[this.state.serving] && this.state.serveToss?.stage === 'hold' ? Math.min(1, this.state.serveToss.charge / this.config.ai.serve.toss.fullCharge) : 0,
       })),
     };
   }

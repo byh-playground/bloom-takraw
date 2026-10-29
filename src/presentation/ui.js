@@ -551,7 +551,7 @@ class TakrawUI {
       <p>점수판 아래에서 어느 팀의 몇 번째 터치인지, 누구에게 토스하는지와 그 이유를 확인하세요. 토스를 시도해도 발이나 정강이에 빗맞으면 공이 상대 코트로 넘어갈 수 있어요. 이때는 <strong>토스가 길어 넘어간 경우</strong>와 <strong>마지막 터치라 넘기는 경우</strong>를 구분해 알려줘요.</p>
       <h3>기본 조작</h3>
       <div class="control-row"><kbd>${this.coarse.matches ? '왼쪽 패드' : 'W A S D'}</kbd><span><strong>화면 방향으로 이동</strong><small>${this.coarse.matches ? '가려는 방향으로 밀고, 손을 떼면 멈춰요.' : 'W·S는 화면 앞뒤, A·D는 좌우예요.'} 공중에서도 조금 움직일 수 있어요.</small></span></div>
-      <div class="control-row"><kbd>${this.coarse.matches ? '공 던지기' : 'E'}</kbd><span><strong>서브 공 던지기</strong><small>우리 팀 서브 때만. 짧게 누르면 낮게, 꾹 누르면 높게 올라가요. 올린 뒤 점프·발차기로 서브하세요.</small></span></div>
+      <div class="control-row"><kbd>${this.coarse.matches ? '발차기' : '좌클'}</kbd><span><strong>서브 시작은 공 던지기</strong><small>우리 팀 서브 때 발차기 버튼을 누르면 공이 손에서 올라가요. 짧게 떼면 낮게, 꾹 누를수록 높게 올라가요. 던진 뒤에는 다시 점프·발차기로 서브하세요.</small></span></div>
       <div class="control-row"><kbd>${this.coarse.matches ? '점프' : 'Space'}</kbd><span><strong>누르는 즉시 점프</strong><small>일찍 떼면 낮게, 길게 누르면 높게 뛰어요.</small></span></div>
       <div class="control-row"><kbd>좌클</kbd><span><strong>누르는 동안 발에 힘</strong><small>누르는 즉시 발이 공을 향해 움직이고, 누르는 동안 힘을 계속 줘요. 짧게 눌러 툭 받거나 길게 유지해 힘을 더하세요.</small></span></div>
       ${this.coarse.matches ? '<p>카메라는 공과 내 선수를 따라가요. 설정의 ‘시점 초기화’로 기본 시점으로 돌아올 수 있어요.</p>' : '<div class="control-row"><kbd>우클 드래그</kbd><span><strong>카메라 각도 조절</strong><small>좌우로 돌리거나 위아래 각도를 바꿔 공과 발의 거리를 보세요. 이동도 바뀐 화면 방향을 따라가요. C를 누르면 기본 시점으로 돌아와요.</small></span></div>'}
@@ -744,7 +744,9 @@ class TakrawUI {
       `${teamName(status.matchPointTeams[0])} 매치 포인트`) : status.deuce ? `${hud.score[0]} : ${hud.score[1]} · 듀스` : '';
     banner.hidden = this.mode === 'training' || !banner.textContent;
     document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld); document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
-    document.getElementById('toss-light').hidden = !hud.tossReady; document.querySelector('.touch-toss').hidden = !hud.tossReady;
+    const meter = document.getElementById('toss-meter'); meter.hidden = !hud.tossReady; meter.querySelector('i').style.width = `${Math.round(100 * (hud.tossCharge || 0))}%`;
+    const kickButton = document.querySelector('.touch-kick'), label = hud.tossReady ? ['공 던지기', '꾹 · 높게'] : ['발차기', '누르고 유지'];
+    if (kickButton.dataset.label !== label[0]) { kickButton.dataset.label = label[0]; kickButton.firstChild.textContent = label[0]; kickButton.querySelector('small').textContent = label[1]; }
     if (this.mode === 'training' && hud.training) this.updateTraining(hud.training);
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;
     this.nodes['end-actions'].dataset.result = hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';

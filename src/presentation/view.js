@@ -9,6 +9,8 @@ class TakrawView {
     this.canvas = canvas;
     this.config = config;
     this.schools = [TAKRAW_SCHOOLS[0], TAKRAW_SCHOOLS[1]];
+    // 경기장 꾸밈(현수막·바닥·관중 색)은 보는 사람의 상대 학교 기준이다. 1P는 팀 1의 학교, 2P는 팀 0의 학교.
+    this.venueIndex = 1;
     this.textures = new Map();
     this.meshes = new Map();
     this.geometries = new Map();
@@ -65,9 +67,20 @@ class TakrawView {
     return this.materials.get(key);
   }
 
+  get venueSchool() { return this.schools[this.venueIndex]; }
+
+  /** 보는 팀에 맞춰 경기장 꾸밈을 상대 쪽으로 옮긴다. 2P 카메라는 +x 쪽에서 -x를 보므로 현수막이 상대 코트 뒤(-x)에 와야 시야를 가리지 않는다. */
+  setViewTeam(team) {
+    const index = team === 1 ? 0 : 1;
+    if (index === this.venueIndex) return;
+    this.venueIndex = index;
+    this.bannerRig.rotation.y = team === 1 ? Math.PI : 0;
+    this.applyVenue();
+  }
+
   venueMaterial(channel) {
     if (!this.venueMaterials.has(channel)) {
-      const material = new this.THREE.MeshStandardMaterial({ color: this.schools[1].venue[channel], roughness: .85 });
+      const material = new this.THREE.MeshStandardMaterial({ color: this.venueSchool.venue[channel], roughness: .85 });
       this.venueMaterials.set(channel, material);
       this.materials.set(`venue:${channel}`, material);
     }
@@ -75,9 +88,10 @@ class TakrawView {
   }
 
   makeVenueBanners() {
+    this.bannerRig = new this.THREE.Group(); this.scene.add(this.bannerRig);
     this.venueBanners = [-3.7, 0, 3.7].map((z, index) => {
       const banner = this.mesh(this.geometry('venue-banner', () => new this.THREE.PlaneGeometry(3.4, .72)),
-        this.bannerMaterial(index));
+        this.bannerMaterial(index), this.bannerRig);
       banner.position.set(7.8, 2.65, z); banner.rotation.y = -Math.PI / 2;
       banner.castShadow = false; banner.receiveShadow = false;
       return banner;
@@ -85,7 +99,7 @@ class TakrawView {
   }
 
   bannerMaterial(index) {
-    const school = this.schools[1], key = `venue-banner:${school.id}:${index}`;
+    const school = this.venueSchool, key = `venue-banner:${school.id}:${index}`;
     if (!this.materials.has(key)) {
       const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 136;
       const ctx = canvas.getContext('2d');
@@ -101,7 +115,7 @@ class TakrawView {
   }
 
   applyVenue() {
-    const venue = this.schools[1].venue, color = new this.THREE.Color();
+    const venue = this.venueSchool.venue, color = new this.THREE.Color();
     for (const [channel, material] of this.venueMaterials) material.color.set(venue[channel]);
     this.scene.background.set(venue.fog.color); this.groundMaterial?.color.set(venue.fog.color); // 바닥도 안개색과 같아야 먼 곳에서 이음매가 안 보인다.
     this.scene.fog.color.set(venue.fog.color); this.scene.fog.near = venue.fog.near; this.scene.fog.far = venue.fog.far;
@@ -232,7 +246,7 @@ class TakrawView {
     const heads = new T.InstancedMesh(headGeometry, crowdMaterial, count);
     bodies.castShadow = true; heads.castShadow = true;
     const object = new T.Object3D(), color = new T.Color();
-    const shirts = this.schools[1].venue.shirts;
+    const shirts = this.venueSchool.venue.shirts;
     for (let i = 0; i < count; i++) {
       const row = Math.floor(i / 9);
       const x = -4.6 + (i % 9) * 1.05 + (row === 1 ? .22 : 0);
@@ -651,6 +665,7 @@ class TakrawView {
     const s = this.config.visual.camera, rig = this.cameraRig;
     const mode = context.mode ?? viewData.state?.mode;
     const team = mode === 'local' ? 0 : context.team === 1 ? 1 : 0;
+    this.setViewTeam(team);
     const toward = team === 0 ? 1 : -1;
     const selected = viewData.state?.selected || [2, 5];
     const player = this.meshes.get(`p${selected[team]}:pelvis`);

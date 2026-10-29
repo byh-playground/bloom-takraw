@@ -66,3 +66,23 @@ test('소개영상 대본: 자막은 시드 36 랠리의 실제 사건 틱에 �
   win.__takraw.game.state.tick = 335; expect(script.run('tick:335', win)).toBe(true);
   expect(script.run('watch', { __takraw: { ready: false } })).toBe(false);
 });
+
+test('추천 경기: 라벨의 받아내기 횟수·터치 수가 그 시드의 첫 점 랠리와 같다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE 필요');
+  const RAPIER = await loadRapier();
+  const labeled = TAKRAW_RUNTIME.watch.featured.filter(item => /^받아내기 \d+번 · \d+터치$/.test(item.label));
+  expect(labeled.map(item => item.seed)).toEqual(expect.arrayContaining([27, 1013, 19]));
+  for (const { seed, label } of labeled) {
+    const game = new TakrawGame({ RAPIER, config: structuredClone(TAKRAW_CONFIG) });
+    game.reset('ai', undefined, seed);
+    const touches = [];
+    for (let tick = 1; tick < 1500 && !game.state.score[0] && !game.state.score[1]; tick++) {
+      game.step({ tick, tickRate: 60, inputs: [] });
+      for (const event of game.events) if (event.type === 'touch') touches.push(event);
+    }
+    game.dispose();
+    // 받아내기 = 스파이크 바로 다음 터치가 상대 팀인 경우.
+    const received = touches.filter((event, index) => event.spike && touches[index + 1] && touches[index + 1].team !== event.team).length;
+    expect(label, `시드 ${seed}`).toBe(`받아내기 ${received}번 · ${touches.length}터치`);
+  }
+});

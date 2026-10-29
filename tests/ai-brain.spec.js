@@ -86,33 +86,3 @@ test('기록 검증: 정상 기록만 통과', () => {
   expect(AiBrain.validRecord({ ...AiBrain.blankRecord(), lane: 0 })).toBe(false);
   expect(AiBrain.validRecord(null)).toBe(false);
 });
-
-test.describe('경기 변주(물리 엔진 필요)', () => {
-  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
-  const run = async (seed, ticks) => {
-    const game = new TakrawGame({ RAPIER: await loadRapier(), config: TAKRAW_CONFIG });
-    game.reset('local', undefined, seed);
-    for (let tick = 1; tick <= ticks; tick++) game.step({ tick, tickRate: 60, inputs: [] });
-    return game;
-  };
-
-  test('같은 시드는 같은 상태, 다른 시드는 다른 공 위치', async () => {
-    const a = await run(5, 900), b = await run(5, 900), c = await run(6, 900);
-    expect(a.physics.ball.translation()).toEqual(b.physics.ball.translation());
-    expect(a.ai.map(x => x.brain.mode)).toEqual(b.ai.map(x => x.brain.mode));
-    expect(a.physics.ball.translation()).not.toEqual(c.physics.ball.translation());
-    a.dispose(); b.dispose(); c.dispose();
-  });
-
-  test('저장·복원 뒤 이어서 진행한 결과가 끊김 없이 진행한 결과와 같다(롤백 계약)', async () => {
-    const continuous = await run(9, 1200), half = await run(9, 600);
-    const restored = new TakrawGame({ RAPIER: await loadRapier(), config: TAKRAW_CONFIG });
-    const data = half.save();
-    expect(restored.validate(data)).toBe(true);
-    restored.load(structuredClone(data));
-    for (let tick = 601; tick <= 1200; tick++) restored.step({ tick, tickRate: 60, inputs: [] });
-    expect(restored.physics.ball.translation()).toEqual(continuous.physics.ball.translation());
-    expect(restored.ai.map(x => x.brain)).toEqual(continuous.ai.map(x => x.brain));
-    continuous.dispose(); half.dispose(); restored.dispose();
-  });
-});

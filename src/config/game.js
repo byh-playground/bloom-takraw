@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.49';
+const TAKRAW_VERSION = '0.12.50';
 // 게임 이름의 단일 출처. 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일(index.html·README·AGENTS·package.json)은 scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_GAME_NAME = '발 배구';
 const TAKRAW_PRODUCT_NAME = `블룸 ${TAKRAW_GAME_NAME}`;
@@ -49,14 +49,13 @@ const TAKRAW_CONFIG = Object.freeze({
     // reaction: 동료가 받기 시작한 뒤 보조 위치로 움직이기까지의 반응 시간(초), clearance: 공 궤적과 떨어지는 간격(m),
     // depth·lateral: 대기 자리의 앞뒤·옆 흔들림(±m).
     temperament: { reaction: [0.02, 0.24], clearance: [1.0, 1.5], depth: 0.35, lateral: 0.30 },
-    // 서브 토스의 변주(±): 위치(m)와 올리는 속도(m/s). 서브가 매번 다른 궤적이 된다. 폭을 2배로 키우면 아웃이 늘어 랠리가 짧아져(120경기초 기준) 이 값으로 정했다.
-    serve: { depth: 0.03, lateral: 0.08, height: 0.05, rise: 0.08,
+    serve: {
       // 사람이 서브할 때 공격수가 서는 자리(자기 코트 방향 좌표, m). 엔드라인(6.7 m) 뒤.
       spot: { x: -7.2, z: -0.3 },
-      // 사람 서브의 공 던지기(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
-      // 던지기를 떼면 위·앞으로 던져진다(앞쪽 속도 minForward~maxForward m/s). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). maxHold(초) 안에 안 던지면 자동으로 던진다.
+      // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
+      // 던지기를 떼면 위로 던져진다(앞뒤·좌우 속도는 던지는 순간 서버의 이동 속도 그대로). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). maxHold(초) 안에 안 던지면 자동으로 던진다.
       groundAim: { x: 4.2 },
-      toss: { offset: 0.65, height: 1.0, lift: 0.9, minApex: 1.6, maxApex: 4.4, minForward: 0.3, maxForward: 0.61, fullCharge: 0.8, maxHold: 12 } },
+      toss: { offset: 0.65, height: 1.0, lift: 0.9, minApex: 1.6, maxApex: 4.4, fullCharge: 0.8, maxHold: 12 } },
     // 사람이 자리를 비우면 AI 동료가 비운 구역을 메운다(ai-formation.js). slow: 이 시간(초)을 넘겨 닿는 구역만 벌점, reaction: 출발 반응(초),
     // reachRadius: 선수가 이동 없이 닿는 반경(m), step·reach: 후보 자리 간격(m)과 단계 수, deviationWeight: 기본 자리에서 멀어지는 벌점, minGain: 사람이 기본 자리에 있을 때보다 벌점이 이만큼 나빠지고, 옮겨서 이만큼 좋아질 때만 옮김, bounds: 역할별 설 수 있는 x 범위(자기 코트 방향 좌표).
     fill: { enabled: true, gridStep: 0.5, slow: 0.5, reaction: 0.1, reachRadius: 0.3, step: 0.75, reach: 2, deviationWeight: 0.012, minGain: 0.15,

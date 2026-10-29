@@ -14,7 +14,7 @@ async function spike(delay, { kick } = {}) {
     let tick = 1;
     for (; tick < 1200 && game.state.phase !== 'rally'; tick++) game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
     const st = game.state, physics = game.physics, me = physics.players[st.selected[0]], netX = -1.15, z0 = 0;
-    st.possession = 1; st.touches = 1; st.lastTouch = 3; st.serving = 1;
+    st.possession = 1; st.touches = 1; st.lastTouch = 3; st.serving = 1; st.serveToss = null;
     for (let i = 0; i < 150 && st.phase === 'rally'; i++, tick++) { // 공을 상대 쪽 허공에 붙잡고 사람을 자리로 걸어가게 한다.
       physics.resetBall({ x: 4, y: 7, z: 0 }, { x: 0, y: 0, z: 0 });
       const here = me.root.translation();

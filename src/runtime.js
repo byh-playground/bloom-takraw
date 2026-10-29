@@ -71,6 +71,7 @@ async function bootTakraw() {
   const demo = new URLSearchParams(location.search).get('showcaseDemo') === '1';
   if (demo) document.body.dataset.showcase = '';
   let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
+  let watchPoint = { tick: null, restarting: false };
   let bootstrapStage = 'interface';
   let disposed = false;
   let failed = false;
@@ -744,6 +745,7 @@ async function bootTakraw() {
     mode = nextMode;
     // 내 학교는 저장된 값이다. 온라인은 두 사람의 화면이 같도록 고정 학교 쌍을 쓴다. 퀵 대전(도전 학교 없음)의 상대는 가장 높은 단계다.
     const watching = nextMode === 'watch';
+    watchPoint = { tick: null, restarting: false };
     const home = nextMode === 'online' || watching ? TAKRAW_SCHOOLS[0] : takrawSchool(club.getView().campaign.home) || TAKRAW_SCHOOLS[0];
     const opponents = takrawOpponents(home.id);
     const opponent = opponents.find(school => school.id === campaignSchoolId) || opponents[opponents.length - 1];
@@ -856,7 +858,7 @@ async function bootTakraw() {
       canObserveInput: () => Boolean(session?.ready && !session.failure),
       canAdvance: () => Boolean(session?.ready && !session.failure &&
         (online ? session.players.length === 2 : !paused)),
-      onAdvance() { publish(); confirmEvents(); observeMatchResult(); },
+      onAdvance() { publish(); confirmEvents(); observeMatchResult(); observeWatchLoop(token); },
       onInputRelease: clearDeviceState,
       onError: simulationFailed,
       onBacklogDrop() { stats.backlogDrops += 1; },
@@ -894,6 +896,17 @@ async function bootTakraw() {
       setNetwork({ state: 'idle', code: '', message: '', count: 0 });
     }
     hudTime = -Infinity;
+  }
+
+  /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */
+  function observeWatchLoop(token) {
+    if (mode !== 'watch' || watchPoint.restarting) return;
+    const { score, tick } = game.state;
+    if (score[0] + score[1] < 1) return;
+    watchPoint.tick ??= tick;
+    if (tick - watchPoint.tick < TAKRAW_RUNTIME.watch.loopHoldMs / 1000 * config.simulation.tickRate) return;
+    watchPoint.restarting = true;
+    setTimeout(() => { if (token === run && mode === 'watch') startWatch(watchSeed); }, 0);
   }
 
   /** 시드 하나가 AI 대 AI 경기 하나다. 팀·성향은 기본값이라 저장소를 읽거나 쓰지 않는다. */

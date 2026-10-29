@@ -87,6 +87,10 @@ test('배경 음악: 곡 파일·크레딧·베드 설정이 서로 맞고 소�
   expect(layer).toMatchObject({ kind: 'buffer', bufferId: 'bgm' });
   expect(audio.categories[audio.beds.bgm.category]).toBeTruthy();
   expect(bgm.level).toBeGreaterThan(0); expect(bgm.level).toBeLessThanOrEqual(0.8);
+  // 홈에는 효과음이 없어 조금 더 크게 둘 수 있지만 1을 넘지 않는다.
+  expect(bgm.homeLevel).toBeGreaterThanOrEqual(bgm.level); expect(bgm.homeLevel).toBeLessThanOrEqual(1);
+  // 곡 안의 크기 편차를 레이어 컴프레서로 줄인다. 자동 보정으로 커지므로 gain은 1보다 작게 둔다.
+  expect(layer.compressor.ratio).toBeGreaterThan(1); expect(layer.gain).toBeLessThan(1);
   expect(bgm.pausedLevel).toBeLessThan(bgm.level);
   for (const duck of Object.values(bgm.duck)) {
     expect(duck.depth).toBeGreaterThan(0); expect(duck.depth).toBeLessThan(1);

@@ -646,6 +646,7 @@ body .end-actions strong{font-size:24px}#school-result{font-weight:800}
 /* AI 관전: 시드로 경기를 고른다. 홈에서는 ?debug=1일 때만 보인다. */
 .watch-form{position:absolute;right:max(16px,env(safe-area-inset-right));bottom:max(36px,calc(env(safe-area-inset-bottom) + 24px));z-index:6;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#fafcf4d9;border:1px solid #ffffff91;box-shadow:0 3px 14px #284a2d14;backdrop-filter:blur(12px);font-size:11px;font-weight:650;color:#31483a;max-width:calc(100vw - 32px);flex-wrap:wrap;justify-content:flex-end}
 .watch-form[hidden]{display:none}
+.watch-form select{min-height:36px;max-width:190px;padding:0 6px;border:1px solid #34634633;border-radius:8px;background:#fffef9;font:inherit;font-size:11px}
 .watch-form input{width:116px;min-height:36px;padding:0 8px;border:1px solid #34634633;border-radius:8px;background:#fff;font:inherit;font-size:13px;text-align:center}
 .watch-form button{min-height:36px;min-width:36px;padding:0 10px;border:1px solid #34634633;border-radius:8px;background:#fffef9;font:inherit;font-size:11px;font-weight:700;cursor:pointer}
 .watch-form button[type=submit]{background:var(--green);color:#fffef1;border-color:transparent}

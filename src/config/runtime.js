@@ -16,7 +16,16 @@ const POINT_LAYERS = [
 const TAKRAW_RUNTIME = Object.freeze({
   input: { size: 6, axisScale: 127 },
   // 관전: 같은 시드는 같은 AI 대 AI 경기를 만든다. showcaseSeed는 소개영상의 명경기다.
-  watch: { param: 'watch', debugParam: 'debug', showcaseSeed: 36, maxSeed: 0xffffffff },
+  watch: {
+    param: 'watch', showcaseSeed: 36, maxSeed: 0xffffffff, randomMax: 9999,
+    // 일괄 탐색으로 고른 명경기. 낙하 여유 시간 = 스파이크를 받아낼 때 공이 지면에 닿기까지 남은 시간.
+    featured: [
+      { seed: 36, label: '가장 아슬아슬한 받아내기 · 0.05초' },
+      { seed: 27, label: '받아내기 5번 · 11터치' },
+      { seed: 1013, label: '받아내기 4번 · 12터치' },
+      { seed: 19, label: '받아내기 4번 · 13터치' },
+    ],
+  },
   clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },
   network: {
     timeout: 45000,

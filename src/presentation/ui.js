@@ -28,7 +28,6 @@ class TakrawUI {
     this.nodes = {};
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
-    this.debug = new URLSearchParams(location.search).has(TAKRAW_RUNTIME.watch.debugParam);
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
     this.bind();
@@ -60,6 +59,11 @@ class TakrawUI {
     for (const button of document.querySelectorAll('[data-watch-step]')) this.listen(button, 'click', () => {
       watchSeed().value = Math.max(0, Number(watchSeed().value || 0) + Number(button.dataset.watchStep)); this.callbacks.onWatch?.(watchSeed().value);
     });
+    const featured = document.getElementById('watch-featured');
+    featured.replaceChildren(new Option('추천 경기', ''), ...TAKRAW_RUNTIME.watch.featured.map(item => new Option(`${item.seed} · ${item.label}`, item.seed)));
+    this.listen(featured, 'change', () => { if (featured.value) { watchSeed().value = featured.value; this.callbacks.onWatch?.(featured.value); } });
+    click('watch-random', () => { watchSeed().value = Math.floor(Math.random() * (TAKRAW_RUNTIME.watch.randomMax + 1)); this.callbacks.onWatch?.(watchSeed().value); });
+    click('start-watch', () => this.start('watch'));
     click('open-campaign', () => this.navigate('campaign'));
     click('start-training', () => this.start('training'));
     click('start-local', () => this.start('local'));
@@ -209,7 +213,7 @@ class TakrawUI {
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
     this.nodes['home-panel'].hidden = false; this.nodes['match-hud'].hidden = true; this.nodes['touch-controls'].hidden = true;
-    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = !this.debug; this.setRoute(initialDialog, true);
+    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = true; this.setRoute(initialDialog, true);
     if (initialDialog) this.openDialog(initialDialog);
   }
 
@@ -761,6 +765,7 @@ class TakrawUI {
       const input = document.getElementById('watch-seed');
       if (document.activeElement !== input && input.value !== String(hud.watch.seed)) input.value = hud.watch.seed;
       this.text('watch-tick', `틱 ${hud.watch.tick}`);
+      const featured = document.getElementById('watch-featured'); if (featured.value !== String(hud.watch.seed)) featured.value = [...featured.options].some(option => option.value === String(hud.watch.seed)) ? String(hud.watch.seed) : '';
     }
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;
     this.nodes['end-actions'].dataset.result = hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';

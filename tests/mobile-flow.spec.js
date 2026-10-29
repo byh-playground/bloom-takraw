@@ -129,13 +129,15 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await page.screenshot({ path: testInfo.outputPath('mobile-training-short.png') });
     evidence.stages.push('팝업·화면 회전 입력 해제, 가로·짧은 세로 연습 선택과 재시도');
     await page.locator('#help-button').tap();
-    await expect(page.locator('#dialog-content')).toContainText('왼쪽 패드');
-    await expect(page.locator('#dialog-content')).not.toContainText('좌클');
-    await page.locator('#dialog-close').tap();
+    await expect(page.locator('#bloom-showcase')).toBeVisible();
+    await expect(page.locator('#bloom-showcase [data-copy]')).toContainText('발끝에서 시작되는 랠리', { timeout: 45000 });
+    await expect(page.locator('#bloom-showcase')).not.toContainText('좌클');
+    await page.locator('#bloom-showcase [data-action=close]').tap();
+    await expect(page.locator('#bloom-showcase')).toBeHidden();
     await page.locator('#pause-button').tap(); await page.locator('[data-dialog-action="quit"]').tap();
     await layout('390×568 홈', ['#start-match', '#start-training', '#start-local', '#open-network', '#open-club']);
     await page.screenshot({ path: testInfo.outputPath('mobile-home-short.png') });
-    evidence.stages.push('터치 도움말 확인 → 메뉴 퇴장 → 짧은 화면 홈');
+    evidence.stages.push('터치 소개영상 확인 → 메뉴 퇴장 → 짧은 화면 홈');
     expect(faults).toEqual([]);
   } finally {
     evidence.faults = faults;

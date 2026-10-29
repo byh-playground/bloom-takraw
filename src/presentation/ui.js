@@ -68,7 +68,7 @@ class TakrawUI {
     click('start-training', () => this.start('training'));
     click('start-local', () => this.start('local'));
     click('open-network', () => { this.callbacks.onStart?.('online'); this.navigate('network'); });
-    click('help-button', () => this.navigate('help'));
+    click('help-button', () => this.callbacks.onIntro?.());
     click('club-button', () => this.navigate('club'));
     click('open-club', () => this.navigate('club'));
     click('reward-retry', () => this.callbacks.onRewardRetry?.());
@@ -208,7 +208,7 @@ class TakrawUI {
   }
 
   showHome() {
-    const initialDialog = !this.homeShown && !this.inGame && ['help','settings','network','club','campaign'].includes(this.dialog) ? this.dialog : '';
+    const initialDialog = !this.homeShown && !this.inGame && ['settings','network','club','campaign'].includes(this.dialog) ? this.dialog : '';
     this.homeShown = true;
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
@@ -239,7 +239,8 @@ class TakrawUI {
 
   applyRoute() {
     const route = window.location.hash.replace(/^#\/?/, '').split('?')[0];
-    if (['help','settings','pause','network','club','campaign'].includes(route)) {
+    if (route === 'showcase') return; // 소개영상 호스트가 이 주소를 소유한다.
+    if (['settings','pause','network','club','campaign'].includes(route)) {
       if (route === 'pause' && !this.inGame) { this.setRoute('', true); this.hideDialog(false); return; }
       this.openDialog(route);
     } else {
@@ -253,14 +254,13 @@ class TakrawUI {
     if (this.dialog === route) return;
     if (!this.dialog) { this.previousFocus = document.activeElement; this.releaseTouch(); if (this.inGame) this.callbacks.onPause?.(true); }
     this.dialog = route; this.nodes['modal-layer'].hidden = false;
-    const meta = { help:['플레이 가이드','발끝의 타이밍'], club:['선수단 · 편성 · 훈련','내 팀 관리'], settings:['내게 맞는 플레이','설정'], pause:[this.mode === 'online' ? '경기는 계속 진행돼요' : '잠깐 숨 고르기', this.mode === 'online' ? '경기 메뉴' : '일시 정지'], network:['둘이서, 하나의 코트','친구와 온라인 1대1'] }[route];
+    const meta = { club:['선수단 · 편성 · 훈련','내 팀 관리'], settings:['내게 맞는 플레이','설정'], pause:[this.mode === 'online' ? '경기는 계속 진행돼요' : '잠깐 숨 고르기', this.mode === 'online' ? '경기 메뉴' : '일시 정지'], network:['둘이서, 하나의 코트','친구와 온라인 1대1'] }[route];
     this.nodes['dialog-panel'].classList.toggle('is-club', route === 'club');
     this.nodes['modal-layer'].classList.toggle('is-club-layer', route === 'club');
     const heading = meta || ['하나씩 도전하는 우리 팀', '도장깨기'];
     this.nodes['dialog-kicker'].textContent = heading[0]; this.nodes['dialog-title'].textContent = heading[1];
     this.nodes['dialog-content'].innerHTML = this[`${route}Content`](); this.nodes['dialog-content'].scrollTop = 0;
     if (route === 'network') this.renderNetwork();
-    if (route === 'help') this.refreshDiagnostics();
     if (route === 'club') this.restoreClubPosition();
     queueMicrotask(() => {
       if (route !== 'club' || !this.restoreClubFocus()) document.getElementById('dialog-close').focus({ preventScroll: true });
@@ -555,43 +555,6 @@ class TakrawUI {
     }
   }
 
-  helpContent() {
-    return this.controlText(`<p class="lead-note">내 선수는 언제나 공격수.<br>동료의 토스에 맞춰 거리, 점프 높이, 발차기 타이밍을 잡으세요.</p>
-      <h3>동료가 받아 올리면, 내가 마무리해요</h3>
-      <p>리시버는 뒤쪽, 세터는 중앙, 내 공격수는 앞쪽에서 시작해요. 동료가 리시브와 토스를 연결하면, 앞쪽 공격수로 타점에 맞춰 이동하고 점프·발차기를 직접 조작해요. AI 공격수도 수비 중에는 앞쪽에서 다음 토스를 준비해요. 스파이크 연습도 같은 대형에서 네 가지 발차기를 반복해 익힐 수 있어요.</p>
-      <h3>동료는 언제 토스하고, 언제 넘기나요?</h3>
-      <p>기본 연결은 <strong>리시브 담당 → 세터 → 공격수</strong>예요. 우리 팀이 이미 두 번 받았다면 다음이 마지막인 세 번째 터치이므로 상대 코트로 넘겨요. 공격수가 넘어져 회복 중이거나 멀리 떨어져 있으면 가까운 동료에게 이어서 공을 살려요. 서브도 상대 코트로 보내요.</p>
-      <p>점수판 아래에서 어느 팀의 몇 번째 터치인지, 누구에게 토스하는지와 그 이유를 확인하세요. 토스를 시도해도 발이나 정강이에 빗맞으면 공이 상대 코트로 넘어갈 수 있어요. 이때는 <strong>토스가 길어 넘어간 경우</strong>와 <strong>마지막 터치라 넘기는 경우</strong>를 구분해 알려줘요.</p>
-      <h3>기본 조작</h3>
-      <div class="control-row"><kbd>${this.coarse.matches ? '왼쪽 패드' : 'W A S D'}</kbd><span><strong>화면 방향으로 이동</strong><small>${this.coarse.matches ? '가려는 방향으로 밀고, 손을 떼면 멈춰요.' : 'W·S는 화면 앞뒤, A·D는 좌우예요.'} 공중에서도 조금 움직일 수 있어요.</small></span></div>
-      <div class="control-row"><kbd>${this.coarse.matches ? '발차기' : '좌클'}</kbd><span><strong>서브 시작은 공 던지기</strong><small>우리 팀 서브 때 발차기 버튼을 누르면 공이 손에서 올라가요. 짧게 떼면 낮게, 꾹 누를수록 높게 올라가요. 던진 뒤에는 다시 점프·발차기로 서브하세요.</small></span></div>
-      <div class="control-row"><kbd>${this.coarse.matches ? '점프' : 'Space'}</kbd><span><strong>누르는 즉시 점프</strong><small>일찍 떼면 낮게, 길게 누르면 높게 뛰어요.</small></span></div>
-      <div class="control-row"><kbd>좌클</kbd><span><strong>누르는 동안 발에 힘</strong><small>누르는 즉시 발이 공을 향해 움직이고, 누르는 동안 힘을 계속 줘요. 짧게 눌러 툭 받거나 길게 유지해 힘을 더하세요.</small></span></div>
-      ${this.coarse.matches ? '<p>카메라는 공과 내 선수를 따라가요. 설정의 ‘시점 초기화’로 기본 시점으로 돌아올 수 있어요.</p>' : '<div class="control-row"><kbd>우클 드래그</kbd><span><strong>카메라 각도 조절</strong><small>좌우로 돌리거나 위아래 각도를 바꿔 공과 발의 거리를 보세요. 이동도 바뀐 화면 방향을 따라가요. C를 누르면 기본 시점으로 돌아와요.</small></span></div>'}
-      <h3>빈 공간은 내가 리시브해요</h3>
-      <p>공격수로 빈 공간에 이동한 뒤 지상에서 좌클을 누르면 직접 받아 올려요. 가까운 공은 쿠션 리시브, 옆 공은 다리를 뻗는 런지로 받아요. 낮고 먼 수비 공을 향해 이동하면서 좌클을 유지하면 닿을 수 있는 범위에서 슬라이딩으로 이어져요. 버튼을 놓으면 추가 발 구동이 멈추고 몸의 관성은 남아요.</p>
-      <p>유저가 실제로 받을 수 있는 위치에서 준비하면 AI 동료가 후속 공을 커버해요. 방향을 바꾸거나 놓치면 AI가 다시 받으러 들어와요. 아군 세터의 정상 공격 토스에는 슬라이딩이 나가지 않으며, 점프 발차기는 스파이크와 블로킹으로 이어져요. 점수판 아래 안내와 수비 표식에서 현재 받을 선수를 확인하세요.</p>
-      <p>리시브 때부터 계속 누르면 받아 올릴 방향을 이어가므로, 직접 받은 뒤에는 좌클을 놓고 공격 자리로 돌아와 세터 토스에 맞춰 새로 좌클을 누른 채 점프하거나 점프한 뒤 눌러 공격을 준비하세요.</p>
-      <h3>땅에서는 받아 올리고, 공중에서는 내려찍기</h3>
-      <p>지상에서 발차기하면 공을 받아 올려요. 좌클을 미리 누른 채 점프하면 올려둔 발을 이어서 내려찍어요. 점프한 뒤 누르면 공까지의 거리·높이와 현재 몸 자세에 맞춰 사선 회전, 가위치기, 540도 회전으로 이어져요. 발이 아직 낮으면 올릴 시간이 필요해요. 점프와 발차기를 함께 눌러도 돼요.</p>
-      <p>공중 발차기는 타점에 맞춰 자세를 조절하고, 거리가 조금 모자라면 정해진 한도 안에서 실제 다리가 부드럽게 늘어나요. 누르는 동안 준비한 길이를 유지하고, 차고 난 뒤나 버튼을 놓으면 서서히 돌아와요. 화면에 보이는 발이 실제로 공에 닿아야 맞아요. 발이 도착할 시간을 남겨 두고 점프와 좌클을 시작하세요. 큰 거리 차이와 너무 늦은 입력은 빗나갈 수 있어요.</p>
-      <p>발차기 뒤에는 몸이 흐트러진 채 떨어질 수 있어요. 바닥에 닿으면 스스로 균형을 회복하고 일어나요. 동료는 같은 규칙으로 리시브하고 공을 살려요.</p>
-      <h3>네 가지 발차기를 연습해요</h3>
-      <p><strong>상황에 맞춰 차기:</strong> 경기처럼 공과 몸의 위치에 따라 동작을 골라요. 한 가지를 반복하려면 연습할 동작 메뉴에서 선택하세요. 조작은 모두 같은 점프와 발차기 버튼이에요.</p>
-      ${TAKRAW_TRAINING_LESSONS.filter(lesson => lesson.id !== 'auto').map(lesson => `<p><strong>${lesson.title}:</strong> ${lesson.sequence}. ${lesson.detail}</p>`).join('')}
-      ${TAKRAW_TRAINING_TEMPOS.map(tempo => `<p><strong>${tempo.title}:</strong> ${tempo.detail}</p>`).join('')}
-      <p>바닥 발자국에서 이동을 멈추고, 고리가 닫히면 점프하세요. 내려찍기는 먼저 좌클을 유지하고, 다른 회전킥은 점프 뒤 공중 타점의 고리에 맞춰 좌클을 유지해요. 낮은 공은 점프를 짧게, 높은 공은 길게 누르세요. 시도가 끝나면 결과를 보고 자동으로 이어지는 토스나 ‘다시 토스’로 반복하세요.</p>
-      <h3>공의 높이와 거리 읽기</h3><p>카메라는 우리 팀 뒤에서 공격수와 공을 함께 보여줘요. 공 아래 바닥 링으로 앞뒤·좌우 위치를, 공까지 이어지는 점선과 눈금으로 높이를 확인하세요. 점프할 때 카메라가 몸을 따라 위로 올라가지 않아 공과 발의 높이를 비교할 수 있어요.</p>
-      <p>바닥의 발자국은 점프를 준비할 위치, 공중의 작은 십자는 예상 타점이에요. 발자국 안에 자리 잡고 점프 시점이 가까워지면 둘레가 밝은 원으로 이어져요. 공이 다른 선수나 네트에 닿으면 예상 위치도 바뀌어요. 표시는 준비를 돕는 안내이며, 점프 높이와 발차기 타이밍은 직접 맞춰야 해요.</p>
-      <h3>경기 규칙</h3><ul class="rule-list"><li>각 진영에 선수 3명. 유저는 자기 팀 공격수 한 명을 조작하고, 동료 두 명은 AI가 움직여요.</li><li>손·팔을 제외한 신체 부위로 공을 넘겨요. 한 팀은 최대 3번까지 공에 닿을 수 있어요.</li><li>공이 코트 바닥에 닿거나, 상대 코트 밖으로 나가거나, 팀이 네 번 터치하면 점수가 나요.</li><li>네트에 몸이 닿으면 반칙이에요. 서브는 점수마다 번갈아 해요.</li><li>7점을 먼저 얻으면 경기 승리예요. 6 대 6부터는 기존 듀스 방식으로 9점을 먼저 얻는 팀이 이겨요. 출시 전 임시 단판 규칙이에요.</li></ul>
-      <h3>로컬 2인 · 두 번째 플레이어</h3><p>두 번째 플레이어는 코랄 팀 공격수를 조작해요. 두 사람 모두 같은 화면 방향으로 움직여요.</p><p class="key-tip"><kbd>방향키</kbd> 이동 · <kbd>Enter</kbd> 또는 <kbd>숫자패드 0</kbd> 점프<br><kbd>오른쪽 Shift</kbd> 발차기</p>
-      <h3>터치 화면</h3><p>왼쪽 스틱으로 이동하고 오른쪽 점프·발차기 버튼을 누르세요. 두 버튼을 함께 누를 수 있어요. 가로 화면에서 코트와 공의 높이를 보기 편해요.</p>
-      <h3>내 팀을 꾸려요</h3><p>내 팀 관리에서 선수를 선택해 리시버·세터·공격수에 편성하고, 훈련과 스카우트로 선수단을 성장시키세요. 선발 선수를 다른 자리에 배치하면 두 선수가 자리를 바꿔요. 후보 선수를 넣으면 기존 선발은 후보가 돼요. 추천 역할과 관계없이 세 자리에 자유롭게 배치할 수 있어요.</p>
-      <p>능력치 50이 기본이며 100까지 훈련해요. 1 P를 사용하면 선택한 능력치가 2 올라요. AI 대전을 끝내면 승리 180 C·3 P, 패배 100 C·2 P를 받아요. 경기 도중 나가기, 연습, 로컬·온라인 대전에는 보상이 없어요. 내 편성과 훈련은 새 AI 대전·연습에 적용되고, 로컬·온라인은 양 팀 모두 기본 능력치로 경기해요.</p>
-      <p>팀은 현재 브라우저에 저장돼요. 이름 저장·편성·훈련·영입·경기 보상 완료 시 저장하며, 계정이나 다른 기기로 자동 동기화하지 않아요. 다른 탭에서 변경했다면 최신 저장을 불러오세요. 보상 저장에 실패하면 재시도 버튼을 사용하세요. 저장 완료 전에 탭을 닫으면 미저장 보상을 잃을 수 있어요.</p>
-      <details class="diagnostics"><summary>실행 정보 · 문제 신고에 사용</summary><p>문제가 생긴 화면의 상태를 복사해 전달할 수 있어요.</p><div class="dialog-actions"><button type="button" class="secondary-small" data-dialog-action="diagnostics-refresh">새로고침</button><button type="button" class="secondary-small" data-dialog-action="diagnostics-copy">실행 정보 복사</button></div><pre id="diagnostics-output">실행 정보를 준비하고 있어요.</pre></details>`);
-  }
-
   settingsContent() {
     return `<div class="settings-row"><div><strong>효과음</strong><small>발끝의 접촉과 랠리의 리듬</small></div><button type="button" class="toggle-button" role="switch" aria-label="효과음" aria-checked="${this.settings.sound}" data-dialog-action="sound"></button></div>
       <div class="settings-row"><div><strong>화면 품질</strong><small>느린 기기에서는 가볍게</small></div><div class="segmented" role="group" aria-label="화면 품질"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">가볍게</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">선명하게</button></div></div>
@@ -639,8 +602,6 @@ class TakrawUI {
     if (action === 'close-network') { this.callbacks.onNetwork?.('close'); this.hideDialog(true); this.setRoute(this.inGame ? 'play' : ''); }
     if (action === 'copy-code') this.copyText(this.network.code, button);
     if (action === 'copy-network-log') this.copyText(document.getElementById('network-log')?.textContent || '', button);
-    if (action === 'diagnostics-refresh') this.refreshDiagnostics();
-    if (action === 'diagnostics-copy') { this.refreshDiagnostics(); this.copyText(document.getElementById('diagnostics-output').textContent, button); }
   }
 
   async copyText(value, button) {
@@ -651,11 +612,6 @@ class TakrawUI {
     this.copyTimer = window.setTimeout(() => { if (button.isConnected) button.textContent = label; this.copyTimer = null; }, 1800);
   }
 
-  refreshDiagnostics() {
-    const node = document.getElementById('diagnostics-output'); if (!node) return;
-    try { node.textContent = JSON.stringify(this.callbacks.onDiagnostics(), null, 2); }
-    catch (error) { node.textContent = `실행 정보 조회 오류: ${error.message}`; }
-  }
 
   setNetwork(value) {
     this.network = value; this.renderNetwork();

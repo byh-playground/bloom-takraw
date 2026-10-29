@@ -20,6 +20,7 @@ import { winningSpikeScore } from './presentation/score-motion.js';
 import { takrawMatchStatus } from './presentation/match-status.js';
 import { seedFromText } from './simulation/ai-brain.js';
 import { TakrawUI } from './presentation/ui.js';
+import { TakrawIntro } from './presentation/intro.js';
 
 const PLAYER_STATE_LABELS = Object.freeze({
       ready: '준비', standing: '준비', grounded: '준비', idle: '준비',
@@ -65,7 +66,10 @@ async function bootTakraw() {
   let journal = null;
   let presentation = null;
   let latestView = null;
+  let intro = null;
   let mode = null;
+  const demo = new URLSearchParams(location.search).get('showcaseDemo') === '1';
+  if (demo) document.body.dataset.showcase = '';
   let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
   let bootstrapStage = 'interface';
   let disposed = false;
@@ -1089,6 +1093,7 @@ async function bootTakraw() {
       for (const remove of listeners.splice(0)) remove();
       if (rewards.timer !== null) window.clearTimeout(rewards.timer);
       rewards.timer = null;
+      intro?.dispose();
       club?.dispose();
       ui?.dispose();
       device?.dispose();
@@ -1109,6 +1114,7 @@ async function bootTakraw() {
       } else startLocal(nextMode);
     },
     onRestart: restart,
+    onIntro: () => intro?.open(),
     onWatch: seed => { campaignSchoolId = null; startWatch(seed); },
     onCampaign(schoolId) {
       const { home, cleared } = club.getView().campaign, index = home ? takrawOpponents(home).findIndex(school => school.id === schoolId) : -1;
@@ -1141,7 +1147,6 @@ async function bootTakraw() {
       if (key === 'quality') view?.setQuality(value);
     },
     onNetwork: connect,
-    onDiagnostics: () => runtime.diagnostics(),
     onTouch(action, source, down) {
       if (!actions || !['jump', 'kick'].includes(action)) return;
       if (down && !controlsAllowed()) return;
@@ -1156,7 +1161,8 @@ async function bootTakraw() {
     },
   }, network);
   club = new TakrawClub({ onChange: publishClub });
-  const clubLoad = club.load().catch(error => { recordError(error, 'club-load'); return null; });
+  // 소개영상 화면은 저장소를 읽지도 쓰지도 않는다(팀 생성·이어하기 포함). 관전은 클럽 없이 열린다.
+  const clubLoad = demo ? Promise.resolve(null) : club.load().catch(error => { recordError(error, 'club-load'); return null; });
   listen(window, 'pagehide', () => runtime.dispose());
   // BFCache에서는 이미 정리한 물리·저장 연결을 새 부팅으로 복원한다.
   window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
@@ -1223,7 +1229,14 @@ async function bootTakraw() {
     animation = requestAnimationFrame(frame);
     const query = new URLSearchParams(location.search), watchParam = query.get(TAKRAW_RUNTIME.watch.param);
     if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
-    try {
+    if (!demo) {
+      // 소개영상이 열려 있는 동안 뒤의 경기는 멈춘다(호스트 요구). 닫으면 이전 상태로 돌아간다.
+      let resume = false;
+      intro = new TakrawIntro({ coarse: ui.coarse.matches, playSelector: '#start-match', launcher: '.home-description' });
+      listen(window, 'bloom-showcase-opened', () => { resume = Boolean(mode) && !paused; if (resume) setPaused(true); });
+      listen(window, 'bloom-showcase-closed', () => { if (resume) setPaused(false); resume = false; });
+    }
+    if (!demo) try {
       const saved = JSON.parse(sessionStorage.getItem(resumeKey) || 'null');
       if (saved && ['host', 'join'].includes(saved.role) && /^\d{4}$/.test(saved.room)) {
         ui.openDialog('network');

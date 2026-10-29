@@ -329,12 +329,13 @@ class TakrawView {
     this.haloMaterial = haloMaterial;
     this.ballHalo = this.mesh(this.geometry('ballHalo', () => new T.RingGeometry(.118, .140, 40)), haloMaterial);
     this.ballHalo.castShadow = false; this.ballHalo.receiveShadow = false; this.ballHalo.renderOrder = 4;
-    // 속성 스파이크 연출 동안 공을 입자 위에 평면 원(밝은 공 색 + 어두운 테두리)으로 다시 그린다.
-    this.ballFrontEdge = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false, depthTest: false });
+    // 속성 스파이크 연출 동안 공을 입자 위에 평면 원(밝은 공 색 + 어두운 테두리)으로 다시 그린다. 깊이 검사는 켜 두어 네트·선수에 가려진다(깊이감 유지).
+    this.ballFrontEdge = new T.MeshBasicMaterial({ color: 0x000000, transparent: true, depthWrite: false });
     this.ballFront = new T.Group(); this.ballFront.visible = false;
-    const frontFill = new T.MeshBasicMaterial({ color: 0xffe3a0, transparent: true, depthWrite: false, depthTest: false });
+    const frontFill = new T.MeshBasicMaterial({ color: 0xffe3a0, transparent: true, depthWrite: false });
     const edgeDisc = new T.Mesh(new T.CircleGeometry(1.4, 28), this.ballFrontEdge), fillDisc = new T.Mesh(new T.CircleGeometry(1, 28), frontFill);
     edgeDisc.renderOrder = 5; fillDisc.renderOrder = 6; this.ballFront.add(edgeDisc, fillDisc); this.scene.add(this.ballFront);
+    this.ballFrontEdgeDisc = edgeDisc; this.ballFrontFillDisc = fillDisc;
     this.ballFrontMaterials = [this.ballFrontEdge, frontFill]; this.ballFrontGeometries = [edgeDisc.geometry, fillDisc.geometry];
     this.trailData = new Float32Array(20 * 3);
     this.trailGeometry = new T.BufferGeometry(); this.trailGeometry.setAttribute('position', new T.BufferAttribute(this.trailData, 3)); this.trailGeometry.setDrawRange(0, 0);
@@ -797,7 +798,10 @@ class TakrawView {
       if (emphasis) {
         this.ballFrontEdge.color.setHex(emphasis.edge);
         this.ballFront.position.copy(ball.position); this.ballFront.quaternion.copy(this.camera.quaternion);
-        this.ballFront.scale.setScalar(Math.max((ball.userData.entity?.radius ?? .095) * 1.5, 7 * unitsPerPixel));
+        const radius = ball.userData.entity?.radius ?? .095, scale = radius * 1.2; // 월드 크기 고정: 멀어지면 원근대로 작아져 깊이감이 유지된다
+        this.ballFront.scale.setScalar(scale);
+        // 원판을 공 앞면(카메라 쪽)에 붙여 공 자신에게 가려지지 않게 한다. 이 거리 때문에 네트가 공 앞에 있으면 원판이 가려진다.
+        this.ballFrontEdgeDisc.position.z = radius * 1.04 / scale; this.ballFrontFillDisc.position.z = radius * 1.08 / scale;
       }
       this.trailMaterial.color.setHex(boost ? boost.color : this.trailBase.color);
       this.trailMaterial.opacity = boost ? 1 : this.trailBase.opacity;

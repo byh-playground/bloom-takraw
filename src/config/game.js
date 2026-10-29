@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.55';
+const TAKRAW_VERSION = '0.12.56';
 // 게임 이름의 단일 출처. 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일(index.html·README·AGENTS·package.json)은 scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_GAME_NAME = '발 배구';
 const TAKRAW_PRODUCT_NAME = `블룸 ${TAKRAW_GAME_NAME}`;
@@ -111,44 +111,45 @@ const TAKRAW_CONFIG = Object.freeze({
     impactElements: {
       life: 1.2,
       maxParticles: 40,
+      flash: .5, // 속성 연출이 있을 때 기본 별 섬광의 배율(입자가 묻히지 않게 줄인다)
       byElement: {
       grass: { colors: [0x39a58f, 0x7fd39a, 0xc6f0a8, 0xf6edcf], ring: 0xbff0c8, trail: 0x7fd39a, parts: [
-        { shape: 'leaf', n: 14, c: 1, speed: .9, up: .5, g: .9, size: .12, life: 1, spin: 5, dir: 'burst' },
-        { shape: 'dot', n: 10, c: 3, speed: .25, up: .35, g: -.12, size: .045, life: 1, spin: 0, dir: 'burst' }] },
+        { shape: 'leaf', n: 14, c: 1, speed: 1.44, up: .5, g: .9, size: .24, life: 1, spin: 5, dir: 'burst' },
+        { shape: 'dot', n: 10, c: 3, speed: .4, up: .35, g: -.12, size: .09, life: 1, spin: 0, dir: 'burst' }] },
       fire: { colors: [0xffd25e, 0xff8a3d, 0xe2492f, 0x4a3a36], ring: 0xffd08a, trail: 0xff8a3d, parts: [
-        { shape: 'shard', n: 10, c: 1, speed: .8, up: .9, g: -.5, size: .136, life: .8, spin: 0, dir: 'up' },
-        { shape: 'dot', n: 20, c: 0, speed: 1, up: .7, g: -.35, size: .035, life: 1, spin: 0, dir: 'burst', flicker: true },
-        { shape: 'dot', n: 5, c: 3, speed: .3, up: .5, g: -.2, size: .128, life: .85, delay: .15, spin: 0, dir: 'up', grow: 2 }] },
+        { shape: 'shard', n: 10, c: 1, speed: 1.28, up: .9, g: -.5, size: .272, life: .8, spin: 0, dir: 'up' },
+        { shape: 'dot', n: 20, c: 0, speed: 1.6, up: .7, g: -.35, size: .07, life: 1, spin: 0, dir: 'burst', flicker: true },
+        { shape: 'dot', n: 5, c: 3, speed: .48, up: .5, g: -.2, size: .16, life: .85, delay: .15, spin: 0, dir: 'up', grow: 2 }] },
       water: { colors: [0x344f86, 0x6fb4ee, 0xbfe6ff, 0xffffff], ring: 0xa8dcff, trail: 0x6fb4ee, parts: [
-        { shape: 'dot', n: 18, c: 1, speed: 1.1, up: .9, g: 2.2, size: .054, life: .9, spin: 0, dir: 'burst' },
-        { shape: 'dot', n: 12, c: 3, speed: .7, up: .1, g: 1.2, size: .032, life: .7, spin: 0, dir: 'flat' }] },
+        { shape: 'dot', n: 18, c: 1, speed: 1.76, up: .9, g: 2.2, size: .108, life: .9, spin: 0, dir: 'burst' },
+        { shape: 'dot', n: 12, c: 3, speed: 1.12, up: .1, g: 1.2, size: .064, life: .7, spin: 0, dir: 'flat' }] },
       lightning: { colors: [0xf2c94c, 0xfff3a8, 0xffffff, 0x35464c], ring: 0xfff3a8, trail: 0xf2c94c, parts: [
-        { shape: 'bolt', n: 5, c: 1, speed: .9, up: .2, g: 0, size: .32, life: .45, spin: 0, dir: 'burst', flicker: true },
-        { shape: 'streak', n: 22, c: 0, speed: 2.4, up: .3, g: 0, size: .6, life: .35, spin: 0, dir: 'burst' }] },
+        { shape: 'bolt', n: 5, c: 1, speed: 1.44, up: .2, g: 0, size: .48, life: .45, spin: 0, dir: 'burst', flicker: true },
+        { shape: 'streak', n: 22, c: 0, speed: 3.84, up: .3, g: 0, size: .9, life: .35, spin: 0, dir: 'burst' }] },
       moon: { colors: [0x9270b6, 0xd4bee9, 0xfff3b0, 0xffffff], ring: 0xe6d8ff, trail: 0xd4bee9, parts: [
-        { shape: 'crescent', n: 3, c: 1, speed: 1.5, up: .2, g: 0, size: .32, life: .6, spin: 3, dir: 'flat' },
-        { shape: 'star', n: 6, c: 2, speed: .5, up: .5, g: -.1, size: .08, life: 1, spin: 2, dir: 'burst', flicker: true },
-        { shape: 'dot', n: 24, c: 3, speed: .35, up: .4, g: -.1, size: .029, life: 1, spin: 0, dir: 'burst' }] },
+        { shape: 'crescent', n: 3, c: 1, speed: 2.4, up: .2, g: 0, size: .64, life: .6, spin: 3, dir: 'flat' },
+        { shape: 'star', n: 6, c: 2, speed: .8, up: .5, g: -.1, size: .16, life: 1, spin: 2, dir: 'burst', flicker: true },
+        { shape: 'dot', n: 24, c: 3, speed: .56, up: .4, g: -.1, size: .058, life: 1, spin: 0, dir: 'burst' }] },
       sun: { colors: [0xff9f1c, 0xffd24a, 0xfff0b0, 0xffffff], ring: 0xfff0b0, trail: 0xffd24a, parts: [
-        { shape: 'streak', n: 12, c: 1, speed: 1.8, up: 0, g: 0, size: 1, life: .6, spin: 0, dir: 'burst' },
-        { shape: 'hex', n: 5, c: 2, speed: .6, up: .2, g: 0, size: .192, life: .8, spin: 0, dir: 'burst', grow: 1.6 },
-        { shape: 'star', n: 14, c: 3, speed: .45, up: .3, g: -.05, size: .064, life: 1, spin: 1.5, dir: 'burst', flicker: true }] },
+        { shape: 'streak', n: 12, c: 1, speed: 2.88, up: 0, g: 0, size: 1.5, life: .6, spin: 0, dir: 'burst' },
+        { shape: 'hex', n: 5, c: 2, speed: .96, up: .2, g: 0, size: .384, life: .8, spin: 0, dir: 'burst', grow: 1.6 },
+        { shape: 'star', n: 14, c: 3, speed: .72, up: .3, g: -.05, size: .128, life: 1, spin: 1.5, dir: 'burst', flicker: true }] },
       ice: { colors: [0x7cc7e8, 0xd8f4ff, 0xffffff, 0x3d6f8a], ring: 0xd8f4ff, trail: 0xbfefff, parts: [
-        { shape: 'flake', n: 1, c: 2, speed: 0, up: 0, g: 0, size: .608, life: .5, spin: .8, dir: 'burst', grow: 1.3 },
-        { shape: 'shard', n: 12, c: 1, speed: 1.3, up: .5, g: 1.4, size: .12, life: .85, spin: 0, dir: 'burst' },
-        { shape: 'dot', n: 14, c: 2, speed: .35, up: .2, g: .5, size: .032, life: 1, spin: 0, dir: 'burst' }] },
+        { shape: 'flake', n: 1, c: 2, speed: 0, up: 0, g: 0, size: .8, life: .5, spin: .8, dir: 'burst', grow: 1.3 },
+        { shape: 'shard', n: 12, c: 1, speed: 2.08, up: .5, g: 1.4, size: .24, life: .85, spin: 0, dir: 'burst' },
+        { shape: 'dot', n: 14, c: 2, speed: .56, up: .2, g: .5, size: .064, life: 1, spin: 0, dir: 'burst' }] },
       earth: { colors: [0xb0834f, 0x7a5a3a, 0xe0c08a, 0x4a3a2a], ring: 0xf0d7a8, trail: 0xe0c08a, parts: [
-        { shape: 'diamond', n: 8, c: 1, speed: 1, up: .9, g: 2.6, size: .112, life: .9, spin: 6, dir: 'burst' },
-        { shape: 'dot', n: 6, c: 2, speed: .4, up: .15, g: -.05, size: .144, life: .9, spin: 0, dir: 'flat', grow: 2 },
-        { shape: 'dot', n: 14, c: 0, speed: 1.1, up: .7, g: 2.8, size: .038, life: .8, spin: 0, dir: 'burst' }] },
+        { shape: 'diamond', n: 8, c: 1, speed: 1.6, up: .9, g: 2.6, size: .224, life: .9, spin: 6, dir: 'burst' },
+        { shape: 'dot', n: 6, c: 2, speed: .64, up: .15, g: -.05, size: .18, life: .9, spin: 0, dir: 'flat', grow: 2 },
+        { shape: 'dot', n: 14, c: 0, speed: 1.76, up: .7, g: 2.8, size: .076, life: .8, spin: 0, dir: 'burst' }] },
       wind: { colors: [0xd7e3ee, 0xffffff, 0x9fc4d9, 0xc8e8c0], ring: 0xffffff, trail: 0xe8f4ff, parts: [
-        { shape: 'crescent', n: 3, c: 0, speed: 1.2, up: 0, g: 0, size: .352, life: .7, spin: 4, dir: 'swirl', grow: 1.5 },
-        { shape: 'streak', n: 10, c: 1, speed: 1.6, up: .1, g: 0, size: .9, life: .6, spin: 0, dir: 'swirl' },
-        { shape: 'leaf', n: 10, c: 3, speed: 1, up: .2, g: .1, size: .08, life: 1, spin: 7, dir: 'swirl' }] },
+        { shape: 'crescent', n: 3, c: 0, speed: 1.92, up: 0, g: 0, size: .704, life: .7, spin: 4, dir: 'swirl', grow: 1.5 },
+        { shape: 'streak', n: 10, c: 1, speed: 2.56, up: .1, g: 0, size: 1.35, life: .6, spin: 0, dir: 'swirl' },
+        { shape: 'leaf', n: 10, c: 3, speed: 1.6, up: .2, g: .1, size: .16, life: 1, spin: 7, dir: 'swirl' }] },
       dark: { colors: [0x2a2238, 0x6b4fa8, 0xb48cff, 0x0e0b14], ring: 0xb48cff, trail: 0xb48cff, parts: [
-        { shape: 'dot', n: 14, c: 1, speed: 1, up: .3, g: 0, size: .08, life: .9, spin: 0, dir: 'burst' },
-        { shape: 'streak', n: 3, c: 2, speed: .5, up: .2, g: 0, size: 1.4, life: .5, spin: 0, dir: 'flat', flicker: true },
-        { shape: 'dot', n: 8, c: 0, speed: .25, up: .5, g: -.2, size: .16, life: .9, delay: .1, spin: 0, dir: 'up', grow: 1.8 }] },
+        { shape: 'dot', n: 14, c: 1, speed: 1.6, up: .3, g: 0, size: .16, life: .9, spin: 0, dir: 'burst' },
+        { shape: 'streak', n: 3, c: 2, speed: .8, up: .2, g: 0, size: 2.1, life: .5, spin: 0, dir: 'flat', flicker: true },
+        { shape: 'dot', n: 8, c: 0, speed: .4, up: .5, g: -.2, size: .2, life: .9, delay: .1, spin: 0, dir: 'up', grow: 1.8 }] },
       },
     },
     // 화면 흔들림의 상한(CSS px). 여러 접촉이 겹쳐도 가장 센 하나만 쓰고 이 값을 넘지 않는다.

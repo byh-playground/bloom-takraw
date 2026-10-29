@@ -69,7 +69,7 @@ class TakrawImpactEffects {
       const mesh = new T.Mesh(this.shapeGeometries.dot, elementMaterials[0]); mesh.visible = false; group.add(mesh);
       particles.push({ mesh, shape: 'dot', vx: 0, vy: 0, vz: 0, g: 0, size: 0, start: 0, life: 1, spin: 0, roll: 0, grow: 1, flicker: false, swirl: 0, radius: 0, direction: new T.Vector3(0, 0, 1), length: 1 });
     }
-    const node = { group, ring, outer, dots, dotMaterial, ringMaterial, flash, flashMaterial, streaks, particles, elementMaterials, particleCount: 0, trail: null, elementLife: 0,
+    const node = { group, ring, outer, dots, dotMaterial, ringMaterial, flash, flashMaterial, streaks, particles, elementMaterials, particleCount: 0, trail: null, elementLife: 0, flashScale: 1,
       style: null, hold: 0, outerRing: false, shake: null, flashRoll: 0, fov: 0, squash: 0, squashAxis: new T.Vector3(), age: 0 };
     this.nodes.push(node);
     return node;
@@ -154,12 +154,13 @@ class TakrawImpactEffects {
   /** 스파이크이고 팀 학교에 속성이 있으면 속성 입자를 시드 난수로 배치한다. */
   configureElement(node, payload, unit, reduced) {
     const element = payload.spike ? this.elementConfig.byElement[this.elements[payload.team === 1 ? 1 : 0]] : null;
-    node.particleCount = 0; node.trail = null;
+    node.particleCount = 0; node.trail = null; node.flashScale = 1;
     for (const particle of node.particles) particle.mesh.visible = false;
     if (!element) return;
     // 속성 연출은 팀 색 점·속도선을 대신한다(링·섬광·진동·눌림은 그대로).
     for (const dot of node.dots) dot.mesh.visible = false;
     for (const streak of node.streaks) streak.mesh.visible = false;
+    node.flashScale = this.elementConfig.flash;
     node.trail = this.elementTrails[this.elements[payload.team === 1 ? 1 : 0]];
     node.ringMaterial.color.setHex(element.ring);
     element.colors.forEach((color, index) => node.elementMaterials[index].color.setHex(color));
@@ -205,7 +206,7 @@ class TakrawImpactEffects {
     const flashProgress = Math.min(1, t / (style.life * .32));
     node.flash.visible = !!style.flash && flashProgress < 1;
     node.flashMaterial.opacity = (1 - flashProgress) * .95;
-    node.flash.scale.setScalar(style.flash * (.55 + Math.sqrt(flashProgress) * .75));
+    node.flash.scale.setScalar(style.flash * node.flashScale * (.55 + Math.sqrt(flashProgress) * .75));
     if (this.camera) node.flash.quaternion.copy(this.camera.quaternion);
     node.flash.rotateZ(node.flashRoll);
     // 속도선: 바깥으로 뻗으며 머리가 먼저 나가고 꼬리가 따라온다.

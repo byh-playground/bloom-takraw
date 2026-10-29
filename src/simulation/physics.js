@@ -65,6 +65,9 @@ class TakrawPhysics {
       enabled: true, parts: ['foot', 'lowerLeg', 'upperLeg', 'pelvis', 'torso', 'head'], zone: 1.8, minHeight: 0.9, minIncoming: 3.5,
       speedRatio: 0.45, minSpeed: 3.5, maxSpeed: 8, netClearance: 0.22, separation: 0.2, netGap: 0.15,
     }, config.physics?.block || {});
+    // 주발(오른발): 기본으로 이 발로 차고, 반대 발은 공이 주발 쪽에서 충분히 멀 때만 쓴다.
+    // side: 주발('R'|'L'), groundOffset: 지상에서 공이 몸 중심에서 반대쪽으로 이만큼(m) 넘어가야 반대 발, airMargin: 공중에서 반대 발 발바닥이 공에 이만큼(m) 더 가까워야 반대 발.
+    this.settings.dominantFoot = Object.assign({ side: 'R', groundOffset: 0.25, airMargin: 0.05 }, config.physics?.dominantFoot || {});
     this.settings.airReady = Object.assign({
       hipPitch: 1.0, kneeBend: 1.8, strength: 0.72, bodyStrength: 0.25,
     }, config.physics?.airReady || {});
@@ -455,7 +458,7 @@ class TakrawPhysics {
       p.reaction = { remaining: 0, duration: 0, severity: 0, incomingSpeed: 0 };
       p.desiredYaw = p.yaw;
       p.jump = { active: false, held: false, time: 0, cooldown: 0, airKickStarted: false };
-      p.kick = { held: false, mode: 'none', side: 'R', receivePlan: null, airPlan: null };
+      p.kick = { held: false, mode: 'none', side: this.settings.dominantFoot.side, receivePlan: null, airPlan: null };
       for (const j of p.joints) this._motor(j, [0, 0, 0], 1);
     }
     this.queue.clear();
@@ -741,7 +744,7 @@ class TakrawPhysics {
         choose = { x: choose.x + bv.x * t, y: height, z: choose.z + bv.z * t };
       }
       const ballLocal = this._rotate(this._conj(rootRotation), this._sub(choose, pos));
-      if (!(mode === 'air' && continuingGroundKick)) p.kick.side = ballLocal.x < -0.10 ? 'L' : 'R';
+      if (!(mode === 'air' && continuingGroundKick)) p.kick.side = this._groundSide(ballLocal.x);
     }
     p.kick.held = kicking;
     this._updateLegStretch(p, dt);
@@ -1141,6 +1144,18 @@ class TakrawPhysics {
     return { impact, velocity, normal, forward, wanted };
   }
 
+  /** 지상 발 선택: 공의 몸 기준 옆 위치(localX, 오른쪽 +)가 주발 반대쪽으로 groundOffset 넘어야 반대 발. */
+  _groundSide(localX) {
+    const { side, groundOffset } = this.settings.dominantFoot, toward = side === 'R' ? 1 : -1;
+    return localX * toward < -groundOffset ? (side === 'R' ? 'L' : 'R') : side;
+  }
+
+  /** 공중 발 선택: 반대 발 발바닥이 공에 airMargin(m) 넘게 더 가까울 때만 반대 발. distances는 { L, R } 거리(m). */
+  _airSide(distances) {
+    const { side, airMargin } = this.settings.dominantFoot, other = side === 'R' ? 'L' : 'R';
+    return distances[other] < distances[side] - airMargin ? other : side;
+  }
+
   _motionVector(value, axis, mirror = 1) {
     const side = { x: -axis.z, y: 0, z: axis.x };
     return this._add(this._mul(axis, value.forward),
@@ -1188,13 +1203,12 @@ class TakrawPhysics {
       const lateral = this._clamp((contact.impact.z - root.translation().z) /
         Math.max(0.3, Math.abs(contact.impact.x - root.translation().x)), -0.65, 0.65);
       const axis = this._unit(this._v(p.toward, 0, lateral));
-      let best = null;
+      const distances = {};
       for (const side of ['L', 'R']) {
         const sole = this._point(p.byName['foot' + side].body, this._v(0, 0.055, kick.forefoot));
-        const score = this._length(this._sub(contact.impact, sole));
-        if (!best || score < best.score) best = { side, score };
+        distances[side] = this._length(this._sub(contact.impact, sole));
       }
-      if (!continuingGroundKick) p.kick.side = best.side;
+      if (!continuingGroundKick) p.kick.side = this._airSide(distances);
       const preheld = continuingGroundKick, mirror = p.kick.side === 'L' ? -1 : 1;
       const query = this._motionQuery(p, axis, preheld);
       const selection = this.motionMatcher.select(query, preference);

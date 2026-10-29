@@ -13,7 +13,7 @@ const byte = v => Math.round(Math.max(-1, Math.min(1, v)) * 127) & 255;
 function attempts(tempo) {
   const config = structuredClone(TAKRAW_CONFIG); if (process.env.APEX) config.training.quick.apex = +process.env.APEX;
   const game = new TakrawGame({ RAPIER, config });
-  const rows = { n: 0, short: 0, success: 0, codes: {} };
+  const rows = { n: 0, short: 0, success: 0, codes: {}, feet: {} };
   try {
     game.reset('training', LESSON, 1, tempo);
     let tick = 1, wasRally = false, jumpHeld = 0, done = 0, sawShort = false;
@@ -37,10 +37,11 @@ function attempts(tempo) {
       }
       const commands = [...(jumpPressed ? [{ payload: [1] }] : []), ...(kickPressed ? [{ payload: [2] }] : [])];
       game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [byte(ix), byte(iz), (jump ? 1 : 0) | (kick ? 2 : 0)], commands }] });
+      for (const e of game.events || []) if (e.type === 'touch' && e.playerId === st.selected[0] && /^foot/.test(e.part || '')) rows.feet[e.part] = (rows.feet[e.part] || 0) + 1;
       tick++;
     }
     return rows;
   } finally { game.dispose(); }
 }
 
-for (const tempo of TEMPOS) { const r = attempts(tempo); console.log(`토스 ${tempo.padEnd(6)} 시도 ${r.n}  낮은 세트로 판정 ${r.short}  성공 ${r.success}  결과 ${JSON.stringify(r.codes)}`); }
+for (const tempo of TEMPOS) { const r = attempts(tempo); console.log(`토스 ${tempo.padEnd(6)} 시도 ${r.n}  낮은 세트로 판정 ${r.short}  성공 ${r.success}  결과 ${JSON.stringify(r.codes)} 발 ${JSON.stringify(r.feet)}}`); }

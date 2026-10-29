@@ -76,4 +76,10 @@ const takrawPickHome = unit => TAKRAW_SCHOOLS[Math.min(TAKRAW_SCHOOLS.length - 1
 /** 내 학교를 뺀 상대 목록. 로스터 순서대로 도전 단계 1, 2, …가 붙는다. 학교 데이터에 단계의 AI·보상을 합친 값이다. */
 const takrawOpponents = homeId => TAKRAW_SCHOOLS.filter(value => value.id !== homeId).map((value, index) => Object.freeze({ ...value, ...TAKRAW_LADDER[index] }));
 
-export { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, TAKRAW_LADDER, takrawSchool, takrawPickHome, takrawOpponents };
+/** 관전 경기의 두 학교. 시드만으로 정해져 같은 시드는 같은 화면이다. 두 학교는 항상 다르다. */
+function takrawWatchSchools(seed) {
+  const count = TAKRAW_SCHOOLS.length, home = seed % count, step = 1 + Math.floor(seed / count) % (count - 1);
+  return [TAKRAW_SCHOOLS[home], TAKRAW_SCHOOLS[(home + step) % count]];
+}
+
+export { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, TAKRAW_LADDER, takrawSchool, takrawPickHome, takrawOpponents, takrawWatchSchools };

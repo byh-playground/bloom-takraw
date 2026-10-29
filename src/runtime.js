@@ -1,4 +1,4 @@
-import { TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from './config/schools.js';
+import { TAKRAW_SCHOOLS, takrawOpponents, takrawSchool, takrawWatchSchools } from './config/schools.js';
 import * as THREE from 'three';
 import RAPIER from 'rapier';
 import { ActionState, createDOMInput } from '@bloom-gamekit/input';
@@ -66,6 +66,7 @@ async function bootTakraw() {
   let presentation = null;
   let latestView = null;
   let mode = null;
+  let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
   let bootstrapStage = 'interface';
   let disposed = false;
   let failed = false;
@@ -96,7 +97,7 @@ async function bootTakraw() {
   function canStart(nextMode) {
     if (!isReady() || disposed || failed) return false;
     if (nextMode === 'match' || nextMode === 'training') return club?.status === 'ready';
-    return nextMode === 'local' || nextMode === 'online';
+    return nextMode === 'local' || nextMode === 'online' || nextMode === 'watch';
   }
 
   function showBootStatus(message = '', isError = false) {
@@ -626,6 +627,7 @@ async function bootTakraw() {
       tossReady: Boolean(player?.tossReady),
       tossCharge: Number(player?.tossCharge) || 0,
       connection: mode === 'online' ? network.message : '',
+      watch: mode === 'watch' ? { seed: watchSeed, tick: game.state.tick } : null,
     };
   }
 
@@ -737,10 +739,11 @@ async function bootTakraw() {
   function openSession(nextMode, capability, token) {
     mode = nextMode;
     // 내 학교는 저장된 값이다. 온라인은 두 사람의 화면이 같도록 고정 학교 쌍을 쓴다. 퀵 대전(도전 학교 없음)의 상대는 가장 높은 단계다.
-    const home = nextMode === 'online' ? TAKRAW_SCHOOLS[0] : takrawSchool(club.getView().campaign.home) || TAKRAW_SCHOOLS[0];
+    const watching = nextMode === 'watch';
+    const home = nextMode === 'online' || watching ? TAKRAW_SCHOOLS[0] : takrawSchool(club.getView().campaign.home) || TAKRAW_SCHOOLS[0];
     const opponents = takrawOpponents(home.id);
     const opponent = opponents.find(school => school.id === campaignSchoolId) || opponents[opponents.length - 1];
-    view.setSchools([home, nextMode === 'match' ? opponent : opponents[0]]);
+    view.setSchools(watching ? takrawWatchSchools(watchSeed) : [home, nextMode === 'match' ? opponent : opponents[0]]);
     paused = false;
     clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false, schoolId: campaignSchoolId } : null;
@@ -752,8 +755,8 @@ async function bootTakraw() {
     game.setTeams(clubSession.team, away);
     game.setTemperaments([null, schoolAi?.temperament || null]);
     // 경기마다 AI 성향·서브가 달라지도록 시드를 정한다. 온라인은 두 사람이 같은 방 코드에서 같은 시드를 얻고, 혼자 하는 경기는 새 값이다.
-    const matchSeed = nextMode === 'online' ? seedFromText(String(capability)) : nextMode === 'training' ? undefined : crypto.getRandomValues(new Uint32Array(1))[0];
-    game.reset(nextMode, undefined, matchSeed);
+    const matchSeed = watching ? watchSeed : nextMode === 'online' ? seedFromText(String(capability)) : nextMode === 'training' ? undefined : crypto.getRandomValues(new Uint32Array(1))[0];
+    game.reset(watching ? 'ai' : nextMode, undefined, matchSeed);
     latestView = game.getView();
     BodyPose = createPresentation();
     replaceJournal();
@@ -887,6 +890,15 @@ async function bootTakraw() {
       setNetwork({ state: 'idle', code: '', message: '', count: 0 });
     }
     hudTime = -Infinity;
+  }
+
+  /** 시드 하나가 AI 대 AI 경기 하나다. 팀·성향은 기본값이라 저장소를 읽거나 쓰지 않는다. */
+  function startWatch(seed) {
+    const value = Number(seed);
+    if (!Number.isInteger(value) || value < 0 || value > TAKRAW_RUNTIME.watch.maxSeed || !isReady()) return false;
+    watchSeed = value;
+    startLocal('watch');
+    return true;
   }
 
   function startLocal(nextMode) {
@@ -1042,6 +1054,7 @@ async function bootTakraw() {
     get view() { return view; },
     get ui() { return ui; },
     get ready() { return isReady(); },
+    watch: startWatch,
     diagnostics() {
       return {
         product: TAKRAW_PRODUCT_NAME,
@@ -1095,6 +1108,7 @@ async function bootTakraw() {
       } else startLocal(nextMode);
     },
     onRestart: restart,
+    onWatch: seed => { campaignSchoolId = null; startWatch(seed); },
     onCampaign(schoolId) {
       const { home, cleared } = club.getView().campaign, index = home ? takrawOpponents(home).findIndex(school => school.id === schoolId) : -1;
       if (index < 0 || index > cleared.length || !canStart('match')) return;
@@ -1206,6 +1220,8 @@ async function bootTakraw() {
     showBootStatus('', false);
     ui.showHome();
     animation = requestAnimationFrame(frame);
+    const query = new URLSearchParams(location.search), watchParam = query.get(TAKRAW_RUNTIME.watch.param);
+    if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
     try {
       const saved = JSON.parse(sessionStorage.getItem(resumeKey) || 'null');
       if (saved && ['host', 'join'].includes(saved.role) && /^\d{4}$/.test(saved.room)) {

@@ -196,6 +196,7 @@ class TakrawGame {
       return;
     }
     if (this.mode === 'match' || this.mode === 'training') humans[1] = null;
+    if (this.mode === 'ai') humans.fill(null); // 관전: 두 팀 모두 AI
     const humanTeams = [!!humans[0], !!humans[1]];
     const changed = humanTeams[0] !== this.humanTeams[0] || humanTeams[1] !== this.humanTeams[1];
     this.humanTeams = humanTeams;

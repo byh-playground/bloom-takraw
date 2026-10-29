@@ -1,5 +1,6 @@
 import { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from '../config/schools.js';
 import { takrawMatchStatus } from './match-status.js';
+import { TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_VERSION, TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
@@ -25,8 +26,9 @@ class TakrawUI {
       rename: false, nameDraft: null, nameError: '', players: { roster: 'i-deun', scouts: null }, scroll: {} };
     this.clubDraft = null; this.clubBusy = false; this.clubNotice = ''; this.clubNoticeType = 'status';
     this.nodes = {};
-    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
+    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
+    this.debug = new URLSearchParams(location.search).has(TAKRAW_RUNTIME.watch.debugParam);
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
     this.bind();
@@ -53,6 +55,11 @@ class TakrawUI {
       });
     };
     click('start-match', () => this.start('match'));
+    const watchSeed = () => document.getElementById('watch-seed');
+    this.listen(document.getElementById('watch-form'), 'submit', event => { event.preventDefault(); this.callbacks.onWatch?.(watchSeed().value); });
+    for (const button of document.querySelectorAll('[data-watch-step]')) this.listen(button, 'click', () => {
+      watchSeed().value = Math.max(0, Number(watchSeed().value || 0) + Number(button.dataset.watchStep)); this.callbacks.onWatch?.(watchSeed().value);
+    });
     click('open-campaign', () => this.navigate('campaign'));
     click('start-training', () => this.start('training'));
     click('start-local', () => this.start('local'));
@@ -182,7 +189,7 @@ class TakrawUI {
 
   syncInputMode() {
     this.releaseTouch();
-    this.nodes['touch-controls'].hidden = !this.inGame || !this.coarse.matches;
+    this.nodes['touch-controls'].hidden = !this.inGame || !this.coarse.matches || this.mode === 'watch';
   }
 
   controlText(value) {
@@ -202,7 +209,7 @@ class TakrawUI {
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
     this.nodes['home-panel'].hidden = false; this.nodes['match-hud'].hidden = true; this.nodes['touch-controls'].hidden = true;
-    this.nodes['connection-indicator'].hidden = true; this.setRoute(initialDialog, true);
+    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = !this.debug; this.setRoute(initialDialog, true);
     if (initialDialog) this.openDialog(initialDialog);
   }
 
@@ -210,12 +217,12 @@ class TakrawUI {
     this.inGame = true; this.mode = mode; this.hideDialog(true);
     document.body.classList.remove('is-home'); document.body.dataset.mode = mode;
     this.nodes['home-panel'].hidden = true; this.nodes['match-hud'].hidden = false;
-    this.nodes['touch-controls'].hidden = !this.coarse.matches; this.nodes['training-actions'].hidden = mode !== 'training';
+    this.nodes['touch-controls'].hidden = !this.coarse.matches || mode === 'watch'; this.nodes['watch-form'].hidden = mode !== 'watch'; this.nodes['training-actions'].hidden = mode !== 'training';
     this.nodes['local-guide'].hidden = mode !== 'local'; this.nodes['end-actions'].hidden = true;
     document.querySelector('.scoreboard').classList.toggle('is-training', mode === 'training');
-    this.text('team-label-0', mode === 'local' ? '1P · 청록' : mode === 'online' ? '청록 팀' : '우리 팀');
-    this.text('team-label-1', mode === 'local' ? '2P · 코랄' : mode === 'online' ? '코랄 팀' : '상대 팀');
-    this.text('match-type', { training: '스파이크 연습', match: 'AI 대전', local: '로컬 2인', online: '온라인 1대1' }[mode]);
+    this.text('team-label-0', mode === 'local' ? '1P · 청록' : ['online', 'watch'].includes(mode) ? '청록 팀' : '우리 팀');
+    this.text('team-label-1', mode === 'local' ? '2P · 코랄' : ['online', 'watch'].includes(mode) ? '코랄 팀' : '상대 팀');
+    this.text('match-type', { training: '스파이크 연습', match: 'AI 대전', local: '로컬 2인', online: '온라인 1대1', watch: 'AI 관전' }[mode]);
     this.setRoute('play'); this.canvas.focus({ preventScroll: true });
   }
 
@@ -736,7 +743,7 @@ class TakrawUI {
     callout.hidden = !notice;
     if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
     this.text('selected-name', hud.selectedName || '공격수');
-    if (hud.teamNames && !['local', 'online'].includes(this.mode)) {
+    if (hud.teamNames && !['local', 'online', 'watch'].includes(this.mode)) {
       this.text('team-label-0', hud.teamNames[0]); this.text('team-label-1', hud.teamNames[1]);
     }
     this.text('selected-state', hud.selectedState || '준비');
@@ -750,6 +757,11 @@ class TakrawUI {
     const kickButton = document.querySelector('.touch-kick'), label = hud.tossReady ? ['공 던지기', '꾹 · 높게'] : ['발차기', '누르고 유지'];
     if (kickButton.dataset.label !== label[0]) { kickButton.dataset.label = label[0]; kickButton.firstChild.textContent = label[0]; kickButton.querySelector('small').textContent = label[1]; }
     if (this.mode === 'training' && hud.training) this.updateTraining(hud.training);
+    if (hud.watch) {
+      const input = document.getElementById('watch-seed');
+      if (document.activeElement !== input && input.value !== String(hud.watch.seed)) input.value = hud.watch.seed;
+      this.text('watch-tick', `틱 ${hud.watch.tick}`);
+    }
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;
     this.nodes['end-actions'].dataset.result = hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';
     if (ended) {
@@ -765,7 +777,7 @@ class TakrawUI {
     }
     this.text('match-reward', hud.matchReward?.message || '');
     document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
-    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : this.mode === 'online' ? `${hud.matchWinner === 0 ? '청록' : '코랄'} 팀 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '패배 · 다시 도전해요');
+    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : ['online', 'watch'].includes(this.mode) ? `${hud.matchWinner === 0 ? '청록' : '코랄'} 팀 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '패배 · 다시 도전해요');
   }
 
   updateTraining(training) {

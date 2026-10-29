@@ -371,7 +371,7 @@ class TakrawGame {
       if (this.humanServes(this.state.serving)) {
         this.state.serveToss = { stage: 'hold', charge: 0 };
         this.holdServeBall();
-        this.state.lastMessage = '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 올라갑니다. 올린 뒤 점프·발차기로 서브하고 자기 자리로 돌아가세요.';
+        this.state.lastMessage = '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 올라갑니다. 올린 뒤 점프·발차기로 서브하고 자기 자리로 돌아가세요. 던지기 전에 엔드라인 안쪽을 밟으면 반칙입니다.';
       } else this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
         { x: 0, y: 1.5 + jitter(4) * v.rise, z: 0 });
       if (!this.state.serveToss) this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
@@ -396,13 +396,19 @@ class TakrawGame {
     const toss = this.state.serveToss;
     if (!toss || toss.stage === 'thrown' || this.state.phase !== 'rally' || this.state.lastTouch >= 0) return;
     const human = humans[this.state.serving], cfg = this.config.ai.serve.toss;
+    // 서브 라인 반칙: 공을 든 채(던지기 전) 서버의 발이 엔드라인 안쪽(코트 쪽)을 밟으면 서브 팀의 실점이다.
+    const team = this.state.serving, n = team === 0 ? 1 : -1, server = this.physics.players[this.serverId(team)];
+    if (['footL', 'footR'].some(name => server.byName[name].body.translation().x * n > -this.config.court.halfLength)) {
+      this.awardPoint(1 - team, '서브 라인 반칙');
+      return;
+    }
     const held = !!human?.toss, pressed = !!human?.tossPressed;
     if (held || pressed) { toss.charging = true; toss.charge += dt; }
     const idle = this.state.time - this.rallyStart > cfg.maxHold;
     if (!(toss.charging && !held) && !idle) { this.holdServeBall(); return; }
     const ratio = Math.min(1, toss.charge / cfg.fullCharge), apex = cfg.minApex + (cfg.maxApex - cfg.minApex) * ratio;
     const gravity = Math.abs(this.physics.settings.gravity), p = this.physics.ball.translation();
-    const forward = cfg.minForward + (cfg.maxForward - cfg.minForward) * ratio, n = this.state.serving === 0 ? 1 : -1;
+    const forward = cfg.minForward + (cfg.maxForward - cfg.minForward) * ratio;
     this.physics.resetBall(p, { x: n * forward, y: Math.sqrt(2 * gravity * (apex - p.y)), z: 0 });
     toss.stage = 'thrown'; toss.apex = apex;
     this.state.lastMessage = '서브 · 공이 올라갑니다. 점프와 발차기로 차세요.';
@@ -427,6 +433,8 @@ class TakrawGame {
   handlePhysicsEvent(event, humans) {
     if (event.type === 'land') { this.emit(event); return; }
     if (this.state.phase !== 'rally') return;
+    // 공을 던지기 전(손에 든 공)에는 몸이 부딪혀도 터치·반칙·낙하로 세지 않는다. 공은 매 틱 손 자리로 되돌려진다.
+    if (this.state.serveToss?.stage === 'hold') return;
     if (event.type === 'touch') {
       if (this.state.training && event.playerId === this.state.selected[0]) {
         const training = this.state.training, player = this.physics.players[event.playerId];
@@ -559,9 +567,10 @@ class TakrawGame {
   /** 서브 시작 자리: 사람이 서브하면 공격수가 자기 코트 뒤쪽 서브 자리(ai.serve.spot, 팀 방향 좌표)에서 시작한다. */
   serveStarts() {
     const team = this.state.serving, id = this.serverId(team);
-    if (id === team * 3 || this.mode === 'training') return null;
-    const n = this.physics.players[id].toward, spot = this.config.ai.serve.spot;
-    return { [id]: { x: spot.x * n, z: spot.z * n } };
+    if (this.mode === 'training') return null;
+    const player = this.physics.players[id], n = player.toward, spot = this.config.ai.serve.spot;
+    // 사람 서버는 서브 자리(x, z), AI 서버는 서브 자리 x에 자기 자리 z로 선다(엔드라인 뒤). 서브 뒤 AI는 평소처럼 자기 포메이션으로 돌아간다.
+    return { [id]: { x: spot.x * n, z: id === team * 3 ? player.home.z : spot.z * n } };
   }
 
   /** 서브 직전 배치: 선수를 시작 자리에 세우고 공을 서버 발밑에 둔다. */
@@ -911,7 +920,9 @@ class TakrawGame {
   approachPosition(team, aim, offset) {
     const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
     const n = team === 0 ? 1 : -1, sideLimit = this.config.court.halfWidth - 0.15;
-    return { x: clamp(aim.x - n * offset, team === 0 ? -6.2 : 0.6, team === 0 ? -0.6 : 6.2),
+    // 서브 중(첫 터치 전, 서브 팀)에는 서버가 엔드라인 뒤에 설 수 있도록 뒤쪽 한계를 서브 자리까지 푼다.
+    const back = this.state.lastTouch < 0 && this.state.serving === team ? Math.max(6.2, Math.abs(this.config.ai.serve.spot.x) + 0.3) : 6.2;
+    return { x: clamp(aim.x - n * offset, team === 0 ? -back : 0.6, team === 0 ? -0.6 : back),
       z: clamp(aim.z + n * this.config.ai.toss.attack.lateral, -sideLimit, sideLimit) };
   }
 

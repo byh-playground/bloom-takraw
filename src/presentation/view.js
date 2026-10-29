@@ -49,6 +49,7 @@ class TakrawView {
     this.makeMarkers();
     this.impacts = new TakrawImpactEffects({ THREE, scene: this.scene, config, reducedMotion: () => this.reducedMotion() });
     this.impacts.camera = this.camera;
+    this.impacts.setElements(this.schools.map(school => school.element));
     this.field = new TakrawFieldEffects({ THREE, scene: this.scene, config, reducedMotion: () => this.reducedMotion() });
     this.resize();
   }
@@ -513,6 +514,7 @@ class TakrawView {
   setSchools(schools) {
     if (schools.every((school, i) => school === this.schools[i])) return;
     this.schools = schools;
+    this.impacts?.setElements(schools.map(school => school.element));
     this.applyVenue();
     // 다음 pose publish가 같은 ID로 새 외형을 연결합니다.
     for (const group of this.meshes.values()) group.removeFromParent();

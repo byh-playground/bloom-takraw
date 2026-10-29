@@ -432,7 +432,8 @@ async function bootTakraw() {
     const impact = TAKRAW_CONFIG.visual.impact[impactStyleKey(TAKRAW_CONFIG.visual.impact, payload)];
     if (!payload.timing && !payload.spike) return duration;
     return Math.max(duration, badge, (impact.hold + impact.life) * 1000,
-      (impact.trail?.duration ?? 0) * 1000, (impact.shake?.duration ?? 0) * 1000);
+      (impact.trail?.duration ?? 0) * 1000, (impact.shake?.duration ?? 0) * 1000,
+      payload.spike ? (impact.hold + TAKRAW_CONFIG.visual.impactElements.life) * 1000 : 0);
   }
 
   function replaceJournal() {

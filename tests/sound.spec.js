@@ -1,0 +1,57 @@
+import { test, expect } from 'playwright/test';
+import { TAKRAW_CONFIG } from '../src/config/game.js';
+import { TAKRAW_RUNTIME } from '../src/config/runtime.js';
+import { takrawKickSoundId, takrawSoundPayload } from '../src/presentation/sound.js';
+
+const reference = TAKRAW_RUNTIME.feedback.soundReferenceSpeed;
+const sounds = TAKRAW_RUNTIME.audio.sounds;
+const touch = (extra = {}) => ({ type: 'touch', part: 'footR', speed: reference * 0.6, position: { x: 0, y: 1, z: 0 }, ...extra });
+const options = (extra = {}) => ({
+  reference, halfWidth: TAKRAW_CONFIG.court.halfWidth, viewTeam: 0,
+  panSpread: TAKRAW_RUNTIME.feedback.soundPanSpread, detuneCents: TAKRAW_RUNTIME.feedback.soundDetuneCents,
+  random: () => 0.5, matchPoint: false, ...extra,
+});
+
+test('발차기 소리: 스파이크 > 발이 아닌 몸 > 공 속도 단계 × 타이밍 등급 순으로 고른다', () => {
+  expect(takrawKickSoundId(touch({ spike: true, part: 'lowerLegR' }), reference)).toBe('kickSpike');
+  for (const part of ['lowerLegR', 'upperLegL', 'pelvis', 'torso', 'head']) expect(takrawKickSoundId(touch({ part }), reference)).toBe('kickBody');
+  expect(takrawKickSoundId(touch({ speed: reference * 0.2 }), reference)).toBe('kickSoft');
+  expect(takrawKickSoundId(touch({ speed: reference * 0.6 }), reference)).toBe('kickMedium');
+  expect(takrawKickSoundId(touch({ speed: reference * 1.4 }), reference)).toBe('kickHard');
+  expect(takrawKickSoundId(touch({ speed: reference * 0.2, timing: { grade: 'good' } }), reference)).toBe('kickSoftGood');
+  expect(takrawKickSoundId(touch({ speed: reference * 1.4, timing: { grade: 'perfect' } }), reference)).toBe('kickHardPerfect');
+  expect(takrawKickSoundId(touch({ timing: { grade: 'miss' } }), reference)).toBe('kickMedium');
+});
+
+test('고른 소리 id는 모두 오디오 설정에 있고 재생 변수는 모듈이 받는 범위 안이다', () => {
+  const seen = new Set();
+  const events = [];
+  for (const part of ['footR', 'lowerLegL', 'torso']) for (const ratio of [0.1, 0.6, 1.5]) for (const grade of [undefined, 'good', 'perfect'])
+    for (const spike of [false, true]) events.push(touch({ part, spike, speed: reference * ratio, timing: grade && { grade } }));
+  for (const type of ['land', 'net', 'serve', 'point']) events.push({ type, speed: reference, position: { x: 3, y: 0, z: 2 } });
+  for (const event of events) for (const viewTeam of [0, 1]) for (const matchPoint of [false, true]) for (const random of [() => 0, () => 0.999]) {
+    const payload = takrawSoundPayload(event, options({ viewTeam, matchPoint, random }));
+    seen.add(payload.soundId);
+    expect(sounds[payload.soundId], payload.soundId).toBeTruthy();
+    expect(payload.strength).toBeGreaterThan(0); expect(payload.strength).toBeLessThanOrEqual(1);
+    expect(Math.abs(payload.pan)).toBeLessThanOrEqual(1);
+    expect(Math.abs(payload.detune)).toBeLessThanOrEqual(TAKRAW_RUNTIME.feedback.soundDetuneCents);
+  }
+  // 설정의 발차기 소리 12종(단계 3×등급 3 + 몸 + 스파이크)이 모두 실제로 골라질 수 있다.
+  for (const id of Object.keys(sounds).filter(name => name.startsWith('kick'))) expect(seen.has(id), id).toBe(true);
+  expect(takrawSoundPayload({ type: 'unknown', speed: 1, position: {} }, options())).toBeNull();
+});
+
+test('좌우: 화면 오른쪽이 1P는 +z, 2P는 -z이고 득점 함성은 가운데, 음정 있는 신호는 음높이를 흔들지 않는다', () => {
+  const at = z => touch({ position: { x: 0, y: 1, z } });
+  const right = takrawSoundPayload(at(TAKRAW_CONFIG.court.halfWidth), options({ viewTeam: 0 })).pan;
+  expect(right).toBeCloseTo(TAKRAW_RUNTIME.feedback.soundPanSpread);
+  expect(takrawSoundPayload(at(TAKRAW_CONFIG.court.halfWidth), options({ viewTeam: 1 })).pan).toBeCloseTo(-right);
+  expect(takrawSoundPayload(at(0), options()).pan).toBe(0);
+  const point = takrawSoundPayload({ type: 'point', speed: 0, position: { x: 0, y: 0, z: 2 } }, options({ random: () => 1 }));
+  expect(point).toMatchObject({ soundId: 'point', pan: 0, detune: 0 });
+  expect(takrawSoundPayload({ type: 'point', speed: 0, position: {} }, options({ matchPoint: true })).soundId).toBe('matchPoint');
+  expect(takrawSoundPayload({ type: 'serve', speed: 0, position: { z: 1 } }, options({ random: () => 1 })).detune).toBe(0);
+  const low = takrawSoundPayload(touch(), options({ random: () => 0 })).detune, high = takrawSoundPayload(touch(), options({ random: () => 1 })).detune;
+  expect(low).toBeCloseTo(-TAKRAW_RUNTIME.feedback.soundDetuneCents); expect(high).toBeCloseTo(TAKRAW_RUNTIME.feedback.soundDetuneCents);
+});

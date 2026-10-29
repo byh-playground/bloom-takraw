@@ -113,6 +113,8 @@ class TakrawGame {
     this.metrics = { logicSteps: 0, physicsSteps: 0, aiSteps: 0, contacts: 0, spikes: 0, rallies: 0, maxBallSpeed: 0, defensiveSwitches: 0, defensiveTouches: 0 };
     this.physics.resetPlayers();
     this.physics.resetBall({ x: 3.6, y: 0.2, z: 0 }, { x: 0, y: 0, z: 0 });
+    // 첫 서브도 다음 서브와 같은 배치(prepareRally와 같은 placeServe)다. 사람이 아직 없어도 서버는 엔드라인 뒤에서 시작한다.
+    if (mode !== 'training') this.placeServe();
     this.revision++;
   }
 

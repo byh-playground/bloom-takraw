@@ -126,7 +126,7 @@ test('AI 서브: 꼭짓점이 jumpApex 이상으로 던진 공은 서버가 점�
   test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
   const game = new TakrawGame({ RAPIER: await loadRapier(), config: structuredClone(TAKRAW_CONFIG) });
   try {
-    game.reset('ai', undefined, 1);
+    game.reset('ai', undefined, 3);
     const st = game.state, jumpApex = TAKRAW_CONFIG.ai.serve.toss.jumpApex, serves = [];
     let rally = 0, cur = null;
     for (let tick = 1; tick < 60 * 45; tick++) {
@@ -141,4 +141,20 @@ test('AI 서브: 꼭짓점이 jumpApex 이상으로 던진 공은 서버가 점�
     expect(high.filter(s => s.jumped).length / high.length).toBeGreaterThan(0.8);
     expect(low.filter(s => s.jumped).length).toBe(0);
   } finally { game.dispose(); }
+});
+
+test('첫 서브: 사람이 늦게 들어와도 서버는 엔드라인 뒤에서 시작해 반칙 없이 서브한다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
+  for (const lead of [0, 120]) {
+    const game = new TakrawGame({ RAPIER: await loadRapier(), config: structuredClone(TAKRAW_CONFIG) });
+    try {
+      game.reset('match', undefined, 1);
+      const st = game.state; let reason = '';
+      for (let tick = 1; tick <= 300 && !reason; tick++) {
+        game.step({ tick, tickRate: 60, inputs: tick <= lead ? [] : [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
+        if (st.phase === 'point') reason = st.pointReason;
+      }
+      expect(reason, `사람 입장 ${lead}틱 뒤`).not.toBe('서브 라인 반칙');
+    } finally { game.dispose(); }
+  }
 });

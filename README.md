@@ -38,7 +38,6 @@ styles/app.css               화면 스타일
 scripts/                     원본 HTTP 서버·정적 참조·의존성 검사
 playwright.config.js         사용자 시나리오 실행 구성
 tests/{user-flow,mobile-flow}.spec.js  고정 사용자 흐름 E2E
-tests/learning.spec.js       학습 모듈 단위 검사(브라우저 없이 실행)
 docs/                        구조 설명과 보존 검증 기록
 artifacts/                   새 실행 결과, Git 제외
 ```

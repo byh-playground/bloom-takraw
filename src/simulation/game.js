@@ -86,6 +86,7 @@ class TakrawGame {
 
   /** seed는 경기 변주(선수 성향·서브)의 원천이다. 훈련은 같은 상황이 반복되어야 하므로 기본 시드를 쓴다. */
   reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto', seed = this.config.network.seed, tempo = this.state?.training?.tempo || 'high') {
+    const reused = Boolean(this.state);
     this.mode = mode;
     this.retuneTeam = -1;
     this.state = {
@@ -111,6 +112,9 @@ class TakrawGame {
     this.inputs = Array.from({ length: 6 }, () => this.emptyInput());
     this.events = [];
     this.metrics = { logicSteps: 0, physicsSteps: 0, aiSteps: 0, contacts: 0, spikes: 0, rallies: 0, maxBallSpeed: 0, defensiveSwitches: 0, defensiveTouches: 0 };
+    // 처음 reset(생성 직후)은 월드가 이미 새것이다. 그 뒤의 reset은 월드를 새로 만들어 이전 경기의 접촉 캐시·시계가 넘어오지 않게 한다.
+    if (reused) this.physics.rebuild();
+    this.rallyStart = undefined;
     this.physics.resetPlayers();
     this.physics.resetBall({ x: 3.6, y: 0.2, z: 0 }, { x: 0, y: 0, z: 0 });
     // 첫 서브도 다음 서브와 같은 배치(prepareRally와 같은 placeServe)다. 사람이 아직 없어도 서버는 엔드라인 뒤에서 시작한다.

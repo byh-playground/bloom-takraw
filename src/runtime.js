@@ -59,7 +59,7 @@ async function bootTakraw() {
   let actions;
   let device;
   let audio;
-  let bgm = null, bgmBuffer = false, bgmLoading = false, bgmDuckTimer = 0;
+  let bgm = null, bgmBuffer = false, bgmLoading = false, bgmFailed = false, bgmDuckTimer = 0;
   let codec;
   let session = null;
   let room = null;
@@ -252,14 +252,15 @@ async function bootTakraw() {
     return game.teamById?.[session.localPlayerId] ?? 0;
   }
 
-  /** 배경 음악 크기: 경기 중 level, 일시정지·소개영상 중에는 낮게. */
+  /** 배경 음악 크기: 홈 homeLevel, 경기 중 level, 일시정지·소개영상 중에는 낮게. */
   function bgmLevel() {
+    if (!mode) return TAKRAW_RUNTIME.bgm.homeLevel;
     return paused ? TAKRAW_RUNTIME.bgm.pausedLevel : TAKRAW_RUNTIME.bgm.level;
   }
 
   /** 곡 파일을 한 번만 읽어 디코드하고 모듈에 등록한다. 실패해도 음악만 빠질 뿐 게임은 계속된다. */
   async function loadBgm() {
-    if (bgmBuffer || bgmLoading) return;
+    if (bgmBuffer || bgmLoading || bgmFailed) return;
     bgmLoading = true;
     try {
       const response = await fetch(TAKRAW_RUNTIME.bgm.url);
@@ -268,15 +269,15 @@ async function bootTakraw() {
       if (disposed) return;
       audio.setBuffer('bgm', decoded);
       bgmBuffer = true;
-    } catch (error) { recordError(error, 'bgm-load'); }
+    } catch (error) { bgmFailed = true; recordError(error, 'bgm-load'); }
     finally { bgmLoading = false; }
   }
 
   function startBgm() {
-    if (!bgm && bgmBuffer && mode && !disposed) bgm = audio.startBed('bgm', { level: bgmLevel(), fadeMs: TAKRAW_RUNTIME.bgm.fadeMs });
+    if (!bgm && bgmBuffer && !disposed) bgm = audio.startBed('bgm', { level: bgmLevel(), fadeMs: TAKRAW_RUNTIME.bgm.fadeMs });
   }
 
-  /** 오디오 잠금을 풀고, 경기 중이면 배경 음악을 켠다(이미 켜져 있으면 그대로). 첫 제스처 전에는 켜지지 않고 다음 제스처에서 켠다. */
+  /** 오디오 잠금을 풀고 배경 음악을 켠다(이미 켜져 있으면 그대로). 첫 제스처 전에는 켜지지 않고 다음 제스처에서 켠다. */
   function unlockAudio() {
     return audio.unlock().then(ok => {
       if (!ok) return ok;
@@ -284,12 +285,6 @@ async function bootTakraw() {
       else loadBgm().then(startBgm);
       return ok;
     });
-  }
-
-  function stopBgm() {
-    clearTimeout(bgmDuckTimer);
-    bgm?.stop(TAKRAW_RUNTIME.bgm.stopFadeMs);
-    bgm = null;
   }
 
   /** 타격·득점 순간에 음악을 잠깐 낮춰 효과음이 묻히지 않게 한다(kind는 TAKRAW_RUNTIME.bgm.duck의 키). */
@@ -1093,7 +1088,7 @@ async function bootTakraw() {
     if (!isReady() || disposed) return;
     observeMatchResult();
     stopSession();
-    stopBgm();
+    bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
     clubSession.team = null; clubSession.match = null; clubSession.reward = null;
     campaignSchoolId = null;
     game.setTeams(null, null);
@@ -1280,6 +1275,8 @@ async function bootTakraw() {
       event.preventDefault();
       resetCamera();
     });
+    listen(document, 'pointerdown', () => unlockAudio(), { capture: true });
+    listen(document, 'keydown', () => unlockAudio(), { capture: true });
     listen(document, 'keydown', observeSoon);
     listen(document, 'keyup', observeSoon);
     listen(window, 'blur', releaseControls);

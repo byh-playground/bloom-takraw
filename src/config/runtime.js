@@ -88,12 +88,12 @@ const TAKRAW_RUNTIME = Object.freeze({
     duration: 430, badge: 900, retentionTicks: 180, soundReferenceSpeed: 14,
     soundPanSpread: 0.7, soundDetuneCents: 150, soundDistanceDrop: 0.35,
   },
-  // 배경 음악: 경기가 열려 있는 동안 작게 깔린다(홈에서는 켜지 않는다). 곡은 효과음 아래에 머물도록 작게 두고(level),
+  // 배경 음악: 첫 제스처 뒤로 홈에서도 경기 중에도 작게 깔린다. 곡은 효과음 아래에 머물도록 작게 두고(level, 홈은 효과음이 없어 조금 크게 homeLevel),
   // 타격 순간에는 잠깐 더 낮춰(duck) 타격음이 곡의 멜로디(200~400Hz)에 묻히지 않게 한다. 득점 소리는 더 깊고 길게 비운다.
   // 곡은 CC0 "Head in the Sand"(assets/audio/CREDITS.md). 불러오지 못하면 음악만 없고 게임은 그대로 돌아간다.
   bgm: {
     url: new URL('../../assets/audio/head-in-the-sand.ogg', import.meta.url).href,
-    level: 0.7, pausedLevel: 0.35, fadeMs: 1500, stopFadeMs: 600, levelRampMs: 300,
+    level: 0.7, homeLevel: 0.9, pausedLevel: 0.35, fadeMs: 1500, stopFadeMs: 600, levelRampMs: 300,
     duck: {
       touch: { depth: 0.55, holdMs: 90, releaseMs: 260 },
       point: { depth: 0.35, holdMs: 500, releaseMs: 700 },
@@ -179,7 +179,12 @@ const TAKRAW_RUNTIME = Object.freeze({
     },
     // 음원 베드: 게임이 읽어 디코드한 곡을 setBuffer('bgm')로 등록하면 루프로 깔린다.
     beds: {
-      bgm: { category: 'music', layers: [{ kind: 'buffer', bufferId: 'bgm', gain: 1 }] },
+      // 곡 안의 크기 편차(3초 구간 10.8dB)가 커서 도입부는 묻히고 하이라이트가 튀었다. 레이어 컴프레서로 편차를 2.5dB로 줄인다.
+      // 컴프레서의 자동 보정으로 전체가 약 5dB 커지므로 gain을 0.55로 낮춰 하이라이트 크기는 전과 같게 두고 도입부만 올린다(게임 레벨 0.7에서 평균 약 -36dBFS).
+      bgm: {
+        category: 'music',
+        layers: [{ kind: 'buffer', bufferId: 'bgm', gain: 0.55, compressor: { threshold: -50, ratio: 10, attackMs: 100, releaseMs: 900 } }],
+      },
     },
   },
 });

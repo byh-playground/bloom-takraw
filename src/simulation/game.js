@@ -232,7 +232,8 @@ class TakrawGame {
       }
     }
 
-    if (this.aiDirty || frame.tick % Math.max(1, Math.round(frame.tickRate / this.config.simulation.aiRate)) === 0) {
+    // AI 갱신 주기는 경기 안의 스텝 수 기준이다. 호스트가 넘기는 frame.tick은 세션마다 시작이 달라(게임킷 세션 0, 시뮬레이션 도구 1) 주기가 어긋나면 같은 시드가 다른 경기가 된다.
+    if (this.aiDirty || this.metrics.logicSteps % Math.max(1, Math.round(frame.tickRate / this.config.simulation.aiRate)) === 0) {
       this.decideAI(humans);
       this.aiDirty = false;
     }

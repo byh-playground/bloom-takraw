@@ -45,3 +45,29 @@ test('롤백 경로: 중간 저장→복원은 같은 게임이든 새 게임이
   game.load(snapshot); expect(step(game, 151, 450)).toBe(continued);
   const other = make(); other.load(snapshot); expect(step(other, 151, 450)).toBe(continued);
 });
+
+test('시작 틱: 호스트가 넘기는 tick이 0이든 1이든 임의의 값이든 같은 시드는 같은 경기다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE 필요');
+  const RAPIER = await loadRapier();
+  // 게임킷 세션은 틱 0부터, 시뮬레이션 도구는 틱 1부터 step을 부른다. AI 갱신 주기가 frame.tick에 묶이면 위상이 달라져 다른 경기가 된다.
+  const play = (seed, firstTick) => {
+    const game = new TakrawGame({ RAPIER, config: structuredClone(TAKRAW_CONFIG) });
+    game.reset('ai', undefined, seed);
+    const trace = [];
+    for (let step = 1; step <= 1200 && !game.state.score[0] && !game.state.score[1]; step++) {
+      game.step({ tick: firstTick + step - 1, tickRate: 60, inputs: [] });
+      for (const event of game.events) if (['touch', 'point', 'serve'].includes(event.type)) trace.push(`${step}:${event.type}:${event.team ?? ''}`);
+    }
+    const spikes = game.metrics.spikes;
+    game.dispose();
+    return { trace: trace.join(' '), spikes };
+  };
+  for (const seed of [1013, 36, 19]) {
+    const base = play(seed, 1);
+    for (const firstTick of [0, 2, 37]) expect(play(seed, firstTick), `시드 ${seed} 시작 틱 ${firstTick}`).toEqual(base);
+  }
+  // 브라우저 관전(?watch=1013)이 노드와 달라 사용자가 "스파이크 한 번 못하고 끝난다"고 본 시드: 첫 점은 틱 831에 팀 0, 스파이크 5번이다.
+  const watched = play(1013, 0);
+  expect(watched.trace).toContain('831:point:0');
+  expect(watched.spikes).toBe(5);
+});

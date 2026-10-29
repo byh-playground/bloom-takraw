@@ -36,7 +36,8 @@ class TakrawGame {
     this.timingJudge = new TakrawTimingJudge(config.timing);
     this.aiBrain = new AiBrain();
     this.formation = new AiFormation(config.ai.fill, { speed: this.physics.settings.movementSpeed, court: config.court });
-    this.fillStance = [null, null]; // 사람이 있는 팀의 동료 대기 자리(AI 판단 한 번 동안만 쓰는 임시 값, 저장하지 않는다)
+    this.fillStance = [null, null];
+    this.humanTeams = [false, false]; // 이번 틱에 사람 입력이 있는 팀(매 틱 입력에서 다시 정해져 저장하지 않는다)
     this.temperaments = { key: '', list: [] };
     this.temperamentProfiles = [null, null];
     this.revision = 0;
@@ -193,6 +194,11 @@ class TakrawGame {
       return;
     }
     if (this.mode === 'match' || this.mode === 'training') humans[1] = null;
+    const humanTeams = [!!humans[0], !!humans[1]];
+    const changed = humanTeams[0] !== this.humanTeams[0] || humanTeams[1] !== this.humanTeams[1];
+    this.humanTeams = humanTeams;
+    // 사람이 처음 들어온 순간 서브 전 배치를 다시 한다(첫 서브가 사람 팀일 때 공격수를 서브 자리에 세운다).
+    if (changed && this.state.phase === 'ready' && this.state.rally === 0) this.placeServe();
     for (let team = 0; team < 2; team++) humans[team] = this.assistReceive(team, humans[team]);
 
     // Claim/release is an input edge. Re-evaluate that change immediately,
@@ -325,10 +331,7 @@ class TakrawGame {
       Object.assign(training, { setAt: null, jumpAt: null, kickAt: null, jumpOffset: null, kickOffset: null,
         entry: null, motionId: null, contact: null, result: null, setApex: 0 });
     }
-    this.physics.resetPlayers();
-    const server = this.physics.players[this.state.serving * 3];
-    const pos = server.root.translation();
-    this.physics.resetBall({ x: pos.x, y: 0.2, z: pos.z }, { x: 0, y: 0, z: 0 });
+    this.placeServe();
     for (const ai of this.ai) Object.assign(ai, { x: 0, z: 0, active: false, kickFrom: 0, kickUntil: 0, jumpUntil: 0, cooldown: 0, previousJump: false, previousKick: false, attack: null, receive: null, brain: AiBrain.blankRecord() });
     this.aiDirty = true;
     this.revision++;
@@ -354,17 +357,30 @@ class TakrawGame {
         this.state.lastMessage = '세터가 높게 올립니다. 바닥 발자국에서 준비하세요.';
       }
     } else {
-      const server = this.physics.players[this.state.serving * 3];
+      const server = this.physics.players[this.serverId(this.state.serving)];
       const p = server.root.translation();
       const n = this.state.serving === 0 ? 1 : -1;
       // 서브의 동료 toss만 초기 속도를 지정한다. 실제 서브 킥은 같은 발 물리로 수행한다.
       const v = this.config.ai.serve, jitter = salt => (seededUnit(this.state.seed, this.state.rally, salt) * 2 - 1);
-      this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
+      if (this.humanServes(this.state.serving)) {
+        this.feedServe(p, n);
+        this.state.lastMessage = '서브 · 공이 올라갑니다. 점프를 짧게 누르고 바로 차세요. 서브 뒤에는 자기 자리로 돌아가세요.';
+      } else this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
         { x: 0, y: 1.5 + jitter(4) * v.rise, z: 0 });
-      this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
+      if (!this.humanServes(this.state.serving)) this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
     }
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
     this.revision++;
+  }
+
+  /**
+   * 사람이 하는 서브의 공 올리기: 서버 앞 offset(m)에서 바로 위로 꼭짓점 apex(m)까지 올린다. 꼭짓점이 낮은 공격 구간(ai.toss.lowAttack)으로 내려오므로
+   * 서버는 제자리에서 낮은 공격과 같은 점프·발차기 안내(짧은 점프 → 발차기)로 서브한다.
+   */
+  feedServe(server, n) {
+    const { toss } = this.config.ai.serve, gravity = Math.abs(this.physics.settings.gravity);
+    this.physics.resetBall({ x: server.x + n * toss.offset, y: toss.height, z: server.z - n * 0.10 },
+      { x: 0, y: Math.sqrt(2 * gravity * (toss.apex - toss.height)), z: 0 });
   }
 
   /**
@@ -508,6 +524,27 @@ class TakrawGame {
     this.emit({ type: 'point', team: winner, position: { ...this.physics.ball.translation() }, reason });
   }
 
+  /** 이번 서브를 사람이 하는가(서브 첫 타격 전). 이때 서브 공은 서버가 받아 차는 공이라 사람 발차기가 받기 동작으로 이어진다. */
+  humanServes(team) { return this.humanTeams[team] && this.mode !== 'training' && this.state.serving === team && this.state.lastTouch < 0; }
+
+  /** 서브하는 선수. 사람이 있는 팀은 사람이 조작하는 공격수가 뒤에서 서브하고, 사람이 없는 팀은 첫 번째 선수가 서브한다. */
+  serverId(team) { return this.humanTeams[team] && this.mode !== 'training' ? this.state.selected[team] : team * 3; }
+
+  /** 서브 시작 자리: 사람이 서브하면 공격수가 자기 코트 뒤쪽 서브 자리(ai.serve.spot, 팀 방향 좌표)에서 시작한다. */
+  serveStarts() {
+    const team = this.state.serving, id = this.serverId(team);
+    if (id === team * 3 || this.mode === 'training') return null;
+    const n = this.physics.players[id].toward, spot = this.config.ai.serve.spot;
+    return { [id]: { x: spot.x * n, z: spot.z * n } };
+  }
+
+  /** 서브 직전 배치: 선수를 시작 자리에 세우고 공을 서버 발밑에 둔다. */
+  placeServe() {
+    this.physics.resetPlayers(this.serveStarts());
+    const pos = this.physics.players[this.serverId(this.state.serving)].root.translation();
+    this.physics.resetBall({ x: pos.x, y: 0.2, z: pos.z }, { x: 0, y: 0, z: 0 });
+  }
+
   receptionDistance(player, intercept) {
     const p = player.root.translation();
     return Math.hypot(p.x - intercept.x, p.z - intercept.z) +
@@ -521,7 +558,7 @@ class TakrawGame {
     // reachable lower slide contact. The physical planner verifies that path.
     if ((!intercept.reachable && this.physics.ball.translation().y >= this.config.ai.receiveHeight) ||
         intercept.x * toward >= -0.15) return false;
-    if (this.state.lastTouch < 0) return this.state.serving !== team;
+    if (this.state.lastTouch < 0) return this.state.serving !== team || this.humanServes(team);
     if (this.state.possession !== team) return true;
     if (this.state.touches >= this.config.rules.contacts) return false;
     const pass = this.state.toss?.team === team ? this.state.toss : null;
@@ -1051,7 +1088,7 @@ class TakrawGame {
       const contactLead = recorded?.contactLead ?? aerial.contactLead;
       const jumpHold = recorded?.jumpHold ?? (shortJump ? 1 / this.config.simulation.tickRate : this.config.ai.jumpHold);
       const kickDelay = this.getAttackKickDelay(aerial);
-      if (this.mode !== 'training' && (this.state.possession !== team || this.state.touches < 1 ||
+      if (this.mode !== 'training' && !this.humanServes(team) && (this.state.possession !== team || this.state.touches < 1 ||
           (this.state.toss?.team === team && this.state.toss.to !== player.id))) return null;
       const plan = player.jump.active ? player.kick.airPlan : null;
       const tracking = plan?.contact?.impact && plan.phase !== 'follow' && Number.isFinite(plan.remaining);
@@ -1126,7 +1163,7 @@ class TakrawGame {
       }
       const human = humans[team];
       this.fillStance[team] = this.mode === 'training' ? null : this.fillTargets(team, human);
-      const available = this.physics.players.filter(player => player.team === team && (!human || this.state.selected[team] !== player.id) && (this.mode !== 'training' || player.id === 1));
+      const available = this.physics.players.filter(player => player.team === team && (!human || this.state.selected[team] !== player.id) && (this.mode !== 'training' || player.id === 1) && !this.humanServes(team));
       for (let id = team * 3; id < team * 3 + 3; id++) this.ai[id].active = false;
       const pass = this.state.toss?.team === team ? this.state.toss : null;
       const recipient = pass ? this.physics.players[pass.to] : null;

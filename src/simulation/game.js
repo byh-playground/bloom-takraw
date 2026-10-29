@@ -672,11 +672,27 @@ class TakrawGame {
     const ally = candidates[0], p = ally.root.translation(), n = player.toward;
     const preferredAlly = candidates.find(candidate => candidate.role === preferred);
     const condition = recoveringAttacker(ally) ? 'recovering_attacker' : ally.role === preferred || !preferredAlly ? null : /fall|recover|down/i.test(preferredAlly.state) ? 'recovering' : 'distance';
+    const spread = ally.role === 'attacker' ? this.tossSpread(player) : { x: 0, z: 0 };
     return { kind: 'toss', reason: condition && condition !== 'recovering_attacker' ? 'cover' : ally.role === 'attacker' ? 'set' : 'receive',
       condition, from: player.id, target: { playerId: ally.id,
-      x: n * Math.max(-this.config.court.halfLength + 0.5, Math.min(-0.95, p.x * n + this.tuned(player.team, 'aimDx', this.config.ai.toss.aim.dx))),
-      z: Math.max(-2.55, Math.min(2.55, p.z - n * 0.10 + this.tuned(player.team, 'aimDz', this.config.ai.toss.aim.dz))),
+      x: n * Math.max(-this.config.court.halfLength + 0.5, Math.min(-0.95, p.x * n + this.tuned(player.team, 'aimDx', this.config.ai.toss.aim.dx) + spread.x)),
+      z: Math.max(-2.55, Math.min(2.55, p.z - n * 0.10 + this.tuned(player.team, 'aimDz', this.config.ai.toss.aim.dz) + spread.z)),
     } };
+  }
+
+  /**
+   * 세트 목표점의 흩어짐: 공격수 기준점 둘레의 원 안에서 점 하나를 고른다. 반지름은 세터의 토스(setting) 능력치가 높을수록 작다
+   * (ai.toss.spread.radius = [능력 기본값일 때, 능력 최대일 때] m). 같은 시드·랠리·터치 수·세터면 같은 점이라 피어끼리 일치하고,
+   * 한 번의 토스 동안 AI 판단을 다시 해도 목표가 바뀌지 않는다. 연습 모드는 같은 상황의 반복을 위해 흩어지지 않는다.
+   */
+  tossSpread(setter) {
+    const spread = this.config.ai.toss.spread;
+    if (!spread || this.mode === 'training') return { x: 0, z: 0 };
+    const bonus = this.config.athletes.bonus.setting, ratio = bonus > 0 ? Math.min(1, Math.max(0, (setter.effects?.setting ?? 0) / bonus)) : 0;
+    const radius = spread.radius[0] + (spread.radius[1] - spread.radius[0]) * ratio;
+    const key = [this.state.seed, this.state.rally, this.state.touches, setter.id];
+    const distance = radius * Math.sqrt(seededUnit(...key, 1)), angle = 2 * Math.PI * seededUnit(...key, 2);
+    return { x: distance * Math.cos(angle), z: distance * Math.sin(angle) };
   }
 
   /** 팀의 학습 조정 값. 조정이 없거나 해당 이름이 없으면 기본값을 돌려준다. */

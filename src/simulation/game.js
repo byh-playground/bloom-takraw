@@ -154,6 +154,7 @@ class TakrawGame {
       x: signed(input[offset] || 0), z: signed(input[offset + 1] || 0),
       jump: !!((input[offset + 2] || 0) & 1), kick: !!((input[offset + 2] || 0) & 2),
       jumpPressed: has(1), kickPressed: has(2), restart: has(4),
+      toss: !!((input[offset + 2] || 0) & 4), tossPressed: has(8),
       trainingLesson: TAKRAW_TRAINING_LESSONS.find(lesson => has(lesson.command))?.id || null,
       trainingTempo: TAKRAW_TRAINING_TEMPOS.find(tempo => has(tempo.command))?.id || null,
     };
@@ -250,6 +251,7 @@ class TakrawGame {
         jumpPressed: h.jumpPressed, kickPressed: h.kickPressed,
       };
     }
+    this.updateServeToss(humans, dt);
     if (this.mode === 'training') this.recordTrainingInput();
     this.observeTiming(humans);
 
@@ -362,25 +364,44 @@ class TakrawGame {
       const n = this.state.serving === 0 ? 1 : -1;
       // 서브의 동료 toss만 초기 속도를 지정한다. 실제 서브 킥은 같은 발 물리로 수행한다.
       const v = this.config.ai.serve, jitter = salt => (seededUnit(this.state.seed, this.state.rally, salt) * 2 - 1);
+      this.state.serveToss = null;
       if (this.humanServes(this.state.serving)) {
-        this.feedServe(p, n);
-        this.state.lastMessage = '서브 · 공이 올라갑니다. 점프를 짧게 누르고 바로 차세요. 서브 뒤에는 자기 자리로 돌아가세요.';
+        this.state.serveToss = { stage: 'hold', charge: 0 };
+        this.holdServeBall();
+        this.state.lastMessage = '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 올라갑니다. 올린 뒤 점프·발차기로 서브하고 자기 자리로 돌아가세요.';
       } else this.physics.resetBall({ x: p.x + n * (0.95 + jitter(1) * v.depth), y: 2.1 + jitter(2) * v.height, z: p.z - n * 0.10 + jitter(3) * v.lateral },
         { x: 0, y: 1.5 + jitter(4) * v.rise, z: 0 });
-      if (!this.humanServes(this.state.serving)) this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
+      if (!this.state.serveToss) this.state.lastMessage = '서브 · 공의 위치를 확인하세요.';
     }
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
     this.revision++;
   }
 
+  /** 공 던지기 전: 공을 서버 앞 손 높이에 가만히 둔다(서버가 움직이면 따라간다). */
+  holdServeBall() {
+    const { toss } = this.config.ai.serve, p = this.physics.players[this.serverId(this.state.serving)].root.translation(), n = this.state.serving === 0 ? 1 : -1;
+    this.physics.resetBall({ x: p.x + n * toss.offset, y: toss.height, z: p.z - n * 0.10 }, { x: 0, y: 0, z: 0 });
+  }
+
   /**
-   * 사람이 하는 서브의 공 올리기: 서버 앞 offset(m)에서 바로 위로 꼭짓점 apex(m)까지 올린다. 꼭짓점이 낮은 공격 구간(ai.toss.lowAttack)으로 내려오므로
-   * 서버는 제자리에서 낮은 공격과 같은 점프·발차기 안내(짧은 점프 → 발차기)로 서브한다.
+   * 사람 서브의 공 던지기: 던지기 키를 누르는 동안 힘을 모으고(charge), 떼는 순간 공을 위로 던진다.
+   * 꼭짓점(위)과 앞쪽 속도는 짧게 누르면 minApex·minForward, fullCharge초 이상 누르면 maxApex·maxForward이고 그 사이는 선형이다(짧게는 바로 발로 차고, 길게는 앞으로 달려가 점프해서 찬다). 던진 뒤 공은 일반 물리로 움직인다.
+   * 상태는 state.serveToss(저장됨)에만 있어 롤백해도 같다.
    */
-  feedServe(server, n) {
-    const { toss } = this.config.ai.serve, gravity = Math.abs(this.physics.settings.gravity);
-    this.physics.resetBall({ x: server.x + n * toss.offset, y: toss.height, z: server.z - n * 0.10 },
-      { x: 0, y: Math.sqrt(2 * gravity * (toss.apex - toss.height)), z: 0 });
+  updateServeToss(humans, dt) {
+    const toss = this.state.serveToss;
+    if (!toss || toss.stage === 'thrown' || this.state.phase !== 'rally' || this.state.lastTouch >= 0) return;
+    const human = humans[this.state.serving], cfg = this.config.ai.serve.toss;
+    const held = !!human?.toss, pressed = !!human?.tossPressed;
+    if (held || pressed) { toss.charging = true; toss.charge += dt; }
+    const idle = this.state.time - this.rallyStart > cfg.maxHold;
+    if (!(toss.charging && !held) && !idle) { this.holdServeBall(); return; }
+    const ratio = Math.min(1, toss.charge / cfg.fullCharge), apex = cfg.minApex + (cfg.maxApex - cfg.minApex) * ratio;
+    const gravity = Math.abs(this.physics.settings.gravity), p = this.physics.ball.translation();
+    const forward = cfg.minForward + (cfg.maxForward - cfg.minForward) * ratio, n = this.state.serving === 0 ? 1 : -1;
+    this.physics.resetBall(p, { x: n * forward, y: Math.sqrt(2 * gravity * (apex - p.y)), z: 0 });
+    toss.stage = 'thrown'; toss.apex = apex;
+    this.state.lastMessage = '서브 · 공이 올라갑니다. 점프와 발차기로 차세요.';
   }
 
   /**
@@ -447,7 +468,8 @@ class TakrawGame {
       if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
       const target = this.inputs[event.playerId]?.tossTarget;
       const set = target && /^(foot|lowerLeg)/.test(event.part || '') && this.physics.players[event.playerId].kick.mode === 'ground' && !spike;
-      if (set && target.playerId % 3 === 2) this.physics.assistSet(this.physics.players[event.playerId], event.position, target);
+      if (set && target.playerId === -1) this.physics.assistServe(this.physics.players[event.playerId], event.position, target);
+      else if (set && target.playerId % 3 === 2) this.physics.assistSet(this.physics.players[event.playerId], event.position, target);
       const intent = this.inputs[event.playerId]?.intent;
       this.state.play = { team: event.team, from: event.playerId, to: target?.playerId ?? null,
         kind: spike ? 'attack' : intent?.kind || 'receive', reason: spike ? 'spike' : intent?.reason || 'contact',
@@ -689,7 +711,11 @@ class TakrawGame {
     if (this.state.phase !== 'rally') return null;
     // A serve and the last legal team contact must clear the net. Every other
     // grounded kick builds the team's attack, including a human reception.
-    if (this.mode !== 'training' && this.state.lastTouch < 0 && this.state.serving === player.team) return { kind: 'return', reason: 'serve', from: player.id, target: null };
+    if (this.mode !== 'training' && this.state.lastTouch < 0 && this.state.serving === player.team) {
+      // 사람의 지상 서브 발차기는 상대 코트 뒤쪽 한가운데를 향해 네트를 넘는 공을 만든다(공중 발차기는 기존 그대로 앞으로 내리찍는다).
+      const target = this.humanServes(player.team) ? { x: player.toward * this.config.ai.serve.groundAim.x, z: 0, playerId: -1 } : null;
+      return { kind: 'return', reason: 'serve', from: player.id, target };
+    }
     if (this.state.possession === player.team && this.state.touches >= this.config.rules.contacts - 1) return { kind: 'return', reason: 'last_touch', from: player.id, target: null };
     // The designated attacker prepares a high foot for the incoming set. This
     // is the same final-attack intent for either team and either input owner.
@@ -1296,6 +1322,7 @@ class TakrawGame {
         receive: player.receive ? { mode: player.receive.mode, phase: player.receive.phase } : null,
         motionId: player.kick.airPlan?.motion?.id || null,
         kickHeld: !!this.inputs[player.id]?.kick, jumpHeld: !!this.inputs[player.id]?.jump,
+        tossReady: this.state.serveToss?.stage === 'hold' && player.id === this.state.selected[this.state.serving], tossCharge: player.id === this.state.selected[this.state.serving] ? (this.state.serveToss?.stage === 'hold' ? this.state.serveToss.charge : 0) : 0,
       })),
     };
   }

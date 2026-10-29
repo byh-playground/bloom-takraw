@@ -640,3 +640,6 @@ body .end-actions strong{font-size:24px}#school-result{font-weight:800}
   body .campaign-card p{line-height:1.5;overflow-wrap:anywhere}
   body .dialog-content{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 }
+
+body .touch-actions .touch-toss{width:68px;height:68px;background:#f2e7c0e6}
+.touch-toss[hidden],#toss-light[hidden]{display:none}

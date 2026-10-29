@@ -14,23 +14,33 @@ for (let k = 0; k < TRIALS; k++) {
   try {
     game.reset('match', undefined, 4000 + k);
     game.state.serving = 0;
-    let tick = 1, hold = 0, touched = null, crossed = false, ended = null, serveStart = null;
+    let tick = 1, hold = 0, tossTicks = 0, tossPressed = false, touched = null, crossed = false, ended = null, serveStart = null;
     for (; tick < 60 * 30; tick++) {
       const st = game.state, phys = game.physics, me = phys.players[st.selected[0]];
       let ix = 0, iz = 0, kick = false, kickPressed = false;
       let jump = false, jumpPressed = false;
+      const ground = process.env.GROUND === '1';
+      let toss = false; tossPressed = false;
       if (st.phase === 'rally') {
         serveStart ??= st.time;
+        if (st.serveToss?.stage === 'hold') { toss = tossTicks < Number(process.env.TOSS_HOLD || 0); tossPressed = tossTicks === 0; tossTicks++; }
         const guide = game.getAttackGuides()[0], p = me.root.translation();
-        if (guide && me.grounded && !touched) {
+        const by = phys.ball.translation().y, bvy = phys.ball.linvel().y;
+        if (process.env.RUN && st.serveToss?.stage === 'thrown' && !touched) {
+          const bp = phys.ball.translation(), dx = bp.x - p.x - Number(process.env.LEAD || 0.2), near = Math.abs(dx) < 0.3;
+          ix = near ? 0 : Math.sign(dx); iz = Math.max(-1, Math.min(1, (bp.z - p.z) * 3));
+          if (me.grounded && bvy < 0 && by < Number(process.env.JUMPY || 2.4) && Math.abs(bp.x - p.x) < 0.9) { jumpPressed = jump = true; hold = 1; }
+        } else if (process.env.JUMPY) { if (st.serveToss?.stage === 'thrown' && !touched && me.grounded && bvy < 0 && by < Number(process.env.JUMPY)) { jumpPressed = jump = true; hold = 1; } }
+        else if (ground) { if (st.serveToss?.stage === 'thrown' && !touched) { kick = true; kickPressed = !game.inputs[me.id]?.kick; } }
+        if (!process.env.RUN && !process.env.JUMPY && !ground && guide && me.grounded && !touched) {
           const dx = guide.stance.x - p.x, dz = guide.stance.z - p.z, d = Math.hypot(dx, dz);
           if (!guide.inPosition || d > 0.15) { ix = dx / (d || 1); iz = dz / (d || 1); if (d < 0.5) { ix *= d / 0.5; iz *= d / 0.5; } }
           if (guide.jumpWindow) { jumpPressed = jump = true; hold = 1; }
         }
-        if (hold > 0 && !jumpPressed) { jump = !me.grounded; hold--; }
-        if (me.jump.active && me.jump.time >= TAKRAW_CONFIG.ai.toss.lowAttack.kickDelay) { kick = true; kickPressed = !game.inputs[me.id]?.kick; }
+        if (!ground && hold > 0 && !jumpPressed) { jump = !me.grounded; hold--; }
+        if (!ground && me.jump.active && me.jump.time >= Number(process.env.KD || TAKRAW_CONFIG.ai.toss.lowAttack.kickDelay)) { kick = true; kickPressed = !game.inputs[me.id]?.kick; }
       }
-      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [byte(ix), byte(iz), (jump ? 1 : 0) | (kick ? 2 : 0)], commands: [...(jumpPressed ? [{ payload: [1] }] : []), ...(kickPressed ? [{ payload: [2] }] : [])] }] });
+      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [byte(ix), byte(iz), (jump ? 1 : 0) | (kick ? 2 : 0) | (toss ? 4 : 0)], commands: [...(tossPressed ? [{ payload: [8] }] : []), ...(jumpPressed ? [{ payload: [1] }] : []), ...(kickPressed ? [{ payload: [2] }] : [])] }] });
       for (const e of game.events || []) {
         if (e.type === 'touch' && e.playerId === st.selected[0] && !touched) touched = { part: e.part, t: +(st.time - serveStart).toFixed(2), x: +e.position.x.toFixed(2), z: +e.position.z.toFixed(2) };
       }

@@ -88,15 +88,6 @@ const TAKRAW_RUNTIME = Object.freeze({
     duration: 430, badge: 900, retentionTicks: 180, soundReferenceSpeed: 14,
     soundPanSpread: 0.7, soundDetuneCents: 150, soundDistanceDrop: 0.35,
   },
-  // 관중 환경음: 경기 중 계속 깔리고 득점·스파이크에 순간적으로 커진다. 일시정지·소개영상에서는 낮춘다.
-  crowd: {
-    level: 1, pausedLevel: 0.25, fadeMs: 800, stopFadeMs: 500, levelRampMs: 300,
-    swell: {
-      point: { boost: 1, attackMs: 120, releaseMs: 1100 },
-      matchPoint: { boost: 1.6, attackMs: 150, releaseMs: 1600 },
-      spike: { boost: 0.3, attackMs: 40, releaseMs: 500 },
-    },
-  },
   hud: { interval: 80 },
   audio: {
     storageKey: 'bloom-takraw-audio',
@@ -108,10 +99,7 @@ const TAKRAW_RUNTIME = Object.freeze({
     categories: {
       impact: { volume: 0.9, max: 5, gapMs: 30, priority: 2 },
       signal: { volume: 0.8, max: 2, gapMs: 100, priority: 5 },
-      ambience: { volume: 0.8, max: 1, gapMs: 0, priority: 0 },
     },
-    // 환경음 노이즈 루프가 반복으로 들리지 않게 길게 둔다(4초).
-    synthesis: { noiseMs: 4000 },
     sounds: {
       ...KICK_SOUNDS,
       // 발이 아닌 몸(정강이·허벅지·골반·몸통·머리)에 맞은 소리: 둔탁하고 밝은 "탁"이 없다. 낮은 쿵만 있으면 작은 스피커에서 안 들려 중음 몸통을 둔다.
@@ -174,22 +162,6 @@ const TAKRAW_RUNTIME = Object.freeze({
           ...POINT_LAYERS,
           { kind: 'tone', hz: 988, end: 1175, ms: 120, gain: 0.6, type: 'sine', delay: 260 },
           { kind: 'tone', hz: 1319, end: 1319, ms: 150, gain: 0.5, type: 'sine', delay: 390 },
-        ],
-      },
-    },
-    // 관중 환경음: 바람이 아니라 웅성거림이 되도록 밴드패스 여섯 겹을 서로 다른 지점에서 읽고(offsetMs) 좌우에 펼친다(pan).
-    // 느린 흔들림(0.2~0.3Hz)은 군중의 크기 변화, 음절 흔들림(4~8Hz)은 말소리의 결이다. 아래쪽 두 겹은 낮은 웅성거림, 가운데 두 겹은 말소리 대역,
-    // 위쪽 두 겹은 박수·치찰 결이다. 1Hz 미만의 흔들림만 있으면 파도·바람 소리가 된다.
-    beds: {
-      crowd: {
-        category: 'ambience',
-        layers: [
-          { kind: 'noise', type: 'bandpass', hz: 420, q: 0.8, gain: 0.44, pan: -0.65, offsetMs: 0, lfos: [{ hz: 0.19, depth: 0.2 }, { hz: 3.7, depth: 0.5 }] },
-          { kind: 'noise', type: 'bandpass', hz: 480, q: 0.8, gain: 0.44, pan: 0.65, offsetMs: 1900, lfos: [{ hz: 0.27, depth: 0.2 }, { hz: 4.6, depth: 0.5 }] },
-          { kind: 'noise', type: 'bandpass', hz: 1150, q: 1.1, gain: 0.19, pan: -0.35, offsetMs: 900, lfos: [{ hz: 0.33, depth: 0.2 }, { hz: 5.3, depth: 0.55 }] },
-          { kind: 'noise', type: 'bandpass', hz: 1500, q: 1.1, gain: 0.19, pan: 0.35, offsetMs: 2700, lfos: [{ hz: 0.23, depth: 0.2 }, { hz: 6.4, depth: 0.55 }] },
-          { kind: 'noise', type: 'bandpass', hz: 2700, q: 1.3, gain: 0.045, pan: -0.8, offsetMs: 3300, lfos: [{ hz: 7.3, depth: 0.6 }] },
-          { kind: 'noise', type: 'bandpass', hz: 3100, q: 1.3, gain: 0.045, pan: 0.8, offsetMs: 1300, lfos: [{ hz: 8.1, depth: 0.6 }] },
         ],
       },
     },

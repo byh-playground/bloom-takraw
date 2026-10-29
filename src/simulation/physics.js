@@ -27,6 +27,7 @@ class TakrawPhysics {
     this.settings.groundToss = Object.assign({
       contactHeight: 0.75, minPlanTime: 0.08, maxPlanTime: 0.45,
       receiveApex: 3.2, attackHeight: 3.3, attackApex: 4.2,
+      attackAssist: true,
       forefoot: 0.08,
       strokeTime: 0.12, strokeFraction: 0.6, followThrough: 0.08,
       positionGain: 1200, velocityGain: 50, accelerationMass: 4.0,
@@ -1712,6 +1713,20 @@ class TakrawPhysics {
     const clearance = this.settings.netHeight + this.settings.ballRadius + s.netClearance;
     const up = (clearance - position.y) / flight + 0.5 * this.settings.gravity * flight;
     return { x: p.toward * forward, y: Math.max(0.5, up), z: incoming.z * 0.3 };
+  }
+
+  /**
+   * 공격수에게 보내는 세트: 세터 발이 공을 맞힌 직후 공 속도를, 꼭짓점 attackApex를 지나 attackHeight로 내려올 때 목표 (x, z)에 닿는 포물선으로 맞춘다.
+   * 발 접촉만으로는 같은 계획에서도 세트 수직 속도가 6~11 m/s로 흔들려 공이 목표에서 1~4 m 벗어났다(공격수가 서 있는 곳이 아니라 한쪽으로 쏠림).
+   * 접촉 위치와 목표만으로 정해지는 값이라 저장할 상태가 없다. 발이 이미 공을 맞힌 뒤의 보정이므로 접촉·터치 판정은 그대로다.
+   */
+  assistSet(p, position, target) {
+    const toss = this.tossFor(p), g = this.settings.gravity;
+    if (!toss.attackAssist) return false;
+    const up = Math.sqrt(2 * g * Math.max(0.4, toss.attackApex - position.y));
+    const flight = (up + Math.sqrt(Math.max(0, up * up + 2 * g * (position.y - toss.attackHeight)))) / g;
+    this.ball.setLinvel({ x: (target.x - position.x) / flight, y: up, z: (target.z - position.z) / flight }, true);
+    return true;
   }
 
   getEntities() {

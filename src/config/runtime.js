@@ -88,6 +88,17 @@ const TAKRAW_RUNTIME = Object.freeze({
     duration: 430, badge: 900, retentionTicks: 180, soundReferenceSpeed: 14,
     soundPanSpread: 0.7, soundDetuneCents: 150, soundDistanceDrop: 0.35,
   },
+  // 배경 음악: 경기가 열려 있는 동안 작게 깔린다(홈에서는 켜지 않는다). 곡은 효과음 아래에 머물도록 작게 두고(level),
+  // 타격 순간에는 잠깐 더 낮춰(duck) 타격음이 곡의 멜로디(200~400Hz)에 묻히지 않게 한다. 득점 소리는 더 깊고 길게 비운다.
+  // 곡은 CC0 "Head in the Sand"(assets/audio/CREDITS.md). 불러오지 못하면 음악만 없고 게임은 그대로 돌아간다.
+  bgm: {
+    url: new URL('../../assets/audio/head-in-the-sand.ogg', import.meta.url).href,
+    level: 0.7, pausedLevel: 0.35, fadeMs: 1500, stopFadeMs: 600, levelRampMs: 300,
+    duck: {
+      touch: { depth: 0.55, holdMs: 90, releaseMs: 260 },
+      point: { depth: 0.35, holdMs: 500, releaseMs: 700 },
+    },
+  },
   hud: { interval: 80 },
   audio: {
     storageKey: 'bloom-takraw-audio',
@@ -99,6 +110,7 @@ const TAKRAW_RUNTIME = Object.freeze({
     categories: {
       impact: { volume: 0.9, max: 5, gapMs: 30, priority: 2 },
       signal: { volume: 0.8, max: 2, gapMs: 100, priority: 5 },
+      music: { volume: 1, max: 1, gapMs: 0, priority: 0 },
     },
     sounds: {
       ...KICK_SOUNDS,
@@ -164,6 +176,10 @@ const TAKRAW_RUNTIME = Object.freeze({
           { kind: 'tone', hz: 1319, end: 1319, ms: 150, gain: 0.5, type: 'sine', delay: 390 },
         ],
       },
+    },
+    // 음원 베드: 게임이 읽어 디코드한 곡을 setBuffer('bgm')로 등록하면 루프로 깔린다.
+    beds: {
+      bgm: { category: 'music', layers: [{ kind: 'buffer', bufferId: 'bgm', gain: 1 }] },
     },
   },
 });

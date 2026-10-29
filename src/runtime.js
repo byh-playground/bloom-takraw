@@ -59,6 +59,7 @@ async function bootTakraw() {
   let actions;
   let device;
   let audio;
+  let bgm = null, bgmBuffer = false, bgmLoading = false, bgmDuckTimer = 0;
   let codec;
   let session = null;
   let room = null;
@@ -249,6 +250,55 @@ async function bootTakraw() {
   function localTeam() {
     if (!session || mode !== 'online') return 0;
     return game.teamById?.[session.localPlayerId] ?? 0;
+  }
+
+  /** 배경 음악 크기: 경기 중 level, 일시정지·소개영상 중에는 낮게. */
+  function bgmLevel() {
+    return paused ? TAKRAW_RUNTIME.bgm.pausedLevel : TAKRAW_RUNTIME.bgm.level;
+  }
+
+  /** 곡 파일을 한 번만 읽어 디코드하고 모듈에 등록한다. 실패해도 음악만 빠질 뿐 게임은 계속된다. */
+  async function loadBgm() {
+    if (bgmBuffer || bgmLoading) return;
+    bgmLoading = true;
+    try {
+      const response = await fetch(TAKRAW_RUNTIME.bgm.url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const decoded = await audio.context.decodeAudioData(await response.arrayBuffer());
+      if (disposed) return;
+      audio.setBuffer('bgm', decoded);
+      bgmBuffer = true;
+    } catch (error) { recordError(error, 'bgm-load'); }
+    finally { bgmLoading = false; }
+  }
+
+  function startBgm() {
+    if (!bgm && bgmBuffer && mode && !disposed) bgm = audio.startBed('bgm', { level: bgmLevel(), fadeMs: TAKRAW_RUNTIME.bgm.fadeMs });
+  }
+
+  /** 오디오 잠금을 풀고, 경기 중이면 배경 음악을 켠다(이미 켜져 있으면 그대로). 첫 제스처 전에는 켜지지 않고 다음 제스처에서 켠다. */
+  function unlockAudio() {
+    return audio.unlock().then(ok => {
+      if (!ok) return ok;
+      if (bgmBuffer) startBgm();
+      else loadBgm().then(startBgm);
+      return ok;
+    });
+  }
+
+  function stopBgm() {
+    clearTimeout(bgmDuckTimer);
+    bgm?.stop(TAKRAW_RUNTIME.bgm.stopFadeMs);
+    bgm = null;
+  }
+
+  /** 타격·득점 순간에 음악을 잠깐 낮춰 효과음이 묻히지 않게 한다(kind는 TAKRAW_RUNTIME.bgm.duck의 키). */
+  function duckBgm(kind) {
+    if (!bgm) return;
+    const { depth, holdMs, releaseMs } = TAKRAW_RUNTIME.bgm.duck[kind];
+    bgm.setLevel(bgmLevel() * depth, 15);
+    clearTimeout(bgmDuckTimer);
+    bgmDuckTimer = setTimeout(() => bgm?.setLevel(bgmLevel(), releaseMs), holdMs);
   }
 
   function controlsAllowed() {
@@ -452,6 +502,7 @@ async function bootTakraw() {
         contact: {
           reversible: true,
           start(event) {
+            duckBgm('touch');
             return { impact: view.impacts.start(event.payload), badge: showBadge(event.payload), badgeKey: badgeKey(event.payload.timing), pop: showHitPop(event.payload) };
           },
           update(handle, ageMs) { view.impacts.update(handle.impact, ageMs); },
@@ -483,6 +534,7 @@ async function bootTakraw() {
           reversible: false,
           start(event) {
             view.startCheer(performance.now());
+            duckBgm('point');
             if (mode === 'match' && event.payload.winningSpike && !view.reducedMotion()) view.scoreMotion.start(performance.now());
             return { node: view.field.startConfetti(event.payload) };
           },
@@ -753,6 +805,7 @@ async function bootTakraw() {
     const opponent = opponents.find(school => school.id === campaignSchoolId) || opponents[opponents.length - 1];
     view.setSchools(watching ? takrawWatchSchools(watchSeed) : [home, nextMode === 'match' ? opponent : opponents[0]]);
     paused = false;
+    bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
     clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false, schoolId: campaignSchoolId } : null;
     clubSession.reward = null;
@@ -898,6 +951,7 @@ async function bootTakraw() {
       setNetwork({ state: 'idle', code: '', message: '', count: 0 });
     }
     hudTime = -Infinity;
+    unlockAudio();
   }
 
   /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */
@@ -922,7 +976,7 @@ async function bootTakraw() {
 
   function startLocal(nextMode) {
     if (!canStart(nextMode)) { publishClub(); return; }
-    audio.unlock();
+    unlockAudio();
     observeMatchResult();
     stopSession();
     try { openSession(nextMode, null, run); }
@@ -956,7 +1010,7 @@ async function bootTakraw() {
       networkEvent('preflight-failed', `secure=${window.isSecureContext} crypto=${!!globalThis.crypto?.subtle} rtc=${typeof globalThis.RTCPeerConnection}`);
       return;
     }
-    audio.unlock();
+    unlockAudio();
     stopSession({ preserveResume: resuming });
     const token = run;
     connection.abort = new AbortController();
@@ -1039,6 +1093,7 @@ async function bootTakraw() {
     if (!isReady() || disposed) return;
     observeMatchResult();
     stopSession();
+    stopBgm();
     clubSession.team = null; clubSession.match = null; clubSession.reward = null;
     campaignSchoolId = null;
     game.setTeams(null, null);
@@ -1064,6 +1119,7 @@ async function bootTakraw() {
         pump?.wake();
       }
     }
+    bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
   }
 
   const runtime = Object.freeze({
@@ -1112,6 +1168,8 @@ async function bootTakraw() {
       club?.dispose();
       ui?.dispose();
       device?.dispose();
+      clearTimeout(bgmDuckTimer);
+      bgm = null;
       audio?.dispose();
       view?.dispose();
       game?.physics.dispose();
@@ -1166,7 +1224,7 @@ async function bootTakraw() {
       if (!actions || !['jump', 'kick'].includes(action)) return;
       if (down && !controlsAllowed()) return;
       actions.set(action, `touch:${source}`, Boolean(down));
-      if (down) audio?.unlock();
+      if (down) unlockAudio();
       observeSoon();
     },
     onAxis(x, z) {
@@ -1211,7 +1269,7 @@ async function bootTakraw() {
       pointerButtons: { 0: 'kick', 2: 'cameraOrbit' },
       touchAction: 'none',
       onPointer(event) {
-        if (event.type === 'down') audio.unlock();
+        if (event.type === 'down') unlockAudio();
         moveCamera(event);
         observeSoon();
       },

@@ -1,46 +1,46 @@
 {
   "repository": "byh-playground/bloom-gamekit",
-  "distCommit": "11a4ca8c502d769d1290539159e13f438d48308b",
-  "manifestUrl": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/manifest.json",
+  "distCommit": "3a069127b98e3a34a4c232203c0235bfa4430a49",
+  "manifestUrl": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/manifest.json",
   "modules": {
     "input": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/input.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/input.js",
       "sha256": "a969755a39702723b35b6a1503e9b2e53a431ea91845017474c979752fdfb51f"
     },
     "simloop": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/simloop.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/simloop.js",
       "sha256": "c25a8f7f4999e4fe8beb6b08167fa4d0934c34098db2bf912335e81db53c4ef8"
     },
     "interpolation": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/interpolation.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/interpolation.js",
       "sha256": "acad7ad93615633609a62e484bff918980fc84282840db9b5cd108e8f5bb133a"
     },
     "rollback": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/rollback.js",
-      "sha256": "149b497c3485083e34ec1d8a0a092abc0cfaccc983b403dabc5be5eb1010f66f"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/rollback.js",
+      "sha256": "9bee8f7e74afbe15720b268853ba960ef3253e71c52a432f315f4e9259212fe7"
     },
     "transport": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/transport.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/transport.js",
       "sha256": "cb509226a9644e86857f12e137943bf0cc04c5f4bace4dbdf4137efa6240fc3a"
     },
     "audio": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/audio.js",
-      "sha256": "ef8fbbe5cd4197003512ebcdd94625831077147d1d959c20426d86cfe29a6ef7"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/audio.js",
+      "sha256": "8b42df795ccf6ccbf8d934fba2a9b96e05d69cf1bcf4b00ed8d34f8a16745609"
     },
     "presentation-events": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/presentation-events.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/presentation-events.js",
       "sha256": "f7ef72116be78d348a6e45a5e47a23aad8d2f0be8c1401c69b9dea7e51d4ea55"
     },
     "deterministic": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/deterministic.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/deterministic.js",
       "sha256": "1917d9766f1a1a2bbd4eab3bf214205979e7881c8cfb34cd1183f462a47ba62f"
     },
     "object-pool": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/object-pool.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/object-pool.js",
       "sha256": "4291d6d90f23b47024153e2d2db9e1af7f8b78586c8c0ee279621d42dc54f10b"
     },
     "scenario": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@11a4ca8c502d769d1290539159e13f438d48308b/scenario.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@3a069127b98e3a34a4c232203c0235bfa4430a49/scenario.js",
       "sha256": "b21a2be85b497588589c796f8e95f932c464474cc4ea3f703a8718e96a9946ce"
     }
   },

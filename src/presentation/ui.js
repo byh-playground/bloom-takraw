@@ -2,7 +2,7 @@ import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
-import { TAKRAW_TRAINING_LESSONS } from '../simulation/game.js';
+import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
 
 class TakrawUI {
   constructor(callbacks, network) {
@@ -75,6 +75,14 @@ class TakrawUI {
       lessonSelect.appendChild(option);
     }
     this.listen(lessonSelect, 'change', () => this.callbacks.onTrainingLesson?.(lessonSelect.value));
+    const tempoSelect = document.getElementById('training-tempo');
+    tempoSelect.replaceChildren();
+    for (const tempo of TAKRAW_TRAINING_TEMPOS) {
+      const option = document.createElement('option');
+      option.value = tempo.id; option.textContent = tempo.title;
+      tempoSelect.appendChild(option);
+    }
+    this.listen(tempoSelect, 'change', () => this.callbacks.onTrainingTempo?.(tempoSelect.value));
     click('result-home', () => this.quit());
     click('dismiss-rotate', () => document.getElementById('rotate-note').classList.add('dismissed'));
     this.listen(document.querySelector('.wordmark'), 'click', event => { event.preventDefault(); this.quit(); });
@@ -557,6 +565,7 @@ class TakrawUI {
       <h3>네 가지 발차기를 연습해요</h3>
       <p><strong>상황에 맞춰 차기:</strong> 경기처럼 공과 몸의 위치에 따라 동작을 골라요. 한 가지를 반복하려면 연습할 동작 메뉴에서 선택하세요. 조작은 모두 같은 점프와 발차기 버튼이에요.</p>
       ${TAKRAW_TRAINING_LESSONS.filter(lesson => lesson.id !== 'auto').map(lesson => `<p><strong>${lesson.title}:</strong> ${lesson.sequence}. ${lesson.detail}</p>`).join('')}
+      ${TAKRAW_TRAINING_TEMPOS.map(tempo => `<p><strong>${tempo.title}:</strong> ${tempo.detail}</p>`).join('')}
       <p>바닥 발자국에서 이동을 멈추고, 고리가 닫히면 점프하세요. 내려찍기는 먼저 좌클을 유지하고, 다른 회전킥은 점프 뒤 공중 타점의 고리에 맞춰 좌클을 유지해요. 낮은 공은 점프를 짧게, 높은 공은 길게 누르세요. 시도가 끝나면 결과를 보고 자동으로 이어지는 토스나 ‘다시 토스’로 반복하세요.</p>
       <h3>공의 높이와 거리 읽기</h3><p>카메라는 우리 팀 뒤에서 공격수와 공을 함께 보여줘요. 공 아래 바닥 링으로 앞뒤·좌우 위치를, 공까지 이어지는 점선과 눈금으로 높이를 확인하세요. 점프할 때 카메라가 몸을 따라 위로 올라가지 않아 공과 발의 높이를 비교할 수 있어요.</p>
       <p>바닥의 발자국은 점프를 준비할 위치, 공중의 작은 십자는 예상 타점이에요. 발자국 안에 자리 잡고 점프 시점이 가까워지면 둘레가 밝은 원으로 이어져요. 공이 다른 선수나 네트에 닿으면 예상 위치도 바뀌어요. 표시는 준비를 돕는 안내이며, 점프 높이와 발차기 타이밍은 직접 맞춰야 해요.</p>
@@ -757,6 +766,8 @@ class TakrawUI {
     const downward = training.lesson === 'downward';
     const lessonSelect = document.getElementById('training-lesson');
     if (lessonSelect.value !== training.lesson) lessonSelect.value = training.lesson;
+    const tempoSelect = document.getElementById('training-tempo');
+    if (tempoSelect.value !== training.tempo) tempoSelect.value = training.tempo;
     this.text('training-sequence', this.controlText(training.sequence));
     this.text('training-motion', training.motionStatus);
     this.text('training-count', `${Math.max(1, training.attempt || 0)}번째 토스`);

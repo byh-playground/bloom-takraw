@@ -22,6 +22,12 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
     detail: '몸과 다리를 함께 돌려 발등 쪽으로 차요. 높은 토스를 보고 회전할 시간을 확보하세요.' },
 ]);
 
+/** 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다. */
+const TAKRAW_TRAINING_TEMPOS = Object.freeze([
+  { id: 'high', command: 21, title: '높은 토스', detail: '세터가 높게 올려요. 점프 버튼을 잠깐 유지하며 여유 있게 타이밍을 맞춰요.' },
+  { id: 'quick', command: 22, title: '속공 (낮고 빠른 토스)', detail: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.' },
+]);
+
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
   constructor({ RAPIER, config }) {
@@ -78,7 +84,7 @@ class TakrawGame {
   }
 
   /** seed는 경기 변주(선수 성향·서브)의 원천이다. 훈련은 같은 상황이 반복되어야 하므로 기본 시드를 쓴다. */
-  reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto', seed = this.config.network.seed) {
+  reset(mode = this.mode, lesson = this.state?.training?.lesson || 'auto', seed = this.config.network.seed, tempo = this.state?.training?.tempo || 'high') {
     this.mode = mode;
     this.retuneTeam = -1;
     this.state = {
@@ -93,6 +99,7 @@ class TakrawGame {
       timing: this.timingJudge.emptyRecords(),
       training: mode === 'training' ? {
         lesson: TAKRAW_TRAINING_LESSONS.some(item => item.id === lesson) ? lesson : 'auto', attempt: 0, successes: 0,
+        tempo: TAKRAW_TRAINING_TEMPOS.some(item => item.id === tempo) ? tempo : 'high',
         setAt: null, jumpAt: null, kickAt: null, jumpOffset: null, kickOffset: null,
         entry: null, motionId: null, contact: null, result: null, previousResult: null, setApex: 0,
       } : null,
@@ -113,6 +120,12 @@ class TakrawGame {
   setTrainingLesson(lesson) {
     if (this.mode !== 'training' || !TAKRAW_TRAINING_LESSONS.some(item => item.id === lesson)) return false;
     this.reset('training', lesson);
+    return true;
+  }
+
+  setTrainingTempo(tempo) {
+    if (this.mode !== 'training' || !TAKRAW_TRAINING_TEMPOS.some(item => item.id === tempo)) return false;
+    this.reset('training', undefined, undefined, tempo);
     return true;
   }
 
@@ -141,6 +154,7 @@ class TakrawGame {
       jump: !!((input[offset + 2] || 0) & 1), kick: !!((input[offset + 2] || 0) & 2),
       jumpPressed: has(1), kickPressed: has(2), restart: has(4),
       trainingLesson: TAKRAW_TRAINING_LESSONS.find(lesson => has(lesson.command))?.id || null,
+      trainingTempo: TAKRAW_TRAINING_TEMPOS.find(tempo => has(tempo.command))?.id || null,
     };
   }
 
@@ -163,6 +177,11 @@ class TakrawGame {
     }
     if (this.mode === 'training' && humans[0]?.trainingLesson) {
       this.setTrainingLesson(humans[0].trainingLesson);
+      this.state.tick = frame.tick + 1;
+      return;
+    }
+    if (this.mode === 'training' && humans[0]?.trainingTempo) {
+      this.setTrainingTempo(humans[0].trainingTempo);
       this.state.tick = frame.tick + 1;
       return;
     }
@@ -327,8 +346,13 @@ class TakrawGame {
       this.state.training.attempt++;
       // A fresh drill feeds the setter. After this reset the setter's real
       // foot collision supplies the set, exactly as in a match.
-      this.physics.resetBall({ x: p.x + feed.offset, y: feed.height, z: p.z - feed.lateral }, { x: 0, y: feed.rise, z: 0 });
-      this.state.lastMessage = '세터가 높게 올립니다. 바닥 발자국에서 준비하세요.';
+      if (this.state.training.tempo === 'quick') {
+        this.feedQuick(p);
+        this.state.lastMessage = '낮고 빠른 토스가 옵니다. 점프를 짧게 누르고 바로 차세요.';
+      } else {
+        this.physics.resetBall({ x: p.x + feed.offset, y: feed.height, z: p.z - feed.lateral }, { x: 0, y: feed.rise, z: 0 });
+        this.state.lastMessage = '세터가 높게 올립니다. 바닥 발자국에서 준비하세요.';
+      }
     } else {
       const server = this.physics.players[this.state.serving * 3];
       const p = server.root.translation();
@@ -341,6 +365,22 @@ class TakrawGame {
     }
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
     this.revision++;
+  }
+
+  /**
+   * 속공 토스: 세터 옆에서 낮은 포물선으로 공격수 앞 낙하 타점(낮은 공격의 접촉 높이)에 정확히 닿게 한다.
+   * 높은 토스처럼 세터 발 충돌에 맡기면 세트 높이가 발 접촉에 따라 불연속으로 바뀌어 낮은 공격 구간(shortJump)에 들어오지 않는다.
+   * 토스 시각을 기록(setAt)해 안내가 바로 열린다.
+   */
+  feedQuick(setterPosition) {
+    const { quick } = this.config.training, { lowAttack, attack } = this.config.ai.toss, gravity = Math.abs(this.physics.settings.gravity);
+    const hp = this.physics.players[this.state.selected[0]].root.translation();
+    const start = { x: setterPosition.x + quick.offset, y: quick.height, z: setterPosition.z };
+    const contact = { x: Math.min(hp.x + attack.offset, -0.9), y: (lowAttack.minHeight + lowAttack.maxHeight) / 2, z: hp.z - attack.lateral };
+    const rise = Math.sqrt(2 * gravity * (quick.apex - start.y));
+    const time = (rise + Math.sqrt(rise * rise - 2 * gravity * (contact.y - start.y))) / gravity;
+    this.physics.resetBall(start, { x: (contact.x - start.x) / time, y: rise, z: (contact.z - start.z) / time });
+    this.state.training.setAt = this.state.time;
   }
 
   handlePhysicsEvent(event, humans) {
@@ -867,7 +907,7 @@ class TakrawGame {
     let result;
     if (downward && matches && hit.crossed && this.state.pointWinner === 0) {
       const name = TAKRAW_TRAINING_LESSONS.find(lesson => lesson.id === hit.motionId)?.title || '스파이크';
-      result = { code: 'success', title: `${name} 성공!`, detail: '발로 내려찍어 네트 위로 보냈어요. 같은 타이밍을 한 번 더 기억하세요.', tone: 'success' };
+      result = { code: 'success', title: `${t.tempo === 'quick' ? '속공 · ' : ''}${name} 성공!`, detail: '발로 내려찍어 네트 위로 보냈어요. 같은 타이밍을 한 번 더 기억하세요.', tone: 'success' };
       if (!hit.counted) { t.successes++; hit.counted = true; }
     } else if (t.setAt === null) {
       result = { code: 'set', title: '세터가 다시 올릴게요', detail: '이번 공은 연습할 높이로 연결되지 않았어요. 새 토스에서 다시 준비하세요.', tone: 'neutral' };
@@ -927,7 +967,7 @@ class TakrawGame {
     const kickIn = t.lesson === 'downward' ? (jumpIn === null ? null : jumpIn - settings.preholdLead) :
       (player.jump.active ? input.kick && plan ? null : kickDelay - player.jump.time : jumpIn === null ? null : jumpIn + kickDelay);
     const contactIn = Number.isFinite(plan?.remaining) ? Math.max(0, plan.remaining) : null;
-    const base = { lesson: t.lesson, attempt: t.attempt, successes: t.successes, title: lesson.title,
+    const base = { lesson: t.lesson, tempo: t.tempo, attempt: t.attempt, successes: t.successes, title: lesson.title,
       sequence: lesson.sequence, motionId: motionId || null,
       motionStatus: motionName ? `${motionName}${t.contact?.foot && t.contact.motionId ? ' · 타격 확인' : adjustment}` :
         t.lesson === 'auto' ? '공과 몸의 위치에 맞춰 동작을 골라요' : `${lesson.title} 동작을 연습해요`,
@@ -1250,4 +1290,4 @@ class TakrawGame {
   dispose() { this.physics.dispose(); }
 }
 
-export { TAKRAW_TRAINING_LESSONS, TakrawGame };
+export { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame };

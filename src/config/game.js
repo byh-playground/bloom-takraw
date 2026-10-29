@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.36';
+const TAKRAW_VERSION = '0.12.37';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -35,6 +35,9 @@ const TAKRAW_CONFIG = Object.freeze({
   training: { ready: 1.1, retry: 2.2, timeout: 7,
     feed: { height: 2.4, rise: 1.5, offset: 0.8, lateral: 0.10 },
     guide: { preholdLead: 0.34, kickWindow: 0.08 },
+    // 속공 토스(simulation/game.js feedQuick): 세터 옆 offset(m)·높이 height(m)에서 꼭짓점 apex(m)로 올려 공격수 앞 낙하 타점에 닿게 한다.
+    // 꼭짓점은 낮은 공격 판정(ai.toss.attack.apexMargin 안)에 들어오도록 정했다.
+    quick: { offset: 0.5, height: 1.0, apex: 3.5 },
   },
   ai: { receiveHeight: 0.75, kickHold: 0.34, jumpHold: 0.25,
     // 선수 성향의 범위. 경기 시드·선수·랠리 번호로 값이 정해져 경기마다 상황이 달라진다(simulation/ai-brain.js).

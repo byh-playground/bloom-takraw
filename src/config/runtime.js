@@ -24,8 +24,6 @@ const TAKRAW_RUNTIME = Object.freeze({
     featured: [
       { seed: 36, label: '가장 아슬아슬한 받아내기 · 0.05초' },
       { seed: 27, label: '받아내기 5번 · 11터치' },
-      { seed: 1013, label: '받아내기 4번 · 12터치' },
-      { seed: 19, label: '받아내기 4번 · 13터치' },
     ],
   },
   clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },

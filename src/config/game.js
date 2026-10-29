@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.45';
+const TAKRAW_VERSION = '0.12.46';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -31,7 +31,9 @@ const TAKRAW_CONFIG = Object.freeze({
     mobility: 0.10, jump: 0.02, power: 0.08, flexibility: 0.10,
     setting: 0.04, defense: 0.20, recovery: 0.15,
   } },
-  physics: { groundToss: { receiveApex: 2.4, attackApex: 4.2 } },
+  physics: { groundToss: { receiveApex: 2.4, attackApex: 4.2 },
+    // 주발: 기본으로 오른발로 차고, 공이 주발 반대쪽으로 groundOffset(지상, m) 넘거나 반대 발이 airMargin(공중, m) 넘게 가까울 때만 왼발.
+    dominantFoot: { side: 'R', groundOffset: 0.25, airMargin: 0.05 } },
   training: { ready: 1.1, retry: 2.2, timeout: 7,
     feed: { height: 2.4, rise: 1.5, offset: 0.8, lateral: 0.10 },
     guide: { preholdLead: 0.34, kickWindow: 0.08 },

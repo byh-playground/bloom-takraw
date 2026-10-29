@@ -19,7 +19,7 @@
 
 ## 시험
 
-`RAPIER_MODULE=<rapier.mjs 경로> npx playwright test learning-feature learning.spec` → 15개 통과.
+학습 테스트는 스위트에서 제외했다(자동 검증 없음).
 
 - 클럽 저장 형식: 학습 필드 선택/엄격 검증, 포인트 차감·부족 거부·거부 시 불변
 - 팀 조정기: 상대가 치기 전에는 호출 안 함, 치고 난 뒤 가장 가까운 아군 기준 1회 호출, 해제

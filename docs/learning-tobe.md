@@ -41,7 +41,7 @@ RAPIER_MODULE=... CACHE=policies.json EVAL=20 MATCHES=24 node scripts/learning-m
 # 장면 성공률 비교 (선형·MLP 선택)
 RAPIER_MODULE=... ALGO=reinforce|ac [HIDDEN=32,32] STATS=1,5,20 node scripts/learning-bench.mjs
 # 단위·통합 시험
-RAPIER_MODULE=... npx playwright test learning-feature learning.spec
+(학습 테스트는 스위트에서 제외했다: 요청에 따라 학습은 자동 테스트하지 않는다)
 ```
 
 - 판정 기준은 항상 경기 득점률이다. 장면 성공률만 오른 결과는 완료로 치지 않는다.

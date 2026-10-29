@@ -91,6 +91,8 @@ test('배경 음악: 곡 파일·크레딧·베드 설정이 서로 맞고 소�
   expect(bgm.homeLevel).toBeGreaterThanOrEqual(bgm.level); expect(bgm.homeLevel).toBeLessThanOrEqual(1);
   // 곡 안의 크기 편차를 레이어 컴프레서로 줄인다. 자동 보정으로 커지므로 gain은 1보다 작게 둔다.
   expect(layer.compressor.ratio).toBeGreaterThan(1); expect(layer.gain).toBeLessThan(1);
+  // 곡의 노이즈 퍼커션(0~3초·20~22초)이 거칠게 들리지 않도록 고음을 덜어 내는 로우패스가 걸려 있다.
+  expect(layer).toMatchObject({ type: 'lowpass' }); expect(layer.hz).toBeLessThanOrEqual(3000);
   expect(bgm.pausedLevel).toBeLessThan(bgm.level);
   for (const duck of Object.values(bgm.duck)) {
     expect(duck.depth).toBeGreaterThan(0); expect(duck.depth).toBeLessThan(1);

@@ -38,5 +38,7 @@ for (let k = 0; k < TRIALS; k++) {
 const ok = rows.filter(r => !r.miss), q = (key, f) => { const v = ok.map(r => r[key]).sort((a, b) => a - b); return +v[Math.floor((v.length - 1) * f)].toFixed(2); };
 const mean = key => +(ok.reduce((a, r) => a + r[key], 0) / ok.length).toFixed(2);
 console.log(`세트 ${ok.length}/${rows.length}회  공격수 대비 앞(+x) 평균 ${mean('x')} 중앙 ${q('x', .5)} (25%~75% ${q('x', .25)}~${q('x', .75)})  오른쪽(+z) 평균 ${mean('z')} 중앙 ${q('z', .5)} (25%~75% ${q('z', .25)}~${q('z', .75)})`);
+const range = key => `${q(key, 0)}~${q(key, 1)}`;
+console.log(`범위  앞뒤(x) ${range('x')} m  좌우(z) ${range('z')} m`);
 const right = ok.filter(r => r.z > 0.3).length, left = ok.filter(r => r.z < -0.3).length, inR = ok.filter(r => Math.hypot(r.x - 0.7, r.z + 0.1) <= R).length;
 console.log(`오른쪽(+z 0.3 m 초과) ${right}  왼쪽(-0.3 m 미만) ${left}  기준점(앞 0.7, 옆 -0.1) 반경 ${R} m 안 ${inR}/${ok.length}`);

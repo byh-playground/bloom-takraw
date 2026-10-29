@@ -682,18 +682,19 @@ class TakrawGame {
   }
 
   /**
-   * 세트 목표점의 흩어짐: 공격수 기준점 둘레의 원 안에서 점 하나를 고른다. 반지름은 세터의 토스(setting) 능력치가 높을수록 작다
-   * (ai.toss.spread.radius = [능력 기본값일 때, 능력 최대일 때] m). 같은 시드·랠리·터치 수·세터면 같은 점이라 피어끼리 일치하고,
+   * 세트 목표점의 흩어짐: 공격수 기준점 둘레의 직사각형 안에서 점 하나를 고른다. 앞뒤(x)는 좁고 좌우(z)는 넓다 —
+   * 앞뒤가 크게 흔들리면 공격수가 때릴 각이 나오지 않기 때문이다. 반 길이는 세터의 토스(setting) 능력이 높을수록 작다
+   * (ai.toss.spread.half.x/z = [능력 기본값일 때, 능력 최대일 때] m). 같은 시드·랠리·터치 수·세터면 같은 점이라 피어끼리 일치하고,
    * 한 번의 토스 동안 AI 판단을 다시 해도 목표가 바뀌지 않는다. 연습 모드는 같은 상황의 반복을 위해 흩어지지 않는다.
+   * 반환 값은 팀 방향 좌표(앞=+, 옆)라서 호출하는 쪽이 팀 방향을 곱한다.
    */
   tossSpread(setter) {
     const spread = this.config.ai.toss.spread;
     if (!spread || this.mode === 'training') return { x: 0, z: 0 };
     const bonus = this.config.athletes.bonus.setting, ratio = bonus > 0 ? Math.min(1, Math.max(0, (setter.effects?.setting ?? 0) / bonus)) : 0;
-    const radius = spread.radius[0] + (spread.radius[1] - spread.radius[0]) * ratio;
+    const half = axis => spread.half[axis][0] + (spread.half[axis][1] - spread.half[axis][0]) * ratio;
     const key = [this.state.seed, this.state.rally, this.state.touches, setter.id];
-    const distance = radius * Math.sqrt(seededUnit(...key, 1)), angle = 2 * Math.PI * seededUnit(...key, 2);
-    return { x: distance * Math.cos(angle), z: distance * Math.sin(angle) };
+    return { x: half('x') * (2 * seededUnit(...key, 1) - 1), z: half('z') * (2 * seededUnit(...key, 2) - 1) };
   }
 
   /** 팀의 학습 조정 값. 조정이 없거나 해당 이름이 없으면 기본값을 돌려준다. */

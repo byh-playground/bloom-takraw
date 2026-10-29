@@ -89,9 +89,12 @@ test('배경 음악: 곡 파일·크레딧·베드 설정이 서로 맞고 소�
   expect(bgm.level).toBeGreaterThan(0); expect(bgm.level).toBeLessThanOrEqual(0.8);
   // 홈에는 효과음이 없어 조금 더 크게 둘 수 있지만 1을 넘지 않는다.
   expect(bgm.homeLevel).toBeGreaterThanOrEqual(bgm.level); expect(bgm.homeLevel).toBeLessThanOrEqual(1);
-  // 곡 원본을 존중한다: 컴프레서·로우패스로 소리를 바꾸지 않고, 작은 스피커가 못 내는 초저음(도입부 에너지의 27%가 40Hz 아래)만 로우컷으로 걷어 낸다.
+  // 곡 원본을 존중한다: 컴프레서·로우패스로 소리를 바꾸지 않고, 80Hz 로우컷과 노이즈 구간을 덜어 내는 이퀄라이저만 건다.
   expect(layer.compressor).toBeUndefined(); expect(layer.type).toBeUndefined(); expect(layer.gain).toBe(1);
   expect(layer.lowCutHz).toBeGreaterThanOrEqual(40); expect(layer.lowCutHz).toBeLessThanOrEqual(100);
+  // 이퀄라이저는 덜어 내기만 하고(올리지 않는다) 곡 본체의 베이스·멜로디 대역(150~500Hz 중심)은 건드리지 않는다.
+  expect(layer.eq.length).toBeGreaterThan(0); expect(layer.eq.length).toBeLessThanOrEqual(8);
+  for (const band of layer.eq) { expect(band.gainDb).toBeLessThan(0); expect(band.gainDb).toBeGreaterThanOrEqual(-8); expect(band.hz).toBeGreaterThanOrEqual(600); }
   for (const duck of Object.values(bgm.duck)) {
     expect(duck.depth).toBeGreaterThan(0); expect(duck.depth).toBeLessThan(1);
     expect(duck.holdMs).toBeGreaterThan(0); expect(duck.releaseMs).toBeGreaterThan(0);

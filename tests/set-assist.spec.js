@@ -14,7 +14,7 @@ async function landing(config, seed) {
     for (; tick < 1200 && game.state.phase !== 'rally'; tick++) game.step({ tick, tickRate: 60, inputs: idle });
     const st = game.state, physics = game.physics, human = physics.players[st.selected[0]], setter = physics.players[1].root.translation();
     physics.resetBall({ x: setter.x + 0.8, y: 2.4, z: setter.z - 0.1 }, { x: 0, y: 1.5, z: 0 });
-    st.possession = 0; st.touches = 1; st.lastTouch = 0; st.serving = 0; st.toss = null; st.play = null; game.aiDirty = true;
+    st.possession = 0; st.touches = 1; st.lastTouch = 0; st.serving = 0; st.serveToss = null; st.toss = null; st.play = null; game.aiDirty = true;
     let previous = 9;
     for (let i = 0; i < 360 && st.phase === 'rally'; i++, tick++) {
       game.step({ tick, tickRate: 60, inputs: idle });

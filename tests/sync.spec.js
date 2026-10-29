@@ -9,7 +9,7 @@ const rapierPath = process.env.RAPIER_MODULE;
 test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
 const loadRapier = async () => { const loaded = await import(rapierPath); const RAPIER = loaded.default ?? loaded; await RAPIER.init(); return RAPIER; };
 
-const TICKS = 3600, EVERY = 300;
+const TICKS = 1200, EVERY = 200; // 20초(서브·랠리 포함)로 결정론 차이는 충분히 드러난다. 3600틱일 때 91초였다.
 const fingerprint = game => {
   const text = JSON.stringify(game.save());
   let h = 2166136261;

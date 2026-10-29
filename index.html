@@ -36,6 +36,7 @@
           <button id="start-local" data-start-mode="local" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M2 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 6"></path></svg><span>로컬 2인<small>한 키보드로 대결</small></span></button>
         </div>
         <button id="open-network" data-start-mode="online" class="network-button start-button" type="button"><span class="network-icon" aria-hidden="true">↔</span><span>친구와 온라인 1대1</span><span aria-hidden="true">→</span></button>
+        <button id="start-watch" data-start-mode="watch" class="network-button start-button" type="button"><span class="network-icon" aria-hidden="true">▷</span><span>AI 관전 · 시드로 명경기 보기</span><span aria-hidden="true">→</span></button>
         <button id="open-club" class="club-home-button" type="button"><span><strong>내 팀 관리</strong><small id="club-home-summary">팀을 불러오는 중</small></span><span aria-hidden="true">→</span></button>
       </div>
       <div id="boot-status" class="boot-status" role="status"><span class="loading-dot"></span><span id="boot-message"></span><button id="reload-button" type="button" hidden="">다시 열기</button></div>
@@ -83,8 +84,10 @@
     <form id="watch-form" class="watch-form" aria-label="AI 경기 관전" hidden>
       <label for="watch-seed">관전 시드</label>
       <button type="button" data-watch-step="-1" aria-label="이전 시드">◀</button>
+      <select id="watch-featured" aria-label="추천 경기"></select>
       <input id="watch-seed" type="number" min="0" max="4294967295" step="1" inputmode="numeric" value="36" autocomplete="off">
       <button type="button" data-watch-step="1" aria-label="다음 시드">▶</button>
+      <button id="watch-random" type="button">랜덤</button>
       <button type="submit" class="primary-small">처음부터 보기</button>
       <span id="watch-tick" role="status"></span>
     </form>

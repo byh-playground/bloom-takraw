@@ -1103,6 +1103,7 @@ async function bootTakraw() {
     canStart,
     onStart(nextMode) {
       campaignSchoolId = null;
+      if (nextMode === 'watch') { startWatch(watchSeed); return; }
       if (nextMode === 'online') {
         setNetwork({ state: 'idle', count: 0, message: '방을 만들거나 친구의 방 코드로 참가해 주세요.' });
       } else startLocal(nextMode);

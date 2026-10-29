@@ -430,7 +430,8 @@ class TakrawPhysics {
     }
   }
 
-  resetPlayers() {
+  /** starts: 선수 id → {x, z}. 지정한 선수만 기본 자리(home) 대신 그 자리에서 시작한다(유저 서브 위치). */
+  resetPlayers(starts = null) {
     this.restoredSnapshotBytes = null;
     this.ballContacts.clear(); this.netContacts.clear();
     this.lastBallTouch = null;
@@ -441,7 +442,8 @@ class TakrawPhysics {
       }
       const q = this._yaw(p.yaw);
       for (const part of p.parts) {
-        part.body.setTranslation(this._add(this._v(p.home.x, 0, p.home.z), this._rotate(q, part.local)), true);
+        const start = starts?.[p.id] || p.home;
+        part.body.setTranslation(this._add(this._v(start.x, 0, start.z), this._rotate(q, part.local)), true);
         part.body.setRotation(q, true); part.body.setLinvel(this._v(), true); part.body.setAngvel(this._v(), true);
         part.body.resetForces(true); part.body.resetTorques(true);
       }

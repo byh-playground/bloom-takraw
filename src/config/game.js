@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.41';
+const TAKRAW_VERSION = '0.12.42';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -45,7 +45,11 @@ const TAKRAW_CONFIG = Object.freeze({
     // depth·lateral: 대기 자리의 앞뒤·옆 흔들림(±m).
     temperament: { reaction: [0.02, 0.24], clearance: [1.0, 1.5], depth: 0.35, lateral: 0.30 },
     // 서브 토스의 변주(±): 위치(m)와 올리는 속도(m/s). 서브가 매번 다른 궤적이 된다. 폭을 2배로 키우면 아웃이 늘어 랠리가 짧아져(120경기초 기준) 이 값으로 정했다.
-    serve: { depth: 0.03, lateral: 0.08, height: 0.05, rise: 0.08 },
+    serve: { depth: 0.03, lateral: 0.08, height: 0.05, rise: 0.08,
+      // 사람이 서브할 때 공격수가 서는 자리(자기 코트 방향 좌표, m).
+      spot: { x: -5.2, z: -0.3 },
+      // 사람 서브의 공 올리기: 서버 앞 offset(m)·높이 height(m)에서 꼭짓점 apex(m)까지 바로 위로 올린다(simulation/game.js feedServe).
+      toss: { offset: 0.65, height: 1.0, apex: 3.5 } },
     // 사람이 자리를 비우면 AI 동료가 비운 구역을 메운다(ai-formation.js). slow: 이 시간(초)을 넘겨 닿는 구역만 벌점, reaction: 출발 반응(초),
     // reachRadius: 선수가 이동 없이 닿는 반경(m), step·reach: 후보 자리 간격(m)과 단계 수, deviationWeight: 기본 자리에서 멀어지는 벌점, minGain: 사람이 기본 자리에 있을 때보다 벌점이 이만큼 나빠지고, 옮겨서 이만큼 좋아질 때만 옮김, bounds: 역할별 설 수 있는 x 범위(자기 코트 방향 좌표).
     fill: { enabled: true, gridStep: 0.5, slow: 0.5, reaction: 0.1, reachRadius: 0.3, step: 0.75, reach: 2, deviationWeight: 0.012, minGain: 0.15,

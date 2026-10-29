@@ -1731,11 +1731,11 @@ class TakrawPhysics {
     return true;
   }
 
-  /** 사람의 지상 서브 발차기: 접촉 직후 공을 꼭짓점 serveApex를 지나 상대 코트 목표점(serveHeight 높이)에 내려오는 포물선으로 보낸다. */
+  /** 사람의 서브 발차기(지상·공중 모두): 접촉 직후 공을 꼭짓점 serveApex를 지나 상대 코트 목표점(serveHeight 높이)에 내려오는 포물선으로 보낸다. */
   assistServe(p, position, target) {
     const toss = this.tossFor(p), g = this.settings.gravity;
     if (!toss.attackAssist) return false;
-    const up = Math.sqrt(2 * g * Math.max(0.4, toss.serveApex - position.y));
+    const apex = Math.max(toss.serveApex, position.y + 0.6), up = Math.sqrt(2 * g * (apex - position.y));
     const flight = (up + Math.sqrt(Math.max(0, up * up + 2 * g * (position.y - toss.serveHeight)))) / g;
     this.ball.setLinvel({ x: (target.x - position.x) / flight, y: up, z: (target.z - position.z) / flight }, true);
     return true;

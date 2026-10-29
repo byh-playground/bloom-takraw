@@ -59,8 +59,8 @@
         <div id="hit-pop" class="hit-pop" data-team="0" aria-hidden="true" hidden></div>
       </div>
       <div class="player-panel"><span class="player-avatar" aria-hidden="true"><i></i></span><div><small>내 고정 선수</small><strong id="selected-name">공격수</strong><span id="selected-state">준비</span></div></div>
-      <div class="drive-feedback"><span id="jump-light"><i></i>점프</span><span id="kick-light"><i></i>발차기</span><span id="toss-light" hidden><i></i>공 던지기</span></div>
-      <div class="bottom-guide"><span><kbd>W A S D</kbd> 이동</span><span><kbd>Space</kbd> 길게 누르면 높게</span><span><kbd>좌클</kbd> 누르는 동안 발에 힘</span><span><kbd>E</kbd> 서브 공 던지기 · 꾹 누르면 높게</span><span><kbd>우클 드래그</kbd> 시점 · <kbd>C</kbd> 복원</span></div>
+      <div class="drive-feedback"><span id="jump-light"><i></i>점프</span><span id="kick-light"><i></i>발차기</span><span id="toss-meter" hidden><b>공 던지기</b><u><i></i></u></span></div>
+      <div class="bottom-guide"><span><kbd>W A S D</kbd> 이동</span><span><kbd>Space</kbd> 길게 누르면 높게</span><span><kbd>좌클</kbd> 누르는 동안 발에 힘</span><span><kbd>우클 드래그</kbd> 시점 · <kbd>C</kbd> 복원</span></div>
       <div id="local-guide" class="local-guide" hidden="">2P · 공격수 <kbd>방향키</kbd> 이동 <kbd>Enter</kbd> 점프 <kbd>오른쪽 Shift</kbd> 발차기</div>
       <div id="end-actions" class="end-actions" hidden=""><strong id="match-result">경기 종료</strong><span id="school-result" hidden></span><span id="match-reward" role="status"></span><button id="reward-retry" type="button" class="secondary-small" hidden="">보상 저장 재시도</button><button id="rematch-button" type="button" class="primary-small">다시 경기</button><button id="result-home" type="button" class="secondary-small">처음으로</button></div>
       <section id="training-actions" class="training-actions" aria-label="스파이크 연습 가이드" hidden="">
@@ -82,7 +82,7 @@
 
     <div id="touch-controls" class="touch-controls" hidden="">
       <div id="move-pad" class="move-pad" role="group" aria-label="이동 조이스틱"><span class="move-label" aria-hidden="true">이동</span><div class="pad-cross" aria-hidden="true"></div><div id="move-thumb" class="move-thumb" aria-hidden="true"></div></div>
-      <div class="touch-actions"><button data-touch="jump" class="touch-jump" type="button">점프<small>길게 · 높게</small></button><button data-touch="toss" class="touch-toss" type="button" hidden>공 던지기<small>꾹 · 높게</small></button><button data-touch="kick" class="touch-kick" type="button">발차기<small>누르고 유지</small></button></div>
+      <div class="touch-actions"><button data-touch="jump" class="touch-jump" type="button">점프<small>길게 · 높게</small></button><button data-touch="kick" class="touch-kick" type="button">발차기<small>누르고 유지</small></button></div>
     </div>
 
   <footer class="site-footer"><span>블룸 세팍타크로 <b id="version-label">—</b></span><span id="connection-indicator" hidden=""><i></i><span></span></span><span class="home-only">몸으로 읽고, 타이밍으로 넘기다.</span></footer>

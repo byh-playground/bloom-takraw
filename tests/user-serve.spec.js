@@ -13,14 +13,14 @@ async function serveToss(seed, hold) {
     const st = game.state; st.serving = 0; game.step({ tick: 1, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, 0], commands: [] }] }); game.placeServe();
     const server = game.physics.players[st.selected[0]], spot = TAKRAW_CONFIG.ai.serve.spot, at = server.root.translation(), placed = { x: at.x, z: at.z };
     const flags = { humanServes: game.humanServes(0), aiServes: game.humanServes(1), serverId: game.serverId(0), selected: st.selected[0] };
-    let apex = 0, landed = null, pressed = 0, holding = 0;
+    let apex = 0, landed = null, pressed = 0, heldHeight = 0;
     for (let tick = 2; tick < 1800 && landed === null; tick++) {
       const ready = st.serveToss?.stage === 'hold', down = ready && pressed < hold;
-      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, down ? 4 : 0], commands: ready && pressed === 0 ? [{ payload: [8] }] : [] }] });
-      if (ready) pressed++;
+      game.step({ tick, tickRate: 60, inputs: [{ playerId: 'h', input: [0, 0, down ? 2 : 0], commands: ready && pressed === 0 ? [{ payload: [2] }] : [] }] });
+      if (ready) { pressed++; heldHeight = Math.max(heldHeight, game.physics.ball.translation().y); }
       if (st.serveToss?.stage === 'thrown') { const b = game.physics.ball.translation(); apex = Math.max(apex, b.y); if (b.y < 0.2) landed = b.x - at.x; }
     }
-    return { placed, spot, apex, landed, ...flags };
+    return { placed, spot, apex, landed, heldHeight, ...flags };
   } finally { game.dispose(); }
 }
 
@@ -43,4 +43,14 @@ test('공 던지기: 누르는 시간에 비례해 꼭짓점이 올라가고(중
   test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
   const mid = await serveToss(3, 25);
   expect(mid.apex).toBeGreaterThan(2.5); expect(mid.apex).toBeLessThan(4);
+});
+
+test('공 던지기: 누르는 동안 공이 손에서 점점 올라가 높이 변화가 보이고, 던지기 전 발차기는 발로 가지 않는다', async () => {
+  test.skip(!rapierPath, 'RAPIER_MODULE이 없어 건너뜀');
+  const quick = await serveToss(4, 1), long = await serveToss(4, 60);
+  expect(long.heldHeight - quick.heldHeight).toBeGreaterThan(0.5);
+});
+
+test('사람 서브: 서브 자리는 엔드라인 뒤다', async () => {
+  expect(Math.abs(TAKRAW_CONFIG.ai.serve.spot.x)).toBeGreaterThan(TAKRAW_CONFIG.court.halfLength);
 });

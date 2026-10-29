@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.39';
+const TAKRAW_VERSION = '0.12.40';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {

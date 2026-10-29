@@ -3,7 +3,7 @@ import { defineConfig } from 'playwright/test';
 const baseURL = 'http://127.0.0.1:8766/';
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['campaign.spec.js', 'learning.spec.js', 'learning-feature.spec.js', 'joint-limits.spec.js', 'ai-brain.spec.js', 'sync.spec.js', 'receive-assist.spec.js', 'formation.spec.js', 'block.spec.js', 'quick-attack.spec.js', 'toss-spread.spec.js', 'match-learning.spec.js', 'user-flow.spec.js', 'mobile-flow.spec.js'],
+  testMatch: ['campaign.spec.js', 'learning.spec.js', 'learning-feature.spec.js', 'joint-limits.spec.js', 'ai-brain.spec.js', 'sync.spec.js', 'receive-assist.spec.js', 'formation.spec.js', 'block.spec.js', 'quick-attack.spec.js', 'toss-spread.spec.js', 'set-assist.spec.js', 'match-learning.spec.js', 'user-flow.spec.js', 'mobile-flow.spec.js'],
   workers: 1,
   retries: 0,
   timeout: 150_000,

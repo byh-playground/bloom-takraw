@@ -431,6 +431,7 @@ class TakrawGame {
       if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
       const target = this.inputs[event.playerId]?.tossTarget;
       const set = target && /^(foot|lowerLeg)/.test(event.part || '') && this.physics.players[event.playerId].kick.mode === 'ground' && !spike;
+      if (set && target.playerId % 3 === 2) this.physics.assistSet(this.physics.players[event.playerId], event.position, target);
       const intent = this.inputs[event.playerId]?.intent;
       this.state.play = { team: event.team, from: event.playerId, to: target?.playerId ?? null,
         kind: spike ? 'attack' : intent?.kind || 'receive', reason: spike ? 'spike' : intent?.reason || 'contact',

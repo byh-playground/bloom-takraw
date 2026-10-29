@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.12.40';
+const TAKRAW_VERSION = '0.12.41';
 
 /** Normalized athlete bonuses; both the simulation and club UI read this formula. */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
@@ -57,8 +57,8 @@ const TAKRAW_CONFIG = Object.freeze({
     toss: { receiveOffset: 0.8, incomingOffset: 0.8, airContactHeight: 3.6,
       // 동료에게 보내는 지면 토스의 목표 보정(m): dx는 동료보다 네트 쪽, dz는 옆쪽으로 둔다.
       aim: { dx: 0.70, dz: 0 },
-      // 세트 목표점이 공격수 기준점 둘레의 원 안에서 흩어지는 반지름(m): [토스 능력 기본값(50), 최대값(100)]. 능력치가 높을수록 정확하다(simulation/game.js tossSpread).
-      spread: { radius: [0.5, 0.1] },
+      // 세트 목표점이 공격수 기준점 둘레의 직사각형 안에서 흩어지는 반 길이(m): 능력별 [토스 능력 기본값(50), 최대값(100)]. 앞뒤(x)는 좁고 좌우(z)는 넓다(simulation/game.js tossSpread).
+      spread: { half: { x: [0.3, 0.1], z: [1.0, 0.25] } },
       ground: { lead: 0.30, followThrough: 0.15, window: 0.45 },
       lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
       attack: { offset: 0.65, lateral: 0.10, positionRadius: 0.55, minLead: 0.16, maxLead: 0.65,

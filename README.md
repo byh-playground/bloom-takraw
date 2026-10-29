@@ -1,6 +1,8 @@
-# 블룸 세팍타크로
+# 블룸 발 배구
 
-블룸 세계관의 3D 온라인 세팍타크로 게임입니다. 개발 저장소는 `C:\projects\bloom-takraw`, 원격은 [byh-playground/bloom-takraw](https://github.com/byh-playground/bloom-takraw)입니다. 기존 rally-frontier 임시 검증 사본은 삭제됐습니다.
+블룸 세계관의 3D 온라인 발 배구 게임입니다. 개발 저장소는 `C:\projects\bloom-takraw`, 원격은 [byh-playground/bloom-takraw](https://github.com/byh-playground/bloom-takraw)입니다. 기존 rally-frontier 임시 검증 사본은 삭제됐습니다.
+
+이름: 게임 이름은 `src/config/game.js`의 `TAKRAW_GAME_NAME`(발 배구)이 단일 출처이고 `npm run check`가 `index.html`·README·AGENTS·`package.json`과의 일치를 검사합니다. 저장소·패키지 이름 `bloom-takraw`, `TAKRAW_*`·`Takraw*` 식별자, `window.__takraw`, 저장 키, `docs/verification/v0.12.7`의 당시 산출물 기록은 바꾸지 않았습니다(이름이 아니라 식별자·이력이라서).
 
 - [공개 게임](https://byh-playground.github.io/bloom-takraw/)은 `main /`의 원본을 상시 배포합니다.
 - `main`은 개발·배포 기준입니다. PR이 main에 머지되면 공개 게임에도 반영되며 별도 release 브랜치를 갱신하지 않습니다.

@@ -3,18 +3,18 @@
 
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#e8eee3">
-  <meta name="description" content="AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 세팍타크로. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.">
-  <title>블룸 세팍타크로</title>
+  <meta name="description" content="AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 발 배구. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.">
+  <title>블룸 발 배구</title>
   <link rel="stylesheet" href="./styles/app.css">
 </head>
 <body class="is-home" data-mode="home">
   <div id="app">
-    <canvas id="court-canvas" aria-label="세팍타크로 경기장" tabindex="0" data-engine="three.js r180" width="1680" height="949" style="touch-action: none;"></canvas>
+    <canvas id="court-canvas" aria-label="발 배구 경기장" tabindex="0" data-engine="three.js r180" width="1680" height="949" style="touch-action: none;"></canvas>
     <div class="scene-shade" aria-hidden="true"></div>
     <header class="site-header">
-      <a class="wordmark" href="#/" aria-label="블룸 세팍타크로 처음 화면">
+      <a class="wordmark" href="#/" aria-label="블룸 발 배구 처음 화면">
         <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span><b>블룸</b><small>세팍타크로</small></span>
+        <span><b>블룸</b><small>발 배구</small></span>
       </a>
       <nav class="header-actions" aria-label="게임 메뉴">
         <button id="club-button" class="icon-button" type="button" aria-label="내 팀 관리" title="내 팀 관리"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"></circle><path d="M3 20v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 4 5"></path></svg></button>
@@ -85,7 +85,7 @@
       <div class="touch-actions"><button data-touch="jump" class="touch-jump" type="button">점프<small>길게 · 높게</small></button><button data-touch="kick" class="touch-kick" type="button">발차기<small>누르고 유지</small></button></div>
     </div>
 
-  <footer class="site-footer"><span>블룸 세팍타크로 <b id="version-label">—</b></span><span id="connection-indicator" hidden=""><i></i><span></span></span><span class="home-only">몸으로 읽고, 타이밍으로 넘기다.</span></footer>
+  <footer class="site-footer"><span>블룸 발 배구 <b id="version-label">—</b></span><span id="connection-indicator" hidden=""><i></i><span></span></span><span class="home-only">몸으로 읽고, 타이밍으로 넘기다.</span></footer>
     <div id="rotate-note" class="rotate-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="m9 2-3 3 3 3m-3-3h9M15 22l3-3-3-3m3 3H9"></path></svg><span>가로로 돌리면 코트가 더 잘 보여요.</span><button id="dismiss-rotate" type="button" aria-label="가로 화면 안내 닫기">×</button></div>
 
     <div id="modal-layer" class="modal-layer" hidden="">

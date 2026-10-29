@@ -1,5 +1,5 @@
 // 학교 이름·색상·AI 프리셋은 출시 전 임시값입니다. 학교 데이터의 단일 출처입니다.
-import { TAKRAW_CONFIG } from './game.js';
+import { TAKRAW_CONFIG, TAKRAW_GAME_NAME } from './game.js';
 
 // 성향과 능력 프리셋도 출시 전 임시값이다. 실제 득점 점유율은 검증 문서에 기록한다.
 const ai = (reaction, clearance, depth, lateral, ability, stableControl = false) => Object.freeze({
@@ -17,7 +17,7 @@ const school = (id, name, primary, secondary, stripe, sock, hairColor, shape, ve
   hair: Object.freeze({ color: hairColor, shape }), backnumber: Object.freeze([1, 2, 3]),
   ai: aiProfile,
   firstClearTrainingPoints, // 출시 전 임시 보상. 지급 여부는 campaign.cleared만 사용한다.
-  venue: Object.freeze({ ...venueColors, banners: Object.freeze([name, `${name} 세팍타크로부`, '함께 뛰는 우리 학교']) }),
+  venue: Object.freeze({ ...venueColors, banners: Object.freeze([name, `${name} ${TAKRAW_GAME_NAME}부`, '함께 뛰는 우리 학교']) }),
 });
 const TAKRAW_SCHOOLS = Object.freeze([
   school('sprout', '새싹고', 0x39a58f, 0xe7f7dc, 0x214f49, 0xf6edcf, 0x37483f, 'round',

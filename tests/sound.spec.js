@@ -72,3 +72,27 @@ test('깊이감: 보는 사람에게서 먼 코트 끝일수록 작게 나고 1P
   const point = x => takrawSoundPayload({ type: 'point', speed: 0, position: { x, z: 0 } }, options()).strength;
   expect(point(halfLength)).toBe(point(-halfLength));
 });
+
+test('배경 음악: 곡 파일·크레딧·베드 설정이 서로 맞고 소리는 작게 깔리도록 제한돼 있다', async () => {
+  const fs = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const { bgm, audio } = TAKRAW_RUNTIME;
+  const file = fileURLToPath(bgm.url);
+  const bytes = fs.readFileSync(file);
+  expect(bytes.subarray(0, 4).toString('latin1')).toBe('OggS');
+  expect(bytes.length).toBeLessThan(1024 * 1024);
+  // 곡을 바꾸면 출처 표기도 같이 바뀌어야 한다.
+  expect(fs.readFileSync(new URL('../assets/audio/CREDITS.md', import.meta.url), 'utf8')).toContain((await import('node:path')).basename(file));
+  const layer = audio.beds.bgm.layers[0];
+  expect(layer).toMatchObject({ kind: 'buffer', bufferId: 'bgm' });
+  expect(audio.categories[audio.beds.bgm.category]).toBeTruthy();
+  expect(bgm.level).toBeGreaterThan(0); expect(bgm.level).toBeLessThanOrEqual(0.8);
+  expect(bgm.pausedLevel).toBeLessThan(bgm.level);
+  for (const duck of Object.values(bgm.duck)) {
+    expect(duck.depth).toBeGreaterThan(0); expect(duck.depth).toBeLessThan(1);
+    expect(duck.holdMs).toBeGreaterThan(0); expect(duck.releaseMs).toBeGreaterThan(0);
+  }
+  // 득점은 일반 타격보다 깊고 길게 비워 득점 소리가 들리게 한다.
+  expect(bgm.duck.point.depth).toBeLessThan(bgm.duck.touch.depth);
+  expect(bgm.duck.point.holdMs + bgm.duck.point.releaseMs).toBeGreaterThan(bgm.duck.touch.holdMs + bgm.duck.touch.releaseMs);
+});

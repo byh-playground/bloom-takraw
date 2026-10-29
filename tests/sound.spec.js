@@ -93,6 +93,8 @@ test('배경 음악: 곡 파일·크레딧·베드 설정이 서로 맞고 소�
   expect(layer.compressor.ratio).toBeGreaterThan(1); expect(layer.gain).toBeLessThan(1);
   // 곡의 노이즈 퍼커션(0~3초·20~22초)이 거칠게 들리지 않도록 고음을 덜어 내는 로우패스가 걸려 있다.
   expect(layer).toMatchObject({ type: 'lowpass' }); expect(layer.hz).toBeLessThanOrEqual(3000);
+  // 작은 스피커가 못 내는 초저음(도입부 에너지의 27%가 40Hz 아래)은 로우컷으로 걷어 낸다. 곡 본체 베이스(약 100Hz)는 건드리지 않는 값이다.
+  expect(layer.lowCutHz).toBeGreaterThanOrEqual(40); expect(layer.lowCutHz).toBeLessThanOrEqual(100);
   expect(bgm.pausedLevel).toBeLessThan(bgm.level);
   for (const duck of Object.values(bgm.duck)) {
     expect(duck.depth).toBeGreaterThan(0); expect(duck.depth).toBeLessThan(1);

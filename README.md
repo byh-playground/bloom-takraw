@@ -44,7 +44,7 @@ artifacts/                   새 실행 결과, Git 제외
 
 공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
-GameKit dist 커밋 `217db82740219801674b390d757a1c9fab92753f`(소개영상용 `scenario` 모듈 포함), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요.
+GameKit dist 커밋 `f6036772416789bf2ff678c72c538d318063ff5c`(소개영상용 `scenario` 모듈 포함), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요.
 
 ## 검사
 

@@ -88,14 +88,19 @@ class TakrawPhysics {
     }
     const airKick = this.settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
+    this.serializer = new RAPIER.SerializationPipeline();
+    this._createWorld(Array(6).fill(null));
+  }
+
+  /** 물리 월드 한 벌(코트·선수·공·시계)을 새로 만든다. 생성자와 rebuild()가 같은 경로를 쓴다. */
+  _createWorld(profiles) {
     const s = this.settings;
-    this.world = new RAPIER.World({ x: 0, y: -s.gravity, z: 0 });
+    this.world = new this.R.World({ x: 0, y: -s.gravity, z: 0 });
     this.world.integrationParameters.dt = 1 / 120;
     this.world.integrationParameters.numSolverIterations = s.solverIterations;
     this.world.integrationParameters.numInternalPgsIterations = 2;
     this.world.integrationParameters.maxCcdSubsteps = s.ccdSubsteps;
-    this.queue = new RAPIER.EventQueue(true);
-    this.serializer = new RAPIER.SerializationPipeline();
+    this.queue = new this.R.EventQueue(true);
     // Original binary checkpoint while a restored world is still untouched.
     // Cleared by every authoritative physical-world mutation.
     this.restoredSnapshotBytes = null;
@@ -105,13 +110,26 @@ class TakrawPhysics {
     this.netContacts = new Set();
     this.lastBallTouch = null;
     this.time = 0;
+    this._toss = [null, null];
     this._buildCourt();
     for (let id = 0; id < 6; id++) this.players.push(this._buildPlayer(id));
-    this.setAthletes(Array(6).fill(null));
+    this.setAthletes(profiles);
     this._buildBall();
     this.resetPlayers();
     this.resetBall({ x: -3.0, y: 2.2, z: -1.1 }, { x: 0, y: 0, z: 0 });
   }
+
+  /**
+   * 월드를 새로 만들어 새 인스턴스와 완전히 같은 처음 상태로 돌린다. 선수 프로필은 유지한다.
+   * 몸을 제자리로 옮기는 resetPlayers/resetBall만으로는 Rapier 내부 상태(접촉 캐시·광역 단계 구조)가 이전 경기에서 넘어와,
+   * 같은 시드라도 reset 횟수에 따라 결과가 달라졌다(시드 36의 첫 슈퍼세이브가 틱 436→437).
+   */
+  rebuild() {
+    const profiles = this.players.map(player => player.athlete);
+    this.queue.free(); this.world.free();
+    this._createWorld(profiles);
+  }
+
 
   _v(x = 0, y = 0, z = 0) { return { x, y, z }; }
   _add(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }

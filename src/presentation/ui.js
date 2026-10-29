@@ -1,4 +1,4 @@
-import { TAKRAW_SCHOOLS } from '../config/schools.js';
+import { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from '../config/schools.js';
 import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_VERSION, TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
@@ -285,9 +285,11 @@ class TakrawUI {
 
   campaignContent() {
     const cleared = new Set(this.club.campaign?.cleared || []), ready = this.club.status === 'ready' && !this.inGame;
-    return `<p>학교 이름과 색상은 임시예요. 앞 학교를 이기면 다음 학교에 도전할 수 있어요.</p><div class="campaign-list">${TAKRAW_SCHOOLS.map((school, index) => {
-      const unlocked = index === 0 || cleared.has(TAKRAW_SCHOOLS[index - 1].id), done = cleared.has(school.id);
-      return `<article class="campaign-card"><span class="campaign-uniform" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:#${school.uniform.primary.toString(16).padStart(6, '0')};--uniform-secondary:#${school.uniform.secondary.toString(16).padStart(6, '0')}"></span><div><h3>${this.escape(school.name)}</h3><p>${done ? '클리어' : unlocked ? '도전 가능' : '잠김 · 앞 학교를 먼저 클리어하세요'}</p><small>${done ? '훈련 포인트 수령 완료' : `첫 클리어 ${school.firstClearTrainingPoints} P · 임시 보상`}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready || !unlocked ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
+    const home = takrawSchool(this.club.campaign?.home), elementName = school => TAKRAW_ELEMENTS.find(element => element.id === school.element)?.name || '';
+    if (!home) return '<p>팀을 불러온 뒤 도전할 수 있어요.</p>';
+    return `<p>내 학교는 <b>${this.escape(home.name)}</b>(${elementName(home)} 속성)예요. 학교 이름과 색상은 임시예요. 앞 단계를 이기면 다음 단계에 도전할 수 있어요.</p><div class="campaign-list">${takrawOpponents(home.id).map((school, index, list) => {
+      const unlocked = index === 0 || cleared.has(list[index - 1].id), done = cleared.has(school.id);
+      return `<article class="campaign-card"><span class="campaign-uniform" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:#${school.uniform.primary.toString(16).padStart(6, '0')};--uniform-secondary:#${school.uniform.secondary.toString(16).padStart(6, '0')}"></span><div><h3>${school.stage}단계 · ${this.escape(school.name)}</h3><p>${elementName(school)} 속성 · ${done ? '클리어' : unlocked ? '도전 가능' : '잠김 · 앞 단계를 먼저 클리어하세요'}</p><small>${done ? '훈련 포인트 수령 완료' : `첫 클리어 ${school.firstClearTrainingPoints} P · 임시 보상`}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready || !unlocked ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
     }).join('')}</div>`;
   }
 
@@ -751,7 +753,7 @@ class TakrawUI {
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;
     this.nodes['end-actions'].dataset.result = hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';
     if (ended) {
-      const winnerSchool = hud.matchWinner === 0 ? TAKRAW_SCHOOLS[0] :
+      const winnerSchool = hud.matchWinner === 0 ? takrawSchool(this.club.campaign?.home) || TAKRAW_SCHOOLS[0] :
         TAKRAW_SCHOOLS.find(value => value.name === hud.teamNames?.[1]) || TAKRAW_SCHOOLS[1];
       this.nodes['end-actions'].style.setProperty('--result-accent', `#${winnerSchool.uniform.primary.toString(16).padStart(6, '0')}`);
     }

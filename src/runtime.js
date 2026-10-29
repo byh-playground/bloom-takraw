@@ -554,8 +554,9 @@ async function bootTakraw() {
       }
       // 소리는 표시 전용이라 변주(좌우·음높이)에 Math.random을 쓴다. 롤백으로 같은 이벤트가 다시 나와도 저널이 같은 식별자의 중복을 버려 소리는 한 번만 난다.
       const sound = takrawSoundPayload(event, {
-        reference: TAKRAW_RUNTIME.feedback.soundReferenceSpeed, halfWidth: config.court.halfWidth, viewTeam: localTeam(),
+        reference: TAKRAW_RUNTIME.feedback.soundReferenceSpeed, halfWidth: config.court.halfWidth, halfLength: config.court.halfLength, viewTeam: localTeam(),
         panSpread: TAKRAW_RUNTIME.feedback.soundPanSpread, detuneCents: TAKRAW_RUNTIME.feedback.soundDetuneCents,
+        distanceDrop: TAKRAW_RUNTIME.feedback.soundDistanceDrop,
         random: Math.random, matchPoint,
       });
       if (sound) journal.emit({ ...identity, kind: 'sound', payload: sound, policy: 'confirmed' });

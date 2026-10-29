@@ -7,8 +7,9 @@ const reference = TAKRAW_RUNTIME.feedback.soundReferenceSpeed;
 const sounds = TAKRAW_RUNTIME.audio.sounds;
 const touch = (extra = {}) => ({ type: 'touch', part: 'footR', speed: reference * 0.6, position: { x: 0, y: 1, z: 0 }, ...extra });
 const options = (extra = {}) => ({
-  reference, halfWidth: TAKRAW_CONFIG.court.halfWidth, viewTeam: 0,
+  reference, halfWidth: TAKRAW_CONFIG.court.halfWidth, halfLength: TAKRAW_CONFIG.court.halfLength, viewTeam: 0,
   panSpread: TAKRAW_RUNTIME.feedback.soundPanSpread, detuneCents: TAKRAW_RUNTIME.feedback.soundDetuneCents,
+  distanceDrop: TAKRAW_RUNTIME.feedback.soundDistanceDrop,
   random: () => 0.5, matchPoint: false, ...extra,
 });
 
@@ -54,4 +55,20 @@ test('좌우: 화면 오른쪽이 1P는 +z, 2P는 -z이고 득점 함성은 가�
   expect(takrawSoundPayload({ type: 'serve', speed: 0, position: { z: 1 } }, options({ random: () => 1 })).detune).toBe(0);
   const low = takrawSoundPayload(touch(), options({ random: () => 0 })).detune, high = takrawSoundPayload(touch(), options({ random: () => 1 })).detune;
   expect(low).toBeCloseTo(-TAKRAW_RUNTIME.feedback.soundDetuneCents); expect(high).toBeCloseTo(TAKRAW_RUNTIME.feedback.soundDetuneCents);
+});
+
+test('깊이감: 보는 사람에게서 먼 코트 끝일수록 작게 나고 1P와 2P는 가까운 쪽이 반대다', () => {
+  const at = x => touch({ position: { x, y: 1, z: 0 } });
+  const halfLength = TAKRAW_CONFIG.court.halfLength, drop = TAKRAW_RUNTIME.feedback.soundDistanceDrop;
+  const near = takrawSoundPayload(at(-halfLength), options({ viewTeam: 0 })).strength;
+  const mid = takrawSoundPayload(at(0), options({ viewTeam: 0 })).strength;
+  const far = takrawSoundPayload(at(halfLength), options({ viewTeam: 0 })).strength;
+  expect(near).toBeGreaterThan(mid); expect(mid).toBeGreaterThan(far);
+  expect(far / near).toBeCloseTo(1 - drop, 1);
+  // 2P는 +x 쪽에서 보므로 같은 위치의 먼·가까움이 뒤바뀐다.
+  expect(takrawSoundPayload(at(halfLength), options({ viewTeam: 1 })).strength).toBeCloseTo(near);
+  expect(takrawSoundPayload(at(-halfLength), options({ viewTeam: 1 })).strength).toBeCloseTo(far);
+  // 득점·서브 신호는 거리와 무관하다.
+  const point = x => takrawSoundPayload({ type: 'point', speed: 0, position: { x, z: 0 } }, options()).strength;
+  expect(point(halfLength)).toBe(point(-halfLength));
 });

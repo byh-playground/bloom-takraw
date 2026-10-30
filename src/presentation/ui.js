@@ -5,6 +5,9 @@ import { TAKRAW_VERSION, TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } 
 import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS, takrawTrainingFactor } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
 
+/** 처음 화면의 안쪽 단계와 그 부모 주소. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
+const HOME_PARENT = { start: '', multi: 'start' };
+
 class TakrawUI {
   constructor(callbacks, network) {
     this.callbacks = callbacks;
@@ -18,7 +21,7 @@ class TakrawUI {
     this.controller = new AbortController();
     this.touch = { pointer: null, active: new Map() };
     this.previousFocus = null;
-    this.homeShown = false;
+    this.homeShown = false; this.homeView = 'main';
     this.copyTimer = null;
     this.cache = new Map();
     this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], scouts: [], lineup: {}, record: {} };
@@ -26,7 +29,7 @@ class TakrawUI {
     this.clubSelection = { tab: 'roster', pick: null, detail: null, scout: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
     this.clubBusy = false; this.clubNotice = '';
     this.nodes = {};
-    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
+    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
@@ -68,8 +71,8 @@ class TakrawUI {
     click('start-training', () => this.start('training'));
     click('start-local', () => this.start('local'));
     click('open-network', () => { this.callbacks.onStart?.('online'); this.navigate('network'); });
-    click('help-button', () => this.callbacks.onIntro?.());
-    click('club-button', () => this.navigate('club'));
+    for (const button of document.querySelectorAll('[data-home-go]')) this.listen(button, 'click', () => this.navigate(button.dataset.homeGo));
+    click('home-back', () => this.navigate(HOME_PARENT[this.homeView]));
     click('open-club', () => this.navigate('club'));
     click('reward-retry', () => this.callbacks.onRewardRetry?.());
     click('settings-button', () => this.navigate('settings'));
@@ -115,7 +118,7 @@ class TakrawUI {
       event.preventDefault(); this.clubAction('rename', { name: document.getElementById('club-name').value });
     });
     this.listen(document, 'keydown', event => {
-      if (event.code === 'Escape') { event.preventDefault(); if (this.dialog) this.closeDialog(); else if (this.inGame) this.navigate('pause'); }
+      if (event.code === 'Escape') { event.preventDefault(); if (this.dialog) this.closeDialog(); else if (this.inGame) this.navigate('pause'); else if (this.homeView !== 'main') this.navigate(HOME_PARENT[this.homeView]); }
       if (this.dialog && event.code === 'Tab') this.trapFocus(event);
     });
     for (const button of document.querySelectorAll('[data-touch]')) {
@@ -153,6 +156,17 @@ class TakrawUI {
     for (const type of ['pointerup','pointercancel','lostpointercapture']) this.listen(pad, type, up);
     this.listen(pad, 'contextmenu', event => event.preventDefault());
   }
+
+  /** 메인 화면의 계층(처음 → 게임 시작 → 멀티플레이) 중 보일 단계를 고른다. 한 번에 한 단계만 보이고, 뒤로 버튼은 헤더의 고정 자리에서 한 단계 위로 간다. */
+  setHomeView(view, focus = true) {
+    this.homeView = view; document.body.dataset.homeView = view;
+    for (const node of document.querySelectorAll('[data-home-view]')) node.hidden = node.dataset.homeView !== view;
+    this.nodes['home-back'].hidden = view === 'main';
+    if (focus) document.querySelector(`[data-home-view="${view}"] button`)?.focus({ preventScroll: true });
+  }
+
+  /** 처음 화면에서 보이는 단계의 주소. 대화상자를 닫으면 이 단계로 돌아온다. */
+  homeRoute() { return this.homeView === 'main' ? '' : this.homeView; }
 
   start(mode) { if (this.callbacks.canStart(mode)) this.callbacks.onStart?.(mode); }
 
@@ -204,6 +218,7 @@ class TakrawUI {
   }
 
   showHome() {
+    this.setHomeView('main', false);
     const initialDialog = !this.homeShown && !this.inGame && ['settings','network','club','campaign'].includes(this.dialog) ? this.dialog : '';
     this.homeShown = true;
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
@@ -214,7 +229,7 @@ class TakrawUI {
   }
 
   showGame(mode) {
-    this.inGame = true; this.mode = mode; this.hideDialog(true);
+    this.inGame = true; this.mode = mode; this.hideDialog(true); this.setHomeView('main', false);
     document.body.classList.remove('is-home'); document.body.dataset.mode = mode;
     this.nodes['home-panel'].hidden = true; this.nodes['match-hud'].hidden = false;
     this.nodes['touch-controls'].hidden = !this.coarse.matches || mode === 'watch'; this.nodes['watch-form'].hidden = mode !== 'watch'; this.nodes['training-actions'].hidden = mode !== 'training';
@@ -236,12 +251,17 @@ class TakrawUI {
   applyRoute() {
     const route = window.location.hash.replace(/^#\/?/, '').split('?')[0];
     if (route === 'showcase') return; // 소개영상 호스트가 이 주소를 소유한다.
+    if (HOME_PARENT[route] !== undefined) {
+      if (this.inGame) { this.setRoute('play', true); return; }
+      this.hideDialog(true); this.setHomeView(route, false); return;
+    }
     if (['settings','pause','network','club','campaign'].includes(route)) {
       if (route === 'pause' && !this.inGame) { this.setRoute('', true); this.hideDialog(false); return; }
       this.openDialog(route);
     } else {
       if (!route && this.inGame) { this.quit(); return; }
       this.hideDialog(true);
+      if (!route && !this.inGame) this.setHomeView('main', false);
       if ((route && route !== 'play') || (route === 'play' && !this.inGame)) this.setRoute(this.inGame ? 'play' : '', true);
     }
   }
@@ -265,7 +285,7 @@ class TakrawUI {
 
   closeDialog() {
     if (this.dialog === 'network' && !this.inGame && ['listening','connecting'].includes(this.network.state)) this.callbacks.onNetwork?.('close');
-    this.hideDialog(true); this.setRoute(this.inGame ? 'play' : '');
+    this.hideDialog(true); this.setRoute(this.inGame ? 'play' : this.homeRoute());
   }
 
   hideDialog(resume) {
@@ -591,7 +611,7 @@ class TakrawUI {
       if (!code) { input.focus(); input.setCustomValidity('방 코드를 입력하세요.'); input.reportValidity(); input.setCustomValidity(''); return; }
       this.callbacks.onNetwork?.('join', code);
     }
-    if (action === 'close-network') { this.callbacks.onNetwork?.('close'); this.hideDialog(true); this.setRoute(this.inGame ? 'play' : ''); }
+    if (action === 'close-network') { this.callbacks.onNetwork?.('close'); this.hideDialog(true); this.setRoute(this.inGame ? 'play' : this.homeRoute()); }
     if (action === 'copy-code') this.copyText(this.network.code, button);
     if (action === 'copy-network-log') this.copyText(document.getElementById('network-log')?.textContent || '', button);
   }

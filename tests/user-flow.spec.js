@@ -50,7 +50,7 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
 
     stage('AI 경기 조작 → 메뉴에서 퇴장 → 훈련');
     stage('일반 서브 10회: 리시브 → 세트 → 세 번째 스파이크 성공률 80% 이상');
-    await Promise.all(pages.map(page => page.locator('#start-match').click()));
+    await Promise.all(pages.map(async page => { await page.locator('#open-start').click(); await page.locator('#start-match').click(); }));
     await Promise.all(pages.map(page => page.evaluate(() => {
       const game = window.__takraw.game;
       const witness = window.__teamPlayWitness = { trials: [], completed: null, seeds: [game.state.seed] };
@@ -114,20 +114,20 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
     await host.screenshot({ path: testInfo.outputPath('three-touch-attack.png') });
     await host.locator('canvas').focus(); await host.keyboard.press('Space');
     await Promise.all(pages.map(quit));
-    await host.locator('#start-training').click();
+    await host.locator('#open-start').click(); await host.locator('#start-training').click();
     await host.locator('#training-lesson').selectOption('scissors');
     await expect(host.locator('#training-lesson')).toHaveValue('scissors');
     await expect(host.locator('#training-stage')).not.toHaveText('');
     await quit(host);
 
     stage('친구에게 방 코드 전달 → 실제 Nostr/WebRTC 입장');
-    await host.locator('#open-network').click();
+    await host.locator('#open-start').click(); await host.locator('#open-multi').click(); await host.locator('#open-network').click();
     await host.locator('[data-dialog-action="host"]').click();
     await expect(host.locator('#room-code')).toHaveValue(/^\d{4}$/, { timeout: 30000 });
     await host.locator('.network-debug summary').click();
     await expect(host.locator('#network-log')).toContainText('session-open');
     const code = await host.locator('#room-code').inputValue();
-    await guest.locator('#open-network').click(); await guest.locator('#room-input').fill(code);
+    await guest.locator('#open-start').click(); await guest.locator('#open-multi').click(); await guest.locator('#open-network').click(); await guest.locator('#room-input').fill(code);
     await guest.locator('[data-dialog-action="join"]').click(); await connected();
     await expect(host.locator('#rally-status')).toHaveText('랠리 진행 중');
     await equalState('입장');

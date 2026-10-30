@@ -1181,7 +1181,6 @@ async function bootTakraw() {
       } else startLocal(nextMode);
     },
     onRestart: restart,
-    onIntro: () => intro?.open(),
     onWatch: seed => { campaignSchoolId = null; startWatch(seed); },
     onCampaign(schoolId) {
       const { home, cleared } = club.getView().campaign, index = home ? takrawOpponents(home).findIndex(school => school.id === schoolId) : -1;

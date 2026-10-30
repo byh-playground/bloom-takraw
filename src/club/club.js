@@ -1,10 +1,20 @@
 /** 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다. */
 // TOBE(learning) 학습 비용: `learning.cost`는 능력치 훈련과 같은 trainingPoints를 쓴다. 학습이 경기에 도움이 되는 것으로 확인되면 별도 포인트 분리 여부를 결정한다(docs/learning-tobe.md ⑥).
+import { takrawGenerateCard } from './generator.js';
 import { TAKRAW_SCHOOLS, takrawOpponents, takrawPickHome, takrawSchool } from '../config/schools.js';
 
 const TAKRAW_CLUB_RULES = Object.freeze({
   initial: { credits: 600, trainingPoints: 6 },
-  capacity: 9, nameLength: 18, training: { cost: 1, growth: 0.033, exponent: 1.5 }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
+  capacity: 9, nameLength: 18, training: { cost: 1, growth: 0.033, exponent: 1.5 },
+  // 선수 뽑기: 1회 cost(C)로 weights 비율의 등급을 뽑고, presetShare 확률로 프리셋 카드(없으면 생성)에서 고른다.
+  // 선수단이 가득 차 합류하지 못하면 refund(P)로 환급하거나 후보와 교체한다.
+  draw: { cost: 300, weights: { common: 70, rare: 25, hero: 5 }, refund: { common: 1, rare: 2, hero: 5 }, presetShare: 0.4 },
+  rarities: [{ id: 'common', name: '일반' }, { id: 'rare', name: '희귀' }, { id: 'hero', name: '영웅' }],
+  // 생성 선수: base에서 0~rest만큼 흩어지고, peaks개의 능력치가 range 안으로 솟는다. 역할의 핵심 능력치(focus)부터 솟는다.
+  generation: { base: 50,
+    rarity: { common: { peaks: 2, range: [68, 78], rest: 12 }, rare: { peaks: 3, range: [76, 86], rest: 16 }, hero: { peaks: 4, range: [84, 94], rest: 20 } },
+    focus: { receiver: ['defense', 'recovery', 'mobility'], setter: ['setting', 'flexibility', 'mobility'], attacker: ['power', 'jump', 'flexibility'] },
+    phrases: { mobility: '빠른 발', jump: '높은 점프', power: '강한 타격', flexibility: '유연한 공중 제어', setting: '정교한 토스', defense: '든든한 수비', recovery: '빠른 회복' } }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
   rewards: { win: { credits: 180, trainingPoints: 3 }, loss: { credits: 100, trainingPoints: 2 } },
   roles: [{ id: 'receiver', name: '리시버' }, { id: 'setter', name: '세터' }, { id: 'attacker', name: '공격수' }],
   stats: [
@@ -23,15 +33,15 @@ const takrawTrainingFactor = (level, rule = TAKRAW_CLUB_RULES.training) => (1 + 
 
 const takrawClubStats = values => Object.fromEntries(TAKRAW_CLUB_RULES.stats.map(stat => [stat.id, values[stat.id] ?? 50]));
 const TAKRAW_CLUB_PLAYERS = Object.freeze([
-  { id: 'han-gyeol', name: '한결', tag: '든든한 수비', preferredRole: 'receiver', stats: takrawClubStats({ defense: 74, recovery: 68 }) },
-  { id: 'yun-seo', name: '윤서', tag: '차분한 연결', preferredRole: 'setter', stats: takrawClubStats({ defense: 58, recovery: 62 }) },
-  { id: 'i-deun', name: '이든', tag: '균형 잡힌 공격', preferredRole: 'attacker', stats: takrawClubStats({}) },
-  { id: 'ha-rin', name: '하린', tag: '빠른 공간 커버', preferredRole: 'attacker', stats: takrawClubStats({ mobility: 84, flexibility: 78, defense: 58, recovery: 60 }) },
-  { id: 'do-yun', name: '도윤', tag: '높은 타점', preferredRole: 'attacker', stats: takrawClubStats({ mobility: 54, jump: 78, power: 78, defense: 52, recovery: 56 }) },
-  { id: 'si-on', name: '시온', tag: '힘 있는 토스', preferredRole: 'setter', stats: takrawClubStats({ mobility: 62, setting: 84, defense: 72, recovery: 62 }) },
-  { id: 'na-rae', name: '나래', tag: '넓은 수비 범위', preferredRole: 'receiver', price: 360, stats: takrawClubStats({ mobility: 76, flexibility: 62, setting: 54, defense: 88, recovery: 78 }) },
-  { id: 'tae-o', name: '태오', tag: '강력한 공중 타격', preferredRole: 'attacker', price: 480, stats: takrawClubStats({ mobility: 58, jump: 86, power: 86, flexibility: 72, recovery: 58 }) },
-  { id: 'ra-on', name: '라온', tag: '빠른 세팅', preferredRole: 'setter', price: 420, stats: takrawClubStats({ mobility: 74, flexibility: 58, setting: 88, defense: 70, recovery: 72 }) },
+  { id: 'han-gyeol', starter: true, rarity: 'common', name: '한결', tag: '든든한 수비', preferredRole: 'receiver', stats: takrawClubStats({ defense: 74, recovery: 68 }) },
+  { id: 'yun-seo', starter: true, rarity: 'common', name: '윤서', tag: '차분한 연결', preferredRole: 'setter', stats: takrawClubStats({ defense: 58, recovery: 62 }) },
+  { id: 'i-deun', starter: true, rarity: 'common', name: '이든', tag: '균형 잡힌 공격', preferredRole: 'attacker', stats: takrawClubStats({}) },
+  { id: 'ha-rin', starter: true, rarity: 'common', name: '하린', tag: '빠른 공간 커버', preferredRole: 'attacker', stats: takrawClubStats({ mobility: 84, flexibility: 78, defense: 58, recovery: 60 }) },
+  { id: 'do-yun', starter: true, rarity: 'common', name: '도윤', tag: '높은 타점', preferredRole: 'attacker', stats: takrawClubStats({ mobility: 54, jump: 78, power: 78, defense: 52, recovery: 56 }) },
+  { id: 'si-on', starter: true, rarity: 'common', name: '시온', tag: '힘 있는 토스', preferredRole: 'setter', stats: takrawClubStats({ mobility: 62, setting: 84, defense: 72, recovery: 62 }) },
+  { id: 'na-rae', name: '나래', tag: '넓은 수비 범위', preferredRole: 'receiver', rarity: 'rare', stats: takrawClubStats({ mobility: 76, flexibility: 62, setting: 54, defense: 88, recovery: 78 }) },
+  { id: 'tae-o', name: '태오', tag: '강력한 공중 타격', preferredRole: 'attacker', rarity: 'hero', stats: takrawClubStats({ mobility: 58, jump: 86, power: 86, flexibility: 72, recovery: 58 }) },
+  { id: 'ra-on', name: '라온', tag: '빠른 세팅', preferredRole: 'setter', rarity: 'rare', stats: takrawClubStats({ mobility: 74, flexibility: 58, setting: 88, defense: 70, recovery: 72 }) },
 ]);
 
 /** 0 이상 1 미만의 난수 하나(내 학교 추첨용). 경기 시뮬레이션과 무관하다. */
@@ -67,7 +77,7 @@ class TakrawClub {
   _normalizeName(value) { return String(value ?? '').replace(/\s+/gu, ' ').trim(); }
   _default() {
     return { schema: 1, revision: 0, name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
-      owned: TAKRAW_CLUB_PLAYERS.filter(player => !player.price).map(player => player.id), trained: {}, levels: {},
+      owned: TAKRAW_CLUB_PLAYERS.filter(player => player.starter).map(player => player.id), trained: {}, levels: {}, cards: {}, pending: null, gacha: { runs: 0 },
       lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
       record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null }, campaign: { home: takrawPickHome(this.random()), cleared: [] } };
   }
@@ -79,7 +89,7 @@ class TakrawClub {
       this._normalizeName(record.name) !== record.name || [...record.name].length < 1 || [...record.name].length > TAKRAW_CLUB_RULES.nameLength ||
       !integer(record.credits) || !integer(record.trainingPoints) || !Array.isArray(record.owned) ||
       record.owned.length < 3 || record.owned.length > TAKRAW_CLUB_RULES.capacity || new Set(record.owned).size !== record.owned.length ||
-      record.owned.some(id => !TAKRAW_CLUB_PLAYERS.some(player => player.id === id)) ||
+      record.owned.some(id => !this._known(record, id)) ||
       !record.lineup || new Set(Object.values(record.lineup)).size !== 3 || Object.keys(record.lineup).length !== 3 ||
       TAKRAW_CLUB_RULES.roles.some(role => !record.owned.includes(record.lineup[role.id])) ||
       !record.trained || typeof record.trained !== 'object' || Array.isArray(record.trained) ||
@@ -104,6 +114,18 @@ class TakrawClub {
         if (!list || campaign.cleared.length > list.length || Array.from(campaign.cleared).some((id, index) => id !== list[index].id)) fail();
       }
     }
+    if (record.cards !== undefined) {
+      const cards = record.cards, stats = TAKRAW_CLUB_RULES.stats.map(stat => stat.id);
+      const validCard = (id, card) => card && typeof card === 'object' && card.id === id && /^gen-\d+$/.test(id) &&
+        typeof card.name === 'string' && card.name.length >= 1 && card.name.length <= 8 && typeof card.tag === 'string' && card.tag.length <= 40 &&
+        TAKRAW_CLUB_RULES.roles.some(role => role.id === card.preferredRole) && TAKRAW_CLUB_RULES.rarities.some(rarity => rarity.id === card.rarity) &&
+        Number.isSafeInteger(card.number) && card.number >= 0 && card.number <= 99 && card.stats && typeof card.stats === 'object' &&
+        Object.keys(card.stats).length === stats.length && stats.every(key => Number.isSafeInteger(card.stats[key]) && card.stats[key] >= 0 && card.stats[key] <= 100);
+      if (!cards || typeof cards !== 'object' || Array.isArray(cards) ||
+        Object.entries(cards).some(([id, card]) => !validCard(id, card) || !(record.owned.includes(id) || record.pending === id))) fail();
+    }
+    if (record.pending !== undefined && record.pending !== null && (typeof record.pending !== 'string' || !this._known(record, record.pending) || record.owned.includes(record.pending))) fail();
+    if (record.gacha !== undefined && !(record.gacha && typeof record.gacha === 'object' && integer(record.gacha.runs))) fail();
     if (record.levels !== undefined) {
       const levels = record.levels;
       if (!levels || typeof levels !== 'object' || Array.isArray(levels) ||
@@ -261,15 +283,61 @@ class TakrawClub {
     }, '훈련을 저장했어요. 다음 경기와 연습부터 적용돼요.');
   }
 
-  recruit(playerId) {
+  /** 저장된 카드 또는 프리셋 선수 하나. 생성 선수는 저장 기록의 cards에만 있다. */
+  _card(id) { return TAKRAW_CLUB_PLAYERS.find(value => value.id === id) ?? this.record?.cards?.[id]; }
+  _known(record, id) { return TAKRAW_CLUB_PLAYERS.some(value => value.id === id) || !!record.cards?.[id]; }
+
+  _rollRarity() {
+    const weights = Object.entries(TAKRAW_CLUB_RULES.draw.weights), total = weights.reduce((sum, [, weight]) => sum + weight, 0);
+    let roll = this.random() * total;
+    for (const [rarity, weight] of weights) { if ((roll -= weight) < 0) return rarity; }
+    return weights[weights.length - 1][0];
+  }
+
+  /**
+   * 코인 1회분으로 선수를 뽑는다. 결과는 이 저장 한 번에 확정되므로 연출 도중 새로고침해도 되돌릴 수 없다.
+   * 선수단에 자리가 있으면 바로 합류하고, 가득 차면 pending으로 남겨 resolveDraw가 정리할 때까지 다음 뽑기를 막는다.
+   */
+  async draw() {
+    const rules = TAKRAW_CLUB_RULES, rule = rules.draw; let drawn = null;
+    const result = await this._mutate(record => {
+      if (record.pending) throw this._error('먼저 지난 뽑기 결과를 정리해 주세요.');
+      if (record.credits < rule.cost) throw this._error(`뽑기에 ${rule.cost - record.credits} C가 더 필요해요.`);
+      const rarity = this._rollRarity();
+      const presets = TAKRAW_CLUB_PLAYERS.filter(player => !player.starter && player.rarity === rarity && !record.owned.includes(player.id));
+      record.gacha ??= { runs: 0 }; record.cards ??= {};
+      let id;
+      if (presets.length && this.random() < rule.presetShare) id = presets[Math.floor(this.random() * presets.length)].id;
+      else {
+        id = `gen-${record.gacha.runs + 1}`;
+        const names = record.owned.map(owned => (TAKRAW_CLUB_PLAYERS.find(value => value.id === owned) ?? record.cards[owned])?.name);
+        const numbers = Object.values(record.cards).map(card => card.number);
+        record.cards[id] = takrawGenerateCard({ id, rarity, random: this.random, rules, takenNames: names, takenNumbers: numbers });
+      }
+      record.gacha.runs++; record.credits -= rule.cost;
+      const joined = record.owned.length < rules.capacity;
+      if (joined) record.owned.push(id); else record.pending = id;
+      drawn = { id, rarity, joined };
+    }, '선수를 뽑았어요.');
+    return { ...result, drawn };
+  }
+
+  /** 가득 차서 남겨 둔 뽑기 결과를 정리한다. release가 있으면 그 후보와 교체하고, 없으면 환급 포인트를 받는다. */
+  resolveDraw({ release = null } = {}) {
     return this._mutate(record => {
-      const player = TAKRAW_CLUB_PLAYERS.find(value => value.id === playerId);
-      if (!player?.price) throw this._error('영입할 선수를 확인해 주세요.');
-      if (record.owned.includes(playerId)) throw this._error('이미 우리 팀 선수예요.');
-      if (record.owned.length >= TAKRAW_CLUB_RULES.capacity) throw this._error('선수단이 가득 찼어요. 최대 9명까지 함께할 수 있어요.');
-      if (record.credits < player.price) throw this._error(`영입에 ${player.price - record.credits} C가 더 필요해요.`);
-      record.credits -= player.price; record.owned.push(playerId);
-    }, '선수를 영입했어요. 원하는 자리에 편성해 보세요.');
+      const rules = TAKRAW_CLUB_RULES, id = record.pending;
+      if (!id) throw this._error('정리할 뽑기 결과가 없어요.');
+      const card = this._card(id);
+      const drop = playerId => { // 생성 선수는 카드째 지우고 훈련 기록도 함께 정리한다.
+        delete record.cards?.[playerId]; delete record.trained[playerId]; delete record.levels?.[playerId];
+      };
+      if (release === null) { record.trainingPoints += rules.draw.refund[card.rarity]; drop(id); }
+      else {
+        if (!record.owned.includes(release) || Object.values(record.lineup).includes(release)) throw this._error('교체할 후보 선수를 확인해 주세요.');
+        record.owned.splice(record.owned.indexOf(release), 1); drop(release); record.owned.push(id);
+      }
+      record.pending = null;
+    }, release === null ? '환급 포인트를 받았어요.' : '후보와 교체했어요.');
   }
 
   rewardMatch({ id, won, mode, schoolId = null } = {}) {
@@ -315,16 +383,16 @@ class TakrawClub {
   }
 
   _player(id) {
-    const base = TAKRAW_CLUB_PLAYERS.find(value => value.id === id);
+    const base = this._card(id), number = base.number ?? TAKRAW_CLUB_PLAYERS.findIndex(value => value.id === id) + 1;
     const level = this.record?.levels?.[id] || 0, factor = takrawTrainingFactor(level);
-    return { ...base, level, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.round((value + (this.record?.trained[id]?.[key] || 0)) * factor)])), role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
+    return { ...base, number, level, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.round((value + (this.record?.trained[id]?.[key] || 0)) * factor)])), role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
   }
 
   getView() {
     const record = this.record;
     return { status: this.status, message: this.message, teamName: record?.name || '', credits: record?.credits || 0,
       trainingPoints: record?.trainingPoints || 0, roster: record ? record.owned.map(id => this._player(id)) : [], lineup: { ...record?.lineup },
-      scouts: record ? TAKRAW_CLUB_PLAYERS.filter(player => player.price && !record.owned.includes(player.id)).map(player => this._player(player.id)) : [],
+      draw: { ...TAKRAW_CLUB_RULES.draw, runs: record?.gacha?.runs || 0, pending: record?.pending ? this._player(record.pending) : null },
       record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 }, learning: { runs: record?.learning?.runs || 0 }, lastReward: record?.lastReward ? { ...record.lastReward } : null,
       campaign: { home: record?.campaign?.home || null, cleared: [...(record?.campaign?.cleared || [])] }, revision: record?.revision ?? null };
   }

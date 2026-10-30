@@ -497,3 +497,56 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .is-club .dialog-back[hidden]{display:none}
 .is-club .dialog-back+div{flex:1;min-width:0}
 .is-club .club-radar-view{display:flex;justify-content:center;padding:4px 0 12px}
+/* 선수 뽑기: 등급 색(--rc)은 일반 청록·희귀 파랑·영웅 금색. 연출 레이어는 팀 관리 화면과 분리돼 저장 알림으로 다시 그려지지 않는다. */
+.club-rarity,.draw-backdrop{--rc:#8fb7a3}
+[data-rarity="rare"]{--rc:#5aa9ef}
+[data-rarity="hero"]{--rc:#ffc94d}
+.club-rarity{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;border:1px solid var(--rc);color:#1d4a3d;background:color-mix(in srgb,var(--rc) 26%,#fff);font-size:11px;font-weight:700;line-height:1.6;vertical-align:middle}
+.is-club .club-draw{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:0;text-align:center}
+.draw-pack-art,.draw-pack{position:relative;display:grid;place-items:center;width:112px;height:152px;border-radius:14px;background:linear-gradient(155deg,#2f8a6b,#17604b 60%,#0f4838);box-shadow:0 10px 24px #0f483855,inset 0 0 0 3px #ffffff30;color:#fff}
+.draw-pack-art i,.draw-pack i{position:absolute;inset:10px;border:2px dashed #ffffff55;border-radius:9px}
+.draw-pack-art b,.draw-pack b{font-size:44px;font-weight:800;text-shadow:0 2px 8px #0006}
+.is-club .draw-odds{margin:0!important;font-size:14px;font-weight:700;color:var(--club-ink)}
+.is-club .draw-note{max-width:34em;margin:0!important;font-size:12px;line-height:1.6;color:var(--club-muted)}
+.draw-stage{position:absolute;inset:0;z-index:30;color:#fff;background:radial-gradient(circle at 50% 38%,#25594c,#0d201b 72%)}
+.draw-stage[hidden]{display:none}
+.draw-backdrop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;width:100%;height:100%;padding:16px;overflow:hidden}
+.draw-skip{position:absolute;top:max(12px,env(safe-area-inset-top));right:14px;min-height:44px;padding:0 16px;border:1px solid #ffffff55;border-radius:22px;background:#ffffff1f;color:#fff;font-size:14px;font-weight:650}
+.draw-backdrop[data-phase="front"] .draw-skip{display:none}
+.draw-backdrop .draw-pack{display:none;width:150px;height:200px;animation:draw-shake 1.5s ease-in both}
+.draw-backdrop[data-phase="pack"] .draw-pack{display:grid}
+.draw-backdrop[data-phase="pack"] .draw-card,.draw-backdrop:not([data-phase="front"]) .draw-result{display:none}
+.draw-backdrop[data-phase="pack"]::after{content:"";position:absolute;inset:0;background:radial-gradient(circle,var(--rc),transparent 60%);opacity:0;animation:draw-flash 1.5s ease-in both;pointer-events:none}
+.draw-card{--cw:min(240px,calc(100vw - 48px));--ch:min(330px,calc(100dvh - 190px));perspective:900px;width:var(--cw);height:var(--ch);padding:0;border:0;background:none;color:inherit;font:inherit;animation:draw-rise .6s cubic-bezier(.2,.8,.2,1) both}
+.draw-card-inner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .7s cubic-bezier(.3,.7,.2,1)}
+.draw-backdrop[data-phase="front"] .draw-card-inner{transform:rotateY(180deg)}
+.draw-face{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:8px;border-radius:16px;backface-visibility:hidden;-webkit-backface-visibility:hidden;box-shadow:0 0 0 3px var(--rc),0 0 36px color-mix(in srgb,var(--rc) 70%,transparent)}
+.draw-back{justify-content:center;background:linear-gradient(155deg,#2f8a6b,#17604b 60%,#0f4838);animation:draw-pulse 1.6s ease-in-out infinite}
+.draw-back b{font-size:72px;font-weight:800;text-shadow:0 2px 10px #0006}
+.draw-back small{font-size:13px;opacity:.85}
+.draw-front{transform:rotateY(180deg);padding:14px 12px 10px;background:linear-gradient(170deg,#fbfdf6,#e6f1e2);color:#193d35;min-height:0}
+.draw-front-head{display:flex;align-items:center;gap:10px;align-self:stretch;text-align:left}
+.draw-front-head strong{display:block;font-size:22px;line-height:1.2;letter-spacing:-.5px}
+.draw-front-head small{display:block;margin-top:2px;font-size:12px;color:#52685e}
+.draw-front .club-radar{flex:1;min-height:0;width:100%;max-width:none}
+.draw-result{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:360px;text-align:center;font-size:14px}
+.draw-result p{margin:0}
+.draw-result button{min-height:44px;font-size:14px;font-weight:700}
+.draw-result .primary-small{background:#fff;color:#17604b;border:0;border-radius:10px;padding:0 28px}
+.draw-result .secondary-small{background:#ffffff1f;color:#fff;border:1px solid #ffffff55;border-radius:10px;padding:0 16px}
+.draw-swap-title{font-size:12px;opacity:.8}
+.draw-result .draw-later{min-height:44px;border:0;background:none;color:#ffffffcc;text-decoration:underline;font-size:13px}
+.draw-swap{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;width:100%}
+.draw-swap button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:4px 6px;line-height:1.25}
+.draw-swap small{font-size:11px;opacity:.8;white-space:nowrap}
+.draw-swap button{white-space:nowrap}
+@keyframes draw-shake{0%{transform:rotate(0) scale(1)}15%{transform:rotate(-7deg)}30%{transform:rotate(7deg)}45%{transform:rotate(-9deg) scale(1.04)}60%{transform:rotate(9deg) scale(1.08)}78%{transform:rotate(-4deg) scale(1.16)}100%{transform:rotate(0) scale(1.34);opacity:0}}
+@keyframes draw-flash{0%,60%{opacity:0}85%{opacity:.85}100%{opacity:.4}}
+@keyframes draw-rise{from{transform:translateY(70px) scale(.7);opacity:0}to{transform:none;opacity:1}}
+@keyframes draw-pulse{50%{filter:brightness(1.18)}}
+@media(orientation:landscape) and (max-height:520px){
+  .draw-backdrop{flex-direction:row;gap:24px}
+  .draw-card{--cw:min(240px,42vw);--ch:calc(100dvh - 32px)}
+  .draw-result{max-width:300px}
+}
+@media(prefers-reduced-motion:reduce){.draw-backdrop .draw-pack,.draw-card,.draw-back,.draw-backdrop[data-phase="pack"]::after{animation:none}.draw-card-inner{transition:none}}

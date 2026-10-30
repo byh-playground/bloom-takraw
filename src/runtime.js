@@ -242,7 +242,8 @@ async function bootTakraw() {
     if (action === 'rename') return club.rename(payload.name);
     if (action === 'assign') return club.assign(payload.role, payload.playerId);
     if (action === 'train') return club.train(payload.playerId);
-    if (action === 'recruit') return club.recruit(payload.playerId);
+    if (action === 'draw') return club.draw();
+    if (action === 'resolve') return club.resolveDraw({ release: payload.release ?? null });
     throw new Error('팀 관리 동작을 확인해 주세요.');
   }
 

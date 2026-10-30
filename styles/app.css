@@ -473,7 +473,7 @@ body[data-showcase] .site-header,body[data-showcase] .site-footer,body[data-show
 /* 메인 화면은 스크롤 없이 한 화면에 담는다: 첫 화면에는 핵심 모드만 두고 나머지는 한 단계 안(함께 놀기)으로 묶는다. 낮은 화면에서는 우선순위가 낮은 문구부터 접는다. */
 body .home-panel .mode-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 body .home-panel .mode-buttons[hidden]{display:none}
-body .home-panel #start-match,body .home-panel #open-multi,body .home-panel .mode-title{grid-column:1/-1}
+body .home-panel #open-campaign,body .home-panel #open-multi,body .home-panel .mode-title{grid-column:1/-1}
 body .home-panel [data-home-view="main"],body .home-panel .mode-list{grid-template-columns:1fr}
 body .home-panel .mode-button{min-width:0;min-height:56px;padding:9px 12px;display:flex;align-items:center;justify-content:flex-start;gap:10px;text-align:left}
 body .home-panel .mode-button>span:not(.network-icon):not(.more-arrow){flex:1;min-width:0;overflow-wrap:anywhere}

@@ -108,8 +108,11 @@ class TakrawClub {
     if (record.campaign !== undefined) {
       const campaign = record.campaign, keys = campaign && typeof campaign === 'object' && !Array.isArray(campaign) ? Object.keys(campaign) : [];
       // 내 학교(home)가 없는 이전 저장본은 읽을 수 있고, 불러올 때 한 번 학교를 정해 바꾼다(_transaction).
-      const legacy = keys.length === 1 && keys[0] === 'cleared';
-      if (!(legacy || (keys.length === 2 && Object.hasOwn(campaign, 'home') && Object.hasOwn(campaign, 'cleared'))) || !Array.isArray(campaign.cleared)) fail();
+      // introSeen(도장깨기 첫 소개를 봤는지)은 있어도 없어도 되는 값이라 키 개수에서 뺀다.
+      const base = keys.filter(key => key !== 'introSeen');
+      if (keys.includes('introSeen') && typeof campaign.introSeen !== 'boolean') fail();
+      const legacy = base.length === 1 && base[0] === 'cleared';
+      if (!(legacy || (base.length === 2 && Object.hasOwn(campaign, 'home') && Object.hasOwn(campaign, 'cleared'))) || !Array.isArray(campaign.cleared)) fail();
       if (legacy) { if (campaign.cleared.length > TAKRAW_SCHOOLS.length || Array.from(campaign.cleared).some((id, index) => id !== TAKRAW_SCHOOLS[index].id)) fail(); }
       else {
         const list = takrawSchool(campaign.home) ? takrawOpponents(campaign.home) : null;
@@ -324,6 +327,14 @@ class TakrawClub {
     return { ...result, drawn };
   }
 
+  /** 도장깨기 첫 소개를 봤다고 저장한다. 이미 봤으면 그대로 둔다. */
+  seeCampaignIntro() {
+    return this._mutate(record => {
+      if (!record.campaign?.home) throw this._error('팀을 불러온 뒤 확인할 수 있어요.');
+      record.campaign.introSeen = true;
+    }, '도장깨기 소개를 확인했어요.');
+  }
+
   /** 선수 한 명을 팔았을 때 받는 훈련 포인트: 등급 환급 + 쌓은 훈련 레벨. */
   _sellValue(record, id) {
     const rules = TAKRAW_CLUB_RULES, rarity = this._card(id)?.rarity ?? 'common';
@@ -417,7 +428,7 @@ class TakrawClub {
       trainingPoints: record?.trainingPoints || 0, roster: record ? record.owned.map(id => this._player(id)) : [], lineup: { ...record?.lineup },
       draw: { ...TAKRAW_CLUB_RULES.draw, runs: record?.gacha?.runs || 0, pending: record?.pending ? this._player(record.pending) : null },
       record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 }, learning: { runs: record?.learning?.runs || 0 }, lastReward: record?.lastReward ? { ...record.lastReward } : null,
-      campaign: { home: record?.campaign?.home || null, cleared: [...(record?.campaign?.cleared || [])] }, revision: record?.revision ?? null };
+      campaign: { home: record?.campaign?.home || null, cleared: [...(record?.campaign?.cleared || [])], introSeen: !!record?.campaign?.introSeen }, revision: record?.revision ?? null };
   }
 
   matchTeam() {

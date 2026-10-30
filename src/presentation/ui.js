@@ -33,6 +33,7 @@ class TakrawUI {
     this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], draw: { pending: null }, lineup: {}, record: {} };
     // pick: 편성 교체 중인 선택({ type: 'player' | 'slot', id }), detail: 능력치를 펼친 선수 id. 모두 화면 안에서만 산다.
     this.clubSelection = { tab: 'roster', pick: null, detail: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
+    this.campaignIntro = { step: 0, replay: false }; // 도장깨기 소개 카드: 몇 번째 장인지, 이미 본 뒤 다시 보는 중인지
     this.clubBusy = false; this.clubNotice = ''; this.drawStage = null; this.drawTimer = 0;
     this.nodes = {};
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','dialog-back','draw-stage','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
@@ -330,14 +331,62 @@ class TakrawUI {
 
   escape(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char])); }
 
+  campaignUniform(school, big = false) {
+    const hex = value => `#${value.toString(16).padStart(6, '0')}`;
+    return `<span class="campaign-uniform ${big ? 'is-big' : ''}" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:${hex(school.uniform.primary)};--uniform-secondary:${hex(school.uniform.secondary)}"></span>`;
+  }
+
+  /**
+   * 첫 도장깨기 소개 3장: 내 학교와 선발 → 앞으로 만날 학교는 모른다 → 첫 상대.
+   * 학교가 모두 몇 곳인지, 다음 학교가 어디인지는 일부러 알려 주지 않는다(이길 때마다 하나씩 나타난다).
+   */
+  campaignIntroContent(home, first) {
+    const intro = this.campaignIntro, step = intro.step, elementName = school => TAKRAW_ELEMENTS.find(element => element.id === school.element)?.name || '';
+    const names = ['receiver', 'setter', 'attacker'].map(role => this.club.roster.find(player => player.id === this.club.lineup?.[role])?.name).filter(Boolean);
+    const pages = [
+      `<h3>우리 학교는 ${this.escape(home.name)}예요</h3><p>${elementName(home)} 속성의 학교예요. 선수 셋이면 충분해요.</p>
+        <div class="intro-trio">${names.map(name => `<span>${this.campaignUniform(home, true)}<small>${this.escape(name)}</small></span>`).join('')}</div>`,
+      `<h3>어떤 학교가 기다릴까요?</h3><p>이길 때마다 다음 학교가 모습을 드러내요.</p>
+        <div class="intro-trio"><span class="campaign-uniform is-big is-mystery" role="img" aria-label="아직 모르는 학교"></span></div>`,
+      `<h3>첫 상대는 ${this.escape(first.name)}</h3>
+        <article class="campaign-card">${this.campaignUniform(first)}<div><h3>1단계 · ${this.escape(first.name)}</h3><p>${elementName(first)} 속성 · 도전 가능</p></div></article>
+        <p>이기면 훈련 포인트를 받고, 다음 학교가 나타나요.</p>`,
+    ];
+    const last = step === pages.length - 1;
+    return `<section class="campaign-intro" aria-label="도장깨기 소개 ${step + 1}/${pages.length}">
+      <div class="intro-head"><button type="button" class="secondary-small" data-campaign-intro="skip">건너뛰기</button></div>
+      ${pages[step]}
+      <div class="intro-dots" aria-hidden="true">${pages.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
+      <button type="button" class="primary-small intro-next" data-campaign-intro="${last ? 'done' : 'next'}">${last ? '도전하기' : '다음'}</button></section>`;
+  }
+
   campaignContent() {
     const cleared = new Set(this.club.campaign?.cleared || []), ready = this.club.status === 'ready' && !this.inGame;
     const home = takrawSchool(this.club.campaign?.home), elementName = school => TAKRAW_ELEMENTS.find(element => element.id === school.element)?.name || '';
     if (!home) return '<p>팀을 불러온 뒤 도전할 수 있어요.</p>';
-    return `<p>내 학교는 <b>${this.escape(home.name)}</b>(${elementName(home)} 속성)예요. 학교 이름과 색상은 임시예요. 앞 단계를 이기면 다음 단계에 도전할 수 있어요.</p><div class="campaign-list">${takrawOpponents(home.id).map((school, index, list) => {
-      const unlocked = index === 0 || cleared.has(list[index - 1].id), done = cleared.has(school.id);
-      return `<article class="campaign-card"><span class="campaign-uniform" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:#${school.uniform.primary.toString(16).padStart(6, '0')};--uniform-secondary:#${school.uniform.secondary.toString(16).padStart(6, '0')}"></span><div><h3>${school.stage}단계 · ${this.escape(school.name)}</h3><p>${elementName(school)} 속성 · ${done ? '클리어' : unlocked ? '도전 가능' : '잠김 · 앞 단계를 먼저 클리어하세요'}</p><small>${done ? '훈련 포인트 수령 완료' : `첫 클리어 ${school.firstClearTrainingPoints} P · 임시 보상`}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready || !unlocked ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
-    }).join('')}</div>`;
+    const list = takrawOpponents(home.id), count = list.filter(school => cleared.has(school.id)).length;
+    if (this.club.status === 'ready' && (this.campaignIntro.replay || (!this.club.campaign.introSeen && count === 0))) return this.campaignIntroContent(home, list[0]);
+    // 깬 학교와 지금 도전할 학교까지만 보여 준다. 그다음은 이름 없는 한 칸이고, 전체 단계 수는 어디에도 쓰지 않는다.
+    const shown = list.slice(0, count + 1), hidden = count + 1 < list.length;
+    const cards = shown.map(school => {
+      const done = cleared.has(school.id);
+      return `<article class="campaign-card">${this.campaignUniform(school)}<div><h3>${school.stage}단계 · ${this.escape(school.name)}</h3><p>${elementName(school)} 속성 · ${done ? '클리어' : '도전 가능'}</p><small>${done ? '훈련 포인트 수령 완료' : `첫 클리어 ${school.firstClearTrainingPoints} P · 임시 보상`}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
+    }).join('');
+    const mystery = hidden ? `<article class="campaign-card is-mystery"><span class="campaign-uniform is-mystery" aria-hidden="true"></span><div><h3>${count + 2}단계 · ???</h3><p>다음에 만날 학교</p></div><button type="button" class="primary-small" disabled>잠김</button></article>` : '';
+    return `<p>내 학교는 <b>${this.escape(home.name)}</b>(${elementName(home)} 속성)예요. 이기면 다음 학교가 나타나요.</p><div class="campaign-list">${cards}${mystery}</div>${count === list.length ? '<p>모든 학교를 클리어했어요!</p>' : ''}<button type="button" class="secondary-small" data-campaign-intro="replay">소개 다시 보기</button>`;
+  }
+
+  /** 소개 카드 조작: 다음 장으로, 또는 마치고 저장한다(건너뛰기·도전하기 모두 '봤음'으로 저장). */
+  async campaignIntroClick(action) {
+    const intro = this.campaignIntro, render = () => { if (this.dialog === 'campaign') this.nodes['dialog-content'].innerHTML = this.campaignContent(); };
+    if (action === 'next') { intro.step += 1; render(); return; }
+    if (action === 'replay') { intro.step = 0; intro.replay = true; render(); return; }
+    intro.step = 0; intro.replay = false; render();
+    try {
+      const result = await this.callbacks.onClubAction?.('campaign-intro');
+      if (result?.view) this.club = { ...this.club, ...result.view };
+    } catch { /* 저장하지 못해도 목록은 보인다. 다음에 다시 소개가 나올 수 있다. */ }
+    render();
   }
 
   setClub(value) {
@@ -737,6 +786,8 @@ class TakrawUI {
     if (performance.now() - (this.swipeEnd || 0) < 350 && event.target.closest('.club-card-row')) { event.preventDefault(); return; }
     const openRow = event.target.closest('.club-card-row.is-open');
     if (openRow && !event.target.closest('.club-sell-reveal')) { event.preventDefault(); this.swipeSet(openRow, 0); return; }
+    const intro = event.target.closest('[data-campaign-intro]');
+    if (intro) { this.campaignIntroClick(intro.dataset.campaignIntro); return; }
     const challenge = event.target.closest('[data-campaign-school]');
     if (challenge) { if (!challenge.disabled) this.callbacks.onCampaign?.(challenge.dataset.campaignSchool); return; }
     const clubButton = event.target.closest('[data-club-action]');

@@ -9,6 +9,8 @@ const TAKRAW_CLUB_RULES = Object.freeze({
   // 선수 뽑기: 1회 cost(C)로 weights 비율의 등급을 뽑고, presetShare 확률로 프리셋 카드(없으면 생성)에서 고른다.
   // 선수단이 가득 차 합류하지 못하면 refund(P)로 환급하거나 후보와 교체한다.
   draw: { cost: 300, weights: { common: 70, rare: 25, hero: 5 }, refund: { common: 1, rare: 2, hero: 5 }, presetShare: 0.4 },
+  // 후보 선수를 팔면 등급별 환급(draw.refund)에 쌓은 훈련 레벨 × levelRefund를 더해 훈련 포인트로 돌려받는다. 선수단은 minRoster명 밑으로 줄일 수 없다.
+  sell: { minRoster: 3, levelRefund: 1 },
   rarities: [{ id: 'common', name: '일반' }, { id: 'rare', name: '희귀' }, { id: 'hero', name: '영웅' }],
   // 생성 선수: base에서 0~rest만큼 흩어지고, peaks개의 능력치가 range 안으로 솟는다. 역할의 핵심 능력치(focus)부터 솟는다.
   generation: { base: 50,
@@ -322,6 +324,27 @@ class TakrawClub {
     return { ...result, drawn };
   }
 
+  /** 선수 한 명을 팔았을 때 받는 훈련 포인트: 등급 환급 + 쌓은 훈련 레벨. */
+  _sellValue(record, id) {
+    const rules = TAKRAW_CLUB_RULES, rarity = this._card(id)?.rarity ?? 'common';
+    return rules.draw.refund[rarity] + (record.levels?.[id] || 0) * rules.sell.levelRefund;
+  }
+
+  /** 후보 선수를 팔아 훈련 포인트로 바꾼다. 출전 선수는 팔 수 없고, 선수단은 최소 인원 밑으로 줄지 않는다. */
+  sell(playerId) {
+    let value = 0;
+    return this._mutate(record => {
+      const rules = TAKRAW_CLUB_RULES;
+      if (!record.owned.includes(playerId)) throw this._error('판매할 선수를 확인해 주세요.');
+      if (Object.values(record.lineup).includes(playerId)) throw this._error('출전 선수는 팔 수 없어요. 후보와 교체한 뒤 판매해 주세요.');
+      if (record.owned.length <= rules.sell.minRoster) throw this._error(`선수단에는 최소 ${rules.sell.minRoster}명이 남아야 해요.`);
+      value = this._sellValue(record, playerId);
+      record.trainingPoints += value;
+      record.owned.splice(record.owned.indexOf(playerId), 1);
+      delete record.cards?.[playerId]; delete record.trained[playerId]; delete record.levels?.[playerId];
+    }, '선수를 팔았어요.').then(result => ({ ...result, sold: value }));
+  }
+
   /** 가득 차서 남겨 둔 뽑기 결과를 정리한다. release가 있으면 그 후보와 교체하고, 없으면 환급 포인트를 받는다. */
   resolveDraw({ release = null } = {}) {
     return this._mutate(record => {
@@ -385,7 +408,7 @@ class TakrawClub {
   _player(id) {
     const base = this._card(id), number = base.number ?? TAKRAW_CLUB_PLAYERS.findIndex(value => value.id === id) + 1;
     const level = this.record?.levels?.[id] || 0, factor = takrawTrainingFactor(level);
-    return { ...base, number, level, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.round((value + (this.record?.trained[id]?.[key] || 0)) * factor)])), role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
+    return { ...base, number, level, sellValue: this.record ? this._sellValue(this.record, id) : 0, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.round((value + (this.record?.trained[id]?.[key] || 0)) * factor)])), role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
   }
 
   getView() {

@@ -344,13 +344,13 @@ class TakrawUI {
     const intro = this.campaignIntro, step = intro.step, elementName = school => TAKRAW_ELEMENTS.find(element => element.id === school.element)?.name || '';
     const names = ['receiver', 'setter', 'attacker'].map(role => this.club.roster.find(player => player.id === this.club.lineup?.[role])?.name).filter(Boolean);
     const pages = [
-      `<h3>우리 학교는 ${this.escape(home.name)}예요</h3><p>${elementName(home)} 속성의 학교예요. 선수 셋이면 충분해요.</p>
+      `<h3>우리 학교는 ${this.escape(home.name)}예요</h3><p>${elementName(home)} 속성. 리시버·세터·공격수, 셋이 한 팀이에요.</p>
         <div class="intro-trio">${names.map(name => `<span>${this.campaignUniform(home, true)}<small>${this.escape(name)}</small></span>`).join('')}</div>`,
-      `<h3>어떤 학교가 기다릴까요?</h3><p>이길 때마다 다음 학교가 모습을 드러내요.</p>
+      `<h3>어떤 학교가 기다릴까요?</h3><p>이기면 다음 학교가 나타나요.</p>
         <div class="intro-trio"><span class="campaign-uniform is-big is-mystery" role="img" aria-label="아직 모르는 학교"></span></div>`,
       `<h3>첫 상대는 ${this.escape(first.name)}</h3>
         <article class="campaign-card">${this.campaignUniform(first)}<div><h3>1단계 · ${this.escape(first.name)}</h3><p>${elementName(first)} 속성 · 도전 가능</p></div></article>
-        <p>이기면 훈련 포인트를 받고, 다음 학교가 나타나요.</p>`,
+        <p>이기면 훈련 포인트를 받아요.</p>`,
     ];
     const last = step === pages.length - 1;
     return `<section class="campaign-intro" aria-label="도장깨기 소개 ${step + 1}/${pages.length}">

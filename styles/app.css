@@ -564,3 +564,16 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .score-team[data-dot]:not([data-dot=""]) .team-label::before{content:"";display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%;background:var(--team-dot);vertical-align:baseline}
 .score-team[data-dot]:not([data-dot=""]) .set-marks .won{background:var(--team-dot)}
 .score-team[data-me="true"] .team-label::after{content:"나";display:inline-block;margin-left:5px;padding:0 5px;border-radius:7px;background:var(--ink);color:#fff;font-size:10px;line-height:1.5;vertical-align:1px}
+/* 도장깨기: 아직 모르는 학교(이름 없는 회색 유니폼)와 첫 소개 카드 */
+.campaign-uniform.is-mystery{--uniform-primary:#c8d2c5;--uniform-secondary:#dde5da}
+.campaign-card.is-mystery{opacity:.7}
+.campaign-uniform.is-big{width:72px;height:76px}
+.campaign-intro{display:flex;flex-direction:column;gap:14px;padding:4px 0 12px}
+.campaign-intro h3{margin:0;font-size:25px;font-weight:750;letter-spacing:-.8px;line-height:1.25}
+.campaign-intro .campaign-card h3{font-size:16px;letter-spacing:0}
+.campaign-intro p{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+.intro-head{display:flex;align-items:center;justify-content:flex-end}
+.intro-trio{display:flex;justify-content:center;gap:22px;padding:10px 0}
+.intro-trio>span:not(.campaign-uniform){display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:650}
+.intro-dots{display:flex;justify-content:center;gap:6px}.intro-dots i{width:8px;height:8px;border-radius:50%;background:#c7d3c6}.intro-dots i.on{background:var(--green)}
+.intro-next{min-height:54px;font-size:17px}

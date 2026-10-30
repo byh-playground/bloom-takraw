@@ -184,7 +184,7 @@ class TakrawPhysics {
     const stats = {};
     for (const key of Object.keys(definition.bonus)) {
       const score = value.stats[key] ?? definition.base;
-      if (!Number.isInteger(score) || score < definition.base || score > definition.max) throw new Error('능력치 범위가 올바르지 않습니다.');
+      if (!Number.isInteger(score) || score < definition.base) throw new Error('능력치 범위가 올바르지 않습니다.');
       stats[key] = score;
     }
     return { id: value.id, name: value.name, role, stats };

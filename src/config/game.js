@@ -1,13 +1,19 @@
-const TAKRAW_VERSION = '0.12.77';
+const TAKRAW_VERSION = '0.12.78';
 // 게임 이름의 단일 출처. 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일(index.html·README·AGENTS·package.json)은 scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_GAME_NAME = '발 배구';
 const TAKRAW_PRODUCT_NAME = `블룸 ${TAKRAW_GAME_NAME}`;
 
-/** Normalized athlete bonuses; both the simulation and club UI read this formula. */
+/**
+ * 능력치 → 경기 효과의 단일 공식(경기와 팀 관리 화면이 같이 읽는다).
+ * base~max는 직선으로 0~1 비율이고, max를 넘으면 overflow 기울기로 log2(v/max)에 비례해 완만히 늘어난다. 효과는 maxEffect를 넘지 않는다.
+ */
 function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
-  return Object.fromEntries(Object.entries(definition.bonus).map(([key, maximum]) =>
-    [key, Math.max(0, Math.min(1, ((stats[key] ?? definition.base) - definition.base) /
-      (definition.max - definition.base))) * maximum]));
+  return Object.fromEntries(Object.entries(definition.bonus).map(([key, maximum]) => {
+    const value = stats[key] ?? definition.base;
+    const ratio = value > definition.max ? 1 + definition.overflow * Math.log2(value / definition.max)
+      : Math.max(0, (value - definition.base) / (definition.max - definition.base));
+    return [key, Math.min(definition.maxEffect, ratio * maximum)];
+  }));
 }
 
 const TAKRAW_CONFIG = Object.freeze({
@@ -30,7 +36,8 @@ const TAKRAW_CONFIG = Object.freeze({
   // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.
   // maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
   timing: { windows: { perfect: 0.02, good: 0.04 }, maxAge: 1.2 },
-  athletes: { base: 50, max: 100, bonus: {
+  // base: 기본 능력치, max: 효과 비율 1이 되는 능력치(이 위는 overflow × log2(v/max)만큼 더 늘어남), maxEffect: 효과 값의 상한(수비는 1 - 효과라 1 미만이어야 한다).
+  athletes: { base: 50, max: 100, overflow: 0.5, maxEffect: 0.95, bonus: {
     mobility: 0.10, jump: 0.02, power: 0.08, flexibility: 0.10,
     setting: 0.04, defense: 0.20, recovery: 0.15,
   } },

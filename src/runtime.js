@@ -241,8 +241,7 @@ async function bootTakraw() {
     if (mode || ui.inGame) throw new Error('팀 변경은 처음 화면에서 할 수 있어요.');
     if (action === 'rename') return club.rename(payload.name);
     if (action === 'assign') return club.assign(payload.role, payload.playerId);
-    if (action === 'train') return club.train(payload.playerId, payload.stat);
-    if (action === 'allocate') return club.allocate(payload.playerId, payload.allocations, { revision: payload.revision });
+    if (action === 'train') return club.train(payload.playerId);
     if (action === 'recruit') return club.recruit(payload.playerId);
     throw new Error('팀 관리 동작을 확인해 주세요.');
   }

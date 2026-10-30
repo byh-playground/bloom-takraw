@@ -4,7 +4,7 @@ import { TAKRAW_SCHOOLS, takrawOpponents, takrawPickHome, takrawSchool } from '.
 
 const TAKRAW_CLUB_RULES = Object.freeze({
   initial: { credits: 600, trainingPoints: 6 },
-  capacity: 9, nameLength: 18, training: { cost: 1, increase: 2, maximum: 100 }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
+  capacity: 9, nameLength: 18, training: { cost: 1, growth: 0.033, exponent: 1.5 }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
   rewards: { win: { credits: 180, trainingPoints: 3 }, loss: { credits: 100, trainingPoints: 2 } },
   roles: [{ id: 'receiver', name: '리시버' }, { id: 'setter', name: '세터' }, { id: 'attacker', name: '공격수' }],
   stats: [
@@ -17,6 +17,9 @@ const TAKRAW_CLUB_RULES = Object.freeze({
     { id: 'recovery', name: '회복', radar: true, effect: '넘어진 뒤 일어나는 자세 구동' },
   ],
 });
+
+/** 훈련 레벨 하나가 모든 능력치에 곱하는 배율. 첫 레벨은 약 5%, 레벨이 오를수록 증가율이 완만히 줄고, 상한은 없다. */
+const takrawTrainingFactor = (level, rule = TAKRAW_CLUB_RULES.training) => (1 + rule.growth * level) ** rule.exponent;
 
 const takrawClubStats = values => Object.fromEntries(TAKRAW_CLUB_RULES.stats.map(stat => [stat.id, values[stat.id] ?? 50]));
 const TAKRAW_CLUB_PLAYERS = Object.freeze([
@@ -64,7 +67,7 @@ class TakrawClub {
   _normalizeName(value) { return String(value ?? '').replace(/\s+/gu, ' ').trim(); }
   _default() {
     return { schema: 1, revision: 0, name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
-      owned: TAKRAW_CLUB_PLAYERS.filter(player => !player.price).map(player => player.id), trained: {},
+      owned: TAKRAW_CLUB_PLAYERS.filter(player => !player.price).map(player => player.id), trained: {}, levels: {},
       lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
       record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null }, campaign: { home: takrawPickHome(this.random()), cleared: [] } };
   }
@@ -100,6 +103,11 @@ class TakrawClub {
         const list = takrawSchool(campaign.home) ? takrawOpponents(campaign.home) : null;
         if (!list || campaign.cleared.length > list.length || Array.from(campaign.cleared).some((id, index) => id !== list[index].id)) fail();
       }
+    }
+    if (record.levels !== undefined) {
+      const levels = record.levels;
+      if (!levels || typeof levels !== 'object' || Array.isArray(levels) ||
+        Object.entries(levels).some(([id, level]) => !record.owned.includes(id) || !Number.isSafeInteger(level) || level < 1)) fail();
     }
     for (const [id, training] of Object.entries(record.trained)) {
       const player = TAKRAW_CLUB_PLAYERS.find(value => value.id === id);
@@ -241,35 +249,16 @@ class TakrawClub {
     }, '편성을 저장했어요. 다음 경기와 연습부터 적용돼요.');
   }
 
-  train(playerId, stat) {
-    return this.allocate(playerId, { [stat]: 1 });
-  }
-
-  allocate(playerId, allocations, { revision = null } = {}) {
-    // UI의 임시 배분을 호출 시 고정한다. 저장 큐를 기다리는 동안 외부에서 바꿀 수 없다.
-    const entries = allocations && typeof allocations === 'object' && !Array.isArray(allocations)
-      ? Object.entries(allocations).map(([stat, points]) => [stat, points]) : null;
+  /** 훈련 포인트 1개로 선수의 훈련 레벨을 한 단계 올린다. 모든 능력치가 함께 오른다. */
+  train(playerId) {
     return this._mutate(record => {
-      const player = TAKRAW_CLUB_PLAYERS.find(value => value.id === playerId), rule = TAKRAW_CLUB_RULES.training;
-      if (!record.owned.includes(playerId) || !player || !entries) throw this._error('훈련할 선수와 배분할 포인트를 확인해 주세요.');
-      if (revision !== null && (!Number.isSafeInteger(revision) || revision < 0)) throw this._error('훈련 계획의 저장 버전을 확인해 주세요.');
-      if (revision !== null && revision !== record.revision) throw this._error('팀 정보가 바뀌었어요. 현재 능력치와 포인트를 확인하고 다시 배분해 주세요.');
-      const updates = []; let cost = 0;
-      for (const [stat, points] of entries) {
-        if (!Object.hasOwn(player.stats, stat) || !Number.isSafeInteger(points) || points < 0) throw this._error('배분 포인트는 능력치별로 0 이상의 정수여야 해요.');
-        if (!points) continue;
-        const amount = record.trained[playerId]?.[stat] || 0, current = player.stats[stat] + amount;
-        if (current >= rule.maximum) throw this._error('이미 최대 능력치예요.');
-        if (points > Math.ceil((rule.maximum - current) / rule.increase)) throw this._error('최대 능력치를 넘지 않도록 배분 포인트를 줄여 주세요.');
-        cost += points * rule.cost;
-        updates.push([stat, amount + Math.min(points * rule.increase, rule.maximum - current)]);
-      }
-      if (!updates.length) return false;
-      if (!Number.isSafeInteger(cost) || record.trainingPoints < cost) throw this._error('훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.');
-      record.trained[playerId] ??= {};
-      for (const [stat, amount] of updates) record.trained[playerId][stat] = amount;
-      record.trainingPoints -= cost;
-    }, '능력치 배분을 저장했어요. 다음 경기와 연습부터 적용돼요.');
+      const rule = TAKRAW_CLUB_RULES.training;
+      if (!record.owned.includes(playerId)) throw this._error('훈련할 선수를 확인해 주세요.');
+      if (record.trainingPoints < rule.cost) throw this._error('훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.');
+      record.levels ??= {};
+      record.levels[playerId] = (record.levels[playerId] || 0) + 1;
+      record.trainingPoints -= rule.cost;
+    }, '훈련을 저장했어요. 다음 경기와 연습부터 적용돼요.');
   }
 
   recruit(playerId) {
@@ -327,8 +316,8 @@ class TakrawClub {
 
   _player(id) {
     const base = TAKRAW_CLUB_PLAYERS.find(value => value.id === id);
-    return { ...base, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, value + (this.record?.trained[id]?.[key] || 0)])),
-      trained: { ...this.record?.trained[id] }, role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
+    const level = this.record?.levels?.[id] || 0, factor = takrawTrainingFactor(level);
+    return { ...base, level, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.round((value + (this.record?.trained[id]?.[key] || 0)) * factor)])), role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
   }
 
   getView() {
@@ -351,4 +340,4 @@ class TakrawClub {
   dispose() { this.disposed = true; this.channel?.close(); this.channel = null; this.db?.close(); this.db = null; this.onChange = null; }
 }
 
-export { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS, TakrawClub };
+export { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS, TakrawClub, takrawTrainingFactor };

@@ -118,16 +118,16 @@ body[data-mode="training"] .player-panel{display:none}
 .is-club .club-player-title{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0}
 .is-club .club-player-title strong{font-size:29px;font-weight:750;line-height:1.2;letter-spacing:-.9px}
 .is-club .club-detail-heading p{font-size:13px;line-height:1.5;color:var(--club-muted);margin:5px 0 0}
-.is-club .club-radar{display:block;align-self:center;width:100%;height:auto;max-width:350px;aspect-ratio:360/310;overflow:visible;fill:none;stroke:none}
-.is-club .club-radar .radar-grid{fill:none;stroke:#cedbcb;stroke-width:1}
-.is-club .club-radar .radar-baseline{fill:none;stroke:#9db8a2;stroke-width:1.3;stroke-dasharray:3 4}
-.is-club .club-radar .radar-axis{fill:none;stroke:#d4dfcf;stroke-width:1}
-.is-club .club-radar .radar-current,.is-club .club-radar .radar-current polygon{fill:#2a896d29;stroke:var(--club-green);stroke-width:2.3;stroke-linejoin:round}
-.is-club .club-radar .radar-dot,.is-club .club-radar .radar-dot circle{fill:var(--club-green);stroke:#f1f6ed;stroke-width:1.5}
-.is-club .club-radar .radar-label{fill:var(--club-muted);stroke:none;font-family:inherit;font-size:13px;font-weight:500;line-height:1.3;letter-spacing:-.2px}
-.is-club .club-radar .radar-value{fill:var(--club-ink);stroke:none;font-family:inherit;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums}
-.is-club .club-radar .radar-value.is-changed{fill:var(--club-green)}
-.is-club .club-radar .radar-ring-label{fill:#52685e;stroke:none;font-family:inherit;font-size:12px}
+:is(.is-club,.draw-front) .club-radar{display:block;align-self:center;width:100%;height:auto;max-width:350px;aspect-ratio:360/310;overflow:visible;fill:none;stroke:none}
+:is(.is-club,.draw-front) .club-radar .radar-grid{fill:none;stroke:#cedbcb;stroke-width:1}
+:is(.is-club,.draw-front) .club-radar .radar-baseline{fill:none;stroke:#9db8a2;stroke-width:1.3;stroke-dasharray:3 4}
+:is(.is-club,.draw-front) .club-radar .radar-axis{fill:none;stroke:#d4dfcf;stroke-width:1}
+:is(.is-club,.draw-front) .club-radar .radar-current,:is(.is-club,.draw-front) .club-radar .radar-current polygon{fill:#2a896d29;stroke:var(--club-green);stroke-width:2.3;stroke-linejoin:round}
+:is(.is-club,.draw-front) .club-radar .radar-dot,:is(.is-club,.draw-front) .club-radar .radar-dot circle{fill:var(--club-green);stroke:#f1f6ed;stroke-width:1.5}
+:is(.is-club,.draw-front) .club-radar .radar-label{fill:var(--club-muted);stroke:none;font-family:inherit;font-size:13px;font-weight:500;line-height:1.3;letter-spacing:-.2px}
+:is(.is-club,.draw-front) .club-radar .radar-value{fill:var(--club-ink);stroke:none;font-family:inherit;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums}
+:is(.is-club,.draw-front) .club-radar .radar-value.is-changed{fill:var(--club-green)}
+:is(.is-club,.draw-front) .club-radar .radar-ring-label{fill:#52685e;stroke:none;font-family:inherit;font-size:12px}
 .is-club .club-empty{font-size:14px;line-height:1.65;padding:24px 16px;margin:0!important;color:var(--club-muted);text-align:center;border:1px dashed #bfcfbc;background:#f3f6ed;border-radius:10px;grid-column:1/-1}
 .is-club .club-footnote{flex:none;font-size:12px!important;line-height:1.55!important;color:var(--club-muted)!important;margin:0!important;border-top:1px solid var(--club-line);padding-top:9px}
 .is-club .club-card-row{position:relative;flex:none;min-width:0}
@@ -227,7 +227,7 @@ body[data-mode="training"] .player-panel{display:none}
 /* Compact command area leaves the first view to the complete ability profile. */
 .is-club .club-resource b span{font-size:12px;font-weight:500;letter-spacing:0;color:var(--club-muted)}
 .is-club .club-status[data-passive="true"]{position:absolute;width:1px;height:1px;min-height:0;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap;border:0}
-.is-club .club-radar .radar-baseline text{fill:var(--club-muted);stroke:none;font-family:inherit;font-size:14px;font-weight:400}
+:is(.is-club,.draw-front) .club-radar .radar-baseline text{fill:var(--club-muted);stroke:none;font-family:inherit;font-size:14px;font-weight:400}
 @media(min-width:1051px){
   .is-club .dialog-header{padding:8px 24px;min-height:60px}
   .is-club .dialog-header .eyebrow{display:none}
@@ -524,7 +524,7 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .draw-back{justify-content:center;background:linear-gradient(155deg,#2f8a6b,#17604b 60%,#0f4838);animation:draw-pulse 1.6s ease-in-out infinite}
 .draw-back b{font-size:72px;font-weight:800;text-shadow:0 2px 10px #0006}
 .draw-back small{font-size:13px;opacity:.85}
-.draw-front{transform:rotateY(180deg);padding:14px 12px 10px;background:linear-gradient(170deg,#fbfdf6,#e6f1e2);color:#193d35;min-height:0}
+.draw-front{--club-ink:#193d35;--club-muted:#52685e;--club-green:#176b52;transform:rotateY(180deg);padding:14px 12px 10px;background:linear-gradient(170deg,#fbfdf6,#e6f1e2);color:#193d35;min-height:0}
 .draw-front-head{display:flex;align-items:center;gap:10px;align-self:stretch;text-align:left}
 .draw-front-head strong{display:block;font-size:22px;line-height:1.2;letter-spacing:-.5px}
 .draw-front-head small{display:block;margin-top:2px;font-size:12px;color:#52685e}

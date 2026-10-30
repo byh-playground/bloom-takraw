@@ -230,7 +230,9 @@ class TakrawUI {
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
     this.nodes['home-panel'].hidden = false; this.nodes['match-hud'].hidden = true; this.nodes['touch-controls'].hidden = true;
-    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = true; this.setRoute(initialDialog || this.homeRoute(), true);
+    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = true;
+    // 소개영상 호스트는 부팅 직후 이 주소를 읽어 소개를 연다. 호스트가 붙기 전에 지우지 않는다.
+    if (this.currentRoute() !== 'showcase') this.setRoute(initialDialog || this.homeRoute(), true);
     if (initialDialog) this.openDialog(initialDialog);
   }
 
@@ -254,8 +256,10 @@ class TakrawUI {
 
   navigate(route) { this.setRoute(route); this.applyRoute(); }
 
+  currentRoute() { return window.location.hash.replace(/^#\/?/, '').split('?')[0]; }
+
   applyRoute() {
-    const route = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+    const route = this.currentRoute();
     if (route === 'showcase') return; // 소개영상 호스트가 이 주소를 소유한다.
     if (HOME_PARENT[route] !== undefined) {
       if (this.inGame) { this.setRoute('play', true); return; }

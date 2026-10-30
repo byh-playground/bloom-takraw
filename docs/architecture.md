@@ -20,6 +20,8 @@
 
 `club/club.js`는 선수·편성·보상과 영속 데이터를, `presentation/view.js`는 Three.js 장면·카메라·표시 자원을, `presentation/ui.js`는 DOM·화면 전환·접근성·설정을 소유합니다. `simulation/ai-brain.js`는 AI 선수 한 명의 행동 상태머신(대기·보조·받기·공격·세트·추격)과 선수 성향(Temperament)을 소유하고, `game.js`의 `decideAI`가 매 AI 틱에 이를 호출해 목표 자리를 받습니다(킥·점프 타이밍은 game.js 책임). 상태는 `ai[id].brain` 순수 데이터라 스냅샷·롤백에 포함되고, 성향은 `state.seed`·선수·랠리 번호로만 정해집니다. `presentation/impact.js`의 `TakrawImpactEffects`는 접촉 효과(링·입자·접점 섬광·속도선·진동량·화면 확대·공 눌림·궤적 강조)를, `presentation/field-effects.js`의 `TakrawFieldEffects`는 착지 먼지와 득점 색종이를 소유하며 view가 포함합니다. 게임 고유 Three.js 카메라와 라우팅 정책을 다른 GameKit 모듈로 교체하는 변경은 이번 구조 전환에 포함하지 않습니다.
 
+팀 관리 화면(v0.12.78~)은 탭만으로 쓴다. 편성은 선수 먼저 또는 자리 먼저 누르는 두 흐름이고, 선택은 `ui.js` 안에만 있다가 교체가 끝날 때 `club.assign`을 한 번 호출한다. 훈련은 포인트 1개로 선수의 훈련 레벨을 올리는 `club.train(playerId)` 하나이고, 레벨은 레코드의 선택 필드 `levels`에 저장한다. 표시·경기 능력치는 `(기본 + 이전 trained) × (1 + 0.033 × 레벨) ** 1.5`(`takrawTrainingFactor`, 한 번에 약 5%에서 점차 완만히)를 반올림한 값이고 상한이 없다. 능력치가 `athletes.max`(100)를 넘으면 경기 효과는 `1 + overflow × log2(v/100)`배로 완만히 늘고(`takrawAthleteEffects`, 200에서 이동 +15%·수비 30%), 효과는 `athletes.maxEffect`를 넘지 않는다.
+
 의존 방향은 config/data → motion/club → physics → game → UI, runtime → 각 소유자입니다. runtime의 `BodyPose`는 기존처럼 한 boot 인스턴스의 클로저 상태입니다. 변경 가능한 전역으로 분리하지 않습니다. `window.__takraw` 진단/검사 진입점을 유지합니다.
 
 `scripts/dev-server.cjs`는 원본을 JS/CSS MIME으로 제공합니다. 상대 경로이므로 `/bloom-takraw/` 같은 하위 경로도 지원합니다. 배포 파일 생성·번들링·변환은 없으며 소스 스냅샷을 그대로 사용합니다.

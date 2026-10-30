@@ -2,7 +2,7 @@ import { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from '
 import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_VERSION, TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from '../config/game.js';
-import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS } from '../club/club.js';
+import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS, takrawTrainingFactor } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
 
 class TakrawUI {
@@ -22,9 +22,9 @@ class TakrawUI {
     this.copyTimer = null;
     this.cache = new Map();
     this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], scouts: [], lineup: {}, record: {} };
-    this.clubSelection = { tab: 'roster', player: 'i-deun', stat: 'power', filter: 'all', compare: 'none', detail: false,
-      rename: false, nameDraft: null, nameError: '', players: { roster: 'i-deun', scouts: null }, scroll: {} };
-    this.clubDraft = null; this.clubBusy = false; this.clubNotice = ''; this.clubNoticeType = 'status';
+    // pick: 편성 교체 중인 선택({ type: 'player' | 'slot', id }), detail: 능력치를 펼친 선수 id, scout: 영입 탭에서 고른 선수 id. 모두 화면 안에서만 산다.
+    this.clubSelection = { tab: 'roster', pick: null, detail: null, scout: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
+    this.clubBusy = false; this.clubNotice = '';
     this.nodes = {};
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
@@ -104,10 +104,6 @@ class TakrawUI {
     this.listen(document, 'visibilitychange', () => { if (document.hidden) this.releaseTouch(); });
     this.listen(this.nodes['modal-layer'], 'pointerdown', event => { if (event.target === this.nodes['modal-layer']) this.closeDialog(); });
     this.listen(this.nodes['dialog-content'], 'click', event => this.dialogClick(event));
-    this.listen(this.nodes['dialog-content'], 'change', event => {
-      if (event.target.dataset.clubChange !== 'compare') return;
-      this.clubSelection.compare = event.target.value; this.renderClub('club-compare');
-    });
     this.listen(this.nodes['dialog-content'], 'input', event => {
       if (event.target.id !== 'club-name') return;
       this.clubSelection.nameDraft = event.target.value; this.clubSelection.nameError = '';
@@ -338,8 +334,7 @@ class TakrawUI {
     const find = identity => nodes.find(node => node.dataset.clubFocus === identity || node.id === identity);
     let next = find(this.clubSelection.focus);
     if (!usable(next)) {
-      const stat = this.clubSelection.focus.match(/^(?:increase|decrease|allocation)-(.+)$/)?.[1] || this.clubSelection.stat;
-      next = [find(`decrease-${stat}`), find(`increase-${stat}`), find(`allocation-${stat}`), find('detail-heading'), find(`tab-${this.clubSelection.tab}`)].find(usable);
+      next = [find('detail-heading'), find(`tab-${this.clubSelection.tab}`)].find(usable);
     }
     if (usable(next)) { next.focus({ preventScroll: true }); return true; }
     return false;
@@ -362,13 +357,10 @@ class TakrawUI {
   }
 
   clubRoleName(role) { return TAKRAW_CLUB_RULES.roles.find(value => value.id === role)?.name || '후보'; }
-  clubDraftPoints() { return this.clubDraft ? Object.values(this.clubDraft.allocations).reduce((sum, value) => sum + value, 0) : 0; }
-  clubDraftStale() { return !!this.clubDraft && this.clubDraft.revision !== this.club.revision; }
-  clubLockReason(allowDraft = false) {
+  clubLockReason() {
     if (this.inGame) return '팀 변경은 처음 화면에서 할 수 있어요.';
     if (this.clubBusy || this.club.status === 'saving') return '팀을 저장하고 있어요.';
     if (this.club.status !== 'ready') return this.club.message || '팀을 먼저 불러와 주세요.';
-    if (this.clubDraft && !allowDraft) return '미적용 배분을 먼저 적용하거나 취소해 주세요.';
     return '';
   }
 
@@ -382,176 +374,175 @@ class TakrawUI {
     return `<span class="club-shirt" data-role="${player.preferredRole}" aria-hidden="true"><svg viewBox="0 0 64 72"><path d="M20 5 12 9 2 23 14 33 19 27 18 65H46L45 27 50 33 62 23 52 9 44 5C42 11 37 14 32 14S22 11 20 5Z" fill="currentColor" stroke="none"/><path d="M20 5C22 12 27 16 32 16S42 12 44 5M20 26V61M44 26V61" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="2"/><text x="32" y="46" fill="#fff" stroke="none" text-anchor="middle" font-size="22" font-weight="750">${String(number).padStart(2,'0')}</text></svg></span>`;
   }
 
-  clubRadar(player, stats, comparison, projected) {
-    const axes = TAKRAW_CLUB_RULES.stats, center = { x:180, y:151 }, radius = 94;
+  /** 가장 큰 능력치가 바깥 고리에 닿도록 눈금 상한을 25 단위로 올린다(기본 100). */
+  clubScaleTop(stats) { return Math.max(100, Math.ceil(Math.max(...Object.values(stats)) / 25) * 25); }
+
+  clubRadar(player, stats) {
+    const axes = TAKRAW_CLUB_RULES.stats, center = { x:180, y:151 }, radius = 94, top = this.clubScaleTop(stats), rings = [1, 2, 3, 4].map(step => top * step / 4);
     const point = (index, value, scale = radius) => {
       const angle = -Math.PI / 2 + index * Math.PI * 2 / axes.length;
-      return { x:center.x + Math.cos(angle) * scale * value / 100, y:center.y + Math.sin(angle) * scale * value / 100 };
+      return { x:center.x + Math.cos(angle) * scale * value / top, y:center.y + Math.sin(angle) * scale * value / top };
     };
     const polygon = values => axes.map((stat, index) => { const p = point(index, values[stat.id]); return `${p.x.toFixed(2)},${p.y.toFixed(2)}`; }).join(' ');
-    const grids = [25,50,75,100].map(value => `<polygon points="${polygon(Object.fromEntries(axes.map(stat => [stat.id,value])))}"/>`).join('');
-    const spokes = axes.map((stat, index) => { const p = point(index,100); return `<line x1="${center.x}" y1="${center.y}" x2="${p.x}" y2="${p.y}"/>`; }).join('');
+    const grids = rings.map(value => `<polygon points="${polygon(Object.fromEntries(axes.map(stat => [stat.id,value])))}"/>`).join('');
+    const spokes = axes.map((stat, index) => { const p = point(index,top); return `<line x1="${center.x}" y1="${center.y}" x2="${p.x}" y2="${p.y}"/>`; }).join('');
     const labels = axes.map((stat,index) => {
-      const p = point(index,100,126), anchor = Math.abs(p.x - center.x) < 12 ? 'middle' : p.x > center.x ? 'start' : 'end';
+      const p = point(index,top,126), anchor = Math.abs(p.x - center.x) < 12 ? 'middle' : p.x > center.x ? 'start' : 'end';
       return `<text class="radar-label" x="${p.x}" y="${p.y - 4}" text-anchor="${anchor}">${this.escape(stat.name)}</text><text class="radar-value" x="${p.x}" y="${p.y + 15}" text-anchor="${anchor}">${stats[stat.id]}</text>`;
     }).join('');
     const dots = axes.map((stat,index) => { const p = point(index,stats[stat.id]); return `<circle cx="${p.x}" cy="${p.y}" r="3.5"/>`; }).join('');
-    const description = axes.map(stat => `${stat.name} ${stats[stat.id]}${comparison ? `, 비교 ${comparison.stats[stat.id]}` : ''}`).join('. ');
+    const description = axes.map(stat => `${stat.name} ${stats[stat.id]}`).join('. ');
     return `<svg class="club-radar" viewBox="0 0 360 310" role="img" aria-labelledby="club-radar-title club-radar-description">
-      <title id="club-radar-title">${this.escape(player.name)} ${projected ? '배분 후 ' : ''}능력치</title><desc id="club-radar-description">0부터 100까지 같은 눈금. ${this.escape(description)}.</desc>
+      <title id="club-radar-title">${this.escape(player.name)} 능력치</title><desc id="club-radar-description">0부터 ${top}까지 같은 눈금. ${this.escape(description)}.</desc>
       <g class="radar-grid">${grids}</g><g class="radar-axis">${spokes}</g>
-      <g class="radar-baseline">${[25,50,75,100].map(value => `<text class="radar-ring-label" x="185" y="${center.y - radius * value / 100 + 4}">${value}</text>`).join('')}<text class="radar-ring-label" x="185" y="164">0</text></g>
-      ${comparison ? `<polygon class="radar-compare" points="${polygon(comparison.stats)}"/>` : ''}<polygon class="radar-current" points="${polygon(stats)}"/><g class="radar-dot">${dots}</g>${labels}
+      <g class="radar-baseline">${rings.map(value => `<text class="radar-ring-label" x="185" y="${center.y - radius * value / top + 4}">${value}</text>`).join('')}<text class="radar-ring-label" x="185" y="164">0</text></g>
+      <polygon class="radar-current" points="${polygon(stats)}"/><g class="radar-dot">${dots}</g>${labels}
     </svg>`;
   }
 
-  clubDetailContent(player, isScout) {
-    const c = this.club, rules = TAKRAW_CLUB_RULES, selection = this.clubSelection, escape = value => this.escape(value);
-    const ownedDraft = this.clubDraft?.playerId === player.id, draft = ownedDraft ? this.clubDraft.allocations : {}, cost = this.clubDraftPoints() * rules.training.cost;
-    const projected = ownedDraft && cost > 0, stale = this.clubDraftStale();
-    const stats = Object.fromEntries(rules.stats.map(stat => [stat.id, Math.min(rules.training.maximum, player.stats[stat.id] + (draft[stat.id] || 0) * rules.training.increase)]));
-    const defaultCompare = c.roster.find(value => value.id === c.lineup[player.preferredRole]);
-    const selectedCompare = selection.compare === 'auto' ? (isScout ? defaultCompare : null) : c.roster.find(value => value.id === selection.compare && value.id !== player.id);
-    const comparison = projected ? { name:'현재 능력치', stats:player.stats } : selectedCompare || null;
-    const compareLabel = projected ? '현재 능력치' : comparison ? `${comparison.name}${comparison.role ? ` · ${this.clubRoleName(comparison.role)} 선발` : ' · 후보'}` : '';
-    const lock = this.clubLockReason(), editLock = this.clubLockReason(true) || (this.clubDraft && !ownedDraft ? '다른 선수의 미적용 배분을 먼저 적용하거나 취소해 주세요.' : stale ? '팀 정보가 바뀌었어요. 배분을 취소한 뒤 다시 정해 주세요.' : '');
-    const available = (c.trainingPoints || 0) - cost;
-    const comparisonOptions = `${isScout && defaultCompare ? `<option value="auto" ${selection.compare === 'auto' ? 'selected' : ''}>현재 ${this.clubRoleName(player.preferredRole)} · ${escape(defaultCompare.name)}</option>` : ''}<option value="none" ${selection.compare === 'none' || (!isScout && selection.compare === 'auto') ? 'selected' : ''}>비교 안 함</option>${c.roster.filter(value => value.id !== player.id).map(value => `<option value="${value.id}" ${selection.compare === value.id ? 'selected' : ''}>${escape(value.name)} · ${value.role ? `${this.clubRoleName(value.role)} 선발` : '후보'}</option>`).join('')}`;
-    const delta = (a,b) => { const change = a-b; return `<small class="${change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral'}">${change > 0 ? '+' : change < 0 ? '−' : ''}${Math.abs(change)}${change === 0 ? ' · 동일' : ''}</small>`; };
-    const rows = rules.stats.map(stat => {
-      const value = player.stats[stat.id], next = stats[stat.id], points = draft[stat.id] || 0;
-      const atMax = next >= rules.training.maximum, increaseDisabled = !!editLock || atMax || available < rules.training.cost;
-      const decreaseDisabled = this.clubBusy || !ownedDraft || !points;
-      const increaseReason = editLock || (atMax ? '최대 능력치예요.' : available < rules.training.cost ? '남은 훈련 포인트가 없어요.' : `${stat.name}에 ${rules.training.cost} P 배분`);
-      return `<div class="club-stat-row" data-changed="${points > 0}" data-club-focus="allocation-${stat.id}" tabindex="-1">
-        <div class="club-stat-label"><span>${escape(stat.name)}</span><small class="club-stat-effect">${this.clubStatDescription(stat.id)}</small></div>
-        <div class="club-stat-value"><b>${points ? `${value}<span aria-hidden="true"> → </span><span class="sr-only">에서 </span>${next}` : value}</b>${points ? `<small class="positive">+${next-value} · ${points * rules.training.cost} P</small>` : comparison ? delta(value,comparison.stats[stat.id]) : value >= rules.training.maximum ? '<small>최대</small>' : '<small>/ 100</small>'}</div>
-        ${isScout ? `<span class="club-comparison-stat">${comparison ? `${escape(comparison.name)}<b>${comparison.stats[stat.id]}</b>` : ''}</span>` : `<div class="club-stepper" role="group" aria-label="${escape(stat.name)} 포인트 배분"><button type="button" ${decreaseDisabled ? 'disabled' : ''} data-club-action="decrease" data-value="${stat.id}" data-club-focus="decrease-${stat.id}" aria-label="${escape(stat.name)} 미적용 배분 1 포인트 줄이기">−</button><span class="club-step-value" aria-label="${points} 포인트 배분">${points}</span><button type="button" ${increaseDisabled ? 'disabled' : ''} data-club-action="increase" data-value="${stat.id}" data-club-focus="increase-${stat.id}" aria-label="${escape(stat.name)} 1 포인트 배분" title="${escape(increaseReason)}">＋</button></div>`}
-        <span class="club-stat-bar" aria-hidden="true"><span style="width:${next}%"></span></span></div>`;
+  /** 두 선수의 능력치 차이 중 가장 큰 둘. 편성을 바꾸기 전에 무엇이 달라지는지 보여 준다. */
+  clubDelta(player, other) {
+    const changes = TAKRAW_CLUB_RULES.stats.map(stat => ({ name:stat.name, change:player.stats[stat.id] - other.stats[stat.id] }))
+      .filter(item => item.change).sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 2);
+    if (!changes.length) return '<span>능력치 동일</span>';
+    return changes.map(item => `<span class="${item.change > 0 ? 'positive' : 'negative'}">${this.escape(item.name)} ${item.change > 0 ? '+' : '−'}${Math.abs(item.change)}</span>`).join(' ');
+  }
+
+  clubCard(player, { selected = false, target = false, badge = '', note = '' }) {
+    const escape = value => this.escape(value), peaks = TAKRAW_CLUB_RULES.stats.slice().sort((a,b) => player.stats[b.id] - player.stats[a.id]).slice(0,2);
+    return `<div class="club-card-row"><button type="button" class="club-card ${selected ? 'selected' : ''} ${target ? 'target' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}</strong><small>추천 ${this.clubRoleName(player.preferredRole)} · ${escape(player.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>${note ? `<span class="club-card-note">${note}</span>` : ''}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
+  }
+
+  /** 선발 자리 3칸. 선수나 자리를 먼저 누르면 놓을 수 있는 쪽이 켜지고 능력치 차이가 보인다. */
+  clubLineupContent() {
+    const c = this.club, pick = this.clubSelection.pick, picked = pick?.type === 'player' ? c.roster.find(value => value.id === pick.id) : null;
+    const slots = TAKRAW_CLUB_RULES.roles.map(role => {
+      const starter = c.roster.find(value => value.id === c.lineup[role.id]);
+      if (!starter) return `<button type="button" disabled><small>${role.name}</small><strong>불러오는 중</strong></button>`;
+      const current = picked?.id === starter.id, target = !!picked && !current, selected = pick?.type === 'slot' && pick.id === role.id;
+      const note = target ? this.clubDelta(picked, starter) : `<span>${current ? '선발 중' : role.id === 'attacker' ? '직접 조작' : '동료'}</span>`;
+      return `<button type="button" class="${selected ? 'selected' : ''} ${target ? 'target' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${role.name}</small><strong>${this.escape(starter.name)}</strong><span class="club-slot-note">${note}</span></button>`;
     }).join('');
-    const chart = `<div class="club-visual"><div class="club-compare-control"><label for="club-compare">${projected ? '배분 전과 비교' : '선수 비교'}</label><select id="club-compare" data-club-change="compare" data-club-focus="club-compare" ${projected ? 'disabled' : ''}>${projected ? '<option>현재 능력치와 비교</option>' : comparisonOptions}</select></div>
-      ${this.clubRadar(player,stats,comparison,projected)}<div class="club-legend"><span class="legend-current"><i aria-hidden="true"></i>${projected ? '배분 후' : escape(player.name)}</span>${comparison ? `<span class="legend-compare"><i aria-hidden="true"></i>${escape(compareLabel)}</span>` : ''}</div><p class="club-scale-note">50 기본 · 100 최대</p>
-</div>`;
-    let footer;
-    if (isScout) {
-      const shortage = Math.max(0,player.price - (c.credits || 0)), full = c.roster.length >= rules.capacity;
-      const reason = lock || (full ? '선수단이 가득 찼어요.' : shortage ? `${shortage} C가 더 필요해요. AI 대전을 완료하면 코인을 받아요.` : '영입한 선수는 후보로 합류해요. 원하는 선발 자리에 배치하세요.');
-      footer = `<footer class="club-commit" data-mode="recruit"><div class="club-recruit-summary"><div><label>보유 코인</label><b>${c.credits || 0} C</b></div><div><label>영입 비용</label><b>${player.price} C</b></div><div><label>영입 후 잔액</label><b>${shortage ? `${shortage} C 부족` : `${c.credits - player.price} C`}</b></div><div><label>영입 후 선수단</label><b>${Math.min(rules.capacity,c.roster.length + 1)} / ${rules.capacity}명</b></div></div><div class="club-action-buttons"><button type="button" class="primary-small" ${lock || shortage || full ? 'disabled' : ''} data-club-action="recruit" data-club-focus="recruit">${player.price} C로 영입</button></div><p class="club-action-note">${escape(reason)}</p></footer>`;
-    } else {
-      const placement = rules.roles.map(role => {
-        const current = c.roster.find(value => value.id === c.lineup[role.id]), selected = player.role === role.id;
-        const label = selected ? '선발 중' : player.role ? '자리 교환' : '선발로 배치';
-        return `<button type="button" class="${selected ? 'selected' : ''}" ${lock || selected ? 'disabled' : ''} data-club-action="assign" data-value="${role.id}" data-club-focus="assign-${role.id}" aria-label="${escape(player.name)} ${role.name}${selected ? ' 선발 중' : player.role ? ` · ${escape(current?.name || '')} ↔ 자리 교환` : ` 선발로 배치 · ${escape(current?.name || '')} → 후보`}"><small>${role.name}${role.id === 'attacker' ? ' · 직접 조작' : ''}</small><strong>${label}</strong>${!selected ? `<small>현재 ${escape(current?.name || '없음')}</small>` : ''}</button>`;
-      }).join('');
-      const trainReason = editLock || (!c.trainingPoints ? '훈련 포인트가 없어요. AI 대전을 완료하면 받을 수 있어요.' : available <= 0 ? '포인트를 모두 배분했어요. 내용을 확인하고 적용하세요.' : '적용 전에는 포인트가 사용되지 않아요.');
-      footer = `<div class="club-section-heading"><h3>선발 배치</h3><small>공격수를 직접 조작해요</small></div><div class="club-placement">${placement}</div><p class="club-placement-note">${escape(lock || (player.role ? '다른 자리를 선택하면 두 선수가 서로 자리를 바꿔요.' : '선발로 배치하면 기존 선수는 후보로 이동해요.'))}</p>
-        <footer class="club-commit" data-mode="roster" data-pending="${ownedDraft && cost > 0}"><div class="club-budget"><b>${ownedDraft ? cost : 0} P 배분 <span aria-hidden="true">·</span> ${Math.max(0,available)} P 남음</b><span>보유 ${c.trainingPoints || 0} P · 1 P로 능력치 +${rules.training.increase}</span></div><div class="club-action-buttons"><button type="button" class="secondary-small" ${!ownedDraft || this.clubBusy ? 'disabled' : ''} data-club-action="draft-reset" data-club-focus="draft-reset">배분 취소</button><button type="button" class="primary-small" ${editLock || !ownedDraft || !cost ? 'disabled' : ''} data-club-action="allocate" data-club-focus="apply">${ownedDraft && cost ? `${cost} P 적용` : '배분 적용'}</button></div><p class="club-action-note">${escape(trainReason)}</p></footer>`;
-    }
-    return `<div class="club-detail-heading"><button type="button" class="club-back" data-club-action="back" data-club-focus="back">← 선수 목록</button><div><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(player.name)}</strong><span class="club-badge">${isScout ? '영입 후보' : player.role ? `${this.clubRoleName(player.role)} 선발` : '후보'}</span></div><p>${escape(player.tag)} · 추천 ${this.clubRoleName(player.preferredRole)}</p></div></div>
-      <div class="club-analysis">${chart}<section class="club-stat-editor"><div class="club-section-heading"><h3>${isScout ? '능력치 비교' : '능력치 배분'}</h3><small>${isScout ? comparison ? `${escape(comparison.name)} 대비 차이` : '모든 능력치 0–100' : '1 P = +2 · 최대 100'}</small></div><div id="club-stats" class="club-stat-list" data-editable="${!isScout}">${rows}</div></section></div>${footer}`;
+    const hint = picked ? `${picked.name} 선수가 갈 자리를 누르세요.` : pick?.type === 'slot' ? `${this.clubRoleName(pick.id)} 자리에 올 선수를 누르세요.` : '선수나 자리를 눌러 선발을 바꿔요.';
+    return `<div class="club-lineup" aria-label="현재 선발">${slots}</div><p class="club-hint">${this.escape(hint)}</p>`;
+  }
+
+  clubRosterCards() {
+    const c = this.club, pick = this.clubSelection.pick, slotOccupant = pick?.type === 'slot' ? c.roster.find(value => value.id === c.lineup[pick.id]) : null;
+    return c.roster.map(player => {
+      const selected = pick?.type === 'player' && pick.id === player.id, current = slotOccupant?.id === player.id, target = !!slotOccupant && !current;
+      const badge = current ? '현재 자리' : player.role ? `${this.clubRoleName(player.role)} 선발` : '후보';
+      return this.clubCard(player, { selected, target, badge, note: target ? this.clubDelta(player, slotOccupant) : '' });
+    }).join('');
+  }
+
+  clubScoutCards() {
+    const c = this.club;
+    return c.scouts.map(player => {
+      const shortage = Math.max(0, player.price - (c.credits || 0));
+      return this.clubCard(player, { selected: this.clubSelection.scout === player.id, badge: `${player.price} C`, note: shortage ? `<span class="negative">${shortage} C 부족</span>` : '<span class="positive">영입 가능</span>' });
+    }).join('');
+  }
+
+  /** 하단 고정 줄. 왼쪽에 상태 한 줄, 오른쪽에 이 화면의 버튼 하나. */
+  clubBar(summary, button) { return `<footer class="club-bar"><span>${this.escape(summary)}</span>${button}</footer>`; }
+
+  clubRecruitBar(player) {
+    const c = this.club, rules = TAKRAW_CLUB_RULES, lock = this.clubLockReason(), shortage = Math.max(0, player.price - (c.credits || 0)), full = c.roster.length >= rules.capacity;
+    const reason = lock || (full ? '선수단이 가득 찼어요' : shortage ? `${shortage} C 부족` : '');
+    const summary = `${reason ? `${reason} · ` : ''}잔액 ${c.credits || 0} → ${(c.credits || 0) - player.price} C · 선수 ${c.roster.length} → ${Math.min(rules.capacity, c.roster.length + 1)} / ${rules.capacity}명`;
+    return this.clubBar(summary, `<button type="button" class="primary-small" ${lock || shortage || full ? 'disabled' : ''} data-club-action="recruit" data-value="${player.id}" data-club-focus="recruit">${player.price} C 영입</button>`);
+  }
+
+  clubTrainBar(player) {
+    const c = this.club, rule = TAKRAW_CLUB_RULES.training, lock = this.clubLockReason(), points = c.trainingPoints || 0;
+    const gain = Math.round((takrawTrainingFactor(player.level + 1) / takrawTrainingFactor(player.level) - 1) * 100);
+    const summary = `훈련 레벨 ${player.level} · 모든 능력치 약 +${gain}% · 보유 ${points} P`;
+    return this.clubBar(lock || (points < rule.cost ? `훈련 포인트가 없어요 · ${summary}` : summary), `<button type="button" class="primary-small" ${lock || points < rule.cost ? 'disabled' : ''} data-club-action="train" data-value="${player.id}" data-club-focus="train">훈련 · ${rule.cost} P</button>`);
+  }
+
+  clubDetailContent(player, isScout) {
+    const escape = value => this.escape(value), top = this.clubScaleTop(player.stats);
+    const rows = TAKRAW_CLUB_RULES.stats.map(stat => `<div class="club-bar-row"><span class="club-bar-name">${escape(stat.name)}<small>${this.clubStatDescription(stat.id)}</small></span><b>${player.stats[stat.id]}</b><span class="club-stat-bar" aria-hidden="true"><span style="width:${player.stats[stat.id] / top * 100}%"></span></span></div>`).join('');
+    const badge = isScout ? `${player.price} C · 영입 후보` : player.role ? `${this.clubRoleName(player.role)} 선발` : '후보';
+    return `<div class="club-detail-heading"><button type="button" class="club-back" data-club-action="back" data-club-focus="back">← 선수 목록</button><div><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(player.name)}</strong><span class="club-badge">${escape(badge)}</span></div><p>${escape(player.tag)} · 추천 ${this.clubRoleName(player.preferredRole)}</p></div></div>
+      <div id="club-stats" class="club-stat-list">${rows}</div>
+      <details class="club-radar-fold"><summary>레이더로 보기</summary>${this.clubRadar(player, player.stats)}</details>
+      ${isScout ? this.clubRecruitBar(player) : this.clubTrainBar(player)}`;
   }
 
   clubContent() {
     const c = this.club, selection = this.clubSelection, rules = TAKRAW_CLUB_RULES, escape = value => this.escape(value);
     const lock = this.clubLockReason(), isScout = selection.tab === 'scouts';
-    const allPlayers = isScout ? c.scouts : c.roster;
-    const pool = allPlayers.filter(player => selection.filter === 'all' || player.preferredRole === selection.filter);
-    const player = pool.find(value => value.id === selection.player) || pool[0];
-    if (player) { selection.player = player.id; selection.players[selection.tab] = player.id; }
-    const cards = pool.map(value => {
-      const peaks = rules.stats.slice().sort((a,b) => value.stats[b.id] - value.stats[a.id]).slice(0,2), selected = player?.id === value.id;
-      return `<button type="button" class="club-card ${selected ? 'selected' : ''}" data-club-action="select" data-value="${value.id}" data-club-focus="player-${value.id}" aria-pressed="${selected}">${this.clubShirt(value)}<span class="club-card-copy"><strong>${escape(value.name)}</strong><small>추천 ${this.clubRoleName(value.preferredRole)} · ${escape(value.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${value.stats[stat.id]}</b>`).join(' · ')}</span></span><span class="club-card-badge">${isScout ? `${value.price} C` : value.role ? `${this.clubRoleName(value.role)} 선발` : '후보'}</span></button>`;
-    }).join('');
+    if (!c.scouts.some(value => value.id === selection.scout)) selection.scout = c.scouts[0]?.id ?? null;
+    const detail = selection.detail ? [...c.roster, ...c.scouts].find(value => value.id === selection.detail) : null;
     const name = selection.rename ? `<form id="club-name-form" class="club-name-form"><label for="club-name">팀 이름 · 최대 ${rules.nameLength}자</label><input id="club-name" data-club-focus="club-name" type="text" aria-describedby="club-name-error" ${selection.nameError ? 'aria-invalid="true"' : ''} value="${escape(selection.nameDraft ?? c.teamName)}" placeholder="팀 이름" maxlength="36" ${lock ? 'disabled' : ''} autocomplete="off"><button type="submit" class="primary-small" ${lock ? 'disabled' : ''}>저장</button><button type="button" class="secondary-small" data-club-action="rename-cancel" data-club-focus="rename-cancel" ${this.clubBusy ? 'disabled' : ''}>취소</button><span id="club-name-error" class="club-name-error" role="alert">${escape(selection.nameError || '')}</span></form>` : `<button type="button" class="club-name-display" ${lock ? 'disabled' : ''} data-club-action="rename-edit" data-club-focus="rename-edit" aria-label="${escape(c.teamName || '내 팀')} 이름 바꾸기"><span>${escape(c.teamName || '내 팀')}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14Z"/></svg></button>`;
-    const draftPlayer = c.roster.find(value => value.id === this.clubDraft?.playerId), draftCost = this.clubDraftPoints() * rules.training.cost;
-    const draftBanner = this.clubDraft ? `<div class="club-draft-banner" data-stale="${this.clubDraftStale()}" data-current="${!isScout && player?.id === this.clubDraft.playerId && selection.detail && !this.clubDraftStale()}"><span><strong>${escape(draftPlayer?.name || '선수')} ${draftCost} P 미적용</strong><small>${this.clubDraftStale() ? '팀 정보가 바뀌었어요. 배분을 취소한 뒤 최신 능력치로 다시 정해 주세요.' : '내용을 확인하고 적용하거나 취소해 주세요.'}</small></span><div><button type="button" class="secondary-small" data-club-action="draft-return" data-club-focus="draft-return">배분으로 돌아가기</button><button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="draft-reset" data-club-focus="draft-global-reset">취소</button></div></div>` : '';
-    const passiveStatus = !this.inGame && !this.clubBusy && c.status === 'ready' && (!this.clubNotice || this.clubNoticeType === 'preview') && c.pendingReward?.status !== 'error';
+    const passiveStatus = !this.inGame && !this.clubBusy && c.status === 'ready' && !this.clubNotice && c.pendingReward?.status !== 'error';
     const statusMessage = this.inGame ? '현재 경기는 시작할 때의 편성을 사용해요. 팀 변경은 처음 화면에서 할 수 있어요.' : this.clubBusy ? '팀을 저장하고 있어요.' : c.status !== 'ready' ? c.message : this.clubNotice || c.message;
-    const empty = c.status === 'loading' ? '선수 정보를 불러오고 있어요.' : isScout && !c.scouts.length ? '모든 영입 선수가 우리 팀에 합류했어요.' : '이 역할의 선수가 없어요. 전체 선수를 확인해 보세요.';
-    return `<div class="club-layout" data-detail="${selection.detail}"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${c.record.won || 0}승 ${c.record.lost || 0}패 · 나만의 ${TAKRAW_GAME_NAME} 팀</span></div><div class="club-wallet"><div class="club-resource"><small>영입 코인</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>훈련 포인트</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
-      <div class="club-lineup" aria-label="현재 선발">${rules.roles.map(role => { const starter = c.roster.find(value => value.id === c.lineup[role.id]); return `<button type="button" data-club-action="lineup" data-value="${starter?.id || ''}" data-club-focus="lineup-${role.id}" ${!starter ? 'disabled' : ''}><small>${role.name}</small><strong>${escape(starter?.name || '불러오는 중')}</strong><span class="club-badge">${role.id === 'attacker' ? '직접 조작' : '동료'}</span></button>`; }).join('')}</div>
-      <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">최신 저장 불러오기</button>` : ''}${c.pendingReward?.status === 'error' ? '<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">보상 저장 재시도</button>' : ''}</div>${draftBanner}
-      <div class="club-navigation"><div class="club-tabs" role="group" aria-label="팀 관리 메뉴"><button type="button" class="${!isScout ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isScout}">선수단 <span>${c.roster.length}</span></button><button type="button" class="${isScout ? 'selected' : ''}" data-club-action="tab" data-value="scouts" data-club-focus="tab-scouts" aria-pressed="${isScout}">선수 영입 <span>${c.scouts.length}</span></button></div><span class="club-capacity">선수 ${c.roster.length} / ${rules.capacity}명</span></div>
-      <div class="club-workspace" data-detail="${selection.detail}"><div class="club-roster-column"><div class="club-filter" role="group" aria-label="추천 역할로 선수 찾기">${[{id:'all',name:'전체'},...rules.roles.slice().reverse()].map(role => `<button type="button" class="${selection.filter === role.id ? 'selected' : ''}" data-club-action="filter" data-value="${role.id}" data-club-focus="filter-${role.id}" aria-pressed="${selection.filter === role.id}">${role.name}</button>`).join('')}</div><div id="club-list" class="club-list">${cards || `<p class="club-empty">${empty}</p>`}</div></div><section id="club-detail" class="club-detail" aria-label="선수 상세">${player ? this.clubDetailContent(player,isScout) : `<p class="club-empty">${empty}</p>`}</section></div>
-      <p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p></div>`;
-  }
-
-  clubAdjust(stat, direction) {
-    const player = this.club.roster.find(value => value.id === this.clubSelection.player), rules = TAKRAW_CLUB_RULES;
-    if (!player || !rules.stats.some(value => value.id === stat) || this.clubBusy) return;
-    if (this.clubDraft && this.clubDraft.playerId !== player.id) return;
-    const count = this.clubDraft?.allocations[stat] || 0;
-    if (direction > 0) {
-      if (this.clubLockReason(true) || this.clubDraftStale()) return;
-      const remaining = (this.club.trainingPoints || 0) - this.clubDraftPoints() * rules.training.cost;
-      if (remaining < rules.training.cost || player.stats[stat] + count * rules.training.increase >= rules.training.maximum) return;
-      this.clubDraft ??= { playerId:player.id, revision:this.club.revision, allocations:{} };
-      this.clubDraft.allocations[stat] = count + 1;
-    } else {
-      if (!count) return;
-      if (count === 1) delete this.clubDraft.allocations[stat]; else this.clubDraft.allocations[stat] = count - 1;
-      if (!this.clubDraftPoints()) this.clubDraft = null;
-    }
-    this.clubSelection.stat = stat; this.clubSelection.detail = true; this.clubNoticeType = 'preview';
-    this.clubNotice = `${player.name} · ${this.clubDraftPoints() * rules.training.cost} P 배분 중. 적용할 때 저장돼요.`;
-    this.renderClub(`${direction > 0 ? 'increase' : 'decrease'}-${stat}`);
+    const empty = c.status === 'loading' ? '선수 정보를 불러오고 있어요.' : '모든 영입 선수가 우리 팀에 합류했어요.';
+    const scout = c.scouts.find(value => value.id === selection.scout);
+    const body = detail ? `<section id="club-detail" class="club-detail" aria-label="선수 상세">${this.clubDetailContent(detail, !c.roster.includes(detail))}</section>`
+      : `<div class="club-navigation"><div class="club-tabs" role="group" aria-label="팀 관리 메뉴"><button type="button" class="${!isScout ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isScout}">선수단 <span>${c.roster.length}</span></button><button type="button" class="${isScout ? 'selected' : ''}" data-club-action="tab" data-value="scouts" data-club-focus="tab-scouts" aria-pressed="${isScout}">선수 영입 <span>${c.scouts.length}</span></button></div><span class="club-capacity">선수 ${c.roster.length} / ${rules.capacity}명</span></div>
+      ${isScout ? '' : this.clubLineupContent()}<div id="club-list" class="club-list">${(isScout ? this.clubScoutCards() : this.clubRosterCards()) || `<p class="club-empty">${empty}</p>`}</div>${isScout && scout ? this.clubRecruitBar(scout) : ''}`;
+    return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${c.record.won || 0}승 ${c.record.lost || 0}패 · 나만의 ${TAKRAW_GAME_NAME} 팀</span></div><div class="club-wallet"><div class="club-resource"><small>영입 코인</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>훈련 포인트</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
+      <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">최신 저장 불러오기</button>` : ''}${c.pendingReward?.status === 'error' ? '<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">보상 저장 재시도</button>' : ''}</div>
+      ${body}${detail ? '' : '<p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p>'}</div>`;
   }
 
   clubClick(button) {
     if (button.disabled) return;
-    const action = button.dataset.clubAction, value = button.dataset.value, selection = this.clubSelection;
-    if (action === 'select' || action === 'lineup') {
-      if (action === 'lineup') { selection.tab = 'roster'; selection.filter = 'all'; }
-      selection.player = value; selection.players[selection.tab] = value; selection.detail = true; selection.compare = selection.tab === 'scouts' ? 'auto' : 'none';
-      this.renderClub('detail-heading',true);
+    const action = button.dataset.clubAction, value = button.dataset.value, selection = this.clubSelection, pick = selection.pick;
+    if (action === 'select') {
+      if (selection.tab === 'scouts') { selection.scout = value; this.renderClub(`player-${value}`); }
+      else if (pick?.type === 'slot') this.clubAction('assign', { role:pick.id, playerId:value });
+      else { selection.pick = pick?.id === value ? null : { type:'player', id:value }; this.renderClub(`player-${value}`); }
     }
+    if (action === 'slot') {
+      if (pick?.type === 'player') this.clubAction('assign', { role:value, playerId:pick.id });
+      else { selection.pick = pick?.id === value ? null : { type:'slot', id:value }; this.renderClub(`lineup-${value}`); }
+    }
+    if (action === 'info') { selection.detail = value; selection.pick = null; this.renderClub('detail-heading', true); }
+    if (action === 'back') { const id = selection.detail; selection.detail = null; this.renderClub(`info-${id}`); }
     if (action === 'tab') {
       if (!['roster','scouts'].includes(value)) return;
-      selection.tab = value; selection.player = selection.players[value]; selection.filter = 'all'; selection.detail = false; selection.compare = value === 'scouts' ? 'auto' : 'none';
-      this.renderClub(`tab-${value}`,true);
+      selection.tab = value; selection.pick = null; this.renderClub(`tab-${value}`, true);
     }
-    if (action === 'filter') {
-      selection.filter = value; selection.detail = false; this.renderClub(`filter-${value}`);
-      const list = document.getElementById('club-list'); if (list) list.scrollTop = 0;
-    }
-    if (action === 'back') { selection.detail = false; this.renderClub(`player-${selection.player}`); }
     if (action === 'rename-edit') { if (this.clubLockReason()) return; selection.rename = true; selection.nameDraft = this.club.teamName; selection.nameError = ''; this.renderClub('club-name'); }
     if (action === 'rename-cancel') { selection.rename = false; selection.nameDraft = null; selection.nameError = ''; this.renderClub('rename-edit'); }
-    if (action === 'increase' || action === 'decrease') this.clubAdjust(value,action === 'increase' ? 1 : -1);
-    if (action === 'draft-return' && this.clubDraft) { selection.tab = 'roster'; selection.filter = 'all'; selection.player = this.clubDraft.playerId; selection.players.roster = selection.player; selection.compare = 'none'; selection.detail = true; this.renderClub('detail-heading',true); }
-    if (action === 'draft-reset' && !this.clubBusy) { this.clubDraft = null; this.clubNoticeType = 'status'; this.clubNotice = '미적용 배분을 취소했어요.'; this.renderClub(`allocation-${selection.stat}`); }
-    if (action === 'assign') this.clubAction('assign', { role:value, playerId:selection.player });
-    if (action === 'allocate' && this.clubDraft) this.clubAction('allocate', { playerId:this.clubDraft.playerId, allocations:{ ...this.clubDraft.allocations }, revision:this.clubDraft.revision });
-    if (action === 'recruit') this.clubAction('recruit', { playerId:selection.player });
+    if (action === 'train') this.clubAction('train', { playerId:value });
+    if (action === 'recruit') this.clubAction('recruit', { playerId:value });
     if (action === 'refresh') this.clubAction('refresh');
     if (action === 'reward') this.callbacks.onRewardRetry?.();
   }
 
+  /** 선수·자리 선택을 화면 안에서만 풀어 준다. 저장된 편성은 바뀌지 않는다. */
+  clubClearPick() {
+    if (!this.clubSelection.pick) return;
+    this.clubSelection.pick = null; this.renderClub();
+  }
+
   async clubAction(action, payload = {}) {
     if (this.clubBusy) return;
-    const isAllocation = action === 'allocate', reason = action === 'refresh' ? '' : this.clubLockReason(isAllocation);
-    if (reason || (isAllocation && (!this.clubDraft || this.clubDraft.playerId !== payload.playerId || this.clubDraftStale()))) {
-      this.clubNoticeType = 'status'; this.clubNotice = reason || '팀 정보가 바뀌었어요. 미적용 배분을 취소한 뒤 다시 정해 주세요.'; this.renderClub(); return;
-    }
-    const submittedDraft = isAllocation ? this.clubDraft : null;
-    this.clubBusy = true; this.clubNoticeType = 'status'; this.clubNotice = ''; this.renderClub();
+    const reason = action === 'refresh' ? '' : this.clubLockReason();
+    if (reason) { this.clubNotice = reason; this.renderClub(); return; }
+    this.clubBusy = true; this.clubNotice = ''; this.renderClub();
     let focus = null;
     try {
       const result = await this.callbacks.onClubAction?.(action, payload);
       if (result?.view) { this.club = { ...this.club, ...result.view }; this.clubNotice = result.view.message || ''; this.updateStartButtons(); }
-      if (isAllocation && result?.changed && this.clubDraft === submittedDraft) {
-        this.clubDraft = null; this.clubNotice = '능력치 배분을 저장했어요. 다음 경기부터 적용돼요.'; focus = `allocation-${this.clubSelection.stat}`;
-      }
+      if (action === 'assign') { this.clubSelection.pick = null; focus = `lineup-${payload.role}`; }
+      if (action === 'train') focus = 'train';
       if (action === 'rename' && result) { this.clubSelection.rename = false; this.clubSelection.nameDraft = null; this.clubSelection.nameError = ''; focus = 'rename-edit'; }
       if (action === 'recruit' && result?.changed) {
-        this.clubSelection.tab = 'roster'; this.clubSelection.filter = 'all'; this.clubSelection.player = payload.playerId; this.clubSelection.players.roster = payload.playerId; this.clubSelection.detail = true; this.clubSelection.compare = 'none';
-        this.clubNotice = '선수를 영입했어요. 아래에서 선발로 배치할 수 있어요.'; focus = 'detail-heading';
+        Object.assign(this.clubSelection, { tab:'roster', detail:null, pick:{ type:'player', id:payload.playerId } });
+        this.clubNotice = '선수를 영입했어요. 선발로 올릴 자리를 눌러 보세요.'; focus = `player-${payload.playerId}`;
       }
     } catch (error) {
       this.clubNotice = error.message || '변경을 저장하지 못했어요. 다시 확인해 주세요.';
       if (action === 'rename' && error.kind === 'validation') { this.clubSelection.nameError = this.clubNotice; focus = 'club-name'; }
     } finally {
-      this.clubBusy = false; this.renderClub(focus,action === 'recruit');
+      this.clubBusy = false; this.renderClub(focus, action === 'recruit');
+      if (action === 'recruit') document.querySelector('.club-card.selected')?.scrollIntoView({ block: 'nearest' });
     }
   }
 
@@ -580,6 +571,7 @@ class TakrawUI {
     if (challenge) { if (!challenge.disabled) this.callbacks.onCampaign?.(challenge.dataset.campaignSchool); return; }
     const clubButton = event.target.closest('[data-club-action]');
     if (clubButton) { this.clubClick(clubButton); return; }
+    if (this.dialog === 'club' && !event.target.closest('input, form, summary, footer')) this.clubClearPick();
     const button = event.target.closest('[data-dialog-action]'); if (!button) return;
     const action = button.dataset.dialogAction;
     if (action === 'close') this.closeDialog();

@@ -69,7 +69,7 @@ class TakrawGame {
           stats: Object.fromEntries(keys.map(key => [key, definition.base])) };
         if (typeof player.id !== 'string' || !player.id.trim() || ids.has(player.id) ||
             typeof player.name !== 'string' || !player.name.trim() || !player.stats ||
-            keys.some(key => !Number.isInteger(player.stats[key]) || player.stats[key] < definition.base || player.stats[key] > definition.max)) {
+            keys.some(key => !Number.isInteger(player.stats[key]) || player.stats[key] < definition.base)) {
           throw new Error('선수 식별자·이름·능력치를 확인하세요.');
         }
         ids.add(player.id);

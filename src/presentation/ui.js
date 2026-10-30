@@ -2,11 +2,14 @@ import { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from '
 import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_VERSION, TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from '../config/game.js';
-import { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS, takrawTrainingFactor } from '../club/club.js';
+import { TAKRAW_CLUB_RULES, takrawTrainingFactor } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
 
 /** 처음 화면의 안쪽 단계와 그 부모 주소. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
 const HOME_PARENT = { start: '', multi: 'start' };
+
+/** 뽑기 연출에서 카드팩이 흔들리는 시간(ms). 건너뛰기·움직임 줄이기는 이 구간을 건너뛴다. */
+const TAKRAW_DRAW_PACK_MS = 1500;
 
 class TakrawUI {
   constructor(callbacks, network) {
@@ -24,12 +27,12 @@ class TakrawUI {
     this.homeShown = false; this.homeView = 'main';
     this.copyTimer = null;
     this.cache = new Map();
-    this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], scouts: [], lineup: {}, record: {} };
-    // pick: 편성 교체 중인 선택({ type: 'player' | 'slot', id }), detail: 능력치를 펼친 선수 id, scout: 영입 탭에서 고른 선수 id. 모두 화면 안에서만 산다.
-    this.clubSelection = { tab: 'roster', pick: null, detail: null, scout: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
-    this.clubBusy = false; this.clubNotice = '';
+    this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], draw: { pending: null }, lineup: {}, record: {} };
+    // pick: 편성 교체 중인 선택({ type: 'player' | 'slot', id }), detail: 능력치를 펼친 선수 id. 모두 화면 안에서만 산다.
+    this.clubSelection = { tab: 'roster', pick: null, detail: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
+    this.clubBusy = false; this.clubNotice = ''; this.drawStage = null; this.drawTimer = 0;
     this.nodes = {};
-    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','dialog-back','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
+    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','dialog-back','draw-stage','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
@@ -108,6 +111,7 @@ class TakrawUI {
     this.listen(document, 'visibilitychange', () => { if (document.hidden) this.releaseTouch(); });
     this.listen(this.nodes['modal-layer'], 'pointerdown', event => { if (event.target === this.nodes['modal-layer']) this.closeDialog(); });
     this.listen(this.nodes['dialog-content'], 'click', event => this.dialogClick(event));
+    this.listen(this.nodes['draw-stage'], 'click', event => this.drawClick(event));
     this.listen(this.nodes['dialog-content'], 'input', event => {
       if (event.target.id !== 'club-name') return;
       this.clubSelection.nameDraft = event.target.value; this.clubSelection.nameError = '';
@@ -119,6 +123,7 @@ class TakrawUI {
       event.preventDefault(); this.clubAction('rename', { name: document.getElementById('club-name').value });
     });
     this.listen(document, 'keydown', event => {
+      if (event.code === 'Escape' && this.drawStage) { event.preventDefault(); this.drawEscape(); return; }
       if (event.code === 'Escape') { event.preventDefault(); if (this.dialog === 'club' && this.clubSelection.detail) this.navigate('club'); else if (this.dialog) this.closeDialog(); else if (this.inGame) this.navigate('pause'); else if (this.homeView !== 'main') this.navigate(HOME_PARENT[this.homeView]); }
       if (this.dialog && event.code === 'Tab') this.trapFocus(event);
     });
@@ -219,13 +224,13 @@ class TakrawUI {
   }
 
   showHome() {
-    this.setHomeView('main', false);
+    if (this.homeShown) this.setHomeView('main', false); // 부팅 중에 먼저 누른 단계는 첫 표시 때 유지한다
     const initialDialog = !this.homeShown && !this.inGame && ['settings','network','club','campaign'].includes(this.dialog) ? this.dialog : '';
     this.homeShown = true;
     this.releaseTouch(); this.inGame = false; this.hideDialog(false);
     document.body.classList.add('is-home'); document.body.dataset.mode = 'home';
     this.nodes['home-panel'].hidden = false; this.nodes['match-hud'].hidden = true; this.nodes['touch-controls'].hidden = true;
-    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = true; this.setRoute(initialDialog, true);
+    this.nodes['connection-indicator'].hidden = true; this.nodes['watch-form'].hidden = true; this.setRoute(initialDialog || this.homeRoute(), true);
     if (initialDialog) this.openDialog(initialDialog);
   }
 
@@ -295,6 +300,7 @@ class TakrawUI {
 
   hideDialog(resume) {
     if (this.dialog === 'club') this.rememberClubPosition();
+    if (this.drawStage) this.closeDrawStage();
     const wasOpen = !!this.dialog; this.dialog = ''; this.nodes['modal-layer'].hidden = true;
     this.nodes['modal-layer'].classList.remove('is-club-layer');
     if (this.copyTimer) { window.clearTimeout(this.copyTimer); this.copyTimer = null; }
@@ -391,7 +397,7 @@ class TakrawUI {
   }
 
   clubShirt(player) {
-    const number = TAKRAW_CLUB_PLAYERS.findIndex(value => value.id === player.id) + 1;
+    const number = player.number;
     return `<span class="club-shirt" data-role="${player.preferredRole}" aria-hidden="true"><svg viewBox="0 0 64 72"><path d="M20 5 12 9 2 23 14 33 19 27 18 65H46L45 27 50 33 62 23 52 9 44 5C42 11 37 14 32 14S22 11 20 5Z" fill="currentColor" stroke="none"/><path d="M20 5C22 12 27 16 32 16S42 12 44 5M20 26V61M44 26V61" fill="none" stroke="rgba(255,255,255,.42)" stroke-width="2"/><text x="32" y="46" fill="#fff" stroke="none" text-anchor="middle" font-size="22" font-weight="750">${String(number).padStart(2,'0')}</text></svg></span>`;
   }
 
@@ -431,7 +437,7 @@ class TakrawUI {
 
   clubCard(player, { selected = false, recommended = false, badge = '', note = '' }) {
     const escape = value => this.escape(value), peaks = TAKRAW_CLUB_RULES.stats.slice().sort((a,b) => player.stats[b.id] - player.stats[a.id]).slice(0,2);
-    return `<div class="club-card-row"><button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}</strong><small>추천 ${this.clubRoleName(player.preferredRole)} · ${escape(player.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>${note ? `<span class="club-card-note">${note}</span>` : ''}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
+    return `<div class="club-card-row"><button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong><small>추천 ${this.clubRoleName(player.preferredRole)} · ${escape(player.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>${note ? `<span class="club-card-note">${note}</span>` : ''}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
   }
 
   /** 선발 자리 3칸. 선수나 자리를 먼저 누르면 놓을 수 있는 쪽이 켜지고 능력치 차이가 보인다. */
@@ -459,23 +465,15 @@ class TakrawUI {
     }).join('');
   }
 
-  clubScoutCards() {
-    const c = this.club;
-    return c.scouts.map(player => {
-      const shortage = Math.max(0, player.price - (c.credits || 0));
-      return this.clubCard(player, { selected: this.clubSelection.scout === player.id, badge: `${player.price} C`, note: shortage ? `<span class="negative">${shortage} C 부족</span>` : '<span class="positive">영입 가능</span>' });
-    }).join('');
-  }
-
   /** 하단 고정 줄. 왼쪽에 상태 한 줄, 오른쪽에 이 화면의 버튼 하나. */
   clubBar(summary, button) { return `<footer class="club-bar"><span>${this.escape(summary)}</span>${button}</footer>`; }
 
-  clubRecruitBar(player) {
-    const c = this.club, rules = TAKRAW_CLUB_RULES, lock = this.clubLockReason(), shortage = Math.max(0, player.price - (c.credits || 0)), full = c.roster.length >= rules.capacity;
-    const reason = lock || (full ? '선수단이 가득 찼어요' : shortage ? `${shortage} C 부족` : '');
-    const roster = `선수 ${c.roster.length} → ${Math.min(rules.capacity, c.roster.length + 1)} / ${rules.capacity}명`;
-    const summary = shortage || lock ? `${reason} · 보유 ${c.credits || 0} C · ${roster}` : full ? `${reason} · ${roster}` : `잔액 ${c.credits || 0} → ${(c.credits || 0) - player.price} C · ${roster}`;
-    return this.clubBar(summary, `<button type="button" class="primary-small" ${lock || shortage || full ? 'disabled' : ''} data-club-action="recruit" data-value="${player.id}" data-club-focus="recruit">${player.price} C 영입</button>`);
+  clubRarityName(rarity) { return TAKRAW_CLUB_RULES.rarities.find(value => value.id === rarity)?.name || ''; }
+
+  /** 등급 확률을 합계 대비 %로. 화면에 그대로 공개한다. */
+  clubOddsText() {
+    const weights = Object.entries(TAKRAW_CLUB_RULES.draw.weights), total = weights.reduce((sum, [, weight]) => sum + weight, 0);
+    return weights.map(([rarity, weight]) => `${this.clubRarityName(rarity)} ${Math.round(weight / total * 1000) / 10}%`).join(' · ');
   }
 
   clubTrainBar(player) {
@@ -485,38 +483,47 @@ class TakrawUI {
     return this.clubBar(lock || (points < rule.cost ? `훈련 포인트가 없어요 · ${summary}` : summary), `<button type="button" class="primary-small" ${lock || points < rule.cost ? 'disabled' : ''} data-club-action="train" data-value="${player.id}" data-club-focus="train">훈련 · ${rule.cost} P</button>`);
   }
 
-  clubDetailContent(player, isScout) {
-    const escape = value => this.escape(value);
-    const badge = isScout ? `${player.price} C · 영입 후보` : player.role ? `${this.clubRoleName(player.role)} 선발` : '후보';
-    return `<div class="club-detail-heading"><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(player.name)}</strong><span class="club-badge">${escape(badge)}</span></div><p>${escape(player.tag)} · 추천 ${this.clubRoleName(player.preferredRole)}</p></div>
+  clubDetailContent(player) {
+    const escape = value => this.escape(value), badge = player.role ? `${this.clubRoleName(player.role)} 선발` : '후보';
+    return `<div class="club-detail-heading"><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(player.name)}</strong><span class="club-badge">${escape(badge)}</span><span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span></div><p>${escape(player.tag)} · 추천 ${this.clubRoleName(player.preferredRole)}</p></div>
       <div class="club-radar-view">${this.clubRadar(player, player.stats)}</div>
-      ${isScout ? this.clubRecruitBar(player) : this.clubTrainBar(player)}`;
+      ${this.clubTrainBar(player)}`;
+  }
+
+  /** 뽑기 탭: 카드팩 그림, 공개 확률, 하단 고정 뽑기 버튼. 가득 차 남겨 둔 결과가 있으면 이어 보기 버튼이 대신 선다. */
+  clubDrawContent() {
+    const c = this.club, rule = TAKRAW_CLUB_RULES.draw, lock = this.clubLockReason(), pending = c.draw?.pending;
+    const shortage = Math.max(0, rule.cost - (c.credits || 0));
+    const refunds = TAKRAW_CLUB_RULES.rarities.map(rarity => `${rarity.name} ${rule.refund[rarity.id]} P`).join(' · ');
+    const body = `<div class="club-draw"><div class="draw-pack-art" aria-hidden="true"><i></i><b>?</b></div>
+      <p class="draw-odds">${this.escape(this.clubOddsText())}</p>
+      <p class="draw-note">뽑은 선수는 바로 선수단에 합류해요. 선수단이 가득 차면 환급(${refunds})을 받거나 후보와 교체해요.</p></div>`;
+    if (pending) return body + this.clubBar('지난 뽑기 결과를 아직 정리하지 않았어요.', `<button type="button" class="primary-small" ${lock ? 'disabled' : ''} data-club-action="draw-resume" data-club-focus="draw-button">결과 이어 보기</button>`);
+    const summary = lock || (shortage ? `${shortage} C 부족 · 보유 ${c.credits || 0} C` : `보유 ${c.credits || 0} C · 뽑은 횟수 ${c.draw?.runs || 0}회`);
+    return body + this.clubBar(summary, `<button type="button" class="primary-small" ${lock || shortage ? 'disabled' : ''} data-club-action="draw" data-club-focus="draw-button">뽑기 · ${rule.cost} C</button>`);
   }
 
   clubContent() {
     const c = this.club, selection = this.clubSelection, rules = TAKRAW_CLUB_RULES, escape = value => this.escape(value);
-    const lock = this.clubLockReason(), isScout = selection.tab === 'scouts';
-    if (!c.scouts.some(value => value.id === selection.scout)) selection.scout = c.scouts[0]?.id ?? null;
-    const detail = selection.detail ? [...c.roster, ...c.scouts].find(value => value.id === selection.detail) : null;
+    const lock = this.clubLockReason(), isDraw = selection.tab === 'draw';
+    const detail = selection.detail ? c.roster.find(value => value.id === selection.detail) : null;
     const name = selection.rename ? `<form id="club-name-form" class="club-name-form"><label for="club-name">팀 이름 · 최대 ${rules.nameLength}자</label><input id="club-name" data-club-focus="club-name" type="text" aria-describedby="club-name-error" ${selection.nameError ? 'aria-invalid="true"' : ''} value="${escape(selection.nameDraft ?? c.teamName)}" placeholder="팀 이름" maxlength="36" ${lock ? 'disabled' : ''} autocomplete="off"><button type="submit" class="primary-small" ${lock ? 'disabled' : ''}>저장</button><button type="button" class="secondary-small" data-club-action="rename-cancel" data-club-focus="rename-cancel" ${this.clubBusy ? 'disabled' : ''}>취소</button><span id="club-name-error" class="club-name-error" role="alert">${escape(selection.nameError || '')}</span></form>` : `<button type="button" class="club-name-display" ${lock ? 'disabled' : ''} data-club-action="rename-edit" data-club-focus="rename-edit" aria-label="${escape(c.teamName || '내 팀')} 이름 바꾸기"><span>${escape(c.teamName || '내 팀')}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14Z"/></svg></button>`;
     const passiveStatus = !this.inGame && !this.clubBusy && c.status === 'ready' && !this.clubNotice && c.pendingReward?.status !== 'error';
     const statusMessage = this.inGame ? '현재 경기는 시작할 때의 편성을 사용해요. 팀 변경은 처음 화면에서 할 수 있어요.' : this.clubBusy ? '팀을 저장하고 있어요.' : c.status !== 'ready' ? c.message : this.clubNotice || c.message;
-    const empty = c.status === 'loading' ? '선수 정보를 불러오고 있어요.' : '모든 영입 선수가 우리 팀에 합류했어요.';
-    const scout = c.scouts.find(value => value.id === selection.scout);
-    const body = detail ? `<section id="club-detail" class="club-detail" aria-label="선수 상세">${this.clubDetailContent(detail, !c.roster.includes(detail))}</section>`
-      : `<div class="club-navigation"><div class="club-tabs" role="group" aria-label="팀 관리 메뉴"><button type="button" class="${!isScout ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isScout}">선수단 <span>${c.roster.length}</span></button><button type="button" class="${isScout ? 'selected' : ''}" data-club-action="tab" data-value="scouts" data-club-focus="tab-scouts" aria-pressed="${isScout}">선수 영입 <span>${c.scouts.length}</span></button></div><span class="club-capacity">선수 ${c.roster.length} / ${rules.capacity}명</span></div>
-      ${isScout ? '' : this.clubLineupContent()}<div id="club-list" class="club-list">${(isScout ? this.clubScoutCards() : this.clubRosterCards()) || `<p class="club-empty">${empty}</p>`}</div>${isScout && scout ? this.clubRecruitBar(scout) : ''}`;
-    return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${c.record.won || 0}승 ${c.record.lost || 0}패 · 나만의 ${TAKRAW_GAME_NAME} 팀</span></div><div class="club-wallet"><div class="club-resource"><small>영입 코인</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>훈련 포인트</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
+    const empty = c.status === 'loading' ? '선수 정보를 불러오고 있어요.' : '선수가 없어요.';
+    const body = detail ? `<section id="club-detail" class="club-detail" aria-label="선수 상세">${this.clubDetailContent(detail)}</section>`
+      : `<div class="club-navigation"><div class="club-tabs" role="group" aria-label="팀 관리 메뉴"><button type="button" class="${!isDraw ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isDraw}">선수단 <span>${c.roster.length}</span></button><button type="button" class="${isDraw ? 'selected' : ''}" data-club-action="tab" data-value="draw" data-club-focus="tab-draw" aria-pressed="${isDraw}">선수 뽑기</button></div><span class="club-capacity">선수 ${c.roster.length} / ${rules.capacity}명</span></div>
+      ${isDraw ? this.clubDrawContent() : `${this.clubLineupContent()}<div id="club-list" class="club-list">${this.clubRosterCards() || `<p class="club-empty">${empty}</p>`}</div>`}`;
+    return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${c.record.won || 0}승 ${c.record.lost || 0}패 · 나만의 ${TAKRAW_GAME_NAME} 팀</span></div><div class="club-wallet"><div class="club-resource"><small>코인</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>훈련 포인트</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
       <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">최신 저장 불러오기</button>` : ''}${c.pendingReward?.status === 'error' ? '<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">보상 저장 재시도</button>' : ''}</div>
-      ${body}${detail ? '' : '<p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p>'}</div>`;
+      ${body}${detail || isDraw ? '' : '<p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p>'}</div>`;
   }
 
   clubClick(button) {
     if (button.disabled) return;
     const action = button.dataset.clubAction, value = button.dataset.value, selection = this.clubSelection, pick = selection.pick;
     if (action === 'select') {
-      if (selection.tab === 'scouts') { selection.scout = value; this.renderClub(`player-${value}`); }
-      else if (pick?.type === 'slot') this.clubAction('assign', { role:pick.id, playerId:value });
+      if (pick?.type === 'slot') this.clubAction('assign', { role:pick.id, playerId:value });
       else { selection.pick = pick?.id === value ? null : { type:'player', id:value }; this.renderClub(`player-${value}`); }
     }
     if (action === 'slot') {
@@ -525,13 +532,14 @@ class TakrawUI {
     }
     if (action === 'info') { selection.pick = null; this.navigate(`club/${value}`); }
     if (action === 'tab') {
-      if (!['roster','scouts'].includes(value)) return;
+      if (!['roster','draw'].includes(value)) return;
       selection.tab = value; selection.pick = null; this.renderClub(`tab-${value}`, true);
     }
     if (action === 'rename-edit') { if (this.clubLockReason()) return; selection.rename = true; selection.nameDraft = this.club.teamName; selection.nameError = ''; this.renderClub('club-name'); }
     if (action === 'rename-cancel') { selection.rename = false; selection.nameDraft = null; selection.nameError = ''; this.renderClub('rename-edit'); }
     if (action === 'train') this.clubAction('train', { playerId:value });
-    if (action === 'recruit') this.clubAction('recruit', { playerId:value });
+    if (action === 'draw') this.clubAction('draw');
+    if (action === 'draw-resume' && this.club.draw?.pending) this.openDrawStage(this.club.draw.pending, { joined:false, phase:'front' });
     if (action === 'refresh') this.clubAction('refresh');
     if (action === 'reward') this.callbacks.onRewardRetry?.();
   }
@@ -547,24 +555,93 @@ class TakrawUI {
     const reason = action === 'refresh' ? '' : this.clubLockReason();
     if (reason) { this.clubNotice = reason; this.renderClub(); return; }
     this.clubBusy = true; this.clubNotice = ''; this.renderClub();
-    let focus = null;
+    let focus = null, drawn = null;
     try {
       const result = await this.callbacks.onClubAction?.(action, payload);
       if (result?.view) { this.club = { ...this.club, ...result.view }; this.clubNotice = result.view.message || ''; this.updateStartButtons(); }
       if (action === 'assign') { this.clubSelection.pick = null; focus = `lineup-${payload.role}`; }
       if (action === 'train') focus = 'train';
       if (action === 'rename' && result) { this.clubSelection.rename = false; this.clubSelection.nameDraft = null; this.clubSelection.nameError = ''; focus = 'rename-edit'; }
-      if (action === 'recruit' && result?.changed) {
-        Object.assign(this.clubSelection, { tab:'roster', detail:null, pick:{ type:'player', id:payload.playerId } }); this.setRoute('club', true);
-        this.clubNotice = '선수를 영입했어요. 선발로 올릴 자리를 눌러 보세요.'; focus = `player-${payload.playerId}`;
+      if (action === 'draw') { drawn = result?.drawn; focus = 'draw-button'; }
+      if (action === 'resolve') {
+        const id = this.drawStage?.card.id; this.closeDrawStage();
+        if (payload.release) { this.showNewPlayer(id); focus = `player-${id}`; } else focus = 'tab-draw';
       }
     } catch (error) {
       this.clubNotice = error.message || '변경을 저장하지 못했어요. 다시 확인해 주세요.';
       if (action === 'rename' && error.kind === 'validation') { this.clubSelection.nameError = this.clubNotice; focus = 'club-name'; }
     } finally {
-      this.clubBusy = false; this.renderClub(focus, action === 'recruit');
-      if (action === 'recruit') document.querySelector('.club-card.selected')?.scrollIntoView({ block: 'nearest' });
+      this.clubBusy = false; this.renderClub(focus, action === 'draw');
+      if (action === 'resolve' && payload.release) document.querySelector('.club-card.selected')?.scrollIntoView({ block: 'nearest' });
     }
+    if (drawn) {
+      const card = this.club.roster.find(value => value.id === drawn.id) ?? this.club.draw?.pending;
+      if (card) this.openDrawStage(card, { joined: drawn.joined });
+    }
+  }
+
+  /** 뽑기 연출: 카드팩 흔들림 → 카드 뒷면 → 탭해서 뒤집기 → 공개. 결과는 이미 저장돼 있어 연출은 보여 주기만 한다. */
+  openDrawStage(card, { joined, phase = 'pack' }) {
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches, node = this.nodes['draw-stage'];
+    window.clearTimeout(this.drawTimer);
+    this.drawStage = { card, joined, phase: phase === 'pack' && reduced ? 'back' : phase };
+    node.hidden = false; node.innerHTML = this.drawStageContent(); node.querySelector('.draw-backdrop').dataset.phase = this.drawStage.phase;
+    if (this.drawStage.phase === 'pack') this.drawTimer = window.setTimeout(() => this.setDrawPhase('back'), TAKRAW_DRAW_PACK_MS);
+    this.focusDrawStage();
+  }
+
+  setDrawPhase(phase) {
+    if (!this.drawStage) return;
+    window.clearTimeout(this.drawTimer);
+    this.drawStage.phase = phase; this.nodes['draw-stage'].querySelector('.draw-backdrop').dataset.phase = phase;
+    this.focusDrawStage();
+  }
+
+  focusDrawStage() {
+    const phase = this.drawStage?.phase, selector = { pack: '.draw-skip', back: '.draw-card', front: '[data-draw-action]:not(.draw-skip):not(.draw-card)' }[phase];
+    this.nodes['draw-stage'].querySelector(selector)?.focus({ preventScroll: true });
+  }
+
+  closeDrawStage() {
+    window.clearTimeout(this.drawTimer); this.drawStage = null;
+    this.nodes['draw-stage'].hidden = true; this.nodes['draw-stage'].replaceChildren();
+  }
+
+  drawStageContent() {
+    const { card, joined } = this.drawStage, escape = value => this.escape(value), rules = TAKRAW_CLUB_RULES;
+    const bench = this.club.roster.filter(value => !value.role);
+    const front = `<span class="draw-face draw-front"><span class="draw-front-head">${this.clubShirt(card)}<span><strong>${escape(card.name)}</strong><small>${escape(card.tag)}</small></span></span><span class="club-rarity" data-rarity="${card.rarity}">${this.clubRarityName(card.rarity)} · 추천 ${this.clubRoleName(card.preferredRole)}</span>${this.clubRadar(card, card.stats)}</span>`;
+    const result = joined
+      ? `<p>${escape(card.name)} 선수가 팀에 합류했어요.</p><button type="button" class="primary-small" data-draw-action="done">확인</button>`
+      : `<p>선수단이 가득 찼어요 (${this.club.roster.length} / ${rules.capacity}명). 새 선수를 어떻게 할까요?</p>
+         <button type="button" class="secondary-small" data-draw-action="refund">환급 · ${rules.draw.refund[card.rarity]} P 받기</button>
+         <span class="draw-swap-title">후보와 교체</span><div class="draw-swap">${bench.map(value => `<button type="button" class="secondary-small" data-draw-action="release" data-value="${value.id}"><b>${escape(value.name)}</b><small>${this.clubRarityName(value.rarity)} · ${this.clubRoleName(value.preferredRole)}</small></button>`).join('')}</div>
+         <button type="button" class="draw-later" data-draw-action="later">나중에 정하기</button>`;
+    return `<div class="draw-backdrop" data-rarity="${card.rarity}" data-phase="pack">
+      <button type="button" class="draw-skip" data-draw-action="skip">건너뛰기</button>
+      <div class="draw-pack" aria-hidden="true"><i></i><b>?</b></div>
+      <button type="button" class="draw-card" data-draw-action="flip" aria-label="카드 뒤집기"><span class="draw-card-inner"><span class="draw-face draw-back"><b>?</b><small>눌러서 뒤집기</small></span>${front}</span></button>
+      <div class="draw-result" role="status">${result}</div></div>`;
+  }
+
+  /** Esc: 공개 전이면 건너뛰고, 공개 뒤에는 닫는다(가득 차 정리하지 않은 결과는 뽑기 탭의 이어 보기로 남는다). */
+  drawEscape() {
+    if (this.drawStage.phase !== 'front') this.setDrawPhase('front');
+    else this.drawClick({ target: this.nodes['draw-stage'].querySelector(this.drawStage.joined ? '[data-draw-action="done"]' : '[data-draw-action="later"]') });
+  }
+
+  /** 새로 합류한 선수를 선수단 탭에서 선택된 상태로 보여 준다. */
+  showNewPlayer(id) { Object.assign(this.clubSelection, { tab: 'roster', detail: null, pick: { type: 'player', id } }); }
+
+  drawClick(event) {
+    const button = event.target.closest('[data-draw-action]'); if (!button || !this.drawStage || this.clubBusy) return;
+    const action = button.dataset.drawAction, phase = this.drawStage.phase;
+    if (action === 'skip' && phase !== 'front') this.setDrawPhase('front');
+    if (action === 'flip' && phase === 'back') this.setDrawPhase('front');
+    if (action === 'done') { const id = this.drawStage.card.id; this.closeDrawStage(); this.showNewPlayer(id); this.renderClub(`player-${id}`); document.querySelector('.club-card.selected')?.scrollIntoView({ block: 'nearest' }); }
+    if (action === 'later') { this.closeDrawStage(); this.renderClub('draw-button'); }
+    if (action === 'refund') this.clubAction('resolve', {});
+    if (action === 'release') this.clubAction('resolve', { release: button.dataset.value });
   }
 
   settingsContent() {
@@ -791,7 +868,7 @@ class TakrawUI {
     timing.setAttribute('aria-valuetext', this.controlText(label));
   }
 
-  dispose() { this.releaseTouch(); if (this.copyTimer) window.clearTimeout(this.copyTimer); this.controller.abort(); }
+  dispose() { this.releaseTouch(); window.clearTimeout(this.drawTimer); if (this.copyTimer) window.clearTimeout(this.copyTimer); this.controller.abort(); }
 }
 
 export { TakrawUI };

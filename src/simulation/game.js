@@ -2,6 +2,7 @@ import { AiBrain, Temperament, seededUnit } from './ai-brain.js';
 import { AiFormation } from './ai-formation.js';
 import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
+import { takrawDecodeIdentity } from './identity.js';
 
 /** 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다. */
 const TAKRAW_TRAINING_LESSONS = Object.freeze([
@@ -81,6 +82,7 @@ class TakrawGame {
     // snapshot owns the selected profiles and derives its physical settings.
     this.physics.setAthletes(athletes);
     this.teamNames = teamNames;
+    this.teamSchools = [null, null]; // 온라인에서 상대가 알려 준 학교(표시 전용). 명령으로만 채워진다.
     this.revision++;
   }
 
@@ -180,6 +182,10 @@ class TakrawGame {
         this.teamById[entry.playerId] = team;
       }
       humans[team] = this.decode(entry.input, entry.commands || []);
+      for (const command of entry.commands || []) { // 팀 이름·학교 알림(표시 전용): 보낸 사람의 팀 자리에만 적는다.
+        const identity = takrawDecodeIdentity(command.payload);
+        if (identity) { this.teamNames[team] = identity.name; this.teamSchools[team] = identity.schoolId; }
+      }
       if (this.mode === 'local') humans[1] = this.decode(entry.input, entry.commands || [], true);
     }
     if (this.mode === 'training' && humans[0]?.trainingLesson) {
@@ -1351,7 +1357,7 @@ class TakrawGame {
     const attackGuides = this.getAttackGuides();
     return {
       entities: this.physics.getEntities(), state: this.state, events: this.events, revision: this.revision,
-      attackGuides, receiveGuides: this.getReceiveGuides(), training: this.getTraining(attackGuides[0]), teamNames: [...this.teamNames],
+      attackGuides, receiveGuides: this.getReceiveGuides(), training: this.getTraining(attackGuides[0]), teamNames: [...this.teamNames], teamSchools: [...this.teamSchools],
       teamPlay: [this.getTeamPlay(0), this.getTeamPlay(1)],
       players: this.physics.players.map(player => ({
         id: player.id, team: player.team, role: player.role, name: player.athlete.name, profile: structuredClone(player.athlete),
@@ -1365,7 +1371,7 @@ class TakrawGame {
   }
 
   save() {
-    return { version: this.config.version, mode: this.mode, state: structuredClone(this.state), teamNames: [...this.teamNames], teamById: { ...this.teamById }, ai: structuredClone(this.ai), aiDirty: this.aiDirty, inputs: structuredClone(this.inputs), rallyStart: this.rallyStart || 0, metrics: { ...this.metrics }, physics: this.physics.save(), tuning: structuredClone(this.tuning), temperamentProfiles: structuredClone(this.temperamentProfiles) };
+    return { version: this.config.version, mode: this.mode, state: structuredClone(this.state), teamNames: [...this.teamNames], teamSchools: [...this.teamSchools], teamById: { ...this.teamById }, ai: structuredClone(this.ai), aiDirty: this.aiDirty, inputs: structuredClone(this.inputs), rallyStart: this.rallyStart || 0, metrics: { ...this.metrics }, physics: this.physics.save(), tuning: structuredClone(this.tuning), temperamentProfiles: structuredClone(this.temperamentProfiles) };
   }
   validate(data) {
     const vector = (value, axes) => value && axes.every(axis => Number.isFinite(value[axis]));
@@ -1385,6 +1391,7 @@ class TakrawGame {
       Array.from(data.temperamentProfiles).every(value => value === null || Temperament.validConfig(value)) &&
       Array.isArray(data.tuning) && data.tuning.length === 2 && data.tuning.every(tuning) &&
       Array.isArray(data.teamNames) && data.teamNames.length === 2 && data.teamNames.every(name => typeof name === 'string' && name.trim()) &&
+      (data.teamSchools === undefined || (Array.isArray(data.teamSchools) && data.teamSchools.length === 2 && data.teamSchools.every(id => id === null || typeof id === 'string'))) &&
       Array.isArray(data.state.defense) && data.state.defense.length === 2 && Array.from(data.state.defense).every(defense) &&
       Array.isArray(data.state.score) && data.state.score.length === 2 && data.state.score.every(Number.isFinite) &&
       Array.isArray(data.ai) && data.ai.length === 6 && Array.from(data.ai).every(ai => ai && (ai.receive === null || receivePlan(ai.receive)) && AiBrain.validRecord(ai.brain)) &&
@@ -1400,7 +1407,7 @@ class TakrawGame {
     this.tuning = structuredClone(data.tuning);
     data.tuning.forEach((values, team) => this.physics.setTossTuning(team, values));
     this.mode = data.mode; this.state = structuredClone(data.state); this.teamById = { ...data.teamById };
-    this.teamNames = [...data.teamNames];
+    this.teamNames = [...data.teamNames]; this.teamSchools = data.teamSchools ? [...data.teamSchools] : [null, null];
     this.ai = structuredClone(data.ai); this.inputs = structuredClone(data.inputs);
     this.aiDirty = data.aiDirty;
     this.rallyStart = data.rallyStart; this.metrics = { ...data.metrics }; this.events = [];

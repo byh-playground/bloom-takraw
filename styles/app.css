@@ -559,3 +559,8 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .is-club .club-card-row.is-dragging .club-sell-reveal{transition:none}
 .is-club .club-sell-reveal{visibility:hidden;transition:background .16s,visibility 0s .22s}
 .is-club .club-card-row.is-open .club-sell-reveal,.is-club .club-card-row.is-dragging .club-sell-reveal{visibility:visible;transition:background .16s}
+/* 온라인·관전 점수판: 학교 유니폼 색 점과 '나' 표시. 팀 색 이름 대신 그 팀의 이름을 보여 준다. */
+.score-team[data-dot]:not([data-dot=""]) .team-label{color:var(--ink)}
+.score-team[data-dot]:not([data-dot=""]) .team-label::before{content:"";display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%;background:var(--team-dot);vertical-align:baseline}
+.score-team[data-dot]:not([data-dot=""]) .set-marks .won{background:var(--team-dot)}
+.score-team[data-me="true"] .team-label::after{content:"나";display:inline-block;margin-left:5px;padding:0 5px;border-radius:7px;background:var(--ink);color:#fff;font-size:10px;line-height:1.5;vertical-align:1px}

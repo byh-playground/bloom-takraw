@@ -11,6 +11,9 @@ const HOME_PARENT = { start: '', multi: 'start' };
 /** 뽑기 연출에서 카드팩이 흔들리는 시간(ms). 건너뛰기·움직임 줄이기는 이 구간을 건너뛴다. */
 const TAKRAW_DRAW_PACK_MS = 1500;
 
+/** 후보 카드를 왼쪽으로 밀 때: 판매 버튼이 드러나는 폭(px)과, 이만큼(카드 폭 비율) 넘게 밀면 바로 파는 지점. */
+const TAKRAW_SELL_REVEAL_PX = 96, TAKRAW_SELL_FULL_RATIO = 0.62;
+
 class TakrawUI {
   constructor(callbacks, network) {
     this.callbacks = callbacks;
@@ -111,6 +114,8 @@ class TakrawUI {
     this.listen(document, 'visibilitychange', () => { if (document.hidden) this.releaseTouch(); });
     this.listen(this.nodes['modal-layer'], 'pointerdown', event => { if (event.target === this.nodes['modal-layer']) this.closeDialog(); });
     this.listen(this.nodes['dialog-content'], 'click', event => this.dialogClick(event));
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) this.listen(this.nodes['dialog-content'], type, event => this.swipe(type, event));
+    this.listen(this.nodes['dialog-content'], 'keydown', event => this.swipeKey(event));
     this.listen(this.nodes['draw-stage'], 'click', event => this.drawClick(event));
     this.listen(this.nodes['dialog-content'], 'input', event => {
       if (event.target.id !== 'club-name') return;
@@ -441,7 +446,7 @@ class TakrawUI {
 
   clubCard(player, { selected = false, recommended = false, badge = '', note = '' }) {
     const escape = value => this.escape(value), peaks = TAKRAW_CLUB_RULES.stats.slice().sort((a,b) => player.stats[b.id] - player.stats[a.id]).slice(0,2);
-    return `<div class="club-card-row"><button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong><small>추천 ${this.clubRoleName(player.preferredRole)} · ${escape(player.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>${note ? `<span class="club-card-note">${note}</span>` : ''}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
+    return `<div class="club-card-row ${player.role ? '' : 'is-sellable'}" data-player="${player.id}">${player.role ? '' : `<button type="button" class="club-sell-reveal" tabindex="-1" data-club-action="sell" data-value="${player.id}" aria-label="${escape(player.name)} 판매, ${player.sellValue} P 받음"><b>판매</b><small>+${player.sellValue} P</small></button>`}<button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong><small>추천 ${this.clubRoleName(player.preferredRole)} · ${escape(player.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>${note ? `<span class="club-card-note">${note}</span>` : ''}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
   }
 
   /** 선발 자리 3칸. 선수나 자리를 먼저 누르면 놓을 수 있는 쪽이 켜지고 능력치 차이가 보인다. */
@@ -454,7 +459,7 @@ class TakrawUI {
       const note = picked && !current ? `${recommended ? '<span class="club-chip">추천</span>' : ''}${this.clubDelta(picked, starter)}` : `<span>${current ? '선발 중' : role.id === 'attacker' ? '직접 조작' : '동료'}</span>`;
       return `<button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${role.name}</small><strong>${this.escape(starter.name)}</strong><span class="club-slot-note">${note}</span></button>`;
     }).join('');
-    const hint = picked ? `${picked.name} 선수가 갈 자리를 누르세요.` : pick?.type === 'slot' ? `${this.clubRoleName(pick.id)} 자리에 올 선수를 누르세요.` : '선수나 자리를 눌러 선발을 바꿔요.';
+    const hint = picked ? `${picked.name} 선수가 갈 자리를 누르세요.` : pick?.type === 'slot' ? `${this.clubRoleName(pick.id)} 자리에 올 선수를 누르세요.` : '선수나 자리를 눌러 선발을 바꿔요. 후보는 왼쪽으로 밀면 팔 수 있어요.';
     return `<div class="club-lineup" aria-label="현재 선발">${slots}</div><p class="club-hint">${this.escape(hint)}</p>`;
   }
 
@@ -493,6 +498,8 @@ class TakrawUI {
       <div class="club-radar-view">${this.clubRadar(player, player.stats)}</div>
       ${this.clubTrainBar(player)}`;
   }
+
+
 
   /** 뽑기 탭: 카드팩 그림, 공개 확률, 하단 고정 뽑기 버튼. 가득 차 남겨 둔 결과가 있으면 이어 보기 버튼이 대신 선다. */
   clubDrawContent() {
@@ -542,6 +549,7 @@ class TakrawUI {
     if (action === 'rename-edit') { if (this.clubLockReason()) return; selection.rename = true; selection.nameDraft = this.club.teamName; selection.nameError = ''; this.renderClub('club-name'); }
     if (action === 'rename-cancel') { selection.rename = false; selection.nameDraft = null; selection.nameError = ''; this.renderClub('rename-edit'); }
     if (action === 'train') this.clubAction('train', { playerId:value });
+    if (action === 'sell') this.clubAction('sell', { playerId:value });
     if (action === 'draw') this.clubAction('draw');
     if (action === 'draw-resume' && this.club.draw?.pending) this.openDrawStage(this.club.draw.pending, { joined:false, phase:'front' });
     if (action === 'refresh') this.clubAction('refresh');
@@ -565,6 +573,7 @@ class TakrawUI {
       if (result?.view) { this.club = { ...this.club, ...result.view }; this.clubNotice = result.view.message || ''; this.updateStartButtons(); }
       if (action === 'assign') { this.clubSelection.pick = null; focus = `lineup-${payload.role}`; }
       if (action === 'train') focus = 'train';
+      if (action === 'sell') focus = 'tab-roster';
       if (action === 'rename' && result) { this.clubSelection.rename = false; this.clubSelection.nameDraft = null; this.clubSelection.nameError = ''; focus = 'rename-edit'; }
       if (action === 'draw') { drawn = result?.drawn; focus = 'draw-button'; }
       if (action === 'resolve') {
@@ -668,7 +677,66 @@ class TakrawUI {
       <div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="resume" id="resume-room" hidden>이전 경기 다시 연결</button><button type="button" class="secondary-small" data-dialog-action="close-network">연결 닫기</button></div>`;
   }
 
+  /**
+   * 선수 카드 밀어서 판매: 후보 카드를 왼쪽으로 밀면 판매 버튼이 드러나고, 더 밀면 바로 판다.
+   * 세로 스크롤과 탭은 그대로 두려고 가로로 확실히 움직였을 때만 끌기로 본다. 출전 선수는 밀어도 팔리지 않는다.
+   */
+  swipe(type, event) {
+    const state = this.swipeState;
+    if (type === 'pointerdown') {
+      const row = event.target.closest('.club-card-row');
+      if (!row || event.target.closest('.club-sell-reveal') || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      for (const other of document.querySelectorAll('.club-card-row.is-open')) if (other !== row) this.swipeSet(other, 0);
+      this.swipeState = { row, id: event.pointerId, x: event.clientX, y: event.clientY, base: row.classList.contains('is-open') ? -TAKRAW_SELL_REVEAL_PX : 0, drag: false, dx: 0 };
+      return;
+    }
+    if (!state || state.id !== event.pointerId) return;
+    const sellable = state.row.classList.contains('is-sellable'), width = state.row.offsetWidth;
+    if (type === 'pointermove') {
+      const dx = event.clientX - state.x, dy = event.clientY - state.y;
+      if (!state.drag) {
+        if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.5) { if (Math.abs(dy) > 10) this.swipeState = null; return; }
+        state.drag = true; state.row.setPointerCapture?.(event.pointerId); state.row.classList.add('is-dragging');
+      }
+      state.dx = dx;
+      if (sellable) this.swipeSet(state.row, Math.max(-width, Math.min(0, state.base + dx)), true);
+      return;
+    }
+    this.swipeState = null;
+    state.row.classList.remove('is-dragging');
+    if (!state.drag) return;
+    this.swipeEnd = performance.now(); // 끌기 직후 따라오는 클릭은 카드 선택으로 보지 않는다
+    if (type === 'pointercancel') { if (sellable) this.swipeSet(state.row, 0); return; }
+    if (!sellable) {
+      if (state.dx < -40) { this.clubNotice = '출전 선수는 팔 수 없어요. 후보와 교체한 뒤 판매할 수 있어요.'; this.renderClub(); }
+      return;
+    }
+    const offset = Math.max(-width, Math.min(0, state.base + state.dx));
+    if (offset <= -width * TAKRAW_SELL_FULL_RATIO) { if (!this.clubLockReason()) { this.swipeSet(state.row, -width); this.clubAction('sell', { playerId: state.row.dataset.player }); return; } }
+    this.swipeSet(state.row, offset < -TAKRAW_SELL_REVEAL_PX / 2 && !this.clubLockReason() ? -TAKRAW_SELL_REVEAL_PX : 0);
+  }
+
+  /** 카드를 offset(px, 0 이하)만큼 밀어 둔다. 밀려 있으면 판매 버튼을 키보드·보조기기가 닿게 한다. */
+  swipeSet(row, offset, live = false) {
+    row.style.setProperty('--dx', `${offset}px`);
+    const open = offset <= -TAKRAW_SELL_REVEAL_PX && !live, reveal = row.querySelector('.club-sell-reveal');
+    if (!live) row.classList.toggle('is-open', open);
+    row.classList.toggle('is-full', offset <= -row.offsetWidth * TAKRAW_SELL_FULL_RATIO);
+    if (reveal) reveal.tabIndex = open ? 0 : -1;
+  }
+
+  /** 키보드: 후보 카드에서 Delete를 누르면 판매 버튼이 드러나고 포커스가 옮겨 간다. Esc·Delete로 다시 닫는다. */
+  swipeKey(event) {
+    const row = event.target.closest?.('.club-card-row.is-sellable');
+    if (!row || this.clubLockReason()) return;
+    if (event.code === 'Delete' && event.target.closest('.club-card')) { event.preventDefault(); this.swipeSet(row, -TAKRAW_SELL_REVEAL_PX); row.querySelector('.club-sell-reveal')?.focus(); }
+    else if (event.code === 'Escape' && row.classList.contains('is-open')) { event.preventDefault(); event.stopPropagation(); this.swipeSet(row, 0); row.querySelector('.club-card')?.focus(); }
+  }
+
   dialogClick(event) {
+    if (performance.now() - (this.swipeEnd || 0) < 350 && event.target.closest('.club-card-row')) { event.preventDefault(); return; }
+    const openRow = event.target.closest('.club-card-row.is-open');
+    if (openRow && !event.target.closest('.club-sell-reveal')) { event.preventDefault(); this.swipeSet(openRow, 0); return; }
     const challenge = event.target.closest('[data-campaign-school]');
     if (challenge) { if (!challenge.disabled) this.callbacks.onCampaign?.(challenge.dataset.campaignSchool); return; }
     const clubButton = event.target.closest('[data-club-action]');

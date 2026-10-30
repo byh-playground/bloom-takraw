@@ -53,7 +53,7 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await expect(page.locator('#start-match')).toBeEnabled({ timeout: 30000 });
     await expect(page.locator('.home-touch-controls')).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath('mobile-home.png') });
-    await page.locator('#start-match').tap();
+    await page.locator('#open-start').tap(); await page.locator('#start-match').tap();
     await expect(page.locator('#touch-controls')).toBeVisible();
     await expect(page.locator('#rally-status')).toHaveText('랠리 진행 중');
     const controls = ['#move-pad', '[data-touch="jump"]', '[data-touch="kick"]', '#pause-button'];
@@ -86,7 +86,7 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await layout('844×390 경기', controls);
     await page.screenshot({ path: testInfo.outputPath('mobile-landscape.png') });
     await page.locator('#pause-button').tap(); await page.locator('[data-dialog-action="quit"]').tap();
-    await page.locator('#start-training').tap();
+    await page.locator('#open-start').tap(); await page.locator('#start-training').tap();
     await expect(page.locator('#training-lesson option')).toHaveCount(5);
     await page.locator('#training-lesson').selectOption('scissors');
     await page.waitForFunction(() => window.__takraw.game.state.training?.lesson === 'scissors');
@@ -128,16 +128,16 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await layout('390×568 연습', [...controls, '#training-lesson', '#training-reset']);
     await page.screenshot({ path: testInfo.outputPath('mobile-training-short.png') });
     evidence.stages.push('팝업·화면 회전 입력 해제, 가로·짧은 세로 연습 선택과 재시도');
-    await page.locator('#help-button').tap();
+    await page.locator('#pause-button').tap(); await page.locator('[data-dialog-action="quit"]').tap();
+    await page.locator('.bloom-showcase-link').tap();
     await expect(page.locator('#bloom-showcase')).toBeVisible();
     await expect(page.locator('#bloom-showcase [data-copy]')).toContainText('발끝에서 시작되는 랠리', { timeout: 45000 });
     await expect(page.locator('#bloom-showcase')).not.toContainText('좌클');
     await page.locator('#bloom-showcase [data-action=close]').tap();
     await expect(page.locator('#bloom-showcase')).toBeHidden();
-    await page.locator('#pause-button').tap(); await page.locator('[data-dialog-action="quit"]').tap();
-    await layout('390×568 홈', ['#start-match', '#start-training', '#start-local', '#open-network', '#open-club']);
+    await layout('390×568 홈', ['#open-start', '#open-club']);
     await page.screenshot({ path: testInfo.outputPath('mobile-home-short.png') });
-    evidence.stages.push('터치 소개영상 확인 → 메뉴 퇴장 → 짧은 화면 홈');
+    evidence.stages.push('메뉴 퇴장 → 터치 소개영상 확인 → 짧은 화면 홈');
     expect(faults).toEqual([]);
   } finally {
     evidence.faults = faults;

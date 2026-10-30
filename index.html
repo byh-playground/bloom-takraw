@@ -7,18 +7,17 @@
   <title>블룸 발 배구</title>
   <link rel="stylesheet" href="./styles/app.css">
 </head>
-<body class="is-home" data-mode="home">
+<body class="is-home" data-mode="home" data-home-view="main">
   <div id="app">
     <canvas id="court-canvas" aria-label="발 배구 경기장" tabindex="0" data-engine="three.js r180" width="1680" height="949" style="touch-action: none;"></canvas>
     <div class="scene-shade" aria-hidden="true"></div>
     <header class="site-header">
+      <button id="home-back" class="home-back" type="button" hidden><span aria-hidden="true">←</span> 뒤로</button>
       <a class="wordmark" href="#/" aria-label="블룸 발 배구 처음 화면">
         <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
         <span><b>블룸</b><small>발 배구</small></span>
       </a>
       <nav class="header-actions" aria-label="게임 메뉴">
-        <button id="club-button" class="icon-button" type="button" aria-label="내 팀 관리" title="내 팀 관리"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"></circle><path d="M3 20v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 4 5"></path></svg><span class="icon-label">내 팀</span></button>
-        <button id="help-button" class="icon-button" type="button" aria-label="플레이 소개 영상" title="플레이 소개 영상"><span aria-hidden="true">?</span><span class="icon-label">소개</span></button>
         <button id="settings-button" class="icon-button" type="button" aria-label="설정" title="설정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"></path></svg><span class="icon-label">설정</span></button>
         <button id="pause-button" class="icon-button in-game" type="button" aria-label="일시 정지" title="일시 정지"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12m6-12v12"></path></svg></button>
       </nav>
@@ -28,16 +27,22 @@
       <div class="eyebrow"><span class="live-dot"></span> 발끝에서 시작되는 랠리</div>
       <h1>공중에서,<br><em>승부를 뒤집다.</em></h1>
       <p class="home-description">빈 공간을 커버하고, 동료의 토스를 받아<br>발끝의 타이밍으로 스파이크를 날리세요.</p>
-      <div class="mode-buttons">
-        <button id="open-campaign" class="mode-button" type="button"><span>도장깨기<small>학교에 도전하고 다음 학교를 열어요</small></span></button>
+      <div class="mode-buttons" data-home-view="main">
+        <button id="open-start" class="primary-button" type="button" data-home-go="start"><span><small>우리 팀과 함께</small>게임 시작</span><span class="button-arrow" aria-hidden="true">→</span></button>
+        <button id="open-club" class="mode-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"></circle><path d="M3 20v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5v1"></path></svg><span>팀 관리<small id="club-home-summary">팀을 불러오는 중</small></span></button>
+      </div>
+      <div class="mode-buttons" data-home-view="start" hidden>
+        <h2 class="mode-title">게임 시작</h2>
         <button id="start-match" data-start-mode="match" class="primary-button start-button" type="button"><span><small>우리 팀과 함께</small>AI와 경기</span><span class="button-arrow" aria-hidden="true">↗</span></button>
-        <div class="mode-pair">
-          <button id="start-training" data-start-mode="training" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3m0 14v3M2 12h3m14 0h3"></path></svg><span>스파이크 연습<small>네 가지 킥 · 타이밍 안내</small></span></button>
-          <button id="start-local" data-start-mode="local" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M2 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 6"></path></svg><span>로컬 2인<small>한 키보드로 대결</small></span></button>
-        </div>
-        <button id="open-network" data-start-mode="online" class="network-button start-button" type="button"><span class="network-icon" aria-hidden="true">↔</span><span>친구와 온라인 1대1</span><span aria-hidden="true">→</span></button>
-        <button id="start-watch" data-start-mode="watch" class="network-button start-button" type="button"><span class="network-icon" aria-hidden="true">▷</span><span>AI 관전 · 시드로 명경기 보기</span><span aria-hidden="true">→</span></button>
-        <button id="open-club" class="club-home-button" type="button"><span><strong>내 팀 관리</strong><small id="club-home-summary">팀을 불러오는 중</small></span><span aria-hidden="true">→</span></button>
+        <button id="open-campaign" class="mode-button" type="button"><span>도장깨기<small>학교를 깨고 다음 학교로</small></span></button>
+        <button id="start-training" data-start-mode="training" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3m0 14v3M2 12h3m14 0h3"></path></svg><span>스파이크 연습<small>킥과 타이밍 익히기</small></span></button>
+        <button id="open-multi" class="mode-button" type="button" data-home-go="multi"><span class="network-icon" aria-hidden="true">＋</span><span>멀티플레이<small>친구 · 로컬 2인 · AI 관전</small></span><span class="more-arrow" aria-hidden="true">→</span></button>
+      </div>
+      <div class="mode-buttons mode-list" data-home-view="multi" hidden>
+        <h2 class="mode-title">멀티플레이</h2>
+        <button id="open-network" data-start-mode="online" class="mode-button start-button" type="button"><span class="network-icon" aria-hidden="true">↔</span><span>친구와 1대1<small>방 코드로 온라인 대결</small></span></button>
+        <button id="start-local" data-start-mode="local" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M2 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 6"></path></svg><span>로컬 2인<small>한 키보드로 둘이서</small></span></button>
+        <button id="start-watch" data-start-mode="watch" class="mode-button start-button" type="button"><span class="network-icon" aria-hidden="true">▷</span><span>AI 관전<small>시드로 명경기 보기</small></span></button>
       </div>
       <div id="boot-status" class="boot-status" role="status"><span class="loading-dot"></span><span id="boot-message"></span><button id="reload-button" type="button" hidden="">다시 열기</button></div>
       <p class="home-touch-controls">왼손으로 이동 · 오른손으로 점프와 발차기</p>

@@ -506,7 +506,8 @@ class TakrawUI {
       if (!starter) return `<button type="button" disabled><small>${role.name}</small><strong>불러오는 중</strong></button>`;
       const current = picked?.id === starter.id, selected = pick?.type === 'slot' && pick.id === role.id, recommended = !!picked && !current && picked.preferredRole === role.id;
       const note = picked && !current ? `${recommended ? '<span class="club-chip">추천</span>' : ''}${this.clubDelta(picked, starter)}` : `<span>${current ? '선발 중' : role.id === 'attacker' ? '직접 조작' : '동료'}</span>`;
-      return `<button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${role.name}</small><strong>${this.escape(starter.name)}</strong><span class="club-slot-note">${note}</span></button>`;
+      // 선발 칸에도 선수 카드와 같은 ⓘ가 있다. 칸 자체는 자리 선택 버튼이라 ⓘ는 그 옆에 따로 둔다.
+      return `<div class="club-slot"><button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${role.name}</small><strong>${this.escape(starter.name)}</strong><span class="club-slot-note">${note}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${starter.id}" data-club-focus="lineup-info-${role.id}" aria-label="${this.escape(starter.name)} 능력치 자세히 보기">ⓘ</button></div>`;
     }).join('');
     const hint = picked ? `${picked.name} 선수가 갈 자리를 누르세요.` : pick?.type === 'slot' ? `${this.clubRoleName(pick.id)} 자리에 올 선수를 누르세요.` : '선수나 자리를 눌러 선발을 바꿔요. 후보는 왼쪽으로 밀면 팔 수 있어요.';
     return `<div class="club-lineup" aria-label="현재 선발">${slots}</div><p class="club-hint">${this.escape(hint)}</p>`;

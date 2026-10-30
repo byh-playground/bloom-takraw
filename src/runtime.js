@@ -14,6 +14,7 @@ import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/gam
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
+import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
@@ -45,6 +46,7 @@ async function bootTakraw() {
   const poseCache = new Map();
   const poseEntities = [];
   const pendingCommands = [];
+  let identitySent = false; // 온라인에서 내 팀 이름·학교를 이 세션에서 이미 알렸는지
   const axis = { x: 0, z: 0 };
   const cameraDrag = { pointer: null, x: 0, y: 0 };
   const stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
@@ -376,6 +378,11 @@ async function bootTakraw() {
   function getInput() {
     const input = new Uint8Array(TAKRAW_RUNTIME.input.size);
     const commands = pendingCommands.splice(0).map(code => ({ payload: Uint8Array.of(code) }));
+    if (mode === 'online' && !identitySent && session?.ready && session.players.length === 2) { // 두 사람이 모이면 내 팀 이름·학교를 한 번 알린다(표시 전용)
+      identitySent = true;
+      const mine = club.getView();
+      commands.push({ payload: takrawEncodeIdentity(mine.campaign.home, mine.teamName || '우리 팀') });
+    }
     for (const name of actionNames) actions.sampleInto(name, samples[name]);
     if (controlsAllowed()) {
       writeMovement(input, 0,
@@ -671,7 +678,8 @@ async function bootTakraw() {
       ...latestView.state,
       training: latestView.training,
       teamPlay: latestView.teamPlay?.[team] || null,
-      teamNames: latestView.teamNames,
+      teamNames: mode === 'watch' ? takrawWatchSchools(watchSeed).map(school => school.name) : latestView.teamNames,
+      teamColors: mode === 'online' ? takrawIdentitySchools(latestView.teamSchools).map(school => school.uniform.primary) : mode === 'watch' ? takrawWatchSchools(watchSeed).map(school => school.uniform.primary) : null,
       matchReward: clubSession.match?.id === clubSession.reward?.id ? clubSession.reward : null,
       campaignSchoolId: clubSession.match?.schoolId || null,
       localTeam: team,
@@ -691,6 +699,7 @@ async function bootTakraw() {
     publish(false, now);
     confirmEvents();
     journal?.update(now);
+    if (mode === 'online') view.setSchools(takrawIdentitySchools(latestView.teamSchools));
     view.render(presentation.frame(now), latestView, now, { team: localTeam(), mode });
     stats.frames += 1;
     const hudInterval = mode === 'training' ? Math.min(TAKRAW_RUNTIME.hud.interval, 1000 / 30) : TAKRAW_RUNTIME.hud.interval;
@@ -882,6 +891,7 @@ async function bootTakraw() {
       pacingPolicy: 'none',
       maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
     };
+    identitySent = false;
     session = createRoomSession({
       mode: online ? 'online' : 'local',
       ...(online ? { room: capability } : { localPlayerId: 'local', localFastPath: true }),

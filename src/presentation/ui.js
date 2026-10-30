@@ -248,8 +248,8 @@ class TakrawUI {
     this.nodes['touch-controls'].hidden = !this.coarse.matches || mode === 'watch'; this.nodes['watch-form'].hidden = mode !== 'watch'; this.nodes['training-actions'].hidden = mode !== 'training';
     this.nodes['local-guide'].hidden = mode !== 'local'; this.nodes['end-actions'].hidden = true;
     document.querySelector('.scoreboard').classList.toggle('is-training', mode === 'training');
-    this.text('team-label-0', mode === 'local' ? '1P · 청록' : ['online', 'watch'].includes(mode) ? '청록 팀' : '우리 팀');
-    this.text('team-label-1', mode === 'local' ? '2P · 코랄' : ['online', 'watch'].includes(mode) ? '코랄 팀' : '상대 팀');
+    this.text('team-label-0', mode === 'local' ? '1P · 청록' : '우리 팀'); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
+    this.text('team-label-1', mode === 'local' ? '2P · 코랄' : '상대 팀');
     this.text('match-type', { training: '스파이크 연습', match: 'AI 대전', local: '로컬 2인', online: '온라인 1대1', watch: 'AI 관전' }[mode]);
     this.setRoute('play'); this.canvas.focus({ preventScroll: true });
   }
@@ -865,9 +865,10 @@ class TakrawUI {
     callout.hidden = !notice;
     if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
     this.text('selected-name', hud.selectedName || '공격수');
-    if (hud.teamNames && !['local', 'online', 'watch'].includes(this.mode)) {
+    if (hud.teamNames && this.mode !== 'local') {
       this.text('team-label-0', hud.teamNames[0]); this.text('team-label-1', hud.teamNames[1]);
     }
+    this.updateTeamColors(hud);
     this.text('selected-state', hud.selectedState || '준비');
     const status = takrawMatchStatus(hud, TAKRAW_CONFIG.rules), banner = document.getElementById('match-banner');
     const teamName = team => document.getElementById(`team-label-${team}`).textContent;
@@ -890,7 +891,8 @@ class TakrawUI {
     if (ended) {
       const winnerSchool = hud.matchWinner === 0 ? takrawSchool(this.club.campaign?.home) || TAKRAW_SCHOOLS[0] :
         TAKRAW_SCHOOLS.find(value => value.name === hud.teamNames?.[1]) || TAKRAW_SCHOOLS[1];
-      this.nodes['end-actions'].style.setProperty('--result-accent', `#${winnerSchool.uniform.primary.toString(16).padStart(6, '0')}`);
+      const accent = hud.teamColors?.[hud.matchWinner] ?? winnerSchool.uniform.primary;
+      this.nodes['end-actions'].style.setProperty('--result-accent', `#${accent.toString(16).padStart(6, '0')}`);
     }
     const school = TAKRAW_SCHOOLS.find(value => value.id === hud.campaignSchoolId), schoolResult = document.getElementById('school-result');
     schoolResult.hidden = !ended || !school;
@@ -900,7 +902,18 @@ class TakrawUI {
     }
     this.text('match-reward', hud.matchReward?.message || '');
     document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
-    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : ['online', 'watch'].includes(this.mode) ? `${hud.matchWinner === 0 ? '청록' : '코랄'} 팀 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '패배 · 다시 도전해요');
+    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : ['online', 'watch'].includes(this.mode) ? `${hud.teamNames?.[hud.matchWinner] ?? '상대 팀'} 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '패배 · 다시 도전해요');
+  }
+
+  /** 온라인·관전 점수판: 팀 이름 옆에 그 학교 유니폼 색 점을 찍고, 내 쪽에는 '나' 표시를 단다. */
+  updateTeamColors(hud) {
+    const colored = ['online', 'watch'].includes(this.mode) && Array.isArray(hud.teamColors);
+    document.querySelectorAll('.score-team').forEach((node, team) => {
+      const color = colored ? `#${hud.teamColors[team].toString(16).padStart(6, '0')}` : '';
+      if (node.dataset.dot !== color) { node.dataset.dot = color; if (color) node.style.setProperty('--team-dot', color); else node.style.removeProperty('--team-dot'); }
+      const me = this.mode === 'online' && hud.localTeam === team ? 'true' : '';
+      if ((node.dataset.me || '') !== me) { if (me) node.dataset.me = me; else delete node.dataset.me; }
+    });
   }
 
   updateTraining(training) {

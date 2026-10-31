@@ -7,14 +7,30 @@
 | input | ActionState, createDOMInput | 키/포인터 매핑과 6바이트 입력 |
 | simloop | createLoop, createDeadlineScheduler | 60TPS 정책·진행/관찰 조건 |
 | rollback | createRoomSession, profiles | save/load/step/validateSnapshot 및 membership 어댑터 |
-| transport | createNostrDynamicRoom | 방 UI·재접속 정책·탭 저장소 |
+| transport | createNostrDynamicRoom | 방 UI·재접속 정책·방 복귀 어댑터 |
 | deterministic | createValueCodec, SeededPRNG, statelessRandom | 게임/물리 상태의 값 구조, 접촉 효과 입자 방향의 시드 난수 |
 | interpolation | PresentationRuntime, RenderObject | 신체 pose와 생명주기 바인딩 |
 | presentation-events | PresentationEventQueue | 확정 경기 이벤트와 표현 정책, 접촉 효과의 start·update·reconcile·stop |
 | object-pool | ObjectPool | 접촉 효과 노드 재사용 |
-| audio | AudioPlayer | 소리 정의·음량·동시 재생 한도 |
+| audio | AudioPlayer, audioSettings | 소리 정의·음량·동시 재생 한도·소리 설정 save |
+| save | createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter | 저장 레코드 정의·어댑터 선택 |
 
 별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm test`가 lock과 일치를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 현재 외부 요청은 GameKit 9개와 Three.js·Rapier를 합친 11개이며, 로컬 JS 14개와 CSS 1개 요청이 추가됩니다.
+
+## 저장(v0.13.10~)
+
+모든 저장은 gamekit `save`를 거치고, 저장소는 `runtime.js`의 `saveAdapter(store)` 한 곳에서 고른다. 게임 코드는 localStorage·sessionStorage·IndexedDB를 직접 부르지 않는다.
+
+| store | 실제 저장소 | 레코드(key) |
+| --- | --- | --- |
+| club | IndexedDB `bloom-takraw-club`/`club` | `my-team` |
+| settings | localStorage, 접두사 `bloom-takraw:` | `audio-settings`(`audioSettings(TAKRAW_RUNTIME.audio)`: 음량·음소거·분류별 음량) |
+| resume | sessionStorage, 접두사 `bloom-takraw:<버전>:` | `active-room`(마지막 방 `{ role, room }`), `room:<방 코드>`(transport의 방 identity) |
+
+- 격리 장면(`?debug`, 소개영상 `?showcaseDemo=1`)은 세 store 모두 `memoryAdapter()`라 실제 저장을 읽지도 쓰지도 않는다. 장면 안에서 일부 저장만 건너뛰는 분기는 두지 않는다.
+- 이전 키(`bloom-takraw-audio`, `bloom-takraw:<버전>:active-room` 원시 JSON)는 읽지 않는다. 출시 전이라 옮기지 않는다.
+- 읽지 못한 레코드는 기본값으로 바꾸지 않고 원본을 둔다. 소리 설정은 소리를 끈 채 설정 창 효과음 줄에 알리고 토글을 막는다. 방 복귀 정보는 부팅 때 연결 창을 열어 알리고, 사용자가 새 방을 만들 때 `reset()`으로 버린다(transport의 `reset: true`와 같은 때).
+- 쓰기 실패: 소리 설정(`onSaveError`)은 설정 창 효과음 줄, 방 복귀(`active-room` 쓰기와 transport의 `resume-save-failed`)는 연결 창 안내 줄에 알린다. 실패는 `diagnostics().errors`에도 남는다.
 
 `simulation/game.js`는 규칙·AI·득점·세트·훈련·스냅샷 메타데이터를 소유합니다. `simulation/physics.js`는 Rapier World·몸체·관절·접촉·신체 제어와 물리 스냅샷을 소유합니다. 복원용 SerializationPipeline은 physics 인스턴스가 생성·재사용·해제합니다. 모션 데이터/모델/매칭은 `motion/`에 있는 게임별 저작 자료입니다. `simulation/timing.js`의 `TakrawTimingJudge`는 점프·발차기 입력의 타이밍 오차 공식과 등급 창(`config.timing`)을 소유합니다. 기록은 `state.timing`에 두어 스냅샷·롤백에 함께 저장되며, 연습의 오차 기록과 접촉 판정이 같은 공식을 씁니다.
 
@@ -74,7 +90,7 @@ v0.12.13~15에는 유저 기능에 연결되었고 v0.12.16에서 화면과 경�
 
 - 기존 도움말 대화상자는 없앴다. 헤더의 `?`와 홈의 "▶ 소개 보기"가 게임킷 `installShowcase`(`@bloom-gamekit/scenario`)를 연다. 주소 `#/showcase`로도 열린다.
 - 호스트가 같은 주소의 격리 iframe(`?showcaseDemo=1`)을 만들고, 그 안의 게임이 관전 모드로 시드 36 랠리를 실제로 시뮬레이션한다. 영상이 아니라 실제 게임 화면이다.
-- `?showcaseDemo=1`에서는 클럽 저장소(IndexedDB)를 열지 않고 sessionStorage 이어하기도 읽지 않으며, 메뉴·입력을 숨긴다(`body[data-showcase]`).
+- `?showcaseDemo=1`은 격리 장면이라 모든 저장(팀·소리 설정·방 복귀)이 메모리 어댑터로 간다(위 `저장` 절). 메뉴·입력을 숨긴다(`body[data-showcase]`).
 - 문구는 장마다 한 줄이고 조작 장치 이름을 쓰지 않는다. 설명은 화면이 한다: 소개영상 안(`body[data-showcase]`)에서만 영상 속 공격수가 점프·발차기를 누르는 동안 그 기기의 눌림 표시(PC 표시등 `.drive-feedback`, 모바일 터치 버튼 `is-down`)가 켜지고, 자막 영역에 가리지 않게 위로 올린다. 일반 경기의 조작 표시는 바뀌지 않는다.
 - 랠리 문구는 시간이 아니라 경기 틱에 맞춘다. `src/config/intro.js`가 문구와 틱의 SSOT, `intro-script.js`가 "틱까지 기다리기 → 문구 바꾸기" 항목을 만든다(호스트는 `custom`이 false를 돌려주면 재시도). 득점 뒤 시스템 소개(선수 영입·편성과 훈련·도장깨기)는 관전이 랠리를 다시 열어 틱이 되돌아가므로, 마지막 틱 장이 뜬 뒤 `afterMs`가 지나면 바뀐다.
 - 소개영상이 열려 있는 동안 뒤에서 진행 중이던 경기는 멈추고 닫으면 이어진다.

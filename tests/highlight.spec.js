@@ -97,7 +97,8 @@ test('워커 그림자 경기: 시작 상태 + 입력으로 다시 만든 공 �
       balls.set(tick, [ball.x, ball.y, ball.z].map(Math.fround));
       highlight.record(frame, view);
       begun = highlight.begin();
-      if (tick % 4 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+      // 실제 경기처럼 60Hz 간격으로 넣는다. 몰아 넣으면 워커가 실제보다 뒤처져 대기 시간을 부풀린다.
+      await new Promise(resolve => setTimeout(resolve, 1000 / 60));
     }
     const clip = highlight.clip;
     await new Promise((resolve, reject) => {

@@ -38,6 +38,7 @@ class TakrawUI {
     this.nodes = {};
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','dialog-back','draw-stage','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
+    this.showcase = 'showcase' in document.body.dataset; // 소개영상 iframe 안의 게임(?showcaseDemo=1)
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
     this.bind();
@@ -220,7 +221,7 @@ class TakrawUI {
 
   syncInputMode() {
     this.releaseTouch();
-    this.nodes['touch-controls'].hidden = !this.inGame || !this.coarse.matches || this.mode === 'watch';
+    this.nodes['touch-controls'].hidden = !this.inGame || !this.coarse.matches || (this.mode === 'watch' && !this.showcase);
   }
 
   controlText(value) {
@@ -251,7 +252,7 @@ class TakrawUI {
     this.inGame = true; this.mode = mode; this.hideDialog(true); this.setHomeView('main', false);
     document.body.classList.remove('is-home'); document.body.dataset.mode = mode;
     this.nodes['home-panel'].hidden = true; this.nodes['match-hud'].hidden = false;
-    this.nodes['touch-controls'].hidden = !this.coarse.matches || mode === 'watch'; this.nodes['watch-form'].hidden = mode !== 'watch'; this.nodes['training-actions'].hidden = mode !== 'training';
+    this.nodes['touch-controls'].hidden = !this.coarse.matches || (mode === 'watch' && !this.showcase); this.nodes['watch-form'].hidden = mode !== 'watch'; this.nodes['training-actions'].hidden = mode !== 'training';
     this.nodes['local-guide'].hidden = mode !== 'local'; this.nodes['end-actions'].hidden = true;
     document.querySelector('.scoreboard').classList.toggle('is-training', mode === 'training');
     this.text('team-label-0', mode === 'local' ? '1P · 청록' : '우리 팀'); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
@@ -952,6 +953,8 @@ class TakrawUI {
       `${teamName(status.matchPointTeams[0])} 매치 포인트`) : status.deuce ? `${hud.score[0]} : ${hud.score[1]} · 듀스` : '';
     banner.hidden = this.mode === 'training' || !banner.textContent;
     document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld); document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
+    // 소개영상은 입력을 받지 않고, 영상 속 공격수가 누르는 동안 터치 버튼을 눌린 모양으로 보여 준다.
+    if (this.showcase) for (const button of document.querySelectorAll('[data-touch]')) button.classList.toggle('is-down', button.dataset.touch === 'jump' ? !!hud.jumpHeld : !!hud.kickHeld);
     const meter = document.getElementById('toss-meter'); meter.hidden = !hud.tossReady; meter.querySelector('i').style.width = `${Math.round(100 * (hud.tossCharge || 0))}%`;
     const kickButton = document.querySelector('.touch-kick'), label = hud.tossReady ? ['공 던지기', '꾹 · 높게'] : ['발차기', '누르고 유지'];
     if (kickButton.dataset.label !== label[0]) { kickButton.dataset.label = label[0]; kickButton.firstChild.textContent = label[0]; kickButton.querySelector('small').textContent = label[1]; }

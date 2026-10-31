@@ -498,9 +498,10 @@ class TakrawUI {
     return changes.map(item => `<span class="${item.change > 0 ? 'positive' : 'negative'}">${this.escape(item.name)} ${item.change > 0 ? '+' : '−'}${Math.abs(item.change)}</span>`).join(' ');
   }
 
+  /** 선수 한 명을 한 줄로: 등번호 셔츠 · 이름(등급) · 대표 능력치 둘(자리를 고르는 중이면 그 자리 선수와의 차이) · 상태. 추천 자리·성격은 ⓘ 상세에 있다. */
   clubCard(player, { selected = false, recommended = false, badge = '', note = '' }) {
     const escape = value => this.escape(value), peaks = TAKRAW_CLUB_RULES.stats.slice().sort((a,b) => player.stats[b.id] - player.stats[a.id]).slice(0,2);
-    return `<div class="club-card-row ${player.role ? '' : 'is-sellable'}" data-player="${player.id}">${player.role ? '' : `<button type="button" class="club-sell-reveal" tabindex="-1" data-club-action="sell" data-value="${player.id}" aria-label="${escape(player.name)} 판매, ${player.sellValue} P 받음"><b>판매</b><small>+${player.sellValue} P</small></button>`}<button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong><small>추천 ${this.clubRoleName(player.preferredRole)} · ${escape(player.tag)}</small><span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>${note ? `<span class="club-card-note">${note}</span>` : ''}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
+    return `<div class="club-card-row ${player.role ? '' : 'is-sellable'}" data-player="${player.id}">${player.role ? '' : `<button type="button" class="club-sell-reveal" tabindex="-1" data-club-action="sell" data-value="${player.id}" aria-label="${escape(player.name)} 판매, ${player.sellValue} P 받음"><b>판매</b><small>+${player.sellValue} P</small></button>`}<button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong>${note ? `<span class="club-card-note">${note}</span>` : `<span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>`}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
   }
 
   /** 선발 자리 3칸. 선수나 자리를 먼저 누르면 놓을 수 있는 쪽이 켜지고 능력치 차이가 보인다. */
@@ -558,12 +559,13 @@ class TakrawUI {
 
   /** 뽑기 탭: 카드팩 그림, 공개 확률, 하단 고정 뽑기 버튼. 가득 차 남겨 둔 결과가 있으면 이어 보기 버튼이 대신 선다. */
   clubDrawContent() {
-    const c = this.club, rule = TAKRAW_CLUB_RULES.draw, lock = this.clubLockReason(), pending = c.draw?.pending;
+    const c = this.club, rule = TAKRAW_CLUB_RULES.draw, reward = TAKRAW_CLUB_RULES.rewards, lock = this.clubLockReason(), pending = c.draw?.pending;
     const shortage = Math.max(0, rule.cost - (c.credits || 0));
     const refunds = TAKRAW_CLUB_RULES.rarities.map(rarity => `${rarity.name} ${rule.refund[rarity.id]} P`).join(' · ');
     const body = `<div class="club-draw"><div class="draw-pack-art" aria-hidden="true"><i></i><b>?</b></div>
       <p class="draw-odds">${this.escape(this.clubOddsText())}</p>
-      <p class="draw-note">뽑은 선수는 바로 선수단에 합류해요. 선수단이 가득 차면 환급(${refunds})을 받거나 후보와 교체해요.</p></div>`;
+      <p class="draw-note">뽑은 선수는 바로 선수단에 합류해요. 선수단이 가득 차면 환급(${refunds})을 받거나 후보와 교체해요.</p>
+      <p class="draw-note">코인은 AI 대전에서 받아요. 승리 ${reward.win.credits} C·${reward.win.trainingPoints} P / 패배 ${reward.loss.credits} C·${reward.loss.trainingPoints} P</p></div>`;
     if (pending) return body + this.clubBar('지난 뽑기 결과를 아직 정리하지 않았어요.', `<button type="button" class="primary-small" ${lock ? 'disabled' : ''} data-club-action="draw-resume" data-club-focus="draw-button">결과 이어 보기</button>`);
     const summary = lock || (shortage ? `${shortage} C 부족 · 보유 ${c.credits || 0} C` : `보유 ${c.credits || 0} C · 뽑은 횟수 ${c.draw?.runs || 0}회`);
     return body + this.clubBar(summary, `<button type="button" class="primary-small" ${lock || shortage ? 'disabled' : ''} data-club-action="draw" data-club-focus="draw-button">뽑기 · ${rule.cost} C</button>`);
@@ -582,7 +584,7 @@ class TakrawUI {
       ${isDraw ? this.clubDrawContent() : `${this.clubLineupContent()}<div id="club-list" class="club-list">${this.clubRosterCards() || `<p class="club-empty">${empty}</p>`}</div>`}`;
     return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${c.record.won || 0}승 ${c.record.lost || 0}패 · 나만의 ${TAKRAW_GAME_NAME} 팀</span></div><div class="club-wallet"><div class="club-resource"><small>코인</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>훈련 포인트</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
       <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">최신 저장 불러오기</button>` : ''}${c.pendingReward?.status === 'error' ? '<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">보상 저장 재시도</button>' : ''}</div>
-      ${body}${detail || isDraw ? '' : '<p class="club-footnote">다음 AI 대전·연습부터 적용 · 현재 브라우저에 저장<br>AI 대전 완료 보상: 승리 180 C·3 P / 패배 100 C·2 P</p>'}</div>`;
+      ${body}</div>`;
   }
 
   clubClick(button) {

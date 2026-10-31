@@ -591,3 +591,13 @@ body[data-replay] .rally-strip,body[data-replay] .player-panel,body[data-replay]
 @media(max-height:640px) and (min-width:700px){.replay-tag{top:76px}.replay-skip{bottom:60px}}
 @media (pointer:coarse){.replay-skip kbd{display:none}}
 @media (prefers-reduced-motion:reduce){.replay-tag b:before{animation:none}}
+/* 소개영상: 글 대신 영상 속 공격수의 조작을 그 기기의 눌림 표시로 보여 준다(PC 점프·발차기 표시등, 모바일 터치 버튼). 이동 패드는 움직이지 않으므로 숨긴다. */
+body[data-showcase][data-mode="watch"] .drive-feedback{display:flex}
+@media (pointer:coarse){body[data-showcase][data-mode="watch"] .drive-feedback{display:none}}
+body[data-showcase] .move-pad{display:none}
+/* 소개영상의 자막·버튼 영역(아래 약 200px)에 가리지 않도록 눌림 표시를 그 위로 올리고 키운다. */
+body[data-showcase][data-mode="watch"] .drive-feedback{bottom:250px;transform:scale(1.35);transform-origin:right bottom}
+body[data-showcase] .touch-actions{bottom:250px}
+body[data-showcase] .drive-feedback>span.held{background:#1f9272;color:#fffef1;border-color:#1f9272;box-shadow:0 0 0 5px #1f927233}
+body[data-showcase] .drive-feedback>span.held i{background:#fffef1}
+body[data-showcase] .touch-actions button.is-down{transform:scale(1.08);box-shadow:inset 0 0 0 4px #d4bc79,0 0 0 6px #d4bc7955}

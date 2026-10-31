@@ -1414,7 +1414,7 @@ async function bootTakraw() {
     if (!demo) {
       // 소개영상이 열려 있는 동안 뒤의 경기는 멈춘다(호스트 요구). 닫으면 이전 상태로 돌아간다.
       let resume = false;
-      intro = new TakrawIntro({ coarse: ui.coarse.matches, playSelector: '#start-match', launcher: '.home-description' });
+      intro = new TakrawIntro({ playSelector: '#start-match', launcher: '.home-description' });
       listen(window, 'bloom-showcase-opened', () => { resume = Boolean(mode) && !paused; if (resume) setPaused(true); });
       listen(window, 'bloom-showcase-closed', () => { if (resume) setPaused(false); resume = false; });
     }

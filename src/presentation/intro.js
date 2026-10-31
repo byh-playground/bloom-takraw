@@ -4,9 +4,9 @@ import { TakrawIntroScript } from './intro-script.js';
 
 /** 소개영상. 게임킷 showcase 호스트가 격리 iframe(?showcaseDemo=1)을 열고, 대본(TakrawIntroScript)이 그 안의 관전 경기를 자막과 맞춘다. */
 class TakrawIntro {
-  /** @param {{ coarse: boolean, playSelector: string, launcher: string }} options */
-  constructor({ coarse, playSelector, launcher }) {
-    this.script = new TakrawIntroScript({ coarse });
+  /** @param {{ playSelector: string, launcher: string }} options */
+  constructor({ playSelector, launcher }) {
+    this.script = new TakrawIntroScript();
     this.handle = installShowcase({
       title: TAKRAW_INTRO.title, launcher, playSelector, durationMs: TAKRAW_INTRO.durationMs,
       ready: win => Boolean(win.__takraw?.ready),

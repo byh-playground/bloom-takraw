@@ -10,7 +10,6 @@ export { ReplayBuffer } from './core/replay-buffer.js';
 export { BranchActions, Dqn } from './core/dqn.js';
 export { Task } from './core/task.js';
 export { Trainer, evaluate } from './trainer.js';
-export { PolicyStore } from './store.js';
 export { TAKRAW_TUNING, TuningSpec } from './takraw/tuning.js';
 export { ROLES, ReceiveObservation } from './takraw/observation.js';
 export { RECEIVE_SCENE, ReceiveTask } from './takraw/receive-task.js';

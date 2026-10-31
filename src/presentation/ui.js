@@ -22,6 +22,8 @@ class TakrawUI {
     this.canvas.tabIndex = -1;
     this.settings = { sound: true, quality: 'high' };
     this.sound = { locked: false, message: '' }; // 소리 설정 저장 상태. 읽지 못하면 locked, 실패 문구는 message.
+    this.installable = false; // PWA 설치 창을 띄울 수 있을 때 true(registerPwa의 onInstallable)
+    this.statusAction = () => window.location.reload(); // 상태 줄 버튼이 할 일
     this.inGame = false;
     this.mode = 'match';
     this.dialog = '';
@@ -91,7 +93,7 @@ class TakrawUI {
     click('pause-button', () => this.navigate('pause'));
     click('replay-skip', () => this.callbacks.onReplaySkip?.());
     click('dialog-close', () => this.closeDialog());
-    click('reload-button', () => window.location.reload());
+    click('reload-button', () => this.statusAction());
     click('rematch-button', () => this.callbacks.onRestart?.());
     click('training-reset', () => this.callbacks.onRestart?.());
     const lessonSelect = document.getElementById('training-lesson');
@@ -231,11 +233,25 @@ class TakrawUI {
     return this.coarse.matches ? value.replaceAll('좌클', '발차기 버튼') : value;
   }
 
-  setBootStatus({ phase, message, isError }) {
+  /**
+   * 처음 화면의 상태 줄. 오류는 기본으로 "다시 열기"를 붙이고, action({label, run})을 주면 그 버튼을, null이면 버튼 없이 띄운다.
+   * 준비를 마친 뒤에는 문구가 있을 때만 보인다(새 버전 알림·PWA 오류).
+   */
+  setBootStatus({ phase, message, isError, action = isError ? { label: '다시 열기', run: () => window.location.reload() } : null }) {
     this.nodes['boot-message'].textContent = message;
-    this.nodes['boot-status'].classList.toggle('error', isError); this.nodes['boot-status'].classList.toggle('ready', phase === 'ready' && !isError);
-    this.nodes['reload-button'].hidden = !isError;
+    this.nodes['boot-status'].classList.toggle('error', isError);
+    this.nodes['boot-status'].classList.toggle('notice', !isError && Boolean(message) && phase === 'ready');
+    this.nodes['boot-status'].classList.toggle('ready', phase === 'ready' && !isError && !message);
+    this.nodes['reload-button'].hidden = !action;
+    this.nodes['reload-button'].textContent = action?.label ?? '다시 열기';
+    this.statusAction = action?.run ?? (() => window.location.reload());
     this.updateStartButtons();
+  }
+
+  /** 브라우저가 설치를 허락했을 때만 설정 창에 앱 설치 줄을 둔다. */
+  setInstallable(installable) {
+    this.installable = installable;
+    if (this.dialog === 'settings') this.nodes['dialog-content'].innerHTML = this.settingsContent();
   }
 
   showHome() {
@@ -747,6 +763,7 @@ class TakrawUI {
     return `<div class="settings-row"><div><strong>효과음</strong><small>발끝의 접촉과 랠리의 리듬</small></div><button type="button" class="toggle-button" role="switch" aria-label="효과음" aria-checked="${this.settings.sound}" ${this.sound.locked ? 'disabled' : ''} data-dialog-action="sound"></button></div>${status}
       <div class="settings-row"><div><strong>화면 품질</strong><small>느린 기기에서는 가볍게</small></div><div class="segmented" role="group" aria-label="화면 품질"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">가볍게</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">선명하게</button></div></div>
       <div class="settings-row"><div><strong>카메라</strong><small>${this.coarse.matches ? '공과 선수를 따라가는 기본 시점' : '우클릭 드래그로 회전 · C로 기본 시점'}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">시점 초기화</button></div>
+      ${this.installable ? '<div class="settings-row"><div><strong>앱으로 설치</strong><small>홈 화면이나 바탕 화면에서 바로 열어요</small></div><button type="button" class="secondary-small" data-dialog-action="install">설치</button></div>' : ''}
       <p class="key-tip">화면 품질을 바꿔도 공의 움직임과 경기 규칙은 같아요.</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">완료</button></div>`;
   }
 
@@ -837,6 +854,7 @@ class TakrawUI {
     if (action === 'quit') this.quit();
     if (action === 'sound') { this.settings.sound = !this.settings.sound; button.setAttribute('aria-checked', String(this.settings.sound)); this.callbacks.onSetting?.('sound', this.settings.sound); }
     if (action === 'camera-reset') this.callbacks.onCameraReset?.();
+    if (action === 'install') this.callbacks.onInstall?.();
     if (action === 'quality') {
       this.settings.quality = button.dataset.value;
       for (const option of button.parentElement.children) { const selected = option.dataset.value === this.settings.quality; option.classList.toggle('selected', selected); option.setAttribute('aria-pressed', String(selected)); }

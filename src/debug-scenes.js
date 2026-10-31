@@ -2,9 +2,9 @@
  * 주소로 여는 확인용 장면(`?debug=1&scene=이름&tick=N&…`). 일반 플레이에서는 로드되지 않는다.
  * 호스트는 파라미터를 해석하지 않으므로 값의 형식은 각 장면이 정하고, 틀리면 그대로 실패한다.
  */
-export function createDebugScenes({ config, openWatch, pulse, render, read, openClub, showClub, openMatch, readReplay }) {
+export function createDebugScenes({ config, openWatch, pulse, render, renderFrom, ballPosition, read, openClub, showClub, openMatch, readReplay }) {
   const QUANTUM = 1000 / config.simulation.tickRate;
-  return {
+  const scenes = {
     /** 시드 하나의 AI 대 AI 경기를 가상 시계로 틱 단위로 진행한다. */
     watch({ seed }) {
       if (!openWatch(seed)) throw new Error(`watch needs an integer seed in range: ${seed}`);
@@ -26,6 +26,30 @@ export function createDebugScenes({ config, openWatch, pulse, render, read, open
         render: () => render(clock),
         state: read,
         dispose() { performance.now = realNow; },
+      };
+    },
+    /**
+     * watch와 같은 재생을 고정 카메라로 그리고 화면 HUD를 숨긴다(아이콘·공유 이미지용 장면 캡처).
+     * camera는 `x,y,z,tx,ty,tz,fov`(카메라 위치, 바라보는 점, 세로 시야각 도)이며 바라보는 점은 공 위치 기준의 상대 좌표다.
+     */
+    spike({ seed, camera }) {
+      const values = String(camera).split(',').map(Number);
+      if (values.length !== 7 || !values.every(Number.isFinite)) throw new Error(`spike needs camera=x,y,z,tx,ty,tz,fov: ${camera}`);
+      const [x, y, z, tx, ty, tz, fov] = values;
+      const watch = scenes.watch({ seed });
+      const style = document.createElement('style');
+      style.textContent = '#app > :not(#court-canvas){display:none!important}';
+      document.head.append(style);
+      return {
+        step: watch.step,
+        render() {
+          watch.render();
+          const ball = ballPosition();
+          if (!ball) throw new Error('spike needs a ball on screen');
+          renderFrom({ position: { x, y, z }, target: { x: ball.x + tx, y: ball.y + ty, z: ball.z + tz }, fov });
+        },
+        state: () => ({ ...read(), ball: ballPosition() }),
+        dispose() { style.remove(); watch.dispose(); },
       };
     },
     /**
@@ -54,4 +78,5 @@ export function createDebugScenes({ config, openWatch, pulse, render, read, open
       };
     },
   };
+  return scenes;
 }

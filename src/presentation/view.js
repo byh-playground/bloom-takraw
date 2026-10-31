@@ -839,6 +839,29 @@ class TakrawView {
   }
 
   /**
+   * 확인용 장면이 방금 그린 장면을 고정 카메라로 다시 그린다. 다음 render()는 평소 카메라로 돌아간다.
+   * 공 테두리·높이선·받기/공격 안내·선택 표시는 경기 카메라를 향해 놓인 안내라 다른 각도에서는 어긋나 보이므로 이 그림에서만 뺀다.
+   */
+  renderFrom({ position, target, fov }) {
+    const guides = [this.ballHalo, this.ballHeight, this.ballHeightTicks, this.ballLocator,
+      ...this.playerMarkers.flatMap(marker => [marker.ring, marker.arrow]),
+      ...[...this.attackGuides, ...this.receiveGuides].flatMap(guide => Object.values(guide).filter(value => value?.isObject3D))];
+    const shown = guides.map(guide => guide.visible);
+    for (const guide of guides) guide.visible = false;
+    this.camera.position.set(position.x, position.y, position.z);
+    this.camera.fov = fov; this.camera.updateProjectionMatrix();
+    this.camera.lookAt(target.x, target.y, target.z); this.camera.updateMatrixWorld();
+    this.renderer.render(this.scene, this.camera);
+    guides.forEach((guide, index) => { guide.visible = shown[index]; });
+  }
+
+  /** 화면에 그려진 공의 위치(월드 좌표). 확인용 장면이 카메라를 맞출 때 읽는다. */
+  ballPosition() {
+    const ball = this.meshes.get('ball');
+    return ball ? { x: ball.position.x, y: ball.position.y, z: ball.position.z } : null;
+  }
+
+  /**
    * 맞은 방향으로 공을 눌렀다 되돌린다(외형만). 위치·회전은 물리 값 그대로 두고 월드 축 기준 비균일 스케일만 행렬에 곱한다.
    * 부피를 보존하도록 수직 방향은 1/sqrt(축 방향 스케일)로 늘린다.
    */

@@ -1,0 +1,32 @@
+{
+  "id": "./",
+  "name": "블룸 발 배구",
+  "short_name": "발 배구",
+  "description": "AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 발 배구. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e8eee3",
+  "theme_color": "#e8eee3",
+  "icons": [
+    {
+      "src": "pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "pwa/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

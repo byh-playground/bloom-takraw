@@ -29,7 +29,15 @@ for (const [name, entry] of Object.entries(lock.modules)) {
   requireCondition(/^[a-f0-9]{64}$/.test(entry.sha256), `Missing digest: ${name}`);
   requireCondition(used.has(alias), `Unused dependency: ${name}`);
 }
+// Node 도구(pwa-build.mjs)는 저장소에 복사본을 두고 같은 dist commit·SHA-256에 고정한다.
+for (const [name, entry] of Object.entries(lock.tools)) {
+  requireCondition(entry.url.includes('@' + lock.distCommit + '/'), `GameKit tool drift: ${name}`);
+  const digest = require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(root, entry.file))).digest('hex');
+  requireCondition(digest === entry.sha256, `GameKit tool digest mismatch: ${name}`);
+}
 for (const [name, url] of Object.entries(lock.external)) requireCondition(map[name] === url, `External link drift: ${name}`);
+// 커밋된 manifest·아이콘·sw.js·<head> 태그가 원본(assets/pwa, precache 파일)과 같은지 확인한다. 다르면 `node scripts/pwa.mjs`로 다시 만든다.
+execFileSync(process.execPath, [path.join(root, 'scripts/pwa.mjs'), '--check'], { cwd: root, stdio: 'inherit' });
 // 게임 이름의 단일 출처(src/config/game.js)와 정적 파일의 일치를 검사한다.
 const product = fs.readFileSync(path.join(root, 'src/config/game.js'), 'utf8').match(/TAKRAW_GAME_NAME = '([^']+)'/)[1];
 const productName = `블룸 ${product}`;

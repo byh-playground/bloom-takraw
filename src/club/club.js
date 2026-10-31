@@ -376,6 +376,9 @@ class TakrawClub {
     return learning?.policy ? { policy: learning.policy, runs: learning.runs } : null;
   }
 
+  /** 저장 기록과 무관하게 프리셋 선수 하나를 화면용으로 만든다(소개영상의 뽑기 연출). */
+  preview(id) { return this._player(id); }
+
   _player(id) {
     const base = this._card(id), number = base.number ?? TAKRAW_CLUB_PLAYERS.findIndex(value => value.id === id) + 1;
     const level = this.record?.levels?.[id] || 0, factor = takrawTrainingFactor(level);

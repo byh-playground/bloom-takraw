@@ -595,6 +595,12 @@ body[data-replay] .rally-strip,body[data-replay] .player-panel,body[data-replay]
 body[data-showcase][data-mode="watch"] .drive-feedback{display:flex}
 @media (pointer:coarse){body[data-showcase][data-mode="watch"] .drive-feedback{display:none}}
 body[data-showcase] .move-pad{display:none}
+/* 소개영상 영입 장: 대화 창 층 위의 뽑기 연출만 띄운다. 누를 일이 없으니 건너뛰기·확인 버튼은 숨긴다. */
+body[data-showcase][data-showcase-scene="draw"] .modal-layer{display:flex!important}
+body[data-showcase] .draw-skip,body[data-showcase] .draw-result button{display:none}
+body[data-showcase] .draw-backdrop{padding-bottom:230px}
+body[data-showcase] .draw-back small{visibility:hidden}
+body[data-showcase] .draw-card{--ch:min(330px,calc(100dvh - 300px))}
 /* 소개영상의 자막·버튼 영역(아래 약 200px)에 가리지 않도록 눌림 표시를 그 위로 올리고 키운다. */
 body[data-showcase][data-mode="watch"] .drive-feedback{bottom:250px;transform:scale(1.35);transform-origin:right bottom}
 body[data-showcase] .touch-actions{bottom:250px}

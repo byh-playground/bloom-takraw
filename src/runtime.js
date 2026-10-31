@@ -1232,6 +1232,12 @@ async function bootTakraw() {
     get ui() { return ui; },
     get ready() { return isReady(); },
     watch: startWatch,
+    /** 소개영상 화면(?showcaseDemo=1)에서만: 대본이 장마다 게임 화면을 띄운다. draw는 intro.drawCard 선수의 뽑기 연출, none은 닫기. */
+    showcase(scene, intro) {
+      if (!demo || !ui) return false;
+      if (scene === 'draw') return ui.showcaseDraw(club.preview(intro.drawCard));
+      return scene === 'none' && ui.showcaseDraw(null);
+    },
     diagnostics() {
       return {
         product: TAKRAW_PRODUCT_NAME,

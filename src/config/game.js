@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.13.7';
+const TAKRAW_VERSION = '0.13.8';
 // 게임 이름의 단일 출처. 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일(index.html·README·AGENTS·package.json)은 scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_GAME_NAME = '발 배구';
 const TAKRAW_PRODUCT_NAME = `블룸 ${TAKRAW_GAME_NAME}`;

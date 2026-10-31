@@ -578,3 +578,16 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .is-club .club-slot>button:not(.club-info){width:100%;height:100%;padding-right:38px}
 .is-club .club-lineup .club-info{position:absolute;top:0;right:0;display:flex;align-items:center;justify-content:center;width:44px;min-height:44px;height:44px;padding:0;border:0;border-radius:50%;background:transparent;font-size:20px;line-height:1}
 .is-club .club-lineup .club-info:hover:not(:disabled){background:#e0e9da}
+/* 득점 리플레이: 위에 표시 띠, 아래 가운데 건너뛰기. 재생 중에는 경기 조작 안내를 숨겨 중계 화면처럼 보이게 한다. */
+.replay-overlay{position:absolute;inset:0;z-index:7;pointer-events:none}
+.replay-tag{position:absolute;left:50%;top:94px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:#1f3b31e6;color:#fffbea;font-size:13px;white-space:nowrap;box-shadow:0 4px 16px #10291f33}
+.replay-tag b{display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;letter-spacing:.06em}
+.replay-tag b:before{content:"";width:8px;height:8px;border-radius:50%;background:#ef6a45;animation:pulse 1.2s ease-in-out infinite}
+.replay-tag span{opacity:.85}
+.replay-skip{position:absolute;left:50%;bottom:max(96px,calc(env(safe-area-inset-bottom) + 96px));transform:translateX(-50%);display:flex;align-items:center;gap:8px;min-height:44px;padding:0 18px;border-radius:999px;background:#fbfcf2f0;border:1px solid #fff;color:#24513f;font-size:14px;font-weight:700;pointer-events:auto;box-shadow:0 6px 20px #1f3b3126}
+.replay-skip:active:not(:disabled){transform:translateX(-50%) translateY(1px)}
+body[data-replay] .rally-strip,body[data-replay] .player-panel,body[data-replay] .drive-feedback,body[data-replay] .bottom-guide,body[data-replay] .local-guide,body[data-replay] .end-actions{visibility:hidden}
+@media(max-width:699px){.replay-tag{top:148px;font-size:12px}.replay-skip{bottom:max(170px,calc(env(safe-area-inset-bottom) + 170px))}.replay-skip kbd{display:none}}
+@media(max-height:640px) and (min-width:700px){.replay-tag{top:76px}.replay-skip{bottom:60px}}
+@media (pointer:coarse){.replay-skip kbd{display:none}}
+@media (prefers-reduced-motion:reduce){.replay-tag b:before{animation:none}}

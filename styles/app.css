@@ -603,7 +603,8 @@ body[data-showcase] .draw-back small{visibility:hidden}
 body[data-showcase] .draw-card{--ch:min(330px,calc(100dvh - 300px))}
 /* 소개영상의 자막·버튼 영역(아래 약 200px)에 가리지 않도록 눌림 표시를 그 위로 올리고 키운다. */
 body[data-showcase][data-mode="watch"] .drive-feedback{bottom:250px;transform:scale(1.35);transform-origin:right bottom}
-body[data-showcase] .touch-actions{bottom:250px}
+/* 소개영상에서는 점프를 발차기 아래로 세로로 쌓아 오른쪽 끝 한 줄만 차지한다(코트를 덜 가림). 일반 경기는 가로 배치 그대로. */
+body[data-showcase] .touch-actions{bottom:250px;flex-direction:column-reverse;align-items:center}
 body[data-showcase] .drive-feedback>span.held{background:#1f9272;color:#fffef1;border-color:#1f9272;box-shadow:0 0 0 5px #1f927233}
 body[data-showcase] .drive-feedback>span.held i{background:#fffef1}
 body[data-showcase] .touch-actions button.is-down{transform:scale(1.08);box-shadow:inset 0 0 0 4px #d4bc79,0 0 0 6px #d4bc7955}

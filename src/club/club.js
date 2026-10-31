@@ -53,41 +53,28 @@ function takrawRandomUnit() {
 }
 
 class TakrawClub {
-  constructor({ onChange = null, indexedDB = globalThis.indexedDB, random = takrawRandomUnit } = {}) {
-    this.random = random; this.storage = indexedDB; this.onChange = onChange; this.db = null; this.record = null;
+  /** openSave(options)는 저장 모듈의 createSave에 저장소 어댑터를 붙여 save를 연다. 어댑터는 호출한 쪽이 고른다(실제 저장 또는 디버그 메모리). */
+  constructor({ onChange = null, openSave = null, random = takrawRandomUnit } = {}) {
+    this.random = random; this.openSave = openSave; this.save = null; this.onChange = onChange; this.record = null;
     this.status = 'loading'; this.message = '팀을 불러오고 있어요.'; this.disposed = false;
-    this.pending = Promise.resolve(); this.channel = null; this.externalRevision = -1;
-    this.metrics = { reads: 0, writes: 0, bytes: 0, copyMs: 0, serializationMs: 0, restoreMs: 0, readMs: 0, writeMs: 0 };
-    try {
-      if (typeof BroadcastChannel !== 'undefined') {
-        this.channel = new BroadcastChannel('bloom-takraw-club');
-        this.channel.onmessage = event => {
-          if (!Number.isSafeInteger(event.data?.revision) || this.disposed) return;
-          this.externalRevision = Math.max(this.externalRevision, event.data.revision);
-          if (this.record && this.externalRevision > this.record.revision) {
-            this.status = 'conflict'; this.message = '다른 탭에서 팀이 바뀌었어요. 최신 저장을 불러오세요.'; this._notify();
-          }
-        };
-      }
-    } catch { this.channel = null; }
+    this.pending = Promise.resolve(); this.stopExternal = null;
+    this.metrics = { reads: 0, writes: 0, bytes: 0 };
   }
 
-  _clock() { return globalThis.performance?.now() ?? Date.now(); }
-  _copy(value) { const start = this._clock(); const copy = structuredClone(value); this.metrics.copyMs += this._clock() - start; return copy; }
   _notify() { if (!this.disposed) this.onChange?.(this.getView()); }
   _error(message, kind = 'validation') { const error = new Error(message); error.kind = kind; return error; }
   _normalizeName(value) { return String(value ?? '').replace(/\s+/gu, ' ').trim(); }
   _default() {
-    return { schema: 1, revision: 0, name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
+    return { name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
       owned: TAKRAW_CLUB_PLAYERS.filter(player => player.starter).map(player => player.id), trained: {}, levels: {}, cards: {}, pending: null, gacha: { runs: 0 },
       lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
       record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null }, campaign: { home: takrawPickHome(this.random()), cleared: [] } };
   }
 
   _validate(record) {
-    const start = this._clock(), fail = () => { throw this._error('저장된 팀 형식을 확인할 수 없어요. 기존 데이터는 보존했어요.', 'storage'); };
+    const fail = () => { throw this._error('저장된 팀 형식을 확인할 수 없어요. 기존 데이터는 보존했어요.', 'storage'); };
     const integer = value => Number.isSafeInteger(value) && value >= 0;
-    if (!record || record.schema !== 1 || !integer(record.revision) || typeof record.name !== 'string' ||
+    if (!record || typeof record.name !== 'string' ||
       this._normalizeName(record.name) !== record.name || [...record.name].length < 1 || [...record.name].length > TAKRAW_CLUB_RULES.nameLength ||
       !integer(record.credits) || !integer(record.trainingPoints) || !Array.isArray(record.owned) ||
       record.owned.length < 3 || record.owned.length > TAKRAW_CLUB_RULES.capacity || new Set(record.owned).size !== record.owned.length ||
@@ -107,7 +94,7 @@ class TakrawClub {
     }
     if (record.campaign !== undefined) {
       const campaign = record.campaign, keys = campaign && typeof campaign === 'object' && !Array.isArray(campaign) ? Object.keys(campaign) : [];
-      // 내 학교(home)가 없는 이전 저장본은 읽을 수 있고, 불러올 때 한 번 학교를 정해 바꾼다(_transaction).
+      // 내 학교(home)가 없는 이전 저장본은 읽을 수 있고, 불러올 때 한 번 학교를 정해 바꾼다(_read).
       // introSeen(도장깨기 첫 소개를 봤는지)은 있어도 없어도 되는 값이라 키 개수에서 뺀다.
       const base = keys.filter(key => key !== 'introSeen');
       if (keys.includes('introSeen') && typeof campaign.introSeen !== 'boolean') fail();
@@ -155,73 +142,31 @@ class TakrawClub {
             (receipt.won && !record.campaign.cleared.includes(receipt.schoolId))) fail();
       }
     }
-    this.metrics.restoreMs += this._clock() - start; return record;
+    return record;
+  }
+
+  /** 저장 모듈의 실패를 화면 문구로 옮긴다. 게임 규칙 오류(kind 'validation')는 그대로 둔다. */
+  _saveMessage(error) {
+    return { conflict: '다른 탭에서 팀이 바뀌었어요. 최신 저장을 불러오세요.', unreadable: '저장된 팀 형식을 확인할 수 없어요. 기존 데이터는 보존했어요.',
+      storage: /quota/i.test(error.message) ? '저장 공간이 부족해 변경을 저장하지 못했어요. 기존 팀은 보존했어요.' : '팀 저장소를 사용할 수 없어요. 브라우저 저장 권한을 확인해 주세요.',
+      closed: '팀 관리가 종료되었어요.' }[error.kind] ?? error.message;
   }
 
   _open() {
-    if (this.db) return Promise.resolve(this.db);
-    if (!this.storage) return Promise.reject(this._error('이 브라우저에서 팀 저장을 사용할 수 없어요. 저장 권한을 확인해 주세요.', 'storage'));
-    return new Promise((resolve, reject) => {
-      let ended = false, request;
-      try { request = this.storage.open('bloom-takraw-club', 1); }
-      catch (error) { reject(this._error('팀 저장소를 열지 못했어요. 브라우저 저장 권한을 확인해 주세요.', 'storage')); return; }
-      request.onupgradeneeded = () => {
-        if (!request.result.objectStoreNames.contains('club')) request.result.createObjectStore('club');
-      };
-      request.onblocked = () => { ended = true; reject(this._error('다른 탭에서 저장소를 사용 중이에요. 다른 게임 탭을 닫고 다시 불러오세요.', 'storage')); };
-      request.onerror = () => { ended = true; reject(this._error('팀 저장소를 열지 못했어요. 브라우저 저장 권한을 확인해 주세요.', 'storage')); };
-      request.onsuccess = () => {
-        if (ended || this.disposed) { request.result.close(); if (!ended) reject(this._error('팀 관리가 종료되었어요.', 'storage')); return; }
-        this.db = request.result;
-        this.db.onversionchange = () => { this.db?.close(); this.db = null; this.status = 'conflict'; this.message = '팀 저장소가 다른 탭에서 바뀌었어요. 다시 불러오세요.'; this._notify(); };
-        resolve(this.db);
-      };
+    if (this.save) return this.save;
+    if (!this.openSave) throw this._error('이 브라우저에서 팀 저장을 사용할 수 없어요. 저장 권한을 확인해 주세요.', 'storage');
+    this.save = this.openSave({ key: 'my-team', version: 1, create: () => this._default(), validate: record => this._validate(record) });
+    this.stopExternal = this.save.onExternalChange(() => {
+      if (this.disposed) return;
+      this.status = 'conflict'; this.message = this._saveMessage({ kind: 'conflict' }); this._notify();
     });
+    return this.save;
   }
 
-  _transaction({ create = false, expected = null, mutate = null } = {}) {
-    return new Promise((resolve, reject) => {
-      const started = this._clock(); let tx, failure = null, result = null, changed = false;
-      try { tx = this.db.transaction('club', create || mutate ? 'readwrite' : 'readonly'); }
-      catch { reject(this._error('팀 저장에 접근할 수 없어요. 다시 불러와 주세요.', 'storage')); return; }
-      tx.onabort = () => reject(failure || this._error(tx.error?.name === 'QuotaExceededError' ? '저장 공간이 부족해 변경을 저장하지 못했어요. 기존 팀은 보존했어요.' : '변경을 저장하지 못했어요. 기존 팀은 보존했어요.', 'storage'));
-      tx.onerror = () => { /* onabort가 최종 실패를 소유한다. */ };
-      tx.oncomplete = () => { this.metrics[changed ? 'writeMs' : 'readMs'] += this._clock() - started; resolve({ record: result, changed }); };
-      const store = tx.objectStore('club'); this.metrics.reads++;
-      const request = store.get('my-team');
-      request.onsuccess = () => {
-        try {
-          const current = request.result;
-          if (current === undefined) {
-            if (!create) throw this._error('저장된 팀을 찾을 수 없어요. 기존 화면을 유지했어요.', 'storage');
-            result = this._default(); this._validate(result); store.add(result, 'my-team'); this.metrics.writes++; changed = true; return;
-          }
-          this._validate(current);
-          if (create && !current.campaign?.home) {
-            // 내 학교가 없는 저장본: 처음 불러올 때 한 번 정한다. 도전 기록은 단계 구성이 바뀌어 새로 시작하고, 이전 영수증은 비운다.
-            const next = this._copy(current);
-            next.campaign = { home: takrawPickHome(this.random()), cleared: [] }; next.lastReward = null; next.revision++;
-            this._validate(next); store.put(next, 'my-team'); this.metrics.writes++; result = next; changed = true; return;
-          }
-          if (expected !== null && current.revision !== expected) throw this._error('다른 탭에서 팀이 바뀌었어요. 최신 저장을 불러오세요.', 'conflict');
-          result = current;
-          if (!mutate) return;
-          const next = this._copy(current); changed = mutate(next) !== false;
-          if (!changed) return;
-          next.revision++; this._validate(next); store.put(next, 'my-team'); this.metrics.writes++; result = next;
-        } catch (error) { failure = error; tx.abort(); }
-      };
-    });
-  }
-
-  _commit(result, message) {
-    this.record = result.record;
-    this.status = this.externalRevision > this.record.revision ? 'conflict' : 'ready';
-    this.message = this.status === 'conflict' ? '다른 탭에서 팀이 바뀌었어요. 최신 저장을 불러오세요.' : message;
-    const started = this._clock(); this.metrics.bytes = new TextEncoder().encode(JSON.stringify(this.record)).length;
-    this.metrics.serializationMs += this._clock() - started;
-    if (result.changed) { try { this.channel?.postMessage({ revision: this.record.revision }); } catch { /* 알림 실패가 저장 성공을 취소하지 않는다. */ } }
-    this._notify(); return { changed: result.changed, view: this.getView() };
+  _commit(data, changed, message) {
+    this.record = data; this.status = 'ready'; this.message = message;
+    this.metrics.bytes = new TextEncoder().encode(JSON.stringify(data)).length;
+    this._notify(); return { changed, view: this.getView() };
   }
 
   _queue(operation) {
@@ -230,23 +175,35 @@ class TakrawClub {
       try { return await operation(); }
       catch (error) {
         this.status = error.kind === 'conflict' ? 'conflict' : error.kind === 'validation' && this.record ? 'ready' : 'error';
-        this.message = error.message || '팀 변경을 저장하지 못했어요.'; this._notify(); throw error;
+        this.message = this._saveMessage(error) || '팀 변경을 저장하지 못했어요.'; this._notify(); throw error;
       }
     });
     this.pending = run.catch(() => {}); return run;
   }
 
+  /** 저장을 읽는다. 내 학교(home)가 없는 이전 저장본은 이때 한 번 학교를 정하고, 단계 구성이 바뀌어 도전 기록과 영수증을 새로 시작한다. */
+  async _read(message) {
+    const save = this._open();
+    this.metrics.reads++;
+    let data = await save.load();
+    if (!data.campaign?.home) {
+      data = await save.update(next => { next.campaign = { home: takrawPickHome(this.random()), cleared: [] }; next.lastReward = null; });
+      this.metrics.writes++;
+    }
+    return this._commit(data, false, message);
+  }
+
   load() {
     return this._queue(async () => {
       this.status = 'loading'; this.message = '팀을 불러오고 있어요.'; this._notify();
-      await this._open(); return this._commit(await this._transaction({ create: true }), '팀을 불러왔어요. 편성은 다음 경기부터 적용돼요.');
+      return this._read('팀을 불러왔어요. 편성은 다음 경기부터 적용돼요.');
     });
   }
 
   refresh() {
     return this._queue(async () => {
       this.status = 'loading'; this.message = '최신 저장을 불러오고 있어요.'; this._notify();
-      await this._open(); return this._commit(await this._transaction({ create: !this.record }), '최신 팀을 불러왔어요.');
+      return this._read('최신 팀을 불러왔어요.');
     });
   }
 
@@ -254,7 +211,10 @@ class TakrawClub {
     return this._queue(async () => {
       if (!this.record || this.status !== 'ready') throw this._error('최신 팀을 먼저 불러와 주세요.', this.status === 'conflict' ? 'conflict' : 'storage');
       this.status = 'saving'; this.message = '팀을 저장하고 있어요.'; this._notify();
-      return this._commit(await this._transaction({ expected: this.record.revision, mutate }), message);
+      let changed = true;
+      const data = await this.save.update(record => { changed = mutate(record) !== false; return changed; });
+      if (changed) this.metrics.writes++;
+      return this._commit(data, changed, message);
     });
   }
 
@@ -428,7 +388,7 @@ class TakrawClub {
       trainingPoints: record?.trainingPoints || 0, roster: record ? record.owned.map(id => this._player(id)) : [], lineup: { ...record?.lineup },
       draw: { ...TAKRAW_CLUB_RULES.draw, runs: record?.gacha?.runs || 0, pending: record?.pending ? this._player(record.pending) : null },
       record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 }, learning: { runs: record?.learning?.runs || 0 }, lastReward: record?.lastReward ? { ...record.lastReward } : null,
-      campaign: { home: record?.campaign?.home || null, cleared: [...(record?.campaign?.cleared || [])], introSeen: !!record?.campaign?.introSeen }, revision: record?.revision ?? null };
+      campaign: { home: record?.campaign?.home || null, cleared: [...(record?.campaign?.cleared || [])], introSeen: !!record?.campaign?.introSeen }, revision: this.save?.revision ?? null };
   }
 
   matchTeam() {
@@ -438,8 +398,8 @@ class TakrawClub {
     }) };
   }
 
-  diagnostics() { return { status: this.status, revision: this.record?.revision ?? null, ...this.metrics, bytesMeaning: '저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다.' }; }
-  dispose() { this.disposed = true; this.channel?.close(); this.channel = null; this.db?.close(); this.db = null; this.onChange = null; }
+  diagnostics() { return { status: this.status, revision: this.save?.revision ?? null, ...this.metrics, bytesMeaning: '저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다.' }; }
+  dispose() { this.disposed = true; this.stopExternal?.(); this.save?.dispose(); this.save = null; this.onChange = null; }
 }
 
 export { TAKRAW_CLUB_RULES, TAKRAW_CLUB_PLAYERS, TakrawClub, takrawTrainingFactor };

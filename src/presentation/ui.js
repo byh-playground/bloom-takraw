@@ -10,6 +10,7 @@ const HOME_PARENT = { start: '', multi: 'start' };
 
 /** 뽑기 연출에서 카드팩이 흔들리는 시간(ms). 건너뛰기·움직임 줄이기는 이 구간을 건너뛴다. */
 const TAKRAW_DRAW_PACK_MS = 1500;
+const TAKRAW_SHOWCASE_FLIP_MS = 900;
 
 /** 후보 카드를 왼쪽으로 밀 때: 판매 버튼이 드러나는 폭(px)과, 이만큼(카드 폭 비율) 넘게 밀면 바로 파는 지점. */
 const TAKRAW_SELL_REVEAL_PX = 96, TAKRAW_SELL_FULL_RATIO = 0.62;
@@ -40,6 +41,7 @@ class TakrawUI {
     for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','dialog-back','draw-stage','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.showcase = 'showcase' in document.body.dataset; // 소개영상 iframe 안의 게임(?showcaseDemo=1)
+    this.showcaseScene = ''; // 소개영상 대본이 띄운 게임 화면(draw)
     this.text('version-label', TAKRAW_VERSION);
     for (const id of ['sets-0', 'sets-1']) document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
     this.bind();
@@ -322,7 +324,8 @@ class TakrawUI {
 
   hideDialog(resume) {
     if (this.dialog === 'club') this.rememberClubPosition();
-    if (this.drawStage) this.closeDrawStage();
+    // 소개영상의 뽑기 장면은 관전이 랠리를 다시 열어도(showGame) 대본이 닫을 때까지 남는다.
+    if (this.drawStage && !this.showcaseScene) this.closeDrawStage();
     const wasOpen = !!this.dialog; this.dialog = ''; this.nodes['modal-layer'].hidden = true;
     this.nodes['modal-layer'].classList.remove('is-club-layer');
     if (this.copyTimer) { window.clearTimeout(this.copyTimer); this.copyTimer = null; }
@@ -671,7 +674,19 @@ class TakrawUI {
     if (!this.drawStage) return;
     window.clearTimeout(this.drawTimer);
     this.drawStage.phase = phase; this.nodes['draw-stage'].querySelector('.draw-backdrop').dataset.phase = phase;
+    // 소개영상에서는 아무도 누르지 않으므로 뒷면을 잠깐 보여 준 뒤 스스로 뒤집는다.
+    if (this.showcase && phase === 'back') this.drawTimer = window.setTimeout(() => this.setDrawPhase('front'), TAKRAW_SHOWCASE_FLIP_MS);
     this.focusDrawStage();
+  }
+
+  /** 소개영상 화면 전용: 경기 위에 실제 뽑기 연출을 띄운다(card 없으면 닫는다). 결과는 저장하지 않고 보여 주기만 한다. */
+  showcaseDraw(card) {
+    if (!this.showcase) return false;
+    if (card) this.openDrawStage(card, { joined: true }); else this.closeDrawStage();
+    this.showcaseScene = card ? 'draw' : '';
+    this.nodes['modal-layer'].hidden = !card; this.nodes['dialog-panel'].hidden = Boolean(card);
+    document.body.dataset.showcaseScene = this.showcaseScene;
+    return true;
   }
 
   focusDrawStage() {

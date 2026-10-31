@@ -64,7 +64,17 @@ test('소개영상 대본: 랠리 문구는 시드 36의 실제 사건 틱에 �
   // 시스템 소개 장(afterMs)은 틱 장 뒤에만 오고, 득점 장이 충분히 보인 뒤에 바뀐다.
   const firstAfter = TAKRAW_INTRO.chapters.findIndex(chapter => chapter.tick === undefined);
   expect(TAKRAW_INTRO.chapters.slice(firstAfter).every(chapter => chapter.tick === undefined && chapter.afterMs >= 2000)).toBe(true);
-  expect(timeline).toHaveLength(1 + 2 * TAKRAW_INTRO.chapters.length);
+  const shows = TAKRAW_INTRO.chapters.filter(chapter => chapter.show).length;
+  expect(timeline).toHaveLength(1 + 2 * TAKRAW_INTRO.chapters.length + shows);
+  // 앞으로 볼 내용(단계 수 등)은 문구로 밝히지 않는다.
+  expect(TAKRAW_INTRO.chapters.some(chapter => /\d+\s*(곳|단계|개)/.test(chapter.title))).toBe(false);
+  // 영입 장은 문구 직전에 뽑기 연출을 띄우고 다음 장에서 닫는다.
+  const names = timeline.filter(item => item.action === 'custom').map(item => item.name);
+  expect(names.indexOf('show:draw')).toBeLessThan(names.indexOf('show:none'));
+  const calls = [], stage = { __takraw: { showcase: (scene, intro) => calls.push([scene, intro.drawCard]) } };
+  expect(new TakrawIntroScript().run('show:draw', stage)).toBe(true);
+  expect(calls).toEqual([['draw', TAKRAW_INTRO.drawCard]]);
+  expect(new TakrawIntroScript().run('show:draw', { __takraw: { ready: false } })).toBe(false);
   expect(timeline.filter(item => item.action === 'chapter').map(item => item.title)).toEqual(TAKRAW_INTRO.chapters.map(chapter => chapter.title));
   // 기다림 항목: 틱이 모자라면 false(호스트가 재시도), 닿으면 true. afterMs는 마지막으로 통과한 틱 기다림부터 잰다.
   let clock = 0;
@@ -76,6 +86,16 @@ test('소개영상 대본: 랠리 문구는 시드 36의 실제 사건 틱에 �
   win.__takraw.game.state.tick = 3; // 관전이 랠리를 처음부터 다시 열어도 시스템 장은 계속된다
   clock = 22100; expect(script.run('after:2200', win)).toBe(false);
   clock = 22200; expect(script.run('after:2200', win)).toBe(true);
+  // 다음 afterMs는 바로 앞 시스템 장이 뜬 뒤부터 잰다.
+  clock = 27300; expect(script.run('after:5200', win)).toBe(false);
+  clock = 27400; expect(script.run('after:5200', win)).toBe(true);
+  // 느린 기기: 호스트가 틱 기다림을 버리고 장을 띄웠으면, 다음 afterMs는 그 뒤 첫 시도부터 잰다(바로 넘어가지 않는다).
+  const slow = new TakrawIntroScript({ now: () => clock });
+  win.__takraw.game.state.tick = 800; clock = 0; expect(slow.run('tick:772', win)).toBe(true);
+  clock = 1000; expect(slow.run('tick:900', win)).toBe(false);
+  clock = 9000; expect(slow.run('after:2200', win)).toBe(false);
+  clock = 11100; expect(slow.run('after:2200', win)).toBe(false);
+  clock = 11200; expect(slow.run('after:2200', win)).toBe(true);
   expect(script.run('watch', { __takraw: { ready: false } })).toBe(false);
 });
 

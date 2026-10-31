@@ -2,8 +2,22 @@
 <html lang="ko"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <!-- bloom-pwa:start -->
+  <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#e8eee3">
   <meta name="description" content="AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 발 배구. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.">
+  <link rel="icon" type="image/png" sizes="192x192" href="pwa/icon-192.png">
+  <link rel="apple-touch-icon" href="pwa/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="발 배구">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://byh-playground.github.io/bloom-takraw/">
+  <meta property="og:title" content="블룸 발 배구">
+  <meta property="og:description" content="AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 발 배구. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.">
+  <meta property="og:image" content="https://byh-playground.github.io/bloom-takraw/pwa/share.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- bloom-pwa:end -->
   <title>블룸 발 배구</title>
   <link rel="stylesheet" href="./styles/app.css">
 </head>
@@ -119,18 +133,19 @@
   "imports": {
     "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
     "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
-    "@bloom-gamekit/input": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/input.js",
-    "@bloom-gamekit/simloop": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/simloop.js",
-    "@bloom-gamekit/interpolation": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/interpolation.js",
-    "@bloom-gamekit/rollback": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/rollback.js",
-    "@bloom-gamekit/transport": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/transport.js",
-    "@bloom-gamekit/audio": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/audio.js",
-    "@bloom-gamekit/presentation-events": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/presentation-events.js",
-    "@bloom-gamekit/deterministic": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/deterministic.js",
-    "@bloom-gamekit/object-pool": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/object-pool.js",
-    "@bloom-gamekit/scenario": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/scenario.js",
-    "@bloom-gamekit/debug-tools": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/debug-tools.js",
-    "@bloom-gamekit/save": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@1a3ef3877dea431268c712cbe7b13b2600826119/save.js"
+    "@bloom-gamekit/input": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/input.js",
+    "@bloom-gamekit/simloop": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/simloop.js",
+    "@bloom-gamekit/interpolation": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/interpolation.js",
+    "@bloom-gamekit/rollback": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/rollback.js",
+    "@bloom-gamekit/transport": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/transport.js",
+    "@bloom-gamekit/audio": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/audio.js",
+    "@bloom-gamekit/presentation-events": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/presentation-events.js",
+    "@bloom-gamekit/deterministic": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/deterministic.js",
+    "@bloom-gamekit/object-pool": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/object-pool.js",
+    "@bloom-gamekit/scenario": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/scenario.js",
+    "@bloom-gamekit/debug-tools": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/debug-tools.js",
+    "@bloom-gamekit/save": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/save.js",
+    "@bloom-gamekit/pwa": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/pwa.js"
   }
 }
   </script>

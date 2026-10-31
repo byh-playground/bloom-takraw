@@ -3,7 +3,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const lock = JSON.parse(fs.readFileSync(path.join(__dirname, '../gamekit.lock.json')));
 (async () => {
-  for (const [name, entry] of Object.entries(lock.modules)) {
+  for (const [name, entry] of Object.entries({ ...lock.modules, ...lock.tools })) {
     const response = await fetch(entry.url, { signal: AbortSignal.timeout(30000) });
     if (!response.ok) throw Error(`${name}: HTTP ${response.status}`);
     const bytes = Buffer.from(await response.arrayBuffer());

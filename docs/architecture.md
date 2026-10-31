@@ -14,6 +14,7 @@
 | object-pool | ObjectPool | 접촉 효과 노드 재사용 |
 | audio | AudioPlayer, audioSettings | 소리 정의·음량·동시 재생 한도·소리 설정 save |
 | save | createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter | 저장 레코드 정의·어댑터 선택 |
+| pwa | registerPwa (+ Node 도구 `pwa-build.mjs`) | 알림 위치(처음 화면 상태 줄·설정 창), 격리 장면 제외 |
 
 별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm test`가 lock과 일치를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 현재 외부 요청은 GameKit 9개와 Three.js·Rapier를 합친 11개이며, 로컬 JS 14개와 CSS 1개 요청이 추가됩니다.
 
@@ -31,6 +32,14 @@
 - 이전 키(`bloom-takraw-audio`, `bloom-takraw:<버전>:active-room` 원시 JSON)는 읽지 않는다. 출시 전이라 옮기지 않는다.
 - 읽지 못한 레코드는 기본값으로 바꾸지 않고 원본을 둔다. 소리 설정은 소리를 끈 채 설정 창 효과음 줄에 알리고 토글을 막는다. 방 복귀 정보는 부팅 때 연결 창을 열어 알리고, 사용자가 새 방을 만들 때 `reset()`으로 버린다(transport의 `reset: true`와 같은 때).
 - 쓰기 실패: 소리 설정(`onSaveError`)은 설정 창 효과음 줄, 방 복귀(`active-room` 쓰기와 transport의 `resume-save-failed`)는 연결 창 안내 줄에 알린다. 실패는 `diagnostics().errors`에도 남는다.
+
+## 설치·오프라인(PWA, v0.14.0~)
+
+- `node scripts/pwa.mjs`가 gamekit `pwa-build.mjs`(`scripts/vendor/gamekit/`, `gamekit.lock.json`의 `tools`에 dist commit·SHA-256 고정)로 `manifest.webmanifest`·`pwa/*.png`·`sw.js`와 `index.html`의 `<!-- bloom-pwa:start/end -->` 사이 태그를 만든다. 생성 결과는 커밋한다. `npm run check`가 `--check`로 원본(`assets/pwa/*.svg`, precache 파일)과 어긋난 결과를 막으므로 `src/`·`styles/`를 고치면 다시 생성한다.
+- 아이콘·공유 이미지 원본은 게임 실제 렌더를 넣은 SVG다. 장면은 `?debug=1&scene=spike&seed=1&tick=589&camera=…`(가위차기 직전, 공 바로 아래 발)이며 카메라 값은 `scripts/pwa.mjs` 주석에 있다. 제목 글자는 path로 바꿔 넣어 PC 글꼴에 기대지 않는다.
+- precache는 `index.html`·`src/**`·`styles/**`·`assets/audio/*.ogg`와 거기 적힌 고정 gamekit 주소다. Three.js·Rapier(npm CDN)는 서비스 워커가 캐시하지 않는다. 그래서 오프라인 시작은 브라우저 HTTP 캐시에 두 파일이 남아 있을 때만 된다(HTTP 캐시를 지우면 "게임 모듈을 불러오지 못했어요"로 멈춘다).
+- `registerPwa`는 부팅을 마친 뒤 부르고, 격리 장면(`?debug`, `?showcaseDemo=1`)에서는 부르지 않는다. 새 버전(`onUpdate`)은 처음 화면 상태 줄에 "새 버전이 있어요." + 새로고침 버튼(`update()`), 등록 실패(`onError`)는 같은 줄에 오류로 띄운다. 이 알림은 경기 시작·처음 화면 복귀로 상태 줄을 비울 때도 남는다. 설치(`onInstallable`)는 설정 창의 "앱으로 설치" 줄이다.
+- 확인용 장면 `spike`(`?debug=1&scene=spike&seed=N&tick=T&camera=x,y,z,tx,ty,tz,fov`)는 `watch`와 같은 재생을 고정 카메라로 다시 그리고 HUD를 숨긴다. 카메라 위치는 월드 좌표, 바라보는 점은 공 기준 상대 좌표다. 경기 카메라를 향한 안내(공 테두리·높이선·받기/공격 안내·선택 표시)는 그 그림에서만 뺀다.
 
 `simulation/game.js`는 규칙·AI·득점·세트·훈련·스냅샷 메타데이터를 소유합니다. `simulation/physics.js`는 Rapier World·몸체·관절·접촉·신체 제어와 물리 스냅샷을 소유합니다. 복원용 SerializationPipeline은 physics 인스턴스가 생성·재사용·해제합니다. 모션 데이터/모델/매칭은 `motion/`에 있는 게임별 저작 자료입니다. `simulation/timing.js`의 `TakrawTimingJudge`는 점프·발차기 입력의 타이밍 오차 공식과 등급 창(`config.timing`)을 소유합니다. 기록은 `state.timing`에 두어 스냅샷·롤백에 함께 저장되며, 연습의 오차 기록과 접촉 판정이 같은 공식을 씁니다.
 

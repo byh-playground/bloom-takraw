@@ -10,6 +10,7 @@ import { AudioPlayer, audioSettings } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { createValueCodec } from '@bloom-gamekit/deterministic';
 import { createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter } from '@bloom-gamekit/save';
+import { registerPwa } from '@bloom-gamekit/pwa';
 
 import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
@@ -127,8 +128,32 @@ async function bootTakraw() {
     return nextMode === 'local' || nextMode === 'online' || nextMode === 'watch';
   }
 
+  // 상태 줄을 비울 때(경기 시작·처음 화면 복귀)도 새 버전·PWA 오류 알림은 남긴다.
+  let appNotice = null;
   function showBootStatus(message = '', isError = false) {
-    ui.setBootStatus({ phase: bootstrapStage, message, isError });
+    if (!message && !isError && appNotice) ui.setBootStatus({ phase: bootstrapStage, ...appNotice });
+    else ui.setBootStatus({ phase: bootstrapStage, message, isError });
+  }
+  function showAppNotice(notice) { appNotice = notice; showBootStatus(); }
+
+  // 설치·오프라인 시작(sw.js). 격리 장면(?debug, ?showcaseDemo=1)은 등록하지 않는다. 새 버전과 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
+  let pwa = null;
+  function startPwa() {
+    pwa = registerPwa({
+      serviceWorker: './sw.js',
+      onUpdate: () => showAppNotice({ message: '새 버전이 있어요.', isError: false,
+        action: { label: '새로고침', run: () => pwa.update().catch(error => pwaFailed(error)) } }),
+      onError: error => pwaFailed(error),
+      onInstallable: () => ui.setInstallable(true),
+    });
+  }
+  function pwaFailed(error) {
+    recordError(error, 'pwa');
+    showAppNotice({ message: `설치·오프라인 준비에 실패했어요. 게임은 그대로 할 수 있어요. (${error?.message || error})`, isError: true, action: null });
+  }
+  async function installPwa() {
+    ui.setInstallable(false);
+    try { await pwa.install(); } catch (error) { pwaFailed(error); }
   }
 
   // 방 복귀: 마지막으로 연 방(activeRoom)과 transport의 방별 identity가 같은 어댑터의 레코드다.
@@ -1274,6 +1299,7 @@ async function bootTakraw() {
       if (rewards.timer !== null) window.clearTimeout(rewards.timer);
       rewards.timer = null;
       intro?.dispose();
+      pwa?.dispose();
       club?.dispose();
       ui?.dispose();
       device?.dispose();
@@ -1324,6 +1350,7 @@ async function bootTakraw() {
       ui.canvas.focus({ preventScroll: true });
     },
     onCameraReset: resetCamera,
+    onInstall: installPwa,
     onPause: setPaused,
     onReplaySkip: endHighlight,
     onQuit: quit,
@@ -1428,6 +1455,7 @@ async function bootTakraw() {
     showBootStatus('', false);
     ui.showHome();
     animation = requestAnimationFrame(frame);
+    if (!isolated) startPwa();
     const query = new URLSearchParams(location.search), watchParam = query.get(TAKRAW_RUNTIME.watch.param);
     if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
     if (query.has('debug')) {
@@ -1443,6 +1471,8 @@ async function bootTakraw() {
         },
         pulse: now => loop.pulse(now, { render: false, input: false }),
         render: now => renderScene(now),
+        renderFrom: camera => view.renderFrom(camera),
+        ballPosition: () => view.ballPosition(),
         read: () => ({ mode, seed: watchSeed, tick: game.state.tick, score: [...game.state.score] }),
         async openClub(seed) {
           // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).

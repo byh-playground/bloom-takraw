@@ -608,3 +608,5 @@ body[data-showcase] .touch-actions{bottom:250px;flex-direction:column-reverse;al
 body[data-showcase] .drive-feedback>span.held{background:#1f9272;color:#fffef1;border-color:#1f9272;box-shadow:0 0 0 5px #1f927233}
 body[data-showcase] .drive-feedback>span.held i{background:#fffef1}
 body[data-showcase] .touch-actions button.is-down{transform:scale(1.08);box-shadow:inset 0 0 0 4px #d4bc79,0 0 0 6px #d4bc7955}
+/* 준비 뒤 상태 줄 알림(새 버전·PWA 오류가 아닌 안내) */
+.boot-status.notice{color:var(--green);flex-wrap:wrap}.boot-status.notice .loading-dot{animation:none;background:var(--green)}.boot-status.notice button{border-color:#1d6d5b55;background:#eef5e9;color:var(--green);font-weight:650}

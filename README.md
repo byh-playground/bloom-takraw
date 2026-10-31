@@ -20,6 +20,8 @@ npm run dev
 
 `index.html`은 화면 골격이며 CSS와 ES 모듈을 링크합니다. **HTML을 더블클릭하는 file:// 실행은 지원하지 않습니다.** GameKit·Three.js·Rapier를 고정 CDN URL에서 가져오므로 처음 실행과 온라인 연결에 인터넷이 필요합니다. 이웃 저장소나 이전 임시 경로를 런타임에서 읽지 않습니다.
 
+설치(PWA): 공개 주소는 설치할 수 있고(설정 창 "앱으로 설치"), 한 번 연 뒤에는 서비스 워커가 게임 파일과 GameKit을 보관합니다. Three.js·Rapier는 보관하지 않아 브라우저 HTTP 캐시가 비면 오프라인으로 시작하지 못합니다. `src/`·`styles/`·`assets/pwa/`를 고치면 `node scripts/pwa.mjs`로 생성 파일을 다시 만듭니다(`npm run check`가 어긋남을 막습니다). 자세한 내용은 [구조 문서](docs/architecture.md#설치오프라인pwa-v0140)를 참고하세요.
+
 ## 구조와 GameKit 참조
 
 ```text
@@ -44,7 +46,7 @@ artifacts/                   새 실행 결과, Git 제외
 
 공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
-GameKit dist 커밋 `4db872aaba543010424ca2200b134181b246336c`(소개영상용 `scenario` 모듈 포함), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요.
+GameKit dist 커밋 `2fb6332f54a7dc602c3743f516afed1f9a8b3229`(v0.39.2, `pwa` 모듈 포함), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요.
 
 ## 검사
 

@@ -65,3 +65,24 @@ test('클럽 장면: 시드·코인·뽑기 주소는 같은 팀을 만들고 �
   await browser.close();
   expect(shots[0].equals(shots[1])).toBe(true);
 });
+
+test('스파이크 장면: 고정 카메라 주소는 같은 화면을 만들고 HUD와 서비스 워커 없이 연다', async ({}, testInfo) => {
+  const browser = await launch(), baseURL = testInfo.project.use.baseURL, shots = [];
+  const query = 'debug=1&scene=spike&seed=1&tick=120&camera=-3,3,8.5,-1,-1,0,30';
+  for (let run = 0; run < 2; run++) {
+    const page = await browser.newPage({ baseURL, viewport: { width: 640, height: 360 } });
+    const result = await open(page, query);
+    expect(result.error).toBeNull();
+    expect(result.state).toMatchObject({ scene: 'spike', mode: 'watch', seed: 1, tick: 120 });
+    expect(Number.isFinite(result.state.ball.y)).toBe(true);
+    expect(await page.locator('.scoreboard').isVisible()).toBe(false);
+    expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
+    shots.push(await settled(page));
+    await page.close();
+  }
+  const page = await browser.newPage({ baseURL });
+  const wrong = await open(page, 'debug=1&scene=spike&seed=1&tick=1&camera=1,2,3');
+  expect(wrong.error).toContain('spike needs camera=x,y,z,tx,ty,tz,fov');
+  await browser.close();
+  expect(shots[0].equals(shots[1])).toBe(true);
+});

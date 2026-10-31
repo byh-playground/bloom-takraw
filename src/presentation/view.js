@@ -692,9 +692,11 @@ class TakrawView {
     const snap = !rig.initialized || rig.team !== team || rig.mode !== mode || (phase === 'ready' && rig.phase !== 'ready');
     const blend = snap ? 1 : 1 - Math.exp(-s.follow * dt);
     rig.focus.lerp(rig.target, blend);
-    const cosine = Math.cos(rig.orbit.yaw), sine = Math.sin(rig.orbit.yaw);
-    const pitchCosine = Math.cos(rig.orbit.pitch);
-    rig.offset.set(-toward * cosine * pitchCosine, Math.sin(rig.orbit.pitch), toward * sine * pitchCosine);
+    // 리플레이는 사용자 시점을 바꾸지 않고 그 동안만 중계 각도로 본다.
+    const orbit = context.replay?.orbit || rig.orbit;
+    const cosine = Math.cos(orbit.yaw), sine = Math.sin(orbit.yaw);
+    const pitchCosine = Math.cos(orbit.pitch);
+    rig.offset.set(-toward * cosine * pitchCosine, Math.sin(orbit.pitch), toward * sine * pitchCosine);
     rig.right.set(toward * sine, 0, toward * cosine);
     rig.up.crossVectors(rig.offset, rig.right);
     const tangent = Math.tan(this.camera.fov * Math.PI / 360);
@@ -768,7 +770,7 @@ class TakrawView {
       mesh.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
       this.updateLegGeometry(mesh, model.halfHeight);
     };
-    if (presentationFrame) this.scoreMotion.apply(presentationFrame, nowMs, apply, context.mode === 'match' && !this.reducedMotion());
+    if (presentationFrame) this.scoreMotion.apply(presentationFrame, nowMs, apply, context.mode === 'match' && !context.replay && !this.reducedMotion());
     else for (const entity of viewData.entities) apply(entity, entity.id);
     if (this.width !== this.canvas.clientWidth || this.height !== this.canvas.clientHeight) this.resize();
     this.updateCamera(viewData, context, dt);

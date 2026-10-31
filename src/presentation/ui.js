@@ -85,6 +85,7 @@ class TakrawUI {
     click('reward-retry', () => this.callbacks.onRewardRetry?.());
     click('settings-button', () => this.navigate('settings'));
     click('pause-button', () => this.navigate('pause'));
+    click('replay-skip', () => this.callbacks.onReplaySkip?.());
     click('dialog-close', () => this.closeDialog());
     click('reload-button', () => window.location.reload());
     click('rematch-button', () => this.callbacks.onRestart?.());
@@ -129,6 +130,8 @@ class TakrawUI {
       event.preventDefault(); this.clubAction('rename', { name: document.getElementById('club-name').value });
     });
     this.listen(document, 'keydown', event => {
+      // 리플레이 중에는 Esc·Space·Enter가 건너뛰기다. 일시 정지 창은 리플레이가 끝난 뒤 연다.
+      if (this.replaying && !this.dialog && !event.repeat && ['Escape', 'Space', 'Enter', 'NumpadEnter'].includes(event.code)) { event.preventDefault(); this.callbacks.onReplaySkip?.(); return; }
       if (event.code === 'Escape' && this.drawStage) { event.preventDefault(); this.drawEscape(); return; }
       if (event.code === 'Escape') { event.preventDefault(); if (this.dialog === 'club' && this.clubSelection.detail) this.navigate('club'); else if (this.dialog) this.closeDialog(); else if (this.inGame) this.navigate('pause'); else if (this.homeView !== 'main') this.navigate(HOME_PARENT[this.homeView]); }
       if (this.dialog && event.code === 'Tab') this.trapFocus(event);
@@ -137,6 +140,7 @@ class TakrawUI {
       this.listen(button, 'pointerdown', event => {
         event.preventDefault(); event.stopPropagation();
         if (!this.inGame || this.dialog) return;
+        if (this.replaying) { this.callbacks.onReplaySkip?.(); return; }
         button.setPointerCapture(event.pointerId);
         const source = `touch:${event.pointerId}`;
         this.touch.active.set(event.pointerId, { button, action: button.dataset.touch, source });
@@ -156,6 +160,7 @@ class TakrawUI {
     }
     const pad = this.nodes['move-pad'];
     this.listen(pad, 'pointerdown', event => {
+      if (this.replaying && this.inGame && !this.dialog) { event.preventDefault(); this.callbacks.onReplaySkip?.(); return; }
       if (!this.inGame || this.dialog || this.touch.pointer !== null) return;
       event.preventDefault(); event.stopPropagation(); this.touch.pointer = event.pointerId;
       pad.setPointerCapture(event.pointerId); this.moveTouch(event);
@@ -881,6 +886,18 @@ class TakrawUI {
     badge.style.animation = 'none'; void badge.offsetWidth; badge.style.animation = '';
     this.timingToken = { grade: timing.grade };
     return this.timingToken;
+  }
+
+  /** 득점 리플레이 표시. reason('spike'|'rally')이면 보이고 null이면 숨긴다. 재생 중에는 화면 어디를 눌러도 건너뛴다. */
+  showReplay(reason) {
+    this.replaying = !!reason;
+    const overlay = document.getElementById('replay-overlay');
+    overlay.hidden = !reason;
+    if (reason) document.body.dataset.replay = reason; else delete document.body.dataset.replay;
+    if (reason) {
+      this.text('replay-reason', reason === 'spike' ? '스파이크 결정타' : '긴 랠리');
+      this.hideHitPop(this.hitPopToken); this.hideTiming(this.timingToken);
+    }
   }
 
   /** 큰 글자 팝업("SPIKE!" 등). 반환된 토큰으로 hideHitPop하면 그 표시만 지운다. */

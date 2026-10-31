@@ -61,6 +61,17 @@ const TAKRAW_RUNTIME = Object.freeze({
       { seed: 19, label: '받아내기 4번 · 13터치' },
     ],
   },
+  // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailTicks에서 경기를 멈추고 그 장면을 다시 그린다.
+  // 구간은 끝에서 leadTouches번째 터치의 leadTicks 앞부터(최대 maxSeconds초)다. 스파이크 앞 slowBefore~뒤 slowAfter 틱은 slowRate 배속이다.
+  // 카메라는 측면 중계 각도(yaw·pitch, 라디안)다. 온라인은 상대와 시계를 맞춰야 하므로 멈출 수 없어 제외한다.
+  highlight: {
+    modes: ['match', 'local'], longRallyTouches: 10, leadTouches: 3, leadTicks: 15, maxSeconds: 4, tailTicks: 40,
+    slowBefore: 8, slowAfter: 30, slowRate: 0.35, camera: { yaw: 1.05, pitch: 0.36 },
+    // 그림자 경기가 실제 경기 한 스텝마다 따라갈 수 있는 최대 틱 수. 1보다 커야 터치 사이에 벌어진 거리를 따라잡는다.
+    followSteps: 3,
+    // 워커가 이 시간(ms) 동안 다음 장면을 보내지 않으면 리플레이를 끝내고 경기를 이어 간다.
+    stallMs: 1000,
+  },
   clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },
   network: {
     timeout: 45000,

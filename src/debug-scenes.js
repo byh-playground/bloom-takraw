@@ -2,7 +2,7 @@
  * 주소로 여는 확인용 장면(`?debug=1&scene=이름&tick=N&…`). 일반 플레이에서는 로드되지 않는다.
  * 호스트는 파라미터를 해석하지 않으므로 값의 형식은 각 장면이 정하고, 틀리면 그대로 실패한다.
  */
-export function createDebugScenes({ config, openWatch, pulse, render, read, openClub, showClub }) {
+export function createDebugScenes({ config, openWatch, pulse, render, read, openClub, showClub, openMatch, readReplay }) {
   const QUANTUM = 1000 / config.simulation.tickRate;
   return {
     /** 시드 하나의 AI 대 AI 경기를 가상 시계로 틱 단위로 진행한다. */
@@ -27,6 +27,15 @@ export function createDebugScenes({ config, openWatch, pulse, render, read, open
         state: read,
         dispose() { performance.now = realNow; },
       };
+    },
+    /**
+     * 시드를 고정한 AI 대전을 실제 시간으로 연다(가상 시계 없음). 득점 리플레이는 워커가 계산해 보내므로 틱 단위로 멈춰 재현하지 않는다.
+     * every=1이면 모든 득점을 리플레이한다.
+     */
+    match({ seed, every }) {
+      if (!/^\d+$/.test(seed ?? '')) throw new Error(`match needs an integer seed: ${seed}`);
+      if (!openMatch(Number(seed), every === '1')) throw new Error('match could not start');
+      return { state: () => ({ ...read(), replay: readReplay() }) };
     },
     /**
      * 시드로 만든 새 클럽(메모리 저장)을 팀 관리 화면으로 연다. 실제 저장은 건드리지 않는다.

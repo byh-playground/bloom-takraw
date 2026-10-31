@@ -9,6 +9,7 @@ import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
 import { AudioPlayer } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { createValueCodec } from '@bloom-gamekit/deterministic';
+import { createSave, indexedDbAdapter, memoryAdapter } from '@bloom-gamekit/save';
 
 import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
@@ -20,7 +21,7 @@ import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
 import { takrawMatchStatus } from './presentation/match-status.js';
 import { takrawSoundPayload } from './presentation/sound.js';
-import { seedFromText } from './simulation/ai-brain.js';
+import { seedFromText, seededUnit } from './simulation/ai-brain.js';
 import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
 
@@ -1239,7 +1240,11 @@ async function bootTakraw() {
       observeSoon();
     },
   }, network);
-  club = new TakrawClub({ onChange: publishClub });
+  // 확인용 주소(?debug)는 실제 팀 저장을 읽지도 쓰지도 않는다. 모든 저장이 메모리에만 남는다.
+  const debugging = new URLSearchParams(location.search).has('debug');
+  const openClubSave = options => createSave({ ...options,
+    adapter: debugging ? memoryAdapter() : indexedDbAdapter({ database: 'bloom-takraw-club', store: 'club' }) });
+  club = new TakrawClub({ onChange: publishClub, openSave: openClubSave });
   // 소개영상 화면은 저장소를 읽지도 쓰지도 않는다(팀 생성·이어하기 포함). 관전은 클럽 없이 열린다.
   const clubLoad = demo ? Promise.resolve(null) : club.load().catch(error => { recordError(error, 'club-load'); return null; });
   listen(window, 'pagehide', () => runtime.dispose());
@@ -1324,6 +1329,15 @@ async function bootTakraw() {
         pulse: now => loop.pulse(now, { render: false, input: false }),
         render: now => renderScene(now),
         read: () => ({ mode, seed: watchSeed, tick: game.state.tick, score: [...game.state.score] }),
+        async openClub(seed) {
+          // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
+          let draws = 0;
+          club.dispose();
+          club = new TakrawClub({ onChange: publishClub, openSave: openClubSave, random: () => seededUnit(seed, draws++) });
+          await club.load();
+          return club;
+        },
+        showClub() { cancelAnimationFrame(animation); ui.navigate('club'); },
       }) });
     }
     if (!demo) {

@@ -69,4 +69,4 @@ Pages 소스는 `main /`입니다. [태그 워크플로](.github/workflows/game-
 
 제품 버전은 [관리 규칙 §2](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#version)의 MAJOR=제품 세대, MINOR=비호환 변경, PATCH=호환 변경을 따릅니다. 문서·CI·순수 내부 정리는 버전을 유지합니다. 이번 배포 운영 변경도 기존 제품 버전 `0.12.9`를 유지하며, 태그 날짜·커밋은 별도 제품 버전이 아닙니다.
 
-재접속은 살아 있는 상대와 기존 탭의 sessionStorage가 필요합니다. 양쪽 동시 종료·상대가 없는 방의 복원을 보장하지 않습니다. 같은 PC의 데스크톱 검사 결과를 다른 OS·모바일·외부 NAT 환경으로 확대하지 않습니다.
+재접속은 살아 있는 상대와 기존 탭의 sessionStorage(gamekit `save`의 방 복귀 레코드)가 필요합니다. 양쪽 동시 종료·상대가 없는 방의 복원을 보장하지 않습니다. 같은 PC의 데스크톱 검사 결과를 다른 OS·모바일·외부 NAT 환경으로 확대하지 않습니다.

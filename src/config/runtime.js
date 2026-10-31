@@ -112,7 +112,6 @@ const TAKRAW_RUNTIME = Object.freeze({
   },
   hud: { interval: 80 },
   audio: {
-    storageKey: 'bloom-takraw-audio',
     volume: 0.68,
     // 이전 값(threshold -18, ratio 6)은 소프트부터 스파이크까지의 음량 차이를 6dB에서 2dB로 눌렀다. 느슨하게 풀어 세기가 들리게 한다.
     headroom: 0.4,

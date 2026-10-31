@@ -6,10 +6,10 @@ import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation';
 import { createRoomSession, profiles } from '@bloom-gamekit/rollback';
 import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
-import { AudioPlayer } from '@bloom-gamekit/audio';
+import { AudioPlayer, audioSettings } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { createValueCodec } from '@bloom-gamekit/deterministic';
-import { createSave, indexedDbAdapter, memoryAdapter } from '@bloom-gamekit/save';
+import { createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter } from '@bloom-gamekit/save';
 
 import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
@@ -76,6 +76,15 @@ async function bootTakraw() {
   let mode = null;
   const demo = new URLSearchParams(location.search).get('showcaseDemo') === '1';
   if (demo) document.body.dataset.showcase = '';
+  // 저장소는 여기서만 고른다. 격리 장면(확인용 주소 ?debug, 소개영상 화면 ?showcaseDemo=1)은 모든 저장(팀·소리 설정·방 복귀)을
+  // 메모리에만 남겨 실제 저장을 읽지도 쓰지도 않는다. 방 복귀는 탭마다 따로이고 같은 게임 버전끼리만 이어지도록 sessionStorage에 버전을 붙여 둔다.
+  const isolated = demo || new URLSearchParams(location.search).has('debug');
+  const SAVE_STORES = {
+    club: () => indexedDbAdapter({ database: 'bloom-takraw-club', store: 'club' }),
+    settings: () => localStorageAdapter({ prefix: 'bloom-takraw:' }),
+    resume: () => localStorageAdapter({ storage: sessionStorage, prefix: `bloom-takraw:${TAKRAW_VERSION}:` }),
+  };
+  const saveAdapter = store => isolated ? memoryAdapter() : SAVE_STORES[store]();
   let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
   let watchPoint = { tick: null, restarting: false };
   // 득점 리플레이. 경기 시작 상태 + 입력으로 워커의 그림자 경기가 다시 계산한 장면을 그린다. 재생 중에는 경기 진행과 조작을 멈춘다.
@@ -122,15 +131,32 @@ async function bootTakraw() {
     ui.setBootStatus({ phase: bootstrapStage, message, isError });
   }
 
-  const resumeKey = `bloom-takraw:${TAKRAW_VERSION}:active-room`;
+  // 방 복귀: 마지막으로 연 방(activeRoom)과 transport의 방별 identity가 같은 어댑터의 레코드다.
+  const resumeAdapter = saveAdapter('resume');
+  const activeRoom = createSave({ adapter: resumeAdapter, key: 'active-room', version: 1, create: () => ({ room: null }),
+    validate(data) {
+      const value = data.room;
+      if (value !== null && (!value || !['host', 'join'].includes(value.role) || !/^\d{4}$/.test(value.room))) throw new TypeError('active room record');
+    } });
+
+  const soundSettings = createSave({ ...audioSettings(TAKRAW_RUNTIME.audio), adapter: saveAdapter('settings') });
+
+  /** 방 복귀 정보를 쓰지 못하면 연결 창의 안내 줄에 알린다. 경기는 그대로 이어지고 새로고침 뒤 복귀만 안 된다. */
+  function resumeSaveFailed(error) {
+    recordError(error, 'resume-save');
+    networkEvent('resume-save-failed', `${error?.kind || ''} ${error?.message || error}`);
+    setNetwork({ hint: '이전 경기 복귀 정보를 저장하지 못했어요. 새로고침하면 이 경기로 돌아올 수 없어요.' });
+  }
+
+  /** 새 방은 transport의 reset처럼 이전 복귀 정보(읽지 못한 기록 포함)를 버리고 이 방을 쓴다. */
+  function rememberRoom(value) {
+    return activeRoom.reset().then(() => activeRoom.update(draft => { draft.room = value; })).catch(resumeSaveFailed);
+  }
 
   function forgetRoom() {
-    try {
-      room?.forgetResume();
-      const saved = JSON.parse(sessionStorage.getItem(resumeKey) || 'null');
-      if (saved?.room) sessionStorage.removeItem(`${resumeKey}:${saved.room}`);
-      sessionStorage.removeItem(resumeKey);
-    } catch { /* Storage errors are reported when connecting. */ }
+    room?.forgetResume();
+    if (!activeRoom.data?.room) return;
+    activeRoom.update(draft => { draft.room = null; }).catch(resumeSaveFailed);
   }
 
   function maintainConnections() {
@@ -177,6 +203,16 @@ async function bootTakraw() {
     if (errors.length > 12) errors.shift();
     console.error(`[${TAKRAW_PRODUCT_NAME}]`, source, value);
     return value;
+  }
+
+  /** 소리 설정을 쓰지 못하면 설정 창의 효과음 줄에 알린다. 소리는 바꾼 대로 나고 저장만 안 된 상태다. */
+  function soundSaveFailed(error) {
+    recordError(error, 'sound-settings-save');
+    ui.setSound({ message: {
+      conflict: '다른 탭에서 소리 설정이 바뀌었어요. 새로고침하면 최신 설정을 불러와요.',
+      unreadable: '저장된 소리 설정을 확인할 수 없어요. 기존 설정은 보존했어요.',
+      storage: '소리 설정을 저장하지 못했어요. 브라우저 저장 권한을 확인해 주세요.',
+    }[error?.kind] ?? `소리 설정을 저장하지 못했어요. (${error?.message || error})` });
   }
 
   function setNetwork(value) {
@@ -1054,11 +1090,8 @@ async function bootTakraw() {
     if (!isReady() || disposed) return;
     if (action === 'close') { quit(); return; }
     if (action === 'resume') {
-      try {
-        const saved = JSON.parse(sessionStorage.getItem(resumeKey) || 'null');
-        if (saved && ['host', 'join'].includes(saved.role) && /^\d{4}$/.test(saved.room))
-          return connect(saved.role, saved.room, true);
-      } catch (error) { networkEvent('resume-unavailable', error.message); }
+      const saved = activeRoom.data?.room;
+      if (saved) return connect(saved.role, saved.room, true);
       setNetwork({ state: 'error', canResume: false, message: '다시 연결할 경기 정보가 없어요. 새 방을 만들어 주세요.' });
       return;
     }
@@ -1091,7 +1124,7 @@ async function bootTakraw() {
         role: action,
         room: roomCode,
         namespace: config.network.namespace,
-        resume: { storage: sessionStorage, key: `${resumeKey}:${roomCode}`, reset: !resuming },
+        resume: { adapter: resumeAdapter, key: `room:${roomCode}`, reset: !resuming },
         maxPlayers: 2,
         timeoutMs: TAKRAW_RUNTIME.network.timeout,
         peerTimeoutMs: TAKRAW_RUNTIME.network.peerTimeout,
@@ -1110,6 +1143,8 @@ async function bootTakraw() {
             connection.warning.atMs = performance.now();
             networkEvent(event.type === 'signaler' ? 'relay-error' : event.type, reason);
             setNetwork({ hint: connection.warning.message });
+          } else if (event.type === 'resume-save-failed') {
+            resumeSaveFailed(event.error);
           } else if (['peer-connected', 'room-ready', 'peer-disconnected'].includes(event.type)) {
             networkEvent(event.type, reason);
             if (event.type === 'peer-connected') setNetwork({ phase: '친구와 직접 연결됨', hint: '' });
@@ -1118,7 +1153,7 @@ async function bootTakraw() {
       });
       if (token !== run || disposed) { capability.close(); return; }
       room = capability;
-      sessionStorage.setItem(resumeKey, JSON.stringify({ role: action, room: capability.room }));
+      if (!resuming) rememberRoom({ role: action, room: capability.room });
       setNetwork({ canResume: true });
       networkEvent('room-created', `room=${capability.room} role=${action}`);
       openSession('online', capability, token);
@@ -1239,6 +1274,8 @@ async function bootTakraw() {
       clearTimeout(bgmDuckTimer);
       bgm = null;
       audio?.dispose();
+      soundSettings.dispose();
+      activeRoom.dispose();
       view?.dispose();
       highlight.dispose();
       game?.physics.dispose();
@@ -1302,13 +1339,16 @@ async function bootTakraw() {
       observeSoon();
     },
   }, network);
-  // 확인용 주소(?debug)는 실제 팀 저장을 읽지도 쓰지도 않는다. 모든 저장이 메모리에만 남는다.
-  const debugging = new URLSearchParams(location.search).has('debug');
-  const openClubSave = options => createSave({ ...options,
-    adapter: debugging ? memoryAdapter() : indexedDbAdapter({ database: 'bloom-takraw-club', store: 'club' }) });
+  const openClubSave = options => createSave({ ...options, adapter: saveAdapter('club') });
   club = new TakrawClub({ onChange: publishClub, openSave: openClubSave });
-  // 소개영상 화면은 저장소를 읽지도 쓰지도 않는다(팀 생성·이어하기 포함). 관전은 클럽 없이 열린다.
-  const clubLoad = demo ? Promise.resolve(null) : club.load().catch(error => { recordError(error, 'club-load'); return null; });
+  const clubLoad = club.load().catch(error => { recordError(error, 'club-load'); return null; });
+  // 소리 설정: 읽지 못하면 기본값으로 바꾸지 않는다. 원본을 그대로 두고 소리를 끈 채 설정 창에 알린다.
+  const soundLoad = soundSettings.load().then(() => true, error => { recordError(error, 'sound-settings-load'); return false; });
+  const activeRoomLoad = activeRoom.load().then(data => data.room, error => {
+    recordError(error, 'resume-load');
+    networkEvent('resume-unavailable', error.message);
+    return error;
+  });
   listen(window, 'pagehide', () => runtime.dispose());
   // BFCache에서는 이미 정리한 물리·저장 연결을 새 부팅으로 복원한다.
   window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
@@ -1325,8 +1365,14 @@ async function bootTakraw() {
     view = new TakrawView({ THREE, canvas: ui.canvas, config });
     bootstrapStage = 'controls';
     codec = createValueCodec();
-    audio = new AudioPlayer(TAKRAW_RUNTIME.audio);
-    audio.setMuted(ui.settings.sound === false);
+    if (await soundLoad) {
+      audio = new AudioPlayer({ ...TAKRAW_RUNTIME.audio, settings: soundSettings, onSaveError: soundSaveFailed });
+      ui.setSound({ on: !audio.muted, locked: false, message: '' });
+    } else {
+      audio = new AudioPlayer(TAKRAW_RUNTIME.audio);
+      audio.setMuted(true);
+      ui.setSound({ on: false, locked: true, message: '저장된 소리 설정을 확인할 수 없어요. 기존 설정은 보존했고 소리는 꺼 두었어요.' });
+    }
     view.setQuality(ui.settings.quality);
     actions = new ActionState();
     ui.canvas.tabIndex = 0;
@@ -1418,13 +1464,12 @@ async function bootTakraw() {
       listen(window, 'bloom-showcase-opened', () => { resume = Boolean(mode) && !paused; if (resume) setPaused(true); });
       listen(window, 'bloom-showcase-closed', () => { if (resume) setPaused(false); resume = false; });
     }
-    if (!demo) try {
-      const saved = JSON.parse(sessionStorage.getItem(resumeKey) || 'null');
-      if (saved && ['host', 'join'].includes(saved.role) && /^\d{4}$/.test(saved.room)) {
-        ui.openDialog('network');
-        void connect(saved.role, saved.room, true);
-      }
-    } catch (error) { networkEvent('resume-unavailable', error.message); }
+    // 이전 경기가 있으면 연결 창을 열어 다시 연결한다. 복귀 정보를 읽지 못했으면 같은 창에 알린다.
+    const saved = await activeRoomLoad;
+    if (saved) ui.openDialog('network');
+    if (saved instanceof Error) setNetwork({ state: 'error', canResume: false, phase: '이전 경기 복귀',
+      message: '이전 경기 복귀 정보를 확인할 수 없어요. 기존 정보는 보존했어요. 새 방을 만들면 지워져요.' });
+    else if (saved) void connect(saved.role, saved.room, true);
     return runtime;
   } catch (error) {
     recordError(error, 'bootstrap');

@@ -20,6 +20,7 @@ class TakrawUI {
     this.canvas = document.getElementById('court-canvas');
     this.canvas.tabIndex = -1;
     this.settings = { sound: true, quality: 'high' };
+    this.sound = { locked: false, message: '' }; // 소리 설정 저장 상태. 읽지 못하면 locked, 실패 문구는 message.
     this.inGame = false;
     this.mode = 'match';
     this.dialog = '';
@@ -720,8 +721,15 @@ class TakrawUI {
     if (action === 'release') this.clubAction('resolve', { release: button.dataset.value });
   }
 
+  /** 소리 설정 저장의 현재 값과 상태를 받는다. 설정 창이 열려 있으면 바로 다시 그린다. */
+  setSound({ on = this.settings.sound, locked = this.sound.locked, message = this.sound.message }) {
+    this.settings.sound = on; this.sound = { locked, message };
+    if (this.dialog === 'settings') this.nodes['dialog-content'].innerHTML = this.settingsContent();
+  }
+
   settingsContent() {
-    return `<div class="settings-row"><div><strong>효과음</strong><small>발끝의 접촉과 랠리의 리듬</small></div><button type="button" class="toggle-button" role="switch" aria-label="효과음" aria-checked="${this.settings.sound}" data-dialog-action="sound"></button></div>
+    const status = this.sound.message ? `<p class="room-status error" role="status">${this.escape(this.sound.message)}</p>` : '';
+    return `<div class="settings-row"><div><strong>효과음</strong><small>발끝의 접촉과 랠리의 리듬</small></div><button type="button" class="toggle-button" role="switch" aria-label="효과음" aria-checked="${this.settings.sound}" ${this.sound.locked ? 'disabled' : ''} data-dialog-action="sound"></button></div>${status}
       <div class="settings-row"><div><strong>화면 품질</strong><small>느린 기기에서는 가볍게</small></div><div class="segmented" role="group" aria-label="화면 품질"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">가볍게</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">선명하게</button></div></div>
       <div class="settings-row"><div><strong>카메라</strong><small>${this.coarse.matches ? '공과 선수를 따라가는 기본 시점' : '우클릭 드래그로 회전 · C로 기본 시점'}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">시점 초기화</button></div>
       <p class="key-tip">화면 품질을 바꿔도 공의 움직임과 경기 규칙은 같아요.</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">완료</button></div>`;

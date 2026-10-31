@@ -651,6 +651,9 @@ class TakrawView {
     this.cameraRig.orbit.pitch = Math.atan2(s.elevation, s.distance);
   }
 
+  /** 다음 렌더에서 카메라가 시간 보간 없이 현재 대상 위치로 곧장 간다. 확인용 장면이 같은 틱에서 같은 구도를 얻게 한다. */
+  snapCamera() { this.cameraRig.initialized = false; }
+
   screenMovement(right, back, team = this.cameraRig.team) {
     const toward = team === 1 ? -1 : 1, yaw = this.cameraRig.orbit.yaw;
     const length = Math.max(1, Math.hypot(right, back));

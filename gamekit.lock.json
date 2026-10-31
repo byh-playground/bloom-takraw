@@ -42,6 +42,10 @@
     "scenario": {
       "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@4db872aaba543010424ca2200b134181b246336c/scenario.js",
       "sha256": "b21a2be85b497588589c796f8e95f932c464474cc4ea3f703a8718e96a9946ce"
+    },
+    "debug-tools": {
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@7ce71bc88aa07e097588c780d746f3b18b9ba4e3/debug-tools.js",
+      "sha256": "bd077de55035f4e258d341318108b32613de5153d09aa5f6edca6ad31eedb4a4"
     }
   },
   "external": {

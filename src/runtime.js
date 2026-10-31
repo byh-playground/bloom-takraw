@@ -1310,6 +1310,22 @@ async function bootTakraw() {
     animation = requestAnimationFrame(frame);
     const query = new URLSearchParams(location.search), watchParam = query.get(TAKRAW_RUNTIME.watch.param);
     if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
+    if (query.has('debug')) {
+      // 확인용 주소(`?debug=1&scene=…`)일 때만 불러온다. 실시간 구동을 멈추고 가상 시계로 틱을 직접 진행한다.
+      const [{ installDebugHost }, { createDebugScenes }] = await Promise.all([import('@bloom-gamekit/debug-tools'), import('./debug-scenes.js')]);
+      installDebugHost({ scenes: createDebugScenes({
+        config,
+        openWatch(seed) {
+          if (!startWatch(seed)) return false;
+          cancelAnimationFrame(animation);
+          pump.stop();
+          return true;
+        },
+        pulse: now => loop.pulse(now, { render: false, input: false }),
+        render: now => renderScene(now),
+        read: () => ({ mode, seed: watchSeed, tick: game.state.tick, score: [...game.state.score] }),
+      }) });
+    }
     if (!demo) {
       // 소개영상이 열려 있는 동안 뒤의 경기는 멈춘다(호스트 요구). 닫으면 이전 상태로 돌아간다.
       let resume = false;

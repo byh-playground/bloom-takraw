@@ -32,7 +32,7 @@ class TakrawUI {
     this.cache = new Map();
     this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], draw: { pending: null }, lineup: {}, record: {} };
     // pick: 편성 교체 중인 선택({ type: 'player' | 'slot', id }), detail: 능력치를 펼친 선수 id. 모두 화면 안에서만 산다.
-    this.clubSelection = { tab: 'roster', pick: null, detail: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
+    this.clubSelection = { tab: 'roster', pick: null, detail: null, opener: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
     this.campaignIntro = { step: 0, replay: false }; // 도장깨기 소개 카드: 몇 번째 장인지, 이미 본 뒤 다시 보는 중인지
     this.clubBusy = false; this.clubNotice = ''; this.drawStage = null; this.drawTimer = 0;
     this.nodes = {};
@@ -277,7 +277,12 @@ class TakrawUI {
       const wasOpen = this.dialog === page, previous = this.clubSelection.detail;
       if (page === 'club') this.clubSelection.detail = param || null;
       this.openDialog(page);
-      if (wasOpen && page === 'club') this.renderClub(param ? 'detail-heading' : `info-${previous}`, true);
+      if (wasOpen && page === 'club') {
+        // 상세에서 돌아오면 상세를 연 ⓘ(선발 칸이든 선수 카드든)로 포커스를 돌려준다.
+        const opener = param ? null : this.clubSelection.opener || `info-${previous}`;
+        if (!param) this.clubSelection.opener = null;
+        this.renderClub(param ? 'detail-heading' : opener, true);
+      }
     } else {
       if (!route && this.inGame) { this.quit(); return; }
       this.hideDialog(true);
@@ -591,7 +596,7 @@ class TakrawUI {
       if (pick?.type === 'player') this.clubAction('assign', { role:value, playerId:pick.id });
       else { selection.pick = pick?.id === value ? null : { type:'slot', id:value }; this.renderClub(`lineup-${value}`); }
     }
-    if (action === 'info') { selection.pick = null; this.navigate(`club/${value}`); }
+    if (action === 'info') { selection.pick = null; selection.opener = button.dataset.clubFocus; this.navigate(`club/${value}`); }
     if (action === 'tab') {
       if (!['roster','draw'].includes(value)) return;
       selection.tab = value; selection.pick = null; this.renderClub(`tab-${value}`, true);

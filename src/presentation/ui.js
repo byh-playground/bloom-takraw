@@ -23,7 +23,6 @@ class TakrawUI {
     this.settings = { sound: true, quality: 'high' };
     this.sound = { locked: false, message: '' }; // 소리 설정 저장 상태. 읽지 못하면 locked, 실패 문구는 message.
     this.installable = false; // PWA 설치 창을 띄울 수 있을 때 true(registerPwa의 onInstallable)
-    this.statusAction = () => window.location.reload(); // 상태 줄 버튼이 할 일
     this.inGame = false;
     this.mode = 'match';
     this.dialog = '';
@@ -93,7 +92,7 @@ class TakrawUI {
     click('pause-button', () => this.navigate('pause'));
     click('replay-skip', () => this.callbacks.onReplaySkip?.());
     click('dialog-close', () => this.closeDialog());
-    click('reload-button', () => this.statusAction());
+    click('reload-button', () => window.location.reload());
     click('rematch-button', () => this.callbacks.onRestart?.());
     click('training-reset', () => this.callbacks.onRestart?.());
     const lessonSelect = document.getElementById('training-lesson');
@@ -234,17 +233,14 @@ class TakrawUI {
   }
 
   /**
-   * 처음 화면의 상태 줄. 오류는 기본으로 "다시 열기"를 붙이고, action({label, run})을 주면 그 버튼을, null이면 버튼 없이 띄운다.
-   * 준비를 마친 뒤에는 문구가 있을 때만 보인다(새 버전 알림·PWA 오류).
+   * 처음 화면의 상태 줄. 오류는 기본으로 "다시 열기"를 붙이고, reload: false면 버튼 없이 띄운다.
+   * 준비를 마친 뒤에는 문구가 있을 때만 보인다(PWA 오류).
    */
-  setBootStatus({ phase, message, isError, action = isError ? { label: '다시 열기', run: () => window.location.reload() } : null }) {
+  setBootStatus({ phase, message, isError, reload = isError }) {
     this.nodes['boot-message'].textContent = message;
     this.nodes['boot-status'].classList.toggle('error', isError);
-    this.nodes['boot-status'].classList.toggle('notice', !isError && Boolean(message) && phase === 'ready');
     this.nodes['boot-status'].classList.toggle('ready', phase === 'ready' && !isError && !message);
-    this.nodes['reload-button'].hidden = !action;
-    this.nodes['reload-button'].textContent = action?.label ?? '다시 열기';
-    this.statusAction = action?.run ?? (() => window.location.reload());
+    this.nodes['reload-button'].hidden = !reload;
     this.updateStartButtons();
   }
 

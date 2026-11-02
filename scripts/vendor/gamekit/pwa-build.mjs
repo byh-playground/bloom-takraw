@@ -1,6 +1,5 @@
 // modules/pwa/build.js
-import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 var MARKER_START = "<!-- bloom-pwa:start -->";
 var MARKER_END = "<!-- bloom-pwa:end -->";
@@ -16,7 +15,7 @@ var IMAGES = Object.freeze({
   apple: "pwa/apple-touch-icon.png",
   share: "pwa/share.png"
 });
-var GAMEKIT_URL = /https:\/\/cdn\.jsdelivr\.net\/gh\/byh-playground\/bloom-gamekit@[0-9a-f]{40}\/[A-Za-z0-9._/-]+/g;
+var GAMEKIT_URL = /https:\/\/cdn\.jsdelivr\.net\/gh\/byh-playground\/bloom-gamekit@[0-9a-f]{40}\/[A-Za-z0-9._/-]+/;
 var TEXT_FILE = /\.(?:html?|m?js|css|json|webmanifest|svg|txt)$/i;
 var OPTION_KEYS = /* @__PURE__ */ new Set([
   "chromium",
@@ -33,15 +32,33 @@ var OPTION_KEYS = /* @__PURE__ */ new Set([
   "scope",
   "siteUrl",
   "html",
-  "precache",
   "out",
   "check"
 ]);
-var SHA256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 var POSIX = (path) => path.split(sep).join("/");
 var IS_TEXT = (path) => TEXT_FILE.test(path);
-var CANONICAL = (path, bytes) => IS_TEXT(path) ? Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8") : bytes;
-var ESCAPE = (value) => String(value).replace(/[&"<>]/g, (char) => ({ "&": "&amp;", '"': "&quot;", "<": "&lt;", ">": "&gt;" })[char]);
+var HEAD_LAYOUT = (text) => {
+  const START = text.indexOf(MARKER_START);
+  const END = text.indexOf(MARKER_END, START);
+  if (START < 0 || END < 0) {
+    return text;
+  }
+  const BLOCK = text.slice(START, END).replace(/"[^"]*"|'[^']*'|\s+/g, (token) => /^\s/.test(token) ? " " : token).replace(/ ?\/>/g, ">");
+  return text.slice(0, START) + BLOCK + text.slice(END);
+};
+var CANONICAL = (path, bytes) => {
+  if (!IS_TEXT(path)) {
+    return bytes;
+  }
+  const TEXT = bytes.toString("utf8").replace(/\r\n/g, "\n");
+  return Buffer.from(/\.html?$/i.test(path) ? HEAD_LAYOUT(TEXT) : TEXT, "utf8");
+};
+var ATTRIBUTE = (value) => {
+  const TEXT = String(value).replace(/[&<>]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[char]);
+  const DOUBLE = (TEXT.match(/"/g) ?? []).length;
+  const SINGLE = (TEXT.match(/'/g) ?? []).length;
+  return DOUBLE > SINGLE ? `'${TEXT.replace(/'/g, "&apos;")}'` : `"${TEXT.replace(/"/g, "&quot;")}"`;
+};
 function fail(message) {
   throw new Error(`buildPwa: ${message}`);
 }
@@ -85,9 +102,6 @@ function readOptions(options) {
   if (typeof options.check !== "boolean") {
     fail("check must be true or false");
   }
-  if (!Array.isArray(options.precache) || options.precache.length === 0) {
-    fail("precache must be a non-empty array of path patterns");
-  }
   let site;
   try {
     site = new URL(options.siteUrl);
@@ -105,75 +119,6 @@ function inside(root, path, label) {
     fail(`${label} must be inside out: ${path}`);
   }
   return POSIX(RELATIVE);
-}
-function patternRegExp(pattern) {
-  let source = "";
-  for (let index = 0; index < pattern.length; index++) {
-    const CHAR = pattern[index];
-    if (CHAR === "*" && pattern[index + 1] === "*") {
-      const SLASH = pattern[index + 2] === "/";
-      source += SLASH ? "(?:.*/)?" : ".*";
-      index += SLASH ? 2 : 1;
-    } else if (CHAR === "*") {
-      source += "[^/]*";
-    } else {
-      source += CHAR.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-    }
-  }
-  return new RegExp(`^${source}$`);
-}
-async function walk(directory) {
-  let entries;
-  try {
-    entries = await readdir(directory, { withFileTypes: true });
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      return [];
-    }
-    throw error;
-  }
-  const FILES = [];
-  for (const ENTRY of entries) {
-    const PATH = resolve(directory, ENTRY.name);
-    if (ENTRY.isDirectory()) {
-      if (ENTRY.name !== "node_modules" && !ENTRY.name.startsWith(".")) {
-        FILES.push(...await walk(PATH));
-      }
-    } else if (ENTRY.isFile()) {
-      FILES.push(PATH);
-    }
-  }
-  return FILES;
-}
-async function expandPrecache(cwd, patterns) {
-  const FILES = /* @__PURE__ */ new Set();
-  for (const PATTERN of patterns) {
-    if (typeof PATTERN !== "string" || PATTERN === "" || PATTERN.startsWith("/") || PATTERN.includes("\\")) {
-      fail(`precache patterns must be relative POSIX paths: ${PATTERN}`);
-    }
-    if (PATTERN.split("/").includes("..")) {
-      fail(`precache patterns must not contain "..": ${PATTERN}`);
-    }
-    const SEGMENTS = PATTERN.split("/");
-    const STATIC = [];
-    for (const SEGMENT of SEGMENTS) {
-      if (SEGMENT.includes("*")) {
-        break;
-      }
-      STATIC.push(SEGMENT);
-    }
-    const REGEXP = patternRegExp(PATTERN.replace(/^\.\//, ""));
-    const MATCHED = STATIC.length === SEGMENTS.length ? (await walk(resolve(cwd, ...STATIC.slice(0, -1)))).filter(
-      (file) => POSIX(relative(cwd, file)) === PATTERN.replace(/^\.\//, "")
-    ) : (await walk(resolve(cwd, ...STATIC))).filter((file) => REGEXP.test(POSIX(relative(cwd, file))));
-    if (MATCHED.length === 0) {
-      fail(`precache pattern matched no file: ${PATTERN}`);
-    }
-    for (const FILE of MATCHED) {
-      FILES.add(FILE);
-    }
-  }
-  return [...FILES];
 }
 async function readSource(cwd, path, label) {
   try {
@@ -202,9 +147,9 @@ async function rasterize(chromium, sources, jobs) {
             return `viewBox must have aspect ${aspect.toFixed(4)} (got ${BOX.width}x${BOX.height})`;
           }
           for (const ELEMENT of DOCUMENT.querySelectorAll("*")) {
-            for (const ATTRIBUTE of ELEMENT.attributes) {
-              if (ATTRIBUTE.localName === "href" && !ATTRIBUTE.value.startsWith("#") && !ATTRIBUTE.value.startsWith("data:")) {
-                return `must not reference external files (${ATTRIBUTE.value})`;
+            for (const ATTRIBUTE2 of ELEMENT.attributes) {
+              if (ATTRIBUTE2.localName === "href" && !ATTRIBUTE2.value.startsWith("#") && !ATTRIBUTE2.value.startsWith("data:")) {
+                return `must not reference external files (${ATTRIBUTE2.value})`;
               }
             }
           }
@@ -279,54 +224,60 @@ function headBlock(html, tags) {
   return [BEFORE + MARKER_START, ...tags.map((tag) => INDENT + tag), INDENT + MARKER_END + AFTER].join(EOL);
 }
 function serviceWorker(config) {
-  const SCOPE = self.registration.scope;
-  const PREFIX = `bloom-pwa:${new URL(SCOPE).pathname}:`;
-  const CACHE = PREFIX + config.version;
-  const RUNTIME = PREFIX + "gamekit";
+  const PREFIX = `bloom-pwa:${new URL(self.registration.scope).pathname}:`;
+  const RUNTIME = PREFIX + "runtime";
+  const GAMEKIT_CACHE = PREFIX + "gamekit";
   const GAMEKIT = new RegExp(config.gamekit);
-  self.addEventListener("install", (event) => {
-    event.waitUntil(
-      caches.open(CACHE).then(
-        (cache) => cache.addAll(
-          config.precache.map(
-            (url) => GAMEKIT.test(url) ? new Request(url, { mode: "cors" }) : new Request(url, { cache: "reload" })
-          )
-        )
-      )
-    );
+  self.addEventListener("install", () => {
+    self.skipWaiting();
   });
   self.addEventListener("activate", (event) => {
     event.waitUntil(
-      caches.keys().then(
-        (keys) => Promise.all(
-          keys.filter((key) => key.startsWith(PREFIX) && key !== CACHE && key !== RUNTIME).map((key) => caches.delete(key))
+      Promise.all([
+        self.clients.claim(),
+        caches.keys().then(
+          (keys) => Promise.all(
+            keys.filter((key) => key.startsWith(PREFIX) && key !== RUNTIME && key !== GAMEKIT_CACHE).map((key) => caches.delete(key))
+          )
         )
-      ).then(() => self.clients.claim())
+      ])
     );
   });
-  self.addEventListener("message", (event) => {
-    if (event.data?.type === config.activateMessage) {
-      self.skipWaiting();
-    }
-  });
-  async function sameOrigin(request) {
-    const STORE = await caches.open(CACHE);
+  async function offline(request, error) {
+    const STORE = await caches.open(RUNTIME);
     const NAVIGATE = request.mode === "navigate";
     let response = await STORE.match(request, { ignoreSearch: NAVIGATE });
     const ADDRESS = new URL(request.url);
     if (!response && NAVIGATE && ADDRESS.pathname.endsWith("/")) {
       response = await STORE.match(new URL("index.html", ADDRESS).href);
     }
-    return response ?? fetch(request);
+    if (!response) {
+      throw error;
+    }
+    return response;
+  }
+  async function sameOrigin(event) {
+    const REQUEST = event.request;
+    let response;
+    try {
+      response = await fetch(REQUEST, { cache: "no-cache" });
+    } catch (error) {
+      return offline(REQUEST, error);
+    }
+    if (response.status === 200) {
+      const COPY = response.clone();
+      event.waitUntil(caches.open(RUNTIME).then((store) => store.put(REQUEST, COPY)));
+    }
+    return response;
   }
   async function gamekit(request) {
-    const CACHED = await caches.match(request);
+    const STORE = await caches.open(GAMEKIT_CACHE);
+    const CACHED = await STORE.match(request);
     if (CACHED) {
       return CACHED;
     }
     const RESPONSE = await fetch(request);
     if (RESPONSE.ok) {
-      const STORE = await caches.open(RUNTIME);
       await STORE.put(request, RESPONSE.clone());
     }
     return RESPONSE;
@@ -337,7 +288,7 @@ function serviceWorker(config) {
       return;
     }
     if (new URL(REQUEST.url).origin === self.location.origin) {
-      event.respondWith(sameOrigin(REQUEST));
+      event.respondWith(sameOrigin(event));
     } else if (GAMEKIT.test(REQUEST.url)) {
       event.respondWith(gamekit(REQUEST));
     }
@@ -359,7 +310,6 @@ async function buildPwa(options) {
     scope: SCOPE,
     siteUrl: SITE_URL,
     html: HTML,
-    precache: PRECACHE,
     out: OUT,
     check: CHECK
   } = readOptions(options);
@@ -376,7 +326,6 @@ async function buildPwa(options) {
   if (!SCOPE_URL.pathname.endsWith("/") || !START.pathname.startsWith(SCOPE_URL.pathname)) {
     fail('scope must be a folder ("./") that contains startUrl');
   }
-  const START_FILE = (START.pathname.endsWith("/") ? START.pathname + "index.html" : START.pathname).slice(1);
   const SOURCES = {
     icon: { svg: await readSource(CWD, ICON, "icon"), aspect: 1 },
     share: { svg: await readSource(CWD, SHARE, "share"), aspect: SHARE_SIZE.width / SHARE_SIZE.height }
@@ -422,59 +371,23 @@ async function buildPwa(options) {
   const HREF = (file) => POSIX(relative(dirname(HTML_PATH), resolve(OUT_DIR, file)));
   const PAGE_URL = new URL(HTML_FILE.replace(/(^|\/)index\.html$/, "$1"), SITE_URL).href;
   const TAGS = [
-    `<link rel="manifest" href="${ESCAPE(HREF(MANIFEST_FILE))}">`,
-    `<meta name="theme-color" content="${ESCAPE(THEME_COLOR)}">`,
-    `<meta name="description" content="${ESCAPE(DESCRIPTION)}">`,
-    `<link rel="icon" type="image/png" sizes="192x192" href="${ESCAPE(HREF(IMAGES.icon192))}">`,
-    `<link rel="apple-touch-icon" href="${ESCAPE(HREF(IMAGES.apple))}">`,
-    `<meta name="apple-mobile-web-app-title" content="${ESCAPE(SHORT_NAME)}">`,
-    '<meta property="og:type" content="website">',
-    `<meta property="og:url" content="${ESCAPE(PAGE_URL)}">`,
-    `<meta property="og:title" content="${ESCAPE(NAME)}">`,
-    `<meta property="og:description" content="${ESCAPE(DESCRIPTION)}">`,
-    `<meta property="og:image" content="${ESCAPE(new URL(IMAGES.share, SITE_URL).href)}">`,
-    `<meta property="og:image:width" content="${SHARE_SIZE.width}">`,
-    `<meta property="og:image:height" content="${SHARE_SIZE.height}">`,
-    '<meta name="twitter:card" content="summary_large_image">'
+    `<link rel="manifest" href=${ATTRIBUTE(HREF(MANIFEST_FILE))} />`,
+    `<meta name="theme-color" content=${ATTRIBUTE(THEME_COLOR)} />`,
+    `<meta name="description" content=${ATTRIBUTE(DESCRIPTION)} />`,
+    `<link rel="icon" type="image/png" sizes="192x192" href=${ATTRIBUTE(HREF(IMAGES.icon192))} />`,
+    `<link rel="apple-touch-icon" href=${ATTRIBUTE(HREF(IMAGES.apple))} />`,
+    `<meta name="apple-mobile-web-app-title" content=${ATTRIBUTE(SHORT_NAME)} />`,
+    '<meta property="og:type" content="website" />',
+    `<meta property="og:url" content=${ATTRIBUTE(PAGE_URL)} />`,
+    `<meta property="og:title" content=${ATTRIBUTE(NAME)} />`,
+    `<meta property="og:description" content=${ATTRIBUTE(DESCRIPTION)} />`,
+    `<meta property="og:image" content=${ATTRIBUTE(new URL(IMAGES.share, SITE_URL).href)} />`,
+    `<meta property="og:image:width" content="${SHARE_SIZE.width}" />`,
+    `<meta property="og:image:height" content="${SHARE_SIZE.height}" />`,
+    '<meta name="twitter:card" content="summary_large_image" />'
   ];
   OUTPUTS.set(HTML_FILE, Buffer.from(headBlock(await readSource(CWD, HTML, "html"), TAGS), "utf8"));
-  const LOCAL = /* @__PURE__ */ new Map();
-  for (const FILE of await expandPrecache(CWD, PRECACHE)) {
-    const PATH = inside(OUT_DIR, FILE, "precache file");
-    if (PATH === WORKER_FILE) {
-      fail(`${WORKER_FILE} must not be precached; the browser checks it on every visit`);
-    }
-    LOCAL.set(PATH, OUTPUTS.get(PATH) ?? await readFile(FILE));
-  }
-  for (const FILE of [MANIFEST_FILE, IMAGES.icon192, IMAGES.icon512, IMAGES.maskable, IMAGES.apple]) {
-    LOCAL.set(FILE, OUTPUTS.get(FILE));
-  }
-  if (!LOCAL.has(HTML_FILE)) {
-    fail(`precache must include ${HTML_FILE} so the game starts offline`);
-  }
-  if (!LOCAL.has(START_FILE)) {
-    fail(`precache must include ${START_FILE} (startUrl ${START_URL})`);
-  }
-  const LOCAL_FILES = [...LOCAL.keys()].sort();
-  const REMOTE = /* @__PURE__ */ new Set();
-  for (const FILE of LOCAL_FILES.filter(IS_TEXT)) {
-    for (const ADDRESS of LOCAL.get(FILE).toString("utf8").match(GAMEKIT_URL) ?? []) {
-      REMOTE.add(ADDRESS);
-    }
-  }
-  const REMOTE_URLS = [...REMOTE].sort();
-  const VERSION = SHA256(
-    [...LOCAL_FILES.map((file) => `${file}
-${SHA256(CANONICAL(file, LOCAL.get(file)))}`), ...REMOTE_URLS].join(
-      "\n"
-    )
-  ).slice(0, 16);
-  const CONFIG = {
-    version: VERSION,
-    activateMessage: "bloom-pwa:activate",
-    gamekit: `^${GAMEKIT_URL.source}$`,
-    precache: [...LOCAL_FILES, ...REMOTE_URLS]
-  };
+  const CONFIG = { gamekit: `^${GAMEKIT_URL.source}$` };
   OUTPUTS.set(
     WORKER_FILE,
     Buffer.from(

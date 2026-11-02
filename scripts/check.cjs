@@ -36,7 +36,7 @@ for (const [name, entry] of Object.entries(lock.tools)) {
   requireCondition(digest === entry.sha256, `GameKit tool digest mismatch: ${name}`);
 }
 for (const [name, url] of Object.entries(lock.external)) requireCondition(map[name] === url, `External link drift: ${name}`);
-// 커밋된 manifest·아이콘·sw.js·<head> 태그가 원본(assets/pwa, precache 파일)과 같은지 확인한다. 다르면 `node scripts/pwa.mjs`로 다시 만든다.
+// 커밋된 manifest·아이콘·sw.js·<head> 태그가 원본(assets/pwa, scripts/pwa.mjs 설정)과 같은지 확인한다. 다르면 `node scripts/pwa.mjs`로 다시 만든다.
 execFileSync(process.execPath, [path.join(root, 'scripts/pwa.mjs'), '--check'], { cwd: root, stdio: 'inherit' });
 // 게임 이름의 단일 출처(src/config/game.js)와 정적 파일의 일치를 검사한다.
 const product = fs.readFileSync(path.join(root, 'src/config/game.js'), 'utf8').match(/TAKRAW_GAME_NAME = '([^']+)'/)[1];

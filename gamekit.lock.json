@@ -1,65 +1,65 @@
 {
   "repository": "byh-playground/bloom-gamekit",
-  "distCommit": "2fb6332f54a7dc602c3743f516afed1f9a8b3229",
-  "manifestUrl": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/manifest.json",
+  "distCommit": "c819a0b48fb650ee8222f7d5ea90a63a2b9306d1",
+  "manifestUrl": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/manifest.json",
   "modules": {
     "input": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/input.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/input.js",
       "sha256": "a969755a39702723b35b6a1503e9b2e53a431ea91845017474c979752fdfb51f"
     },
     "simloop": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/simloop.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/simloop.js",
       "sha256": "c25a8f7f4999e4fe8beb6b08167fa4d0934c34098db2bf912335e81db53c4ef8"
     },
     "interpolation": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/interpolation.js",
-      "sha256": "acad7ad93615633609a62e484bff918980fc84282840db9b5cd108e8f5bb133a"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/interpolation.js",
+      "sha256": "854e90343fba611d4f0d118048c33256624543c454c9134e0c4b5cd18d14a509"
     },
     "rollback": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/rollback.js",
-      "sha256": "1984d45654284e3c20a467a1b29318e91c2b79b9639f8b2e969b0ea67d251d2a"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/rollback.js",
+      "sha256": "10a057e4d6e47e9d095ddfe323100e50f0e347d7f5db93b979cd456c1c22a030"
     },
     "transport": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/transport.js",
-      "sha256": "06361120228fe158e8751a1a703e7d38a4680a4e0f00d2473e4de8da2f4468af"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/transport.js",
+      "sha256": "8f7f9d68a2be3b1c7839ab0f975178b0bed4f454496ad4e91a5c28e6e3f0a6d3"
     },
     "audio": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/audio.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/audio.js",
       "sha256": "baf50e63457ccc7e66859ee9018049b0f53ef49e5b7c90b1395d2995bdcf6df1"
     },
     "presentation-events": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/presentation-events.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/presentation-events.js",
       "sha256": "f7ef72116be78d348a6e45a5e47a23aad8d2f0be8c1401c69b9dea7e51d4ea55"
     },
     "deterministic": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/deterministic.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/deterministic.js",
       "sha256": "1917d9766f1a1a2bbd4eab3bf214205979e7881c8cfb34cd1183f462a47ba62f"
     },
     "object-pool": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/object-pool.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/object-pool.js",
       "sha256": "4291d6d90f23b47024153e2d2db9e1af7f8b78586c8c0ee279621d42dc54f10b"
     },
     "scenario": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/scenario.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/scenario.js",
       "sha256": "b21a2be85b497588589c796f8e95f932c464474cc4ea3f703a8718e96a9946ce"
     },
     "debug-tools": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/debug-tools.js",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/debug-tools.js",
       "sha256": "bd077de55035f4e258d341318108b32613de5153d09aa5f6edca6ad31eedb4a4"
     },
     "save": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/save.js",
-      "sha256": "50164b43313c93dca7ebf076456a3b319b0825a0b5c6f5712af8d3286d604cfc"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/save.js",
+      "sha256": "540b2af25e91bd6b5683c3ae8f80484a951baea9dc90452233dd72c26a4696ed"
     },
     "pwa": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/pwa.js",
-      "sha256": "7ae82847f3bfb9707bc1e59eedcc3983363a38081b68525669467601989fe895"
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/pwa.js",
+      "sha256": "295b5918d9c6c92d2b973496019bb4c108dd36372ea93af55d1e5eccb4259b97"
     }
   },
   "tools": {
     "pwa-build": {
-      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@2fb6332f54a7dc602c3743f516afed1f9a8b3229/pwa-build.mjs",
-      "sha256": "dc00f87aa0194ec9721b1949888c310c219238fb9c2562704300d3cbd0003858",
+      "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@c819a0b48fb650ee8222f7d5ea90a63a2b9306d1/pwa-build.mjs",
+      "sha256": "f4f213c2bec77e4cce2c6fa64434d127b09d382f75b487c9a55750bac1bea80f",
       "file": "scripts/vendor/gamekit/pwa-build.mjs"
     }
   },

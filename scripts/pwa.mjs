@@ -19,8 +19,6 @@ await buildPwa({
   scope: './',
   siteUrl: 'https://byh-playground.github.io/bloom-takraw/',
   html: 'index.html',
-  // 시작에 필요한 같은 origin 파일 전부. three·rapier(npm CDN)는 서비스 워커가 캐시하지 않는다.
-  precache: ['index.html', 'src/**', 'styles/**', 'assets/audio/*.ogg'],
   out: '.',
   check: process.argv.includes('--check'),
 });

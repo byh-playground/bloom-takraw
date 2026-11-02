@@ -128,7 +128,7 @@ async function bootTakraw() {
     return nextMode === 'local' || nextMode === 'online' || nextMode === 'watch';
   }
 
-  // 상태 줄을 비울 때(경기 시작·처음 화면 복귀)도 새 버전·PWA 오류 알림은 남긴다.
+  // 상태 줄을 비울 때(경기 시작·처음 화면 복귀)도 PWA 오류 알림은 남긴다.
   let appNotice = null;
   function showBootStatus(message = '', isError = false) {
     if (!message && !isError && appNotice) ui.setBootStatus({ phase: bootstrapStage, ...appNotice });
@@ -136,20 +136,18 @@ async function bootTakraw() {
   }
   function showAppNotice(notice) { appNotice = notice; showBootStatus(); }
 
-  // 설치·오프라인 시작(sw.js). 격리 장면(?debug, ?showcaseDemo=1)은 등록하지 않는다. 새 버전과 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
+  // 설치·오프라인 시작(sw.js). 새로고침하면 항상 최신 버전이라 업데이트 알림은 없다. 격리 장면(?debug, ?showcaseDemo=1)은 등록하지 않는다. 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
   let pwa = null;
   function startPwa() {
     pwa = registerPwa({
       serviceWorker: './sw.js',
-      onUpdate: () => showAppNotice({ message: '새 버전이 있어요.', isError: false,
-        action: { label: '새로고침', run: () => pwa.update().catch(error => pwaFailed(error)) } }),
       onError: error => pwaFailed(error),
       onInstallable: () => ui.setInstallable(true),
     });
   }
   function pwaFailed(error) {
     recordError(error, 'pwa');
-    showAppNotice({ message: `설치·오프라인 준비에 실패했어요. 게임은 그대로 할 수 있어요. (${error?.message || error})`, isError: true, action: null });
+    showAppNotice({ message: `설치·오프라인 준비에 실패했어요. 게임은 그대로 할 수 있어요. (${error?.message || error})`, isError: true, reload: false });
   }
   async function installPwa() {
     ui.setInstallable(false);

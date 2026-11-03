@@ -4,30 +4,44 @@ import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
 import { takrawDecodeIdentity } from './identity.js';
 
-/** 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다. */
+/**
+ * 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다.
+ * title·sequence·detail은 TextPair다. 조작 이름은 PC 기준(좌클)이고 터치 화면은 ui.js controlText가 바꾼다.
+ */
+const defineLesson = (id, command, [titleKo, titleEn], [sequenceKo, sequenceEn], [detailKo, detailEn], extra = {}) => Object.freeze({ id, command, ...extra,
+  title: Object.freeze({ ko: titleKo, en: titleEn }), sequence: Object.freeze({ ko: sequenceKo, en: sequenceEn }), detail: Object.freeze({ ko: detailKo, en: detailEn }) });
 const TAKRAW_TRAINING_LESSONS = Object.freeze([
-  { id: 'auto', command: 6, title: '상황에 맞춰 차기',
-    sequence: '거리와 높이 맞추기 → 점프 → 좌클 유지',
-    detail: '공과 몸의 위치에 맞는 발차기로 이어져요. 점프 높이와 누르는 시점을 맞춰 보세요.' },
-  { id: 'downward', command: 5, title: '내려찍기',
-    sequence: '좌클 먼저 유지 → 점프 → 높은 발로 내려찍기',
-    detail: '올려 둔 발에서 내려치는 동작을 이어가세요. 공과 몸 사이에 발을 돌릴 공간을 남겨요.' },
-  { id: 'sideswipe', command: 7, title: '사선 회전킥', approachScale: 0.75, kickDelayScale: 1.5,
-    sequence: '무릎 들고 점프 → 좌클 유지 → 몸을 돌려 사선 타격',
-    detail: '몸통을 기울여 돌며 뒷발을 사선으로 내려요. 발자국에서 높이와 거리를 먼저 맞추세요.' },
-  { id: 'scissors', command: 8, title: '가위치기',
-    sequence: '점프 → 좌클 유지 → 다리를 교차해 발등 타격',
-    detail: '공중에서 두 다리를 교차하며 발등을 보내요. 공 바로 아래로 너무 붙지 않게 준비하세요.' },
-  { id: 'roundhouse540', command: 9, title: '540도 회전킥',
-    sequence: '점프 → 좌클 유지 → 발등이 앞서는 회전 타격',
-    detail: '몸과 다리를 함께 돌려 발등 쪽으로 차요. 높은 토스를 보고 회전할 시간을 확보하세요.' },
+  defineLesson('auto', 6, ['상황에 맞춰 차기', 'Context kick'],
+    ['거리와 높이 맞추기 → 점프 → 좌클 유지', 'Match distance and height → Jump → Hold left click'],
+    ['공과 몸의 위치에 맞는 발차기로 이어져요. 점프 높이와 누르는 시점을 맞춰 보세요.', 'You get the kick that fits the ball and your body. Match your jump height and when you press.']),
+  defineLesson('downward', 5, ['내려찍기', 'Downward strike'],
+    ['좌클 먼저 유지 → 점프 → 높은 발로 내려찍기', 'Hold left click first → Jump → Strike down from a raised foot'],
+    ['올려 둔 발에서 내려치는 동작을 이어가세요. 공과 몸 사이에 발을 돌릴 공간을 남겨요.', 'Bring the raised foot down through the ball. Leave room between the ball and your body to swing.']),
+  defineLesson('sideswipe', 7, ['사선 회전킥', 'Diagonal spin kick'],
+    ['무릎 들고 점프 → 좌클 유지 → 몸을 돌려 사선 타격', 'Knee up and jump → Hold left click → Turn and strike diagonally'],
+    ['몸통을 기울여 돌며 뒷발을 사선으로 내려요. 발자국에서 높이와 거리를 먼저 맞추세요.', 'Lean and turn your torso, bringing the back foot down diagonally. Match height and distance at the footprints first.'],
+    { approachScale: 0.75, kickDelayScale: 1.5 }),
+  defineLesson('scissors', 8, ['가위치기', 'Scissor kick'],
+    ['점프 → 좌클 유지 → 다리를 교차해 발등 타격', 'Jump → Hold left click → Cross your legs and strike with the instep'],
+    ['공중에서 두 다리를 교차하며 발등을 보내요. 공 바로 아래로 너무 붙지 않게 준비하세요.', 'Cross both legs in the air and send the instep through. Don\'t get too close underneath the ball.']),
+  defineLesson('roundhouse540', 9, ['540도 회전킥', '540 spin kick'],
+    ['점프 → 좌클 유지 → 발등이 앞서는 회전 타격', 'Jump → Hold left click → Spin with the instep leading'],
+    ['몸과 다리를 함께 돌려 발등 쪽으로 차요. 높은 토스를 보고 회전할 시간을 확보하세요.', 'Turn your body and leg together and kick with the instep. Use a high set to give yourself time to spin.']),
 ]);
 
 /** 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다. */
 const TAKRAW_TRAINING_TEMPOS = Object.freeze([
-  { id: 'high', command: 21, title: '높은 토스', detail: '세터가 높게 올려요. 점프 버튼을 잠깐 유지하며 여유 있게 타이밍을 맞춰요.' },
-  { id: 'quick', command: 22, title: '속공', detail: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.' },
-]);
+  { id: 'high', command: 21, title: { ko: '높은 토스', en: 'High set' },
+    detail: { ko: '세터가 높게 올려요. 점프 버튼을 잠깐 유지하며 여유 있게 타이밍을 맞춰요.', en: 'The setter lifts it high. Hold the jump button briefly and take your time with the timing.' } },
+  { id: 'quick', command: 22, title: { ko: '속공', en: 'Quick set' },
+    detail: { ko: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.', en: 'It comes low and fast in front of the net. Tap the jump button and go straight into the kick.' } },
+].map(tempo => Object.freeze({ ...tempo, title: Object.freeze(tempo.title), detail: Object.freeze(tempo.detail) })));
+
+/**
+ * 화면 문구의 코드와 값. 시뮬레이션은 문장을 만들지 않고, 화면(src/i18n/messages/match.js)이 id로 언어별 문장을 만든다.
+ * 값에는 팀 번호(0|1)·역할 id·득점 사유 코드처럼 언어와 무관한 것만 넣는다. 결정론 상태(state.lastMessage)에도 이 값이 저장된다.
+ */
+const message = (id, values = {}) => ({ id, values });
 
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
@@ -52,7 +66,7 @@ class TakrawGame {
   }
 
   setTeams(home = null, away = null) {
-    const roles = ['receiver', 'setter', 'attacker'], names = ['리시버', '세터', '공격수'];
+    const roles = ['receiver', 'setter', 'attacker'];
     const definition = this.config.athletes, keys = Object.keys(definition.bonus);
     const teamNames = [], athletes = [];
     for (const [team, supplied] of [home, away].entries()) {
@@ -61,20 +75,22 @@ class TakrawGame {
           !Array.isArray(supplied.players) || supplied.players.length !== roles.length)) {
         throw new Error('팀 이름과 리시버·세터·공격수 편성을 확인하세요.');
       }
-      teamNames.push(supplied ? supplied.name.trim() : team === 0 ? '우리 팀' : '상대 팀');
+      // 이름을 받지 않은 팀은 null이다. 화면이 보는 사람 기준의 "우리 팀/상대 팀"으로 보여 준다.
+      teamNames.push(supplied ? supplied.name.trim() : null);
       const ids = new Set();
       for (const [slot, role] of roles.entries()) {
         const matches = supplied ? supplied.players.filter(player => player?.role === role) : [];
         if (supplied && matches.length !== 1) throw new Error('각 역할에는 서로 다른 선수 한 명이 필요합니다.');
-        const player = supplied ? matches[0] : { id: `standard-${team * 3 + slot}`, name: names[slot], role,
+        // 기본 선수는 이름이 없고(null) 화면이 역할 이름으로 보여 준다.
+        const player = supplied ? matches[0] : { id: `standard-${team * 3 + slot}`, name: null, role,
           stats: Object.fromEntries(keys.map(key => [key, definition.base])) };
         if (typeof player.id !== 'string' || !player.id.trim() || ids.has(player.id) ||
-            typeof player.name !== 'string' || !player.name.trim() || !player.stats ||
+            (supplied ? typeof player.name !== 'string' || !player.name.trim() : player.name !== null) || !player.stats ||
             keys.some(key => !Number.isInteger(player.stats[key]) || player.stats[key] < definition.base)) {
           throw new Error('선수 식별자·이름·능력치를 확인하세요.');
         }
         ids.add(player.id);
-        athletes.push({ id: player.id, name: player.name.trim(), role,
+        athletes.push({ id: player.id, name: player.name?.trim() ?? null, role,
           stats: Object.fromEntries(keys.map(key => [key, player.stats[key]])) });
       }
     }
@@ -96,7 +112,7 @@ class TakrawGame {
       score: [0, 0], sets: [0, 0], set: 1,
       serving: 1, selected: [2, 5],
       touches: 0, possession: -1, lastTouch: -1, toss: null, play: null, defense: [null, null],
-      lastMessage: mode === 'training' ? '공의 옆에 서서 점프와 발차기를 맞춰 보세요.' : '첫 서브를 준비합니다.',
+      lastMessage: message(mode === 'training' ? 'trainingStart' : 'firstServe'),
       pointWinner: -1, pointReason: '', matchWinner: -1, ballSpeed: 0,
       timer: this.config.rules.ready, rally: 0,
       // 팀별 최근 점프·발차기 입력 오차. 접촉 때 평가해 소비한다(스냅샷에 포함).
@@ -149,7 +165,7 @@ class TakrawGame {
     }
     this.teamById = next;
     this.aiDirty = true;
-    if (this.mode === 'online' && change.players.length < 2) this.state.lastMessage = '상대가 입장하면 경기가 시작됩니다.';
+    if (this.mode === 'online' && change.players.length < 2) this.state.lastMessage = message('waitingOpponent');
     this.revision++;
   }
 
@@ -321,7 +337,7 @@ class TakrawGame {
         }
         if (crossingHeight < this.config.court.netHeight + this.physics.settings.ballRadius - 0.02) {
           const loser = this.state.lastTouch < 0 ? this.state.serving : Math.floor(this.state.lastTouch / 3);
-          this.awardPoint(1 - loser, '네트 아래 통과');
+          this.awardPoint(1 - loser, 'underNet');
         }
       }
       // Edge는 논리 틱 첫 물리 substep에서만 소비한다. held는 유지한다.
@@ -332,9 +348,9 @@ class TakrawGame {
     this.metrics.maxBallSpeed = Math.max(this.metrics.maxBallSpeed, this.state.ballSpeed);
     const ball = this.physics.ball.translation();
     if (this.state.phase === 'rally' && (ball.y < -1 || Math.abs(ball.x) > 24 || Math.abs(ball.z) > 18)) {
-      this.awardPoint(this.state.lastTouch < 0 ? 1 - this.state.serving : 1 - Math.floor(this.state.lastTouch / 3), '아웃');
+      this.awardPoint(this.state.lastTouch < 0 ? 1 - this.state.serving : 1 - Math.floor(this.state.lastTouch / 3), 'out');
     }
-    if (this.mode === 'training' && this.state.phase === 'rally' && this.state.time - this.rallyStart > this.config.training.timeout) this.awardPoint(1, '다음 토스를 준비합니다.');
+    if (this.mode === 'training' && this.state.phase === 'rally' && this.state.time - this.rallyStart > this.config.training.timeout) this.awardPoint(1, 'nextToss');
     this.state.tick = frame.tick + 1;
   }
 
@@ -349,7 +365,7 @@ class TakrawGame {
     this.state.pointWinner = -1; this.state.pointReason = '';
     this.state.selected = [2, 5];
     this.state.timing = this.timingJudge.emptyRecords();
-    this.state.lastMessage = this.mode === 'training' ? '다음 공을 준비합니다.' : `${this.state.serving === 0 ? '우리 팀' : '상대 팀'} 서브`;
+    this.state.lastMessage = this.mode === 'training' ? message('nextBall') : message('serve', { team: this.state.serving });
     if (this.state.training) {
       const training = this.state.training;
       training.previousResult = training.result;
@@ -376,19 +392,17 @@ class TakrawGame {
       // foot collision supplies the set, exactly as in a match.
       if (this.state.training.tempo === 'quick') {
         this.feedQuick(p);
-        this.state.lastMessage = '낮고 빠른 토스가 옵니다. 점프를 짧게 누르고 바로 차세요.';
+        this.state.lastMessage = message('quickToss');
       } else {
         this.physics.resetBall({ x: p.x + feed.offset, y: feed.height, z: p.z - feed.lateral }, { x: 0, y: feed.rise, z: 0 });
-        this.state.lastMessage = '세터가 높게 올립니다. 바닥 발자국에서 준비하세요.';
+        this.state.lastMessage = message('highToss');
       }
     } else {
       // 서브는 사람·AI 모두 같은 공 던지기다: 공을 들고(hold) 힘을 모은 만큼 위로 던진다. 사람은 발차기 버튼을 누른 시간, AI는 판마다 다른 값(aimCharge, 0~fullCharge초)이 모으는 시간이다.
       const aiCharge = seededUnit(this.state.seed, this.state.rally, 5) * this.config.ai.serve.toss.fullCharge;
       this.state.serveToss = this.humanServes(this.state.serving) ? { stage: 'hold', charge: 0 } : { stage: 'hold', charge: 0, aimCharge: aiCharge };
       this.holdServeBall();
-      this.state.lastMessage = this.humanServes(this.state.serving)
-        ? '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 위로 올라갑니다. 달리면서 던지면 공이 달리는 방향으로 날아갑니다. 던지기 전에 엔드라인 안쪽을 밟으면 반칙입니다.'
-        : '서브 · 공의 위치를 확인하세요.';
+      this.state.lastMessage = message(this.humanServes(this.state.serving) ? 'serveTossHuman' : 'serveCheck');
     }
     this.emit({ type: 'serve', team: this.state.serving, position: { ...this.physics.ball.translation() } });
     this.revision++;
@@ -401,7 +415,7 @@ class TakrawGame {
   callServeFootFault() {
     const team = this.state.serving, n = team === 0 ? 1 : -1, server = this.physics.players[this.serverId(team)];
     if (!['footL', 'footR'].some(name => server.byName[name].body.translation().x * n > -this.config.court.halfLength)) return false;
-    this.awardPoint(1 - team, '서브 라인 반칙');
+    this.awardPoint(1 - team, 'serveLine');
     return true;
   }
 
@@ -437,7 +451,7 @@ class TakrawGame {
     const move = this.physics.players[this.serverId(this.state.serving)].root.linvel();
     this.physics.resetBall(p, { x: move.x, y: Math.sqrt(2 * gravity * (apex - p.y)), z: move.z });
     toss.stage = 'thrown'; toss.apex = apex;
-    this.state.lastMessage = '서브 · 공이 올라갑니다. 점프와 발차기로 차세요.';
+    this.state.lastMessage = message('serveRising');
   }
 
   /**
@@ -475,7 +489,7 @@ class TakrawGame {
       }
       if (/hand|forearm|upperArm/i.test(event.part || '')) {
         this.emit(event);
-        this.awardPoint(1 - event.team, '핸드 반칙');
+        this.awardPoint(1 - event.team, 'hand');
         return;
       }
       if (this.state.possession !== event.team) {
@@ -499,7 +513,7 @@ class TakrawGame {
       const timing = this.judgeTiming(event, humans);
       this.emit(timing ? { ...event, timing } : event);
       if (this.state.touches > this.config.rules.contacts) {
-        this.awardPoint(1 - event.team, '네 번째 터치');
+        this.awardPoint(1 - event.team, 'fourthTouch');
         return;
       }
       if (spike) this.metrics.spikes++;
@@ -514,16 +528,16 @@ class TakrawGame {
         condition: intent?.condition || null, part: event.part, at: this.state.time,
         outcome: target && !spike ? (set ? 'pending' : 'mishit') : 'contact' };
       this.state.toss = set ? { team: event.team, from: event.playerId, to: target.playerId, started: this.state.time, pending: true } : null;
-      this.state.lastMessage = spike ? '스파이크!' : set ? '아군에게 받아 올리세요.' : '상대 코트로 넘기세요.';
+      this.state.lastMessage = message(spike ? 'spike' : set ? 'setToTeammate' : 'sendOver');
     } else if (event.type === 'ground') {
       this.emit(event);
       const p = event.position;
       const inside = Math.abs(p.x) <= this.config.court.halfLength + 0.03 && Math.abs(p.z) <= this.config.court.halfWidth + 0.03;
       const loser = inside ? (p.x < 0 ? 0 : 1) : this.state.lastTouch < 0 ? this.state.serving : Math.floor(this.state.lastTouch / 3);
-      this.awardPoint(1 - loser, inside ? '코트에 공이 닿았습니다.' : '아웃');
+      this.awardPoint(1 - loser, inside ? 'grounded' : 'out');
     } else if (event.type === 'net' && event.playerId >= 0) {
       this.emit(event);
-      this.awardPoint(1 - event.team, '네트 터치');
+      this.awardPoint(1 - event.team, 'netTouch');
     }
   }
 
@@ -543,7 +557,7 @@ class TakrawGame {
     if (this.state.play?.from === pass.from && this.state.play.kind === 'toss') this.state.play.outcome = 'set';
     if (this.state.training && pass.from === 1 && pass.to === this.state.selected[0]) this.state.training.setAt = this.state.time;
     this.aiDirty = true;
-    this.state.lastMessage = pass.to % 3 === 2 ? '공격수에게 토스 · 점프 타이밍을 맞추세요.' : '아군에게 리시브 · 다음 토스를 준비하세요.';
+    this.state.lastMessage = message(pass.to % 3 === 2 ? 'tossToAttacker' : 'receiveToTeammate');
     for (const player of this.physics.players) {
       if (player.team !== pass.team || player.id === pass.to || player.id === pass.from || player.jump.active) continue;
       if (humans[pass.team] && this.state.selected[pass.team] === player.id) continue;
@@ -552,6 +566,7 @@ class TakrawGame {
     }
   }
 
+  /** reason은 득점 사유 코드다(underNet·out·nextToss·serveLine·hand·fourthTouch·grounded·netTouch). 문구는 화면이 만든다. */
   awardPoint(winner, reason) {
     if (this.state.phase !== 'rally') return;
     this.releaseTuning(0); this.releaseTuning(1);
@@ -562,7 +577,7 @@ class TakrawGame {
     this.state.pointReason = reason;
     this.state.timer = this.mode === 'training' ? this.config.training.retry : this.config.rules.point;
     if (this.state.training) this.finishTraining(reason);
-    this.state.lastMessage = this.mode === 'training' ? `${reason} · 다시 도전해 보세요.` : `${winner === 0 ? '우리 팀' : '상대 팀'} 득점 · ${reason}`;
+    this.state.lastMessage = this.mode === 'training' ? message('trainingPoint', { reason }) : message('point', { team: winner, reason });
     if (this.mode !== 'training') {
       this.state.score[winner]++;
       const [a, b] = this.state.score;
@@ -572,11 +587,11 @@ class TakrawGame {
         if (this.state.sets[winner] >= this.config.rules.sets) {
           this.state.phase = 'finished';
           this.state.matchWinner = winner;
-          this.state.lastMessage = `${winner === 0 ? '우리 팀' : '상대 팀'} 승리!`;
+          this.state.lastMessage = message('matchWin', { team: winner });
         } else {
           this.state.set++;
           this.state.score = [0, 0];
-          this.state.lastMessage = `${winner === 0 ? '우리 팀' : '상대 팀'} 세트 획득 · 다음 세트를 준비합니다.`;
+          this.state.lastMessage = message('setWin', { team: winner });
         }
       }
       this.state.serving = 1 - this.state.serving;
@@ -840,74 +855,74 @@ class TakrawGame {
 
   tossTarget(player) { return this.kickIntent(player)?.target || null; }
 
+  /**
+   * 팀 시점의 플레이 안내. title·detail은 message(id, values)이고 문장은 src/i18n/messages/match.js가 만든다.
+   * values의 own은 이 팀(team) 기준이고, from·to·role은 역할 id(receiver|setter|attacker, 모르면 null)다.
+   */
   getTeamPlay(team) {
     if (this.mode === 'training') return null;
     const state = this.state, play = state.play;
-    const names = { receiver: '리시버', setter: '세터', attacker: '공격수' };
-    const name = id => names[this.physics.players[id]?.role] || '동료';
+    const role = id => this.physics.players[id]?.role ?? null;
     const result = (title, detail, tone = 'neutral', data = null) => ({ title, detail, tone,
       stage: state.phase, from: data?.from ?? null, to: data?.to ?? data?.target?.playerId ?? null,
       kind: data?.kind || null, reason: data?.reason || null });
     const overpass = play?.outcome === 'overpass';
+    const coverDetail = condition => message(condition === 'recovering' ? 'playCoverRecovering' : 'playCoverFar');
     if (state.phase === 'point' || state.phase === 'finished') {
       const winner = state.phase === 'finished' ? state.matchWinner : state.pointWinner;
-      const title = `${winner === team ? '우리 팀' : '상대 팀'} ${state.phase === 'finished' ? '승리' : '득점'}`;
-      const detail = overpass ? `${play.team === team ? '우리' : '상대'} 토스가 길어 네트를 넘었어요 · ${state.pointReason}` : state.pointReason;
+      const title = message(state.phase === 'finished' ? 'playWin' : 'playPoint', { own: winner === team });
+      const detail = overpass ? message('playOverpassPoint', { own: play.team === team, reason: state.pointReason }) : message('pointReason', { reason: state.pointReason });
       return result(title, detail, overpass && play.team === team ? 'warning' : 'neutral', play);
     }
-    if (state.phase === 'ready') return result(`${state.serving === team ? '우리 팀' : '상대 팀'} 서브 준비`, '서브는 상대 코트로 · 리시브 뒤에는 동료에게 연결해요.');
+    if (state.phase === 'ready') return result(message('playServeReady', { own: state.serving === team }), message('playServeReadyDetail'));
     const defense = state.defense[team];
     if (defense) {
       const actor = this.physics.players[defense.playerId], action = actor.receive;
-      const motion = action?.mode === 'slide' ? '슬라이딩 리시브' : action?.mode === 'lunge' ? '옆으로 뻗어 받는 중' : action ? '발로 받아 올리는 중' : '리시브 준비';
-      const title = `${defense.human ? '내' : name(actor.id)} ${motion}`;
-      const detail = defense.human ? '좌클을 유지해 받으세요. 동료는 다음 공을 커버해요.' :
-        defense.plan.reachable ? '빈 공간으로 이동해 좌클을 누르면 직접 받아낼 수 있어요.' : '먼 공을 따라가는 중이에요. 가까운 빈 공간을 직접 커버해 보세요.';
+      const motion = action?.mode === 'slide' ? 'slide' : action?.mode === 'lunge' ? 'lunge' : action ? 'cushion' : 'ready';
+      const title = message('playReceive', { human: defense.human, role: role(actor.id), motion });
+      const detail = message(defense.human ? 'playReceiveHuman' : defense.plan.reachable ? 'playReceiveReachable' : 'playReceiveFar');
       return result(title, detail, defense.human ? 'ready' : 'neutral', { from: actor.id, kind: 'receive', reason: 'defense' });
     }
     if (play?.kind === 'attack' && play.from === state.lastTouch) {
       const own = play.team === team, toward = play.team === 0 ? 1 : -1;
       const crossed = this.physics.ball.translation().x * toward > this.physics.settings.ballRadius;
-      return result(`${own ? '우리 팀' : '상대 팀'} ${state.touches === this.config.rules.contacts ? '세 번째 터치 · ' : ''}스파이크`,
-        crossed ? '실제 발 타격으로 네트를 넘겼어요. 다음 공을 준비하세요.' : '공중에서 발로 타격했어요. 공이 넘어가는 궤적을 확인하세요.',
+      return result(message('playSpike', { own, third: state.touches === this.config.rules.contacts }), message(crossed ? 'playSpikeCrossed' : 'playSpikeAir'),
         own ? 'ready' : 'warning', play);
     }
-    if (overpass) return result(play.team === team ? '토스가 길어 상대 코트로 넘어갔어요' : '상대 토스가 우리 코트로 넘어왔어요',
-      play.team === team ? `${name(play.from)}가 ${name(play.to)}에게 올리던 공이에요. 다음 공을 수비하세요.` : '반환을 선택한 공이 아니라 빗나간 토스예요. 받을 자리를 잡으세요.',
+    if (overpass) return result(message(play.team === team ? 'playOverpassOwn' : 'playOverpassTheirs'),
+      play.team === team ? message('playOverpassOwnDetail', { from: role(play.from), to: role(play.to) }) : message('playOverpassTheirsDetail'),
       play.team === team ? 'warning' : 'ready', play);
-    if (play?.kind === 'toss' && play.outcome === 'mishit') return result(`${play.team === team ? '우리' : '상대'} 토스가 빗맞았어요`,
-      `${name(play.from)}가 ${name(play.to)}에게 연결하려던 공이에요. 공의 위치를 확인하세요.`, 'warning', play);
+    if (play?.kind === 'toss' && play.outcome === 'mishit') return result(message('playMishit', { own: play.team === team }),
+      message('playMishitDetail', { from: role(play.from), to: role(play.to) }), 'warning', play);
     const pass = state.toss;
     if (pass?.team === team) {
       const remaining = this.config.rules.contacts - state.touches;
-      const detail = remaining <= 0 ? '같은 팀이 추가로 닿으면 네 번째 터치 반칙이에요.' :
-        remaining === 1 ? '남은 터치 1회 · 다음 타격은 상대 코트로 보내야 해요.' :
-        play?.condition === 'recovering_attacker' ? '공격수가 일어날 수 있도록 높은 토스를 준비해요. 회복 뒤 공격할 자리로 이동하세요.' :
-        play?.reason === 'cover' ? play.condition === 'recovering' ?
-        '받을 선수가 자세를 회복 중이라 다른 동료에게 연결해요.' : '받을 선수가 멀어 가까운 동료에게 연결해요.' :
-        pass.to === state.selected[team] ? '바닥 발자국으로 이동해 점프 타이밍을 맞추세요.' : '리시브 → 세터 → 공격수 순서로 공격을 준비해요.';
-      return result(`${name(pass.from)} → ${name(pass.to)} ${pass.pending ? '받아 올리는 중' : '토스'}`, detail, pass.to === state.selected[team] ? 'ready' : 'neutral', play);
+      const detail = remaining <= 0 ? message('playFourthTouch') :
+        remaining === 1 ? message('playLastTouchLeft') :
+        play?.condition === 'recovering_attacker' ? message('playRecoveringAttacker') :
+        play?.reason === 'cover' ? coverDetail(play.condition) :
+        message(pass.to === state.selected[team] ? 'playMoveToFootprint' : 'playBuildAttack');
+      return result(message('playPass', { from: role(pass.from), to: role(pass.to), pending: pass.pending }), detail, pass.to === state.selected[team] ? 'ready' : 'neutral', play);
     }
     const landing = this.predictAtHeight(this.config.ai.receiveHeight);
     const actingTeam = state.lastTouch < 0 ? state.serving : landing.x < 0 ? 0 : 1;
     const active = this.physics.players.find(player => player.team === actingTeam && this.ai[player.id].active);
     const actor = active || this.physics.players[state.selected[actingTeam]];
     const intent = this.inputs[actor.id]?.intent;
-    const own = actingTeam === team;
-    if (intent?.reason === 'serve') return result(`${own ? '우리 팀' : '상대 팀'} 서브`, '서브 첫 타격은 상대 코트로 보내요.', 'neutral', intent);
-    if (state.possession === actingTeam && state.touches >= this.config.rules.contacts) return result(`${own ? '우리 팀' : '상대 팀'} ${this.config.rules.contacts}회 타격 완료`,
-      '같은 팀이 추가로 닿으면 네 번째 터치 반칙이에요.', 'neutral', play);
-    if (intent?.reason === 'last_touch') return result(own ? '마지막 터치 · 상대 코트로' : '상대 마지막 터치 · 우리 코트로',
-      `${own ? '우리 팀이' : '상대 팀이'} 이미 ${this.config.rules.contacts - 1}회 접촉했어요. 다음 타격은 네트를 넘어야 해요.`, own ? 'ready' : 'neutral', intent);
-    if (intent?.kind === 'attack') return result(own ? '공격수 · 스파이크 준비' : '상대 공격수 · 스파이크 준비',
-      own ? '공과의 거리·점프 높이·발차기 타이밍을 맞추세요.' : '상대가 내려칠 공을 수비하세요.', own ? 'ready' : 'neutral', intent);
+    const own = actingTeam === team, contacts = this.config.rules.contacts;
+    if (intent?.reason === 'serve') return result(message('playServe', { own }), message('playServeDetail'), 'neutral', intent);
+    if (state.possession === actingTeam && state.touches >= contacts) return result(message('playContactsDone', { own, contacts }),
+      message('playFourthTouch'), 'neutral', play);
+    if (intent?.reason === 'last_touch') return result(message('playLastTouch', { own }),
+      message('playLastTouchDetail', { own, used: contacts - 1 }), own ? 'ready' : 'neutral', intent);
+    if (intent?.kind === 'attack') return result(message('playAttackReady', { own }),
+      message(own ? 'playAttackReadyDetail' : 'playDefendSpike'), own ? 'ready' : 'neutral', intent);
     if (intent?.kind === 'toss') {
-      const detail = intent.reason === 'cover' ? intent.condition === 'recovering' ?
-        '받을 선수가 자세를 회복 중이라 다른 동료에게 연결해요.' : '받을 선수가 멀어 가까운 동료에게 연결해요.' :
-        intent.target.playerId === state.selected[team] ? `${name(actor.id)}가 올릴 공을 보고 공격할 자리를 잡으세요.` : '남은 터치로 리시브와 토스를 연결해요.';
-      return result(`${own ? '' : '상대 '}${name(actor.id)} → ${name(intent.target.playerId)} 토스 준비`, detail, 'neutral', intent);
+      const detail = intent.reason === 'cover' ? coverDetail(intent.condition) :
+        intent.target.playerId === state.selected[team] ? message('playWatchSetter', { role: role(actor.id) }) : message('playLinkTouches');
+      return result(message('playTossReady', { own, from: role(actor.id), to: role(intent.target.playerId) }), detail, 'neutral', intent);
     }
-    return result(own ? '우리 팀 공격 준비' : '상대 공을 받는 중', '리시브 → 세터 → 공격수 · 팀당 최대 3회 접촉이에요.');
+    return result(message(own ? 'playAttackBuild' : 'playReceiving'), message('playDefaultDetail', { contacts }));
   }
 
   predictAtHeight(height) {
@@ -1022,39 +1037,37 @@ class TakrawGame {
     }
   }
 
+  /**
+   * 연습 한 번의 결과. code가 결과 종류이고 values는 문구의 갈래(언어와 무관한 값)다. 제목·설명은 화면이 code·values로 만든다
+   * (src/i18n/messages/match.js TRAINING_RESULT). tests/quick-attack.spec.js는 code로 성공을 센다.
+   */
   finishTraining(reason) {
     const t = this.state.training, hit = t.contact;
     const matches = !!hit?.motionId && (t.lesson === 'auto' || hit.motionId === t.lesson);
     const downward = hit?.foot && hit.downward && hit.outgoing?.y < -0.2 && hit.outgoing.x > 0.5;
+    const lessonDownward = t.lesson === 'downward';
     let result;
     if (downward && matches && hit.crossed && this.state.pointWinner === 0) {
-      const name = TAKRAW_TRAINING_LESSONS.find(lesson => lesson.id === hit.motionId)?.title || '스파이크';
-      result = { code: 'success', title: `${t.tempo === 'quick' ? '속공 · ' : ''}${name} 성공!`, detail: '발로 내려찍어 네트 위로 보냈어요. 같은 타이밍을 한 번 더 기억하세요.', tone: 'success' };
+      result = { code: 'success', values: { motionId: hit.motionId, quick: t.tempo === 'quick' }, tone: 'success' };
       if (!hit.counted) { t.successes++; hit.counted = true; }
     } else if (t.setAt === null) {
-      result = { code: 'set', title: '세터가 다시 올릴게요', detail: '이번 공은 연습할 높이로 연결되지 않았어요. 새 토스에서 다시 준비하세요.', tone: 'neutral' };
+      result = { code: 'set', values: {}, tone: 'neutral' };
     } else if (hit?.foot && !matches) {
-      result = { code: 'motion', title: hit.motionId ? '다른 발차기로 맞았어요' : '공중 발차기를 이어 보세요',
-        detail: t.lesson === 'downward' ? '점프 전에 좌클을 유지해 발을 올리고, 누른 채 점프하세요.' :
-          '발자국에서 점프한 뒤 좌클을 유지하세요. 공중의 실제 발 타격으로 연습 결과를 확인해요.', tone: 'retry' };
+      result = { code: 'motion', values: { other: !!hit.motionId, downward: lessonDownward }, tone: 'retry' };
     } else if (downward && hit.crossed) {
-      result = { code: 'out', title: reason === '아웃' ? '내려찍었지만 코트를 벗어났어요' : '내려찍기 동작까지 성공', detail: `${reason} · 다음 공은 타점과 발차기 유지 시간을 조금 조절해 보세요.`, tone: 'retry' };
+      result = { code: 'out', values: { reason }, tone: 'retry' };
     } else if (downward) {
-      result = { code: 'net', title: '내려찍기까지 성공', detail: '발로 내려찍었지만 네트 위로 통과하지 못했어요. 실제 타격 높이와 공이 나간 각도를 확인하세요.', tone: 'retry' };
+      result = { code: 'net', values: {}, tone: 'retry' };
     } else if (hit?.foot) {
-      result = { code: 'angle', title: '발에 맞았어요', detail: '발 접촉이 내려가는 공격으로 이어지지 않았어요. 다음 토스에서 몸의 이동을 줄이고 공 옆에 발을 돌릴 공간을 준비하세요.', tone: 'retry' };
+      result = { code: 'angle', values: {}, tone: 'retry' };
     } else if (hit) {
-      result = { code: 'body', title: /^lowerLeg/.test(hit.part) ? '정강이에 맞았어요' : '몸에 먼저 닿았어요', detail: '공 바로 아래보다 바닥 발자국에서 준비하세요. 공과 몸 사이에 발을 돌릴 공간이 필요해요.', tone: 'retry' };
+      result = { code: 'body', values: { shin: /^lowerLeg/.test(hit.part) }, tone: 'retry' };
     } else if (t.jumpAt === null) {
-      result = { code: 'jump', title: '이번 공에서는 점프하지 않았어요', detail: '발자국으로 이동한 뒤 속도를 줄여 보세요. 점프 안내가 열리면 표시된 높이에 맞춰 짧게 누르거나 유지하세요.', tone: 'retry' };
+      result = { code: 'jump', values: {}, tone: 'retry' };
     } else if (t.kickAt === null) {
-      result = { code: 'kick', title: '발차기도 함께 해 보세요', detail: t.lesson === 'downward' ?
-        '좌클을 먼저 누른 채 점프해야 올려 둔 발로 내려찍을 수 있어요.' : '점프 후 “지금 발차기” 안내에 좌클을 눌러 유지하세요.', tone: 'retry' };
+      result = { code: 'kick', values: { downward: lessonDownward }, tone: 'retry' };
     } else {
-      const missedPrehold = t.lesson === 'downward' && t.kickAt >= t.jumpAt;
-      result = { code: 'miss', title: missedPrehold ? '점프 전에 발을 먼저 올려 보세요' : '공과 발이 만나지 않았어요',
-        detail: missedPrehold ? '이번에는 점프와 같거나 뒤에 좌클을 눌렀어요. 다음 공은 이동 중 선행 좌클 안내부터 따라 보세요.' :
-          '타점 표시는 준비를 돕는 예측이에요. 다음 토스에서 이동 속도를 줄이고 공 옆의 준비 위치를 맞춰 보세요.', tone: 'retry' };
+      result = { code: 'miss', values: { prehold: lessonDownward && t.kickAt >= t.jumpAt }, tone: 'retry' };
     }
     t.result = { ...result, reason, entry: hit?.entry || t.entry, motionId: hit?.motionId || t.motionId, contact: hit?.part || null,
       jumpOffset: t.jumpOffset, kickOffset: t.kickOffset };
@@ -1082,59 +1095,59 @@ class TakrawGame {
     const lesson = TAKRAW_TRAINING_LESSONS.find(item => item.id === t.lesson) || TAKRAW_TRAINING_LESSONS[0];
     const plan = player.kick.airPlan, motion = plan?.motion;
     const motionId = t.contact?.motionId || motion?.id || t.motionId;
-    const motionName = TAKRAW_TRAINING_LESSONS.find(item => item.id === motionId)?.title;
-    const adjustment = motion?.reachError > 0.08 ? ' · 높이·거리를 맞춰 보세요' :
-      motion?.adaptation > 0.025 ? ' · 다리 조절 중' : '';
+    // 동작 상태: 동작 이름 + 갈래(hit·reach·adapt·없음). 동작이 없으면 레슨 안내다.
+    const motionKnown = TAKRAW_TRAINING_LESSONS.some(item => item.id === motionId);
+    const adjustment = t.contact?.foot && t.contact.motionId ? 'hit' : motion?.reachError > 0.08 ? 'reach' : motion?.adaptation > 0.025 ? 'adapt' : null;
     const jumpIn = guide && player.grounded ? guide.time - contactLead : null;
     const kickIn = t.lesson === 'downward' ? (jumpIn === null ? null : jumpIn - settings.preholdLead) :
       (player.jump.active ? input.kick && plan ? null : kickDelay - player.jump.time : jumpIn === null ? null : jumpIn + kickDelay);
     const contactIn = Number.isFinite(plan?.remaining) ? Math.max(0, plan.remaining) : null;
     const base = { lesson: t.lesson, tempo: t.tempo, attempt: t.attempt, successes: t.successes, title: lesson.title,
       sequence: lesson.sequence, motionId: motionId || null,
-      motionStatus: motionName ? `${motionName}${t.contact?.foot && t.contact.motionId ? ' · 타격 확인' : adjustment}` :
-        t.lesson === 'auto' ? '공과 몸의 위치에 맞춰 동작을 골라요' : `${lesson.title} 동작을 연습해요`,
+      motionStatus: motionKnown ? message('motionStatus', { motionId, adjustment }) : message(t.lesson === 'auto' ? 'motionAuto' : 'motionLesson', { lesson: t.lesson }),
       jumpIn, kickIn, shortJump, contactLead, jumpHold, kickDelay, contactIn, phase: plan?.phase || null,
-      estimated: !plan, result: t.result || t.previousResult, stage: 'set', cue: '세터의 토스를 기다리세요',
-      detail: '바닥 발자국과 타점은 예상 위치예요. 공이 올라오면 이동해 준비하세요.', tone: 'neutral', progress: 0 };
-    if (this.state.phase === 'point') return { ...base, stage: 'result', cue: t.result?.title || '다시 도전해 보세요', detail: t.result?.detail || '', tone: t.result?.tone || 'neutral', progress: 1 };
-    if (this.state.phase === 'ready') return { ...base, stage: 'ready', cue: '다음 토스를 준비합니다', detail: lesson.sequence };
+      estimated: !plan, result: t.result || t.previousResult, stage: 'set', cue: message('cueWaitSet'),
+      detail: message('detailWaitSet'), tone: 'neutral', progress: 0 };
+    // 결과 단계의 cue·detail은 결과 코드의 제목·설명이다(값은 결과의 code와 갈래).
+    const outcome = t.result && { code: t.result.code, ...t.result.values };
+    if (this.state.phase === 'point') return { ...base, stage: 'result', cue: outcome ? message('resultTitle', outcome) : message('cueRetry'),
+      detail: outcome ? message('resultDetail', outcome) : message('none'), tone: t.result?.tone || 'neutral', progress: 1 };
+    if (this.state.phase === 'ready') return { ...base, stage: 'ready', cue: message('cueNextToss'), detail: message('lessonSequence', { lesson: lesson.id }) };
     if (t.contact && (!player.jump.active || !plan || plan.phase === 'follow' || !input.kick)) {
       const down = t.contact.foot && t.contact.downward && t.contact.outgoing?.y < -0.2;
-      return { ...base, stage: 'contact', cue: down ? '내려찍었어요!' : t.contact.foot ? '발에 닿았어요' : /^lowerLeg/.test(t.contact.part) ? '정강이에 맞았어요' : '몸에 먼저 닿았어요',
-        detail: down ? '공이 네트를 넘는지 확인하세요.' : '다음 토스에서 위치와 타이밍을 다시 맞춰 보세요.', tone: down ? 'success' : 'retry', progress: 1 };
+      return { ...base, stage: 'contact', cue: message(down ? 'cueStruckDown' : t.contact.foot ? 'cueFoot' : /^lowerLeg/.test(t.contact.part) ? 'cueShin' : 'cueBody'),
+        detail: message(down ? 'detailWatchNet' : 'detailRetryTiming'), tone: down ? 'success' : 'retry', progress: 1 };
     }
     if (t.setAt === null) return base;
     if (player.jump.active) {
-      const jumpDetail = shortJump ? '점프 버튼은 짧게 누르고 떼세요.' :
-        player.jump.time < jumpHold ? '점프 버튼도 잠깐 유지하세요.' : '점프 버튼은 놓아도 돼요.';
+      const jump = shortJump ? 'tap' : player.jump.time < jumpHold ? 'hold' : 'release';
       if (plan && input.kick) {
         const follow = plan.phase === 'follow', striking = plan.phase === 'strike';
         const horizon = this.physics.settings.airKick.contact?.horizon || contactLead;
         return { ...base, stage: follow ? 'contact' : 'kick',
-          cue: follow ? '발차기 뒤 착지를 준비하세요' : striking ? '좌클 유지 · 공을 향해 차고 있어요' : '좌클 유지 · 발을 올리고 있어요',
-          detail: follow ? '공의 진행과 착지를 확인하세요.' : `${jumpDetail} 좌클을 유지해 발차기를 이어가세요.`,
+          cue: message(follow ? 'cueLanding' : striking ? 'cueStriking' : 'cueRaising'),
+          detail: follow ? message('detailLanding') : message('detailKeepKick', { jump }),
           tone: follow ? 'neutral' : 'ready', progress: follow ? 1 : Math.max(0, Math.min(1, 1 - (contactIn ?? horizon) / Math.max(horizon, 0.01))) };
       }
       const wait = t.lesson !== 'downward' && kickIn > 0;
-      return { ...base, stage: 'kick', cue: wait ? '조금 더 떠오르세요' : input.kick ? '좌클을 유지하세요' : '지금 발차기!',
-        detail: wait ? `${jumpDetail} 발차기 안내를 기다리세요.` : `${jumpDetail} 좌클을 눌러 유지하면 실제 발이 공을 향해 움직여요.`,
+      return { ...base, stage: 'kick', cue: message(wait ? 'cueRise' : input.kick ? 'cueHoldKick' : 'cueKickNow'),
+        detail: message(wait ? 'detailWaitKick' : 'detailPressKick', { jump }),
         tone: wait ? 'neutral' : 'ready', progress: Math.max(0, Math.min(1, player.jump.time / Math.max(kickDelay, 0.01))) };
     }
-    if (!guide) return { ...base, stage: 'position', cue: '공의 옆에서 준비하세요', detail: '공이 올라오면 바닥 발자국과 점프 안내가 나타납니다.' };
+    if (!guide) return { ...base, stage: 'position', cue: message('cueBesideBall'), detail: message('detailGuideSoon') };
     const progress = jumpIn === null ? 0 : Math.max(0, Math.min(1, 1 - jumpIn / this.config.visual.attackGuide.maxLead));
     // The ground hold starts while approaching; waiting until the position
     // circle is reached can consume the whole preparation interval.
-    if (guide.preholdWindow && !guide.preheld) return { ...base, stage: 'kick', cue: input.kick ? '좌클 유지 · 발을 올려 두세요' : '좌클을 먼저 누르세요',
-      detail: '발자국으로 이동하는 동안 먼저 좌클을 누르세요. 발을 올린 채 속도를 줄이고 점프를 준비해요.', tone: 'ready', progress };
-    if (!guide.inPosition || (!guide.settled && !guide.braking)) return { ...base, stage: 'position', cue: t.lesson === 'downward' && input.kick ? '좌클 유지 · 발자국으로 이동하세요' : '발자국으로 이동하세요',
-      detail: '표시는 공이 올 위치의 예측이에요. 공 옆에서 발을 돌릴 공간을 준비하세요.', progress };
-    if (guide.braking) return { ...base, stage: 'brake', cue: t.lesson === 'downward' && input.kick ? '좌클 유지 · 이동 속도를 줄이세요' : '이동키를 놓고 속도를 줄이세요',
-      detail: '몸이 아직 타점을 지나갈 속도로 움직이고 있어요. 발자국 안에서 이동을 멈춘 뒤 점프 안내를 확인하세요.', tone: 'neutral', progress };
-    if (guide.jumpWindow) return { ...base, stage: 'jump', cue: '지금 점프!', detail: t.lesson === 'downward' ?
-      (shortJump ? '좌클을 유지한 채 점프 버튼을 짧게 누르고 떼세요.' : '좌클을 유지한 채 점프 버튼도 잠깐 유지하세요.') :
-      (shortJump ? '낮은 공이에요. 점프 버튼을 짧게 누르고 뗀 뒤 발차기 안내를 보세요.' : '점프 버튼을 잠깐 유지한 뒤 발차기 안내를 보세요.'), tone: 'ready', progress: 1 };
-    if (guide.preholdWindow && input.kick) return { ...base, stage: 'kick', cue: '좌클 유지 · 점프를 기다리세요', detail: '올려 둔 발을 유지하며 점프 안내를 확인하세요.', tone: 'ready', progress };
-    return { ...base, stage: 'position', cue: '점프 타이밍을 기다리세요', detail: t.lesson === 'downward' ? '좌클 준비 → 점프 순서입니다.' : '점프 → 공중에서 좌클 순서입니다.', progress };
+    if (guide.preholdWindow && !guide.preheld) return { ...base, stage: 'kick', cue: message(input.kick ? 'cueKeepRaised' : 'cuePressFirst'),
+      detail: message('detailPrehold'), tone: 'ready', progress };
+    if (!guide.inPosition || (!guide.settled && !guide.braking)) return { ...base, stage: 'position', cue: message('cueMoveToFootprint', { holding: t.lesson === 'downward' && input.kick }),
+      detail: message('detailPrediction'), progress };
+    if (guide.braking) return { ...base, stage: 'brake', cue: message('cueBrake', { holding: t.lesson === 'downward' && input.kick }),
+      detail: message('detailBrake'), tone: 'neutral', progress };
+    if (guide.jumpWindow) return { ...base, stage: 'jump', cue: message('cueJumpNow'),
+      detail: message('detailJumpNow', { downward: t.lesson === 'downward', short: shortJump }), tone: 'ready', progress: 1 };
+    if (guide.preholdWindow && input.kick) return { ...base, stage: 'kick', cue: message('cueWaitJump'), detail: message('detailWaitJump'), tone: 'ready', progress };
+    return { ...base, stage: 'position', cue: message('cueJumpTiming'), detail: message('detailOrder', { downward: t.lesson === 'downward' }), progress };
   }
 
   getAttackGuides() {
@@ -1390,7 +1403,7 @@ class TakrawGame {
       Array.isArray(data.temperamentProfiles) && data.temperamentProfiles.length === 2 &&
       Array.from(data.temperamentProfiles).every(value => value === null || Temperament.validConfig(value)) &&
       Array.isArray(data.tuning) && data.tuning.length === 2 && data.tuning.every(tuning) &&
-      Array.isArray(data.teamNames) && data.teamNames.length === 2 && data.teamNames.every(name => typeof name === 'string' && name.trim()) &&
+      Array.isArray(data.teamNames) && data.teamNames.length === 2 && data.teamNames.every(name => name === null || (typeof name === 'string' && name.trim())) &&
       (data.teamSchools === undefined || (Array.isArray(data.teamSchools) && data.teamSchools.length === 2 && data.teamSchools.every(id => id === null || typeof id === 'string'))) &&
       Array.isArray(data.state.defense) && data.state.defense.length === 2 && Array.from(data.state.defense).every(defense) &&
       Array.isArray(data.state.score) && data.state.score.length === 2 && data.state.score.every(Number.isFinite) &&

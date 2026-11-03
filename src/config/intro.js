@@ -8,6 +8,7 @@ import { TAKRAW_RUNTIME } from './runtime.js';
  * 시드를 바꾸면 tick 표를 다시 맞춰야 한다. tests/watch.spec.js가 이 사건 틱을 고정한다.
  * 관전은 득점 뒤 loopHoldMs가 지나면 같은 랠리를 처음부터 다시 연다. 시스템 소개 장은 틱 대신 바로 앞 장이 뜬 뒤 afterMs가 지나면 바뀐다.
  * (느린 기기에서 득점이 늦게 와도 득점 장을 덮지 않는다.)
+ * 장 제목은 TextPair이고 presentation/intro.js가 페이지 언어로 푼다.
  * show가 있는 장은 문구와 함께 게임 화면을 띄운다(draw: 실제 뽑기 연출, none: 닫기). 단계 수처럼 앞으로 볼 내용은 문구로 밝히지 않는다.
  */
 const TAKRAW_INTRO = Object.freeze({
@@ -16,19 +17,19 @@ const TAKRAW_INTRO = Object.freeze({
   tickRate: 60,
   durationMs: 30000,
   chapters: Object.freeze([
-    { id: 'opening', tick: 0, title: '3대3 발 배구' },
-    { id: 'serve', tick: 80, title: '서브' },
-    { id: 'rally', tick: 250, title: '받고, 올리고, 때리고' },
-    { id: 'jump', tick: 335, title: '길게 누르면 높이 점프' },
-    { id: 'kick', tick: 380, title: '공중에서 차면 스파이크' },
-    { id: 'dig', tick: 420, title: '아슬아슬, 막아 냈다!' },
-    { id: 'move', tick: 510, title: '떨어질 자리로 먼저' },
-    { id: 'again', tick: 650, title: '랠리는 계속된다' },
-    { id: 'point', tick: 772, title: `득점! ${TAKRAW_CONFIG.rules.points}점 먼저 내면 승리` },
-    { id: 'recruit', afterMs: 2200, title: '동료를 영입하자', show: 'draw' },
-    { id: 'train', afterMs: 5200, title: '편성하고 훈련해 키우자', show: 'none' },
-    { id: 'campaign', afterMs: 3000, title: '이기면 다음 학교가 나타난다' },
-  ]),
+    { id: 'opening', tick: 0, title: { ko: '3대3 발 배구', en: '3-on-3 Takraw' } },
+    { id: 'serve', tick: 80, title: { ko: '서브', en: 'Serve' } },
+    { id: 'rally', tick: 250, title: { ko: '받고, 올리고, 때리고', en: 'Receive, set, spike' } },
+    { id: 'jump', tick: 335, title: { ko: '길게 누르면 높이 점프', en: 'Hold to jump higher' } },
+    { id: 'kick', tick: 380, title: { ko: '공중에서 차면 스파이크', en: 'Kick in the air to spike' } },
+    { id: 'dig', tick: 420, title: { ko: '아슬아슬, 막아 냈다!', en: 'Close call, saved!' } },
+    { id: 'move', tick: 510, title: { ko: '떨어질 자리로 먼저', en: 'Get under the ball first' } },
+    { id: 'again', tick: 650, title: { ko: '랠리는 계속된다', en: 'The rally goes on' } },
+    { id: 'point', tick: 772, title: { ko: `득점! ${TAKRAW_CONFIG.rules.points}점 먼저 내면 승리`, en: `Point! First to ${TAKRAW_CONFIG.rules.points} wins` } },
+    { id: 'recruit', afterMs: 2200, title: { ko: '동료를 영입하자', en: 'Recruit teammates' }, show: 'draw' },
+    { id: 'train', afterMs: 5200, title: { ko: '편성하고 훈련해 키우자', en: 'Build a lineup and train' }, show: 'none' },
+    { id: 'campaign', afterMs: 3000, title: { ko: '이기면 다음 학교가 나타난다', en: 'Win to face the next school' } },
+  ].map(chapter => Object.freeze({ ...chapter, title: Object.freeze(chapter.title) }))),
   // 영입 장에서 실제 뽑기 연출로 보여 줄 선수(프리셋 영웅). 결과는 저장하지 않는다.
   drawCard: 'tae-o',
 });

@@ -99,9 +99,9 @@ test('서브 라인 반칙: 공을 든 채 엔드라인 안쪽을 밟으면 서�
     } finally { game.dispose(); }
   };
   const fault = await play(false);
-  expect(fault.reason).toBe('서브 라인 반칙'); expect(fault.winner).toBe(1);
+  expect(fault.reason).toBe('serveLine'); expect(fault.winner).toBe(1);
   const legal = await play(true);
-  expect(legal.reason).not.toBe('서브 라인 반칙');
+  expect(legal.reason).not.toBe('serveLine');
 });
 
 test('서브 라인 반칙은 AI 서버에도 같은 규칙: 서브 자리가 엔드라인 안쪽이면 AI 서브도 반칙, 뒤쪽이면 정상', async () => {
@@ -118,8 +118,8 @@ test('서브 라인 반칙은 AI 서버에도 같은 규칙: 서브 자리가 �
     } finally { game.dispose(); }
   };
   const inside = await play(-5.5), behind = await play(-7.2);
-  expect(inside.reason).toBe('서브 라인 반칙'); expect(inside.winner).toBe(0);
-  expect(behind.reason).not.toBe('서브 라인 반칙');
+  expect(inside.reason).toBe('serveLine'); expect(inside.winner).toBe(0);
+  expect(behind.reason).not.toBe('serveLine');
 });
 
 test('AI 서브: 꼭짓점이 jumpApex 이상으로 던진 공은 서버가 점프해서 치고, 낮게 던진 공은 점프하지 않는다', async () => {
@@ -154,7 +154,7 @@ test('첫 서브: 사람이 늦게 들어와도 서버는 엔드라인 뒤에서
         game.step({ tick, tickRate: 60, inputs: tick <= lead ? [] : [{ playerId: 'h', input: [0, 0, 0], commands: [] }] });
         if (st.phase === 'point') reason = st.pointReason;
       }
-      expect(reason, `사람 입장 ${lead}틱 뒤`).not.toBe('서브 라인 반칙');
+      expect(reason, `사람 입장 ${lead}틱 뒤`).not.toBe('serveLine');
     } finally { game.dispose(); }
   }
 });

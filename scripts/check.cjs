@@ -39,9 +39,10 @@ for (const [name, url] of Object.entries(lock.external)) requireCondition(map[na
 // 커밋된 manifest·아이콘·sw.js·<head> 태그가 원본(assets/pwa, scripts/pwa.mjs 설정)과 같은지 확인한다. 다르면 `node scripts/pwa.mjs`로 다시 만든다.
 execFileSync(process.execPath, [path.join(root, 'scripts/pwa.mjs'), '--check'], { cwd: root, stdio: 'inherit' });
 // 게임 이름의 단일 출처(src/config/game.js)와 정적 파일의 일치를 검사한다.
-const product = fs.readFileSync(path.join(root, 'src/config/game.js'), 'utf8').match(/TAKRAW_GAME_NAME = '([^']+)'/)[1];
-const productName = `블룸 ${product}`;
-requireCondition(html.includes(`<title>${productName}</title>`), `index.html 제목이 ${productName}과 다르다`);
+// 페이지 기본 언어(index.html·manifest)는 en이고, 저장소 문서는 ko 이름을 쓴다.
+const [product, productEn] = fs.readFileSync(path.join(root, 'src/config/game.js'), 'utf8').match(/TAKRAW_GAME_NAME = Object\.freeze\(\{ ko: '([^']+)', en: '([^']+)' \}\)/).slice(1);
+const productName = `블룸 ${product}`, productNameEn = `Bloom ${productEn}`;
+requireCondition(html.includes(`<title>${productNameEn}</title>`), `index.html 제목이 ${productNameEn}과 다르다`);
 requireCondition(fs.readFileSync(path.join(root, 'README.md'), 'utf8').startsWith(`# ${productName}`), `README 제목이 ${productName}과 다르다`);
 requireCondition(fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8').startsWith(`# ${productName}`), `AGENTS 제목이 ${productName}과 다르다`);
 requireCondition(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).description.startsWith(productName), `package.json 설명이 ${productName}과 다르다`);

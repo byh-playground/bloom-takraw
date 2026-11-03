@@ -36,6 +36,7 @@ src/
   simulation/{game,physics,timing}.js  경기 규칙, Rapier 어댑터, 입력 타이밍 판정
   learning/                  규칙 AI 조정 값 강화학습(core: 범용, takraw: 게임 전용)
   presentation/{view,ui,impact,field-effects}.js  Three.js 표시, DOM UI, 접촉·착지·득점 효과
+  i18n/                      화면 언어(ko/en) 선택과 문구 표
 styles/app.css               화면 스타일
 scripts/                     원본 HTTP 서버·정적 참조·의존성 검사
 playwright.config.js         사용자 시나리오 실행 구성
@@ -46,7 +47,7 @@ artifacts/                   새 실행 결과, Git 제외
 
 공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
-GameKit dist 커밋 `c819a0b48fb650ee8222f7d5ea90a63a2b9306d1`(v0.41.3), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요.
+GameKit dist 커밋 `3654287f308b3cfc7bc2a9e2808ac479c1825882`(v0.42.0), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
 
 ## 검사
 

@@ -1,6 +1,10 @@
-/** 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다. */
+/**
+ * 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다.
+ * 규칙·프리셋의 이름은 TextPair이고, 상태 문구(message)와 오류는 코드 + 값이다. 문구는 화면(presentation/club-text.js)이 언어별로 만든다(docs/i18n.md).
+ */
 // TOBE(learning) 학습 비용: `learning.cost`는 능력치 훈련과 같은 trainingPoints를 쓴다. 학습이 경기에 도움이 되는 것으로 확인되면 별도 포인트 분리 여부를 결정한다(docs/learning-tobe.md ⑥).
-import { takrawGenerateCard } from './generator.js';
+import { takrawGenerateCard, takrawCardTag } from './generator.js';
+import { TAKRAW_NAMES } from './names.js';
 import { TAKRAW_SCHOOLS, takrawOpponents, takrawPickHome, takrawSchool } from '../config/schools.js';
 
 const TAKRAW_CLUB_RULES = Object.freeze({
@@ -11,22 +15,25 @@ const TAKRAW_CLUB_RULES = Object.freeze({
   draw: { cost: 300, weights: { common: 70, rare: 25, hero: 5 }, refund: { common: 1, rare: 2, hero: 5 }, presetShare: 0.4 },
   // 후보 선수를 팔면 등급별 환급(draw.refund)에 쌓은 훈련 레벨 × levelRefund를 더해 훈련 포인트로 돌려받는다. 선수단은 minRoster명 밑으로 줄일 수 없다.
   sell: { minRoster: 3, levelRefund: 1 },
-  rarities: [{ id: 'common', name: '일반' }, { id: 'rare', name: '희귀' }, { id: 'hero', name: '영웅' }],
+  rarities: [{ id: 'common', name: { ko: '일반', en: 'Common' } }, { id: 'rare', name: { ko: '희귀', en: 'Rare' } }, { id: 'hero', name: { ko: '영웅', en: 'Hero' } }],
   // 생성 선수: base에서 0~rest만큼 흩어지고, peaks개의 능력치가 range 안으로 솟는다. 역할의 핵심 능력치(focus)부터 솟는다.
   generation: { base: 50,
     rarity: { common: { peaks: 2, range: [68, 78], rest: 12 }, rare: { peaks: 3, range: [76, 86], rest: 16 }, hero: { peaks: 4, range: [84, 94], rest: 20 } },
     focus: { receiver: ['defense', 'recovery', 'mobility'], setter: ['setting', 'flexibility', 'mobility'], attacker: ['power', 'jump', 'flexibility'] },
-    phrases: { mobility: '빠른 발', jump: '높은 점프', power: '강한 타격', flexibility: '유연한 공중 제어', setting: '정교한 토스', defense: '든든한 수비', recovery: '빠른 회복' } }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
+    // 생성 선수의 특징은 저장하지 않고 원래 능력치 상위 두 개의 문구로 그때 만든다(generator.js takrawCardTag).
+    phrases: { mobility: { ko: '빠른 발', en: 'Quick feet' }, jump: { ko: '높은 점프', en: 'High jump' }, power: { ko: '강한 타격', en: 'Hard hitter' },
+      flexibility: { ko: '유연한 공중 제어', en: 'Agile in the air' }, setting: { ko: '정교한 토스', en: 'Precise sets' },
+      defense: { ko: '든든한 수비', en: 'Solid defense' }, recovery: { ko: '빠른 회복', en: 'Fast recovery' } } }, learning: { cost: 1, epochs: 100, policyLength: 1024 },
   rewards: { win: { credits: 180, trainingPoints: 3 }, loss: { credits: 100, trainingPoints: 2 } },
-  roles: [{ id: 'receiver', name: '리시버' }, { id: 'setter', name: '세터' }, { id: 'attacker', name: '공격수' }],
+  roles: [{ id: 'receiver', name: { ko: '리시버', en: 'Receiver' } }, { id: 'setter', name: { ko: '세터', en: 'Setter' } }, { id: 'attacker', name: { ko: '공격수', en: 'Attacker' } }],
   stats: [
-    { id: 'mobility', name: '기동력', radar: true, effect: '지상 이동 속도·가속' },
-    { id: 'jump', name: '도약', radar: true, effect: '점프 시작 속도' },
-    { id: 'power', name: '타격', radar: true, effect: '발등 근접 타격의 힘 상한' },
-    { id: 'flexibility', name: '공중 제어', radar: true, effect: '공중 이동 입력의 가속' },
-    { id: 'setting', name: '토스', radar: true, effect: '지상 발차기의 힘 상한' },
-    { id: 'defense', name: '수비', radar: true, effect: '리시브 충격에 따른 자세 흔들림 감소' },
-    { id: 'recovery', name: '회복', radar: true, effect: '넘어진 뒤 일어나는 자세 구동' },
+    { id: 'mobility', name: { ko: '기동력', en: 'Mobility' }, radar: true, effect: { ko: '지상 이동 속도·가속', en: 'Ground speed and acceleration' } },
+    { id: 'jump', name: { ko: '도약', en: 'Jump' }, radar: true, effect: { ko: '점프 시작 속도', en: 'Take-off speed' } },
+    { id: 'power', name: { ko: '타격', en: 'Power' }, radar: true, effect: { ko: '발등 근접 타격의 힘 상한', en: 'Maximum force of close instep strikes' } },
+    { id: 'flexibility', name: { ko: '공중 제어', en: 'Air control' }, radar: true, effect: { ko: '공중 이동 입력의 가속', en: 'Acceleration from movement input in the air' } },
+    { id: 'setting', name: { ko: '토스', en: 'Setting' }, radar: true, effect: { ko: '지상 발차기의 힘 상한', en: 'Maximum force of ground kicks' } },
+    { id: 'defense', name: { ko: '수비', en: 'Defense' }, radar: true, effect: { ko: '리시브 충격에 따른 자세 흔들림 감소', en: 'Less wobble when receiving a hard ball' } },
+    { id: 'recovery', name: { ko: '회복', en: 'Recovery' }, radar: true, effect: { ko: '넘어진 뒤 일어나는 자세 구동', en: 'Getting back up after a fall' } },
   ],
 });
 
@@ -35,16 +42,19 @@ const takrawTrainingFactor = (level, rule = TAKRAW_CLUB_RULES.training) => (1 + 
 
 const takrawClubStats = values => Object.fromEntries(TAKRAW_CLUB_RULES.stats.map(stat => [stat.id, values[stat.id] ?? 50]));
 const TAKRAW_CLUB_PLAYERS = Object.freeze([
-  { id: 'han-gyeol', starter: true, rarity: 'common', name: '한결', tag: '든든한 수비', preferredRole: 'receiver', stats: takrawClubStats({ defense: 74, recovery: 68 }) },
-  { id: 'yun-seo', starter: true, rarity: 'common', name: '윤서', tag: '차분한 연결', preferredRole: 'setter', stats: takrawClubStats({ defense: 58, recovery: 62 }) },
-  { id: 'i-deun', starter: true, rarity: 'common', name: '이든', tag: '균형 잡힌 공격', preferredRole: 'attacker', stats: takrawClubStats({}) },
-  { id: 'ha-rin', rarity: 'common', name: '하린', tag: '빠른 공간 커버', preferredRole: 'attacker', stats: takrawClubStats({ mobility: 84, flexibility: 78, defense: 58, recovery: 60 }) },
-  { id: 'do-yun', rarity: 'common', name: '도윤', tag: '높은 타점', preferredRole: 'attacker', stats: takrawClubStats({ mobility: 54, jump: 78, power: 78, defense: 52, recovery: 56 }) },
-  { id: 'si-on', rarity: 'common', name: '시온', tag: '힘 있는 토스', preferredRole: 'setter', stats: takrawClubStats({ mobility: 62, setting: 84, defense: 72, recovery: 62 }) },
-  { id: 'na-rae', name: '나래', tag: '넓은 수비 범위', preferredRole: 'receiver', rarity: 'rare', stats: takrawClubStats({ mobility: 76, flexibility: 62, setting: 54, defense: 88, recovery: 78 }) },
-  { id: 'tae-o', name: '태오', tag: '강력한 공중 타격', preferredRole: 'attacker', rarity: 'hero', stats: takrawClubStats({ mobility: 58, jump: 86, power: 86, flexibility: 72, recovery: 58 }) },
-  { id: 'ra-on', name: '라온', tag: '빠른 세팅', preferredRole: 'setter', rarity: 'rare', stats: takrawClubStats({ mobility: 74, flexibility: 58, setting: 88, defense: 70, recovery: 72 }) },
+  { id: 'han-gyeol', starter: true, rarity: 'common', name: TAKRAW_NAMES.get('한결'), tag: { ko: '든든한 수비', en: 'Solid defense' }, preferredRole: 'receiver', stats: takrawClubStats({ defense: 74, recovery: 68 }) },
+  { id: 'yun-seo', starter: true, rarity: 'common', name: TAKRAW_NAMES.get('윤서'), tag: { ko: '차분한 연결', en: 'Calm link-up' }, preferredRole: 'setter', stats: takrawClubStats({ defense: 58, recovery: 62 }) },
+  { id: 'i-deun', starter: true, rarity: 'common', name: TAKRAW_NAMES.get('이든'), tag: { ko: '균형 잡힌 공격', en: 'Balanced attack' }, preferredRole: 'attacker', stats: takrawClubStats({}) },
+  { id: 'ha-rin', rarity: 'common', name: TAKRAW_NAMES.get('하린'), tag: { ko: '빠른 공간 커버', en: 'Quick court coverage' }, preferredRole: 'attacker', stats: takrawClubStats({ mobility: 84, flexibility: 78, defense: 58, recovery: 60 }) },
+  { id: 'do-yun', rarity: 'common', name: TAKRAW_NAMES.get('도윤'), tag: { ko: '높은 타점', en: 'High contact point' }, preferredRole: 'attacker', stats: takrawClubStats({ mobility: 54, jump: 78, power: 78, defense: 52, recovery: 56 }) },
+  { id: 'si-on', rarity: 'common', name: TAKRAW_NAMES.get('시온'), tag: { ko: '힘 있는 토스', en: 'Powerful sets' }, preferredRole: 'setter', stats: takrawClubStats({ mobility: 62, setting: 84, defense: 72, recovery: 62 }) },
+  { id: 'na-rae', name: TAKRAW_NAMES.get('나래'), tag: { ko: '넓은 수비 범위', en: 'Wide defensive range' }, preferredRole: 'receiver', rarity: 'rare', stats: takrawClubStats({ mobility: 76, flexibility: 62, setting: 54, defense: 88, recovery: 78 }) },
+  { id: 'tae-o', name: TAKRAW_NAMES.get('태오'), tag: { ko: '강력한 공중 타격', en: 'Powerful air strikes' }, preferredRole: 'attacker', rarity: 'hero', stats: takrawClubStats({ mobility: 58, jump: 86, power: 86, flexibility: 72, recovery: 58 }) },
+  { id: 'ra-on', name: TAKRAW_NAMES.get('라온'), tag: { ko: '빠른 세팅', en: 'Quick setting' }, preferredRole: 'setter', rarity: 'rare', stats: takrawClubStats({ mobility: 74, flexibility: 58, setting: 88, defense: 70, recovery: 72 }) },
 ]);
+
+/** 상태 문구·오류의 값. id는 presentation/club-text.js의 키다. */
+const clubMessage = (id, values = {}) => Object.freeze({ id, values: Object.freeze(values) });
 
 /** 0 이상 1 미만의 난수 하나(내 학교 추첨용). 경기 시뮬레이션과 무관하다. */
 function takrawRandomUnit() {
@@ -53,26 +63,31 @@ function takrawRandomUnit() {
 }
 
 class TakrawClub {
-  /** openSave(options)는 저장 모듈의 createSave에 저장소 어댑터를 붙여 save를 연다. 어댑터는 호출한 쪽이 고른다(실제 저장 또는 디버그 메모리). */
-  constructor({ onChange = null, openSave = null, random = takrawRandomUnit } = {}) {
-    this.random = random; this.openSave = openSave; this.save = null; this.onChange = onChange; this.record = null;
-    this.status = 'loading'; this.message = '팀을 불러오고 있어요.'; this.disposed = false;
+  /**
+   * openSave(options)는 저장 모듈의 createSave에 저장소 어댑터를 붙여 save를 연다. 어댑터는 호출한 쪽이 고른다(실제 저장 또는 디버그 메모리).
+   * defaultName은 새 팀의 이름이다. 저장되는 문자열이라 처음 저장할 때의 페이지 언어로 정해진다.
+   */
+  constructor({ onChange = null, openSave = null, random = takrawRandomUnit, defaultName } = {}) {
+    if (typeof defaultName !== 'string' || !defaultName) throw new TypeError('defaultName 필요');
+    this.random = random; this.openSave = openSave; this.save = null; this.onChange = onChange; this.record = null; this.defaultName = defaultName;
+    this.status = 'loading'; this.message = clubMessage('loading'); this.disposed = false;
     this.pending = Promise.resolve(); this.stopExternal = null;
     this.metrics = { reads: 0, writes: 0, bytes: 0 };
   }
 
   _notify() { if (!this.disposed) this.onChange?.(this.getView()); }
-  _error(message, kind = 'validation') { const error = new Error(message); error.kind = kind; return error; }
+  /** 오류의 code·values는 화면 문구의 키와 값이고, message는 개발용으로 code를 그대로 둔다. */
+  _error(code, kind = 'validation', values = {}) { const error = new Error(code); error.kind = kind; error.code = code; error.values = values; return error; }
   _normalizeName(value) { return String(value ?? '').replace(/\s+/gu, ' ').trim(); }
   _default() {
-    return { name: '블룸 클럽', ...TAKRAW_CLUB_RULES.initial,
+    return { name: this.defaultName, ...TAKRAW_CLUB_RULES.initial,
       owned: TAKRAW_CLUB_PLAYERS.filter(player => player.starter).map(player => player.id), trained: {}, levels: {}, cards: {}, pending: null, gacha: { runs: 0 },
       lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
       record: { played: 0, won: 0, lost: 0 }, rewards: [], lastReward: null, learning: { runs: 0, policy: null }, campaign: { home: takrawPickHome(this.random()), cleared: [] } };
   }
 
   _validate(record) {
-    const fail = () => { throw this._error('저장된 팀 형식을 확인할 수 없어요. 기존 데이터는 보존했어요.', 'storage'); };
+    const fail = () => { throw this._error('unreadable', 'storage'); };
     const integer = value => Number.isSafeInteger(value) && value >= 0;
     if (!record || typeof record.name !== 'string' ||
       this._normalizeName(record.name) !== record.name || [...record.name].length < 1 || [...record.name].length > TAKRAW_CLUB_RULES.nameLength ||
@@ -109,7 +124,7 @@ class TakrawClub {
     if (record.cards !== undefined) {
       const cards = record.cards, stats = TAKRAW_CLUB_RULES.stats.map(stat => stat.id);
       const validCard = (id, card) => card && typeof card === 'object' && card.id === id && /^gen-\d+$/.test(id) &&
-        typeof card.name === 'string' && card.name.length >= 1 && card.name.length <= 8 && typeof card.tag === 'string' && card.tag.length <= 40 &&
+        typeof card.name === 'string' && TAKRAW_NAMES.has(card.name) &&
         TAKRAW_CLUB_RULES.roles.some(role => role.id === card.preferredRole) && TAKRAW_CLUB_RULES.rarities.some(rarity => rarity.id === card.rarity) &&
         Number.isSafeInteger(card.number) && card.number >= 0 && card.number <= 99 && card.stats && typeof card.stats === 'object' &&
         Object.keys(card.stats).length === stats.length && stats.every(key => Number.isSafeInteger(card.stats[key]) && card.stats[key] >= 0 && card.stats[key] <= 100);
@@ -145,16 +160,15 @@ class TakrawClub {
     return record;
   }
 
-  /** 저장 모듈의 실패를 화면 문구로 옮긴다. 게임 규칙 오류(kind 'validation')는 그대로 둔다. */
+  /** 저장 모듈의 실패를 화면 문구 코드로 옮긴다. 게임 규칙 오류(kind 'validation')는 자기 코드를 그대로 쓴다. */
   _saveMessage(error) {
-    return { conflict: '다른 탭에서 팀이 바뀌었어요. 최신 저장을 불러오세요.', unreadable: '저장된 팀 형식을 확인할 수 없어요. 기존 데이터는 보존했어요.',
-      storage: /quota/i.test(error.message) ? '저장 공간이 부족해 변경을 저장하지 못했어요. 기존 팀은 보존했어요.' : '팀 저장소를 사용할 수 없어요. 브라우저 저장 권한을 확인해 주세요.',
-      closed: '팀 관리가 종료되었어요.' }[error.kind] ?? error.message;
+    const id = { conflict: 'conflict', unreadable: 'unreadable', storage: /quota/i.test(error.message) ? 'quota' : 'storage', closed: 'closed' }[error.kind];
+    return id ? clubMessage(id) : error.code ? clubMessage(error.code, error.values) : null;
   }
 
   _open() {
     if (this.save) return this.save;
-    if (!this.openSave) throw this._error('이 브라우저에서 팀 저장을 사용할 수 없어요. 저장 권한을 확인해 주세요.', 'storage');
+    if (!this.openSave) throw this._error('noStorage', 'storage');
     this.save = this.openSave({ key: 'my-team', version: 1, create: () => this._default(), validate: record => this._validate(record) });
     this.stopExternal = this.save.onExternalChange(() => {
       if (this.disposed) return;
@@ -171,11 +185,11 @@ class TakrawClub {
 
   _queue(operation) {
     const run = this.pending.then(async () => {
-      if (this.disposed) throw this._error('팀 관리가 종료되었어요.', 'storage');
+      if (this.disposed) throw this._error('closed', 'storage');
       try { return await operation(); }
       catch (error) {
         this.status = error.kind === 'conflict' ? 'conflict' : error.kind === 'validation' && this.record ? 'ready' : 'error';
-        this.message = this._saveMessage(error) || '팀 변경을 저장하지 못했어요.'; this._notify(); throw error;
+        this.message = this._saveMessage(error) || clubMessage('saveFailed'); this._notify(); throw error;
       }
     });
     this.pending = run.catch(() => {}); return run;
@@ -195,22 +209,22 @@ class TakrawClub {
 
   load() {
     return this._queue(async () => {
-      this.status = 'loading'; this.message = '팀을 불러오고 있어요.'; this._notify();
-      return this._read('팀을 불러왔어요. 편성은 다음 경기부터 적용돼요.');
+      this.status = 'loading'; this.message = clubMessage('loading'); this._notify();
+      return this._read(clubMessage('loaded'));
     });
   }
 
   refresh() {
     return this._queue(async () => {
-      this.status = 'loading'; this.message = '최신 저장을 불러오고 있어요.'; this._notify();
-      return this._read('최신 팀을 불러왔어요.');
+      this.status = 'loading'; this.message = clubMessage('refreshing'); this._notify();
+      return this._read(clubMessage('refreshed'));
     });
   }
 
   _mutate(mutate, message) {
     return this._queue(async () => {
-      if (!this.record || this.status !== 'ready') throw this._error('최신 팀을 먼저 불러와 주세요.', this.status === 'conflict' ? 'conflict' : 'storage');
-      this.status = 'saving'; this.message = '팀을 저장하고 있어요.'; this._notify();
+      if (!this.record || this.status !== 'ready') throw this._error('loadFirst', this.status === 'conflict' ? 'conflict' : 'storage');
+      this.status = 'saving'; this.message = clubMessage('saving'); this._notify();
       let changed = true;
       const data = await this.save.update(record => { changed = mutate(record) !== false; return changed; });
       if (changed) this.metrics.writes++;
@@ -221,31 +235,31 @@ class TakrawClub {
   rename(value) {
     const name = this._normalizeName(value);
     return this._mutate(record => {
-      if ([...name].length < 1 || [...name].length > TAKRAW_CLUB_RULES.nameLength) throw this._error(`팀 이름은 1~${TAKRAW_CLUB_RULES.nameLength}자로 입력하세요.`);
+      if ([...name].length < 1 || [...name].length > TAKRAW_CLUB_RULES.nameLength) throw this._error('nameLength', 'validation', { max: TAKRAW_CLUB_RULES.nameLength });
       if (name === record.name) return false; record.name = name;
-    }, '팀 이름을 저장했어요.');
+    }, clubMessage('renamed'));
   }
 
   assign(role, playerId) {
     return this._mutate(record => {
-      if (!TAKRAW_CLUB_RULES.roles.some(value => value.id === role) || !record.owned.includes(playerId)) throw this._error('편성할 선수와 자리를 확인해 주세요.');
+      if (!TAKRAW_CLUB_RULES.roles.some(value => value.id === role) || !record.owned.includes(playerId)) throw this._error('assignInvalid');
       const previousRole = TAKRAW_CLUB_RULES.roles.find(value => record.lineup[value.id] === playerId)?.id;
       if (previousRole === role) return false;
       if (previousRole) record.lineup[previousRole] = record.lineup[role];
       record.lineup[role] = playerId;
-    }, '편성을 저장했어요. 다음 경기와 연습부터 적용돼요.');
+    }, clubMessage('assigned'));
   }
 
   /** 훈련 포인트 1개로 선수의 훈련 레벨을 한 단계 올린다. 모든 능력치가 함께 오른다. */
   train(playerId) {
     return this._mutate(record => {
       const rule = TAKRAW_CLUB_RULES.training;
-      if (!record.owned.includes(playerId)) throw this._error('훈련할 선수를 확인해 주세요.');
-      if (record.trainingPoints < rule.cost) throw this._error('훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.');
+      if (!record.owned.includes(playerId)) throw this._error('trainInvalid');
+      if (record.trainingPoints < rule.cost) throw this._error('pointsShort');
       record.levels ??= {};
       record.levels[playerId] = (record.levels[playerId] || 0) + 1;
       record.trainingPoints -= rule.cost;
-    }, '훈련을 저장했어요. 다음 경기와 연습부터 적용돼요.');
+    }, clubMessage('trained'));
   }
 
   /** 저장된 카드 또는 프리셋 선수 하나. 생성 선수는 저장 기록의 cards에만 있다. */
@@ -266,8 +280,8 @@ class TakrawClub {
   async draw() {
     const rules = TAKRAW_CLUB_RULES, rule = rules.draw; let drawn = null;
     const result = await this._mutate(record => {
-      if (record.pending) throw this._error('먼저 지난 뽑기 결과를 정리해 주세요.');
-      if (record.credits < rule.cost) throw this._error(`뽑기에 ${rule.cost - record.credits} C가 더 필요해요.`);
+      if (record.pending) throw this._error('drawPending');
+      if (record.credits < rule.cost) throw this._error('creditsShort', 'validation', { short: rule.cost - record.credits });
       const rarity = this._rollRarity();
       const presets = TAKRAW_CLUB_PLAYERS.filter(player => !player.starter && player.rarity === rarity && !record.owned.includes(player.id));
       record.gacha ??= { runs: 0 }; record.cards ??= {};
@@ -275,7 +289,8 @@ class TakrawClub {
       if (presets.length && this.random() < rule.presetShare) id = presets[Math.floor(this.random() * presets.length)].id;
       else {
         id = `gen-${record.gacha.runs + 1}`;
-        const names = record.owned.map(owned => (TAKRAW_CLUB_PLAYERS.find(value => value.id === owned) ?? record.cards[owned])?.name);
+        // 이름 겹침은 생성 카드의 저장 문자열과 프리셋 이름의 ko로 비교한다.
+        const names = record.owned.map(owned => { const player = TAKRAW_CLUB_PLAYERS.find(value => value.id === owned); return player ? player.name.ko : record.cards[owned]?.name; });
         const numbers = Object.values(record.cards).map(card => card.number);
         record.cards[id] = takrawGenerateCard({ id, rarity, random: this.random, rules, takenNames: names, takenNumbers: numbers });
       }
@@ -283,16 +298,16 @@ class TakrawClub {
       const joined = record.owned.length < rules.capacity;
       if (joined) record.owned.push(id); else record.pending = id;
       drawn = { id, rarity, joined };
-    }, '선수를 뽑았어요.');
+    }, clubMessage('drawn'));
     return { ...result, drawn };
   }
 
   /** 도장깨기 첫 소개를 봤다고 저장한다. 이미 봤으면 그대로 둔다. */
   seeCampaignIntro() {
     return this._mutate(record => {
-      if (!record.campaign?.home) throw this._error('팀을 불러온 뒤 확인할 수 있어요.');
+      if (!record.campaign?.home) throw this._error('loadFirst');
       record.campaign.introSeen = true;
-    }, '도장깨기 소개를 확인했어요.');
+    }, clubMessage('campaignIntroSeen'));
   }
 
   /** 선수 한 명을 팔았을 때 받는 훈련 포인트: 등급 환급 + 쌓은 훈련 레벨. */
@@ -306,36 +321,36 @@ class TakrawClub {
     let value = 0;
     return this._mutate(record => {
       const rules = TAKRAW_CLUB_RULES;
-      if (!record.owned.includes(playerId)) throw this._error('판매할 선수를 확인해 주세요.');
-      if (Object.values(record.lineup).includes(playerId)) throw this._error('출전 선수는 팔 수 없어요. 후보와 교체한 뒤 판매해 주세요.');
-      if (record.owned.length <= rules.sell.minRoster) throw this._error(`선수단에는 최소 ${rules.sell.minRoster}명이 남아야 해요.`);
+      if (!record.owned.includes(playerId)) throw this._error('sellInvalid');
+      if (Object.values(record.lineup).includes(playerId)) throw this._error('sellStarter');
+      if (record.owned.length <= rules.sell.minRoster) throw this._error('minRoster', 'validation', { min: rules.sell.minRoster });
       value = this._sellValue(record, playerId);
       record.trainingPoints += value;
       record.owned.splice(record.owned.indexOf(playerId), 1);
       delete record.cards?.[playerId]; delete record.trained[playerId]; delete record.levels?.[playerId];
-    }, '선수를 팔았어요.').then(result => ({ ...result, sold: value }));
+    }, clubMessage('sold')).then(result => ({ ...result, sold: value }));
   }
 
   /** 가득 차서 남겨 둔 뽑기 결과를 정리한다. release가 있으면 그 후보와 교체하고, 없으면 환급 포인트를 받는다. */
   resolveDraw({ release = null } = {}) {
     return this._mutate(record => {
       const rules = TAKRAW_CLUB_RULES, id = record.pending;
-      if (!id) throw this._error('정리할 뽑기 결과가 없어요.');
+      if (!id) throw this._error('noPending');
       const card = this._card(id);
       const drop = playerId => { // 생성 선수는 카드째 지우고 훈련 기록도 함께 정리한다.
         delete record.cards?.[playerId]; delete record.trained[playerId]; delete record.levels?.[playerId];
       };
       if (release === null) { record.trainingPoints += rules.draw.refund[card.rarity]; drop(id); }
       else {
-        if (!record.owned.includes(release) || Object.values(record.lineup).includes(release)) throw this._error('교체할 후보 선수를 확인해 주세요.');
+        if (!record.owned.includes(release) || Object.values(record.lineup).includes(release)) throw this._error('releaseInvalid');
         record.owned.splice(record.owned.indexOf(release), 1); drop(release); record.owned.push(id);
       }
       record.pending = null;
-    }, release === null ? '환급 포인트를 받았어요.' : '후보와 교체했어요.');
+    }, clubMessage(release === null ? 'refunded' : 'replaced'));
   }
 
   rewardMatch({ id, won, mode, schoolId = null } = {}) {
-    if (mode !== 'match' || typeof won !== 'boolean' || typeof id !== 'string' || !/^[a-f\d]{32}$/.test(id)) return Promise.reject(this._error('완료된 AI 대전의 보상 정보가 필요해요.'));
+    if (mode !== 'match' || typeof won !== 'boolean' || typeof id !== 'string' || !/^[a-f\d]{32}$/.test(id)) return Promise.reject(this._error('rewardInvalid'));
     if (this.record?.rewards.includes(id)) return Promise.resolve({ changed: false, view: this.getView() });
     return this._mutate(record => {
       if (record.rewards.includes(id)) return false;
@@ -343,9 +358,9 @@ class TakrawClub {
       let trainingPoints = baseReward.trainingPoints;
       if (schoolId !== null) {
         const campaign = record.campaign, opponents = campaign?.home ? takrawOpponents(campaign.home) : [], schoolIndex = opponents.findIndex(school => school.id === schoolId);
-        if (schoolIndex < 0) throw this._error('도전한 학교를 확인해 주세요.');
+        if (schoolIndex < 0) throw this._error('schoolInvalid');
         trainingPoints = 0;
-        if (schoolIndex > campaign.cleared.length) throw this._error('앞 학교를 먼저 클리어해 주세요.');
+        if (schoolIndex > campaign.cleared.length) throw this._error('schoolLocked');
         if (won && schoolIndex === campaign.cleared.length) {
           trainingPoints = opponents[schoolIndex].firstClearTrainingPoints;
           campaign.cleared.push(schoolId);
@@ -355,19 +370,19 @@ class TakrawClub {
       record.credits += reward.credits; record.trainingPoints += reward.trainingPoints;
       record.record.played++; record.record[won ? 'won' : 'lost']++; record.rewards.push(id);
       record.lastReward = { id, won, ...reward, ...(schoolId === null ? {} : { schoolId }) };
-    }, '경기 보상을 저장했어요.');
+    }, clubMessage('rewarded'));
   }
 
   /** 훈련 포인트 1개로 받기 학습 한 번(100 epoch)을 마친 정책을 저장한다. policy는 양자화한 정책의 base64다. */
   learn(policy) {
     const rule = TAKRAW_CLUB_RULES.learning;
-    if (typeof policy !== 'string' || !policy || policy.length > rule.policyLength || !/^[A-Za-z\d+/]+={0,2}$/.test(policy)) return Promise.reject(this._error('저장할 학습 결과를 확인해 주세요.'));
+    if (typeof policy !== 'string' || !policy || policy.length > rule.policyLength || !/^[A-Za-z\d+/]+={0,2}$/.test(policy)) return Promise.reject(this._error('policyInvalid'));
     return this._mutate(record => {
-      if (record.trainingPoints < rule.cost) throw this._error('훈련 포인트가 부족해요. AI 대전을 완료하면 받을 수 있어요.');
+      if (record.trainingPoints < rule.cost) throw this._error('pointsShort');
       record.trainingPoints -= rule.cost;
       const learning = record.learning ?? { runs: 0, policy: null };
       record.learning = { runs: learning.runs + 1, policy };
-    }, '학습 결과를 저장했어요. 다음 AI 대전·연습부터 적용돼요.');
+    }, clubMessage('learned'));
   }
 
   /** 저장된 학습 정책(base64)과 누적 학습 횟수. 학습한 적이 없으면 null이다. */
@@ -379,8 +394,10 @@ class TakrawClub {
   /** 저장 기록과 무관하게 프리셋 선수 하나를 화면용으로 만든다(소개영상의 뽑기 연출). */
   preview(id) { return this._player(id); }
 
+  /** 화면용 선수. name·tag는 TextPair다. 생성 카드는 저장한 ko 이름으로 짝을 찾고, 특징은 원래 능력치로 만든다. */
   _player(id) {
-    const base = this._card(id), number = base.number ?? TAKRAW_CLUB_PLAYERS.findIndex(value => value.id === id) + 1;
+    const card = this._card(id), generated = typeof card.name === 'string';
+    const base = generated ? { ...card, name: TAKRAW_NAMES.get(card.name), tag: takrawCardTag(card.stats, TAKRAW_CLUB_RULES) } : card, number = base.number ?? TAKRAW_CLUB_PLAYERS.findIndex(value => value.id === id) + 1;
     const level = this.record?.levels?.[id] || 0, factor = takrawTrainingFactor(level);
     return { ...base, number, level, sellValue: this.record ? this._sellValue(this.record, id) : 0, stats: Object.fromEntries(Object.entries(base.stats).map(([key, value]) => [key, Math.round((value + (this.record?.trained[id]?.[key] || 0)) * factor)])), role: TAKRAW_CLUB_RULES.roles.find(role => this.record?.lineup[role.id] === id)?.id || null };
   }
@@ -400,6 +417,9 @@ class TakrawClub {
       const player = this._player(this.record.lineup[role]); return { id: player.id, name: player.name, role, stats: { ...player.stats } };
     }) };
   }
+
+  /** 디버그 장면이 저장 바깥에서 값을 고친다(확인용 주소 전용). */
+  debugMutate(mutate) { return this._mutate(mutate, clubMessage('debugChanged')); }
 
   diagnostics() { return { status: this.status, revision: this.save?.revision ?? null, ...this.metrics, bytesMeaning: '저장 레코드 JSON UTF-8 크기 추정값. IndexedDB 실제 디스크 사용량과 다릅니다.' }; }
   dispose() { this.disposed = true; this.stopExternal?.(); this.save?.dispose(); this.save = null; this.onChange = null; }

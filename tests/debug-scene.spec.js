@@ -61,7 +61,7 @@ test('클럽 장면: 시드·코인·뽑기 주소는 같은 팀을 만들고 �
   await check.goto('/');
   expect(await stored(check)).toEqual(before);
   const short = await open(check, 'debug=1&scene=club&seed=7&credits=100&draws=1');
-  expect(short.error).toContain('뽑기에 200 C가 더 필요해요');
+  expect(short.error).toContain('creditsShort'); // 클럽 오류는 코드다(문장은 화면이 만든다, docs/i18n.md)
   await browser.close();
   expect(shots[0].equals(shots[1])).toBe(true);
 });

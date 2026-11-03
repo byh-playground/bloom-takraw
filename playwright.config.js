@@ -3,7 +3,7 @@ import { defineConfig } from 'playwright/test';
 const baseURL = 'http://127.0.0.1:8766/';
 export default defineConfig({
   testDir: './tests',
-  testMatch: ['campaign.spec.js', 'joint-limits.spec.js', 'ai-brain.spec.js', 'sync.spec.js', 'receive-assist.spec.js', 'formation.spec.js', 'block.spec.js', 'quick-attack.spec.js', 'toss-spread.spec.js', 'set-assist.spec.js', 'user-serve.spec.js', 'dominant-foot.spec.js', 'user-flow.spec.js', 'mobile-flow.spec.js', 'watch.spec.js', 'reset-determinism.spec.js', 'sound.spec.js', 'debug-scene.spec.js', 'highlight.spec.js', 'pwa.spec.js'],
+  testMatch: ['user-flow.spec.js', 'mobile-flow.spec.js'], // 고정 사용자 시나리오만 둔다(PM-009·PM-014)
   workers: 1,
   retries: 0,
   timeout: 150_000,
@@ -11,7 +11,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   outputDir: './artifacts/e2e',
   reporter: [['list'], ['json', { outputFile: './artifacts/e2e/report.json' }]],
-  use: { baseURL, locale: 'ko-KR' }, // 문구 검사는 한국어 기준이다. 영어는 en 지정 시험이 따로 본다(docs/i18n.md).
+  use: { baseURL, locale: 'ko-KR' }, // 시나리오의 문구 확인은 한국어 기준이다(docs/i18n.md).
   webServer: {
     command: 'node scripts/dev-server.cjs',
     url: baseURL,

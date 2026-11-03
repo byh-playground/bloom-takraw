@@ -3,7 +3,7 @@ import { TakrawClub } from '../src/club/club.js';
 import { TAKRAW_SCHOOLS, TAKRAW_LADDER, takrawOpponents, takrawPickHome } from '../src/config/schools.js';
 
 // random 0 → 내 학교는 로스터 첫 학교(sprout), 상대는 나머지 9곳이다.
-const newClub = () => new TakrawClub({ random: () => 0 }), HOME = takrawPickHome(0), OPPONENTS = takrawOpponents(HOME);
+const newClub = () => new TakrawClub({ random: () => 0, defaultName: '블룸 클럽' }), HOME = takrawPickHome(0), OPPONENTS = takrawOpponents(HOME);
 
 test('첫 클리어 포인트: 저장 복구·동일 경기 재시도·재클리어는 중복 지급하지 않는다', async () => {
   const club = newClub();

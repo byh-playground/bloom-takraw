@@ -11,7 +11,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   outputDir: './artifacts/e2e',
   reporter: [['list'], ['json', { outputFile: './artifacts/e2e/report.json' }]],
-  use: { baseURL },
+  use: { baseURL, locale: 'ko-KR' }, // 문구 검사는 한국어 기준이다. 영어는 en 지정 시험이 따로 본다(docs/i18n.md).
   webServer: {
     command: 'node scripts/dev-server.cjs',
     url: baseURL,

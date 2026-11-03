@@ -1,9 +1,9 @@
 {
   "id": "./",
-  "name": "블룸 발 배구",
-  "short_name": "발 배구",
-  "description": "AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 발 배구. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.",
-  "lang": "ko",
+  "name": "Bloom Takraw",
+  "short_name": "Takraw",
+  "description": "Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play.",
+  "lang": "en",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

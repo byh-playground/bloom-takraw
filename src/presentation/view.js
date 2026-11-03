@@ -1,4 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
+import { LOCALE } from '../i18n/locale.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
@@ -106,7 +107,7 @@ class TakrawView {
       ctx.fillStyle = `#${school.uniform.primary.toString(16).padStart(6, '0')}`; ctx.fillRect(0, 0, 640, 136);
       ctx.fillStyle = `#${school.venue.line.toString(16).padStart(6, '0')}`;
       ctx.font = 'bold 43px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(school.venue.banners[index], 320, 68, 600);
+      ctx.fillText(LOCALE.text(school.venue.banners[index]), 320, 68, 600);
       const texture = new this.THREE.CanvasTexture(canvas); texture.colorSpace = this.THREE.SRGBColorSpace;
       this.textures.set(key, texture);
       this.materials.set(key, new this.THREE.MeshBasicMaterial({ map: texture, side: this.THREE.DoubleSide }));

@@ -1,9 +1,15 @@
 import { TAKRAW_ELEMENTS, TAKRAW_SCHOOLS, takrawOpponents, takrawSchool } from '../config/schools.js';
 import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_RUNTIME } from '../config/runtime.js';
-import { TAKRAW_VERSION, TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from '../config/game.js';
+import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, takrawTrainingFactor } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
+import { LOCALE, LOCALE_NAMES } from '../i18n/locale.js';
+import { UI, clubText } from '../i18n/messages/ui.js';
+import { matchText, touchControlText } from '../i18n/messages/match.js';
+
+/** 모델이 넘긴 TextPair({ ko, en })를 이 페이지 언어의 문자열로. */
+const say = pair => LOCALE.text(pair);
 
 /** 처음 화면의 안쪽 단계와 그 부모 주소. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
 const HOME_PARENT = { start: '', multi: 'start' };
@@ -33,7 +39,7 @@ class TakrawUI {
     this.homeShown = false; this.homeView = 'main';
     this.copyTimer = null;
     this.cache = new Map();
-    this.club = { status: 'loading', message: '팀을 불러오고 있어요.', roster: [], draw: { pending: null }, lineup: {}, record: {} };
+    this.club = { status: 'loading', message: { id: 'loading', values: {} }, roster: [], draw: { pending: null }, lineup: {}, record: {} };
     // pick: 편성 교체 중인 선택({ type: 'player' | 'slot', id }), detail: 능력치를 펼친 선수 id. 모두 화면 안에서만 산다.
     this.clubSelection = { tab: 'roster', pick: null, detail: null, opener: null, rename: false, nameDraft: null, nameError: '', scroll: {} };
     this.campaignIntro = { step: 0, replay: false }; // 도장깨기 소개 카드: 몇 번째 장인지, 이미 본 뒤 다시 보는 중인지
@@ -75,7 +81,8 @@ class TakrawUI {
       watchSeed().value = Math.max(0, Number(watchSeed().value || 0) + Number(button.dataset.watchStep)); this.callbacks.onWatch?.(watchSeed().value);
     });
     const featured = document.getElementById('watch-featured');
-    featured.replaceChildren(new Option('추천 경기', ''), ...TAKRAW_RUNTIME.watch.featured.map(item => new Option(`${item.seed} · ${item.label}`, item.seed)));
+    const featuredLabel = item => item.closest !== undefined ? UI.featuredClosest(item) : UI.featuredDigs(item);
+    featured.replaceChildren(new Option(UI.featured(), ''), ...TAKRAW_RUNTIME.watch.featured.map(item => new Option(featuredLabel(item), item.seed)));
     this.listen(featured, 'change', () => { if (featured.value) { watchSeed().value = featured.value; this.callbacks.onWatch?.(featured.value); } });
     click('watch-random', () => { watchSeed().value = Math.floor(Math.random() * (TAKRAW_RUNTIME.watch.randomMax + 1)); this.callbacks.onWatch?.(watchSeed().value); });
     click('start-watch', () => this.start('watch'));
@@ -99,7 +106,7 @@ class TakrawUI {
     lessonSelect.replaceChildren();
     for (const lesson of TAKRAW_TRAINING_LESSONS) {
       const option = document.createElement('option');
-      option.value = lesson.id; option.textContent = lesson.title;
+      option.value = lesson.id; option.textContent = say(lesson.title);
       lessonSelect.appendChild(option);
     }
     this.listen(lessonSelect, 'change', () => this.callbacks.onTrainingLesson?.(lessonSelect.value));
@@ -107,7 +114,7 @@ class TakrawUI {
     tempoSelect.replaceChildren();
     for (const tempo of TAKRAW_TRAINING_TEMPOS) {
       const option = document.createElement('option');
-      option.value = tempo.id; option.textContent = tempo.title;
+      option.value = tempo.id; option.textContent = say(tempo.title);
       tempoSelect.appendChild(option);
     }
     this.listen(tempoSelect, 'change', () => this.callbacks.onTrainingTempo?.(tempoSelect.value));
@@ -229,7 +236,7 @@ class TakrawUI {
   }
 
   controlText(value) {
-    return this.coarse.matches ? value.replaceAll('좌클', '발차기 버튼') : value;
+    return this.coarse.matches ? touchControlText(value) : value;
   }
 
   /**
@@ -270,9 +277,9 @@ class TakrawUI {
     this.nodes['touch-controls'].hidden = !this.coarse.matches || (mode === 'watch' && !this.showcase); this.nodes['watch-form'].hidden = mode !== 'watch'; this.nodes['training-actions'].hidden = mode !== 'training';
     this.nodes['local-guide'].hidden = mode !== 'local'; this.nodes['end-actions'].hidden = true;
     document.querySelector('.scoreboard').classList.toggle('is-training', mode === 'training');
-    this.text('team-label-0', mode === 'local' ? '1P · 청록' : '우리 팀'); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
-    this.text('team-label-1', mode === 'local' ? '2P · 코랄' : '상대 팀');
-    this.text('match-type', { training: '스파이크 연습', match: 'AI 대전', local: '로컬 2인', online: '온라인 1대1', watch: 'AI 관전' }[mode]);
+    this.text('team-label-0', mode === 'local' ? UI.local1P() : UI.us()); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
+    this.text('team-label-1', mode === 'local' ? UI.local2P() : UI.them());
+    this.text('match-type', { training: UI.modeTraining, match: UI.modeMatch, local: UI.modeLocal, online: UI.modeOnline, watch: UI.modeWatch }[mode]());
     this.setRoute('play'); this.canvas.focus({ preventScroll: true });
   }
 
@@ -316,10 +323,11 @@ class TakrawUI {
     if (this.dialog === route) return;
     if (!this.dialog) { this.previousFocus = document.activeElement; this.releaseTouch(); if (this.inGame) this.callbacks.onPause?.(true); }
     this.dialog = route; this.nodes['modal-layer'].hidden = false; this.nodes['dialog-back'].hidden = true;
-    const meta = { club:['선수단 · 편성 · 훈련','내 팀 관리'], settings:['내게 맞는 플레이','설정'], pause:[this.mode === 'online' ? '경기는 계속 진행돼요' : '잠깐 숨 고르기', this.mode === 'online' ? '경기 메뉴' : '일시 정지'], network:['둘이서, 하나의 코트','친구와 온라인 1대1'] }[route];
+    const online = this.mode === 'online';
+    const meta = { club:[UI.clubKicker(), UI.clubTitle()], settings:[UI.settingsKicker(), UI.settingsTitle()], pause:[online ? UI.pauseKickerOnline() : UI.pauseKicker(), online ? UI.pauseTitleOnline() : UI.pauseTitle()], network:[UI.networkKicker(), UI.networkTitle()] }[route];
     this.nodes['dialog-panel'].classList.toggle('is-club', route === 'club');
     this.nodes['modal-layer'].classList.toggle('is-club-layer', route === 'club');
-    const heading = meta || ['하나씩 도전하는 우리 팀', '도장깨기'];
+    const heading = meta || [UI.campaignKicker(), UI.campaignTitle()];
     this.nodes['dialog-kicker'].textContent = heading[0]; this.nodes['dialog-title'].textContent = heading[1];
     this.nodes['dialog-content'].innerHTML = this[`${route}Content`](); this.nodes['dialog-content'].scrollTop = 0;
     if (route === 'network') this.renderNetwork();
@@ -360,7 +368,7 @@ class TakrawUI {
 
   campaignUniform(school, big = false) {
     const hex = value => `#${value.toString(16).padStart(6, '0')}`;
-    return `<span class="campaign-uniform ${big ? 'is-big' : ''}" aria-label="${this.escape(school.name)} 유니폼" style="--uniform-primary:${hex(school.uniform.primary)};--uniform-secondary:${hex(school.uniform.secondary)}"></span>`;
+    return `<span class="campaign-uniform ${big ? 'is-big' : ''}" aria-label="${this.escape(UI.uniform({ school: say(school.name) }))}" style="--uniform-primary:${hex(school.uniform.primary)};--uniform-secondary:${hex(school.uniform.secondary)}"></span>`;
   }
 
   /**
@@ -368,39 +376,42 @@ class TakrawUI {
    * 학교가 모두 몇 곳인지, 다음 학교가 어디인지는 일부러 알려 주지 않는다(이길 때마다 하나씩 나타난다).
    */
   campaignIntroContent(home, first) {
-    const intro = this.campaignIntro, step = intro.step, elementName = school => TAKRAW_ELEMENTS.find(element => element.id === school.element)?.name || '';
-    const names = ['receiver', 'setter', 'attacker'].map(role => this.club.roster.find(player => player.id === this.club.lineup?.[role])?.name).filter(Boolean);
+    const intro = this.campaignIntro, step = intro.step, escape = value => this.escape(value), element = school => say(this.campaignElement(school));
+    const names = ['receiver', 'setter', 'attacker'].map(role => this.club.roster.find(player => player.id === this.club.lineup?.[role])?.name).filter(Boolean).map(say);
     const pages = [
-      `<h3>우리 학교는 ${this.escape(home.name)}예요</h3><p>${elementName(home)} 속성. 리시버·세터·공격수, 셋이 한 팀이에요.</p>
-        <div class="intro-trio">${names.map(name => `<span>${this.campaignUniform(home, true)}<small>${this.escape(name)}</small></span>`).join('')}</div>`,
-      `<h3>어떤 학교가 기다릴까요?</h3><p>이기면 다음 학교가 나타나요.</p>
-        <div class="intro-trio"><span class="campaign-uniform is-big is-mystery" role="img" aria-label="아직 모르는 학교"></span></div>`,
-      `<h3>첫 상대는 ${this.escape(first.name)}</h3>
-        <article class="campaign-card">${this.campaignUniform(first)}<div><h3>1단계 · ${this.escape(first.name)}</h3><p>${elementName(first)} 속성 · 도전 가능</p></div></article>
-        <p>이기면 훈련 포인트를 받아요.</p>`,
+      `<h3>${escape(UI.introHome({ school: say(home.name) }))}</h3><p>${escape(UI.introTrio({ element: element(home) }))}</p>
+        <div class="intro-trio">${names.map(name => `<span>${this.campaignUniform(home, true)}<small>${escape(name)}</small></span>`).join('')}</div>`,
+      `<h3>${escape(UI.introMysteryTitle())}</h3><p>${escape(UI.introMystery())}</p>
+        <div class="intro-trio"><span class="campaign-uniform is-big is-mystery" role="img" aria-label="${escape(UI.mysterySchool())}"></span></div>`,
+      `<h3>${escape(UI.introFirst({ school: say(first.name) }))}</h3>
+        <article class="campaign-card">${this.campaignUniform(first)}<div><h3>${escape(UI.stageSchool({ stage: 1, school: say(first.name) }))}</h3><p>${escape(UI.elementOpen({ element: element(first) }))}</p></div></article>
+        <p>${escape(UI.introReward())}</p>`,
     ];
     const last = step === pages.length - 1;
-    return `<section class="campaign-intro" aria-label="도장깨기 소개 ${step + 1}/${pages.length}">
-      <div class="intro-head"><button type="button" class="secondary-small" data-campaign-intro="skip">건너뛰기</button></div>
+    return `<section class="campaign-intro" aria-label="${escape(UI.introLabel({ step: step + 1, total: pages.length }))}">
+      <div class="intro-head"><button type="button" class="secondary-small" data-campaign-intro="skip">${escape(UI.skip())}</button></div>
       ${pages[step]}
       <div class="intro-dots" aria-hidden="true">${pages.map((_, i) => `<i class="${i === step ? 'on' : ''}"></i>`).join('')}</div>
-      <button type="button" class="primary-small intro-next" data-campaign-intro="${last ? 'done' : 'next'}">${last ? '도전하기' : '다음'}</button></section>`;
+      <button type="button" class="primary-small intro-next" data-campaign-intro="${last ? 'done' : 'next'}">${escape(last ? UI.challengeStart() : UI.next())}</button></section>`;
   }
+
+  /** 학교의 속성 이름(TextPair). */
+  campaignElement(school) { return TAKRAW_ELEMENTS.find(element => element.id === school.element).name; }
 
   campaignContent() {
     const cleared = new Set(this.club.campaign?.cleared || []), ready = this.club.status === 'ready' && !this.inGame;
-    const home = takrawSchool(this.club.campaign?.home), elementName = school => TAKRAW_ELEMENTS.find(element => element.id === school.element)?.name || '';
-    if (!home) return '<p>팀을 불러온 뒤 도전할 수 있어요.</p>';
+    const home = takrawSchool(this.club.campaign?.home), escape = value => this.escape(value), element = school => say(this.campaignElement(school));
+    if (!home) return `<p>${escape(UI.campaignNeedsTeam())}</p>`;
     const list = takrawOpponents(home.id), count = list.filter(school => cleared.has(school.id)).length;
     if (this.club.status === 'ready' && (this.campaignIntro.replay || (!this.club.campaign.introSeen && count === 0))) return this.campaignIntroContent(home, list[0]);
     // 깬 학교와 지금 도전할 학교까지만 보여 준다. 그다음은 이름 없는 한 칸이고, 전체 단계 수는 어디에도 쓰지 않는다.
     const shown = list.slice(0, count + 1), hidden = count + 1 < list.length;
     const cards = shown.map(school => {
       const done = cleared.has(school.id);
-      return `<article class="campaign-card">${this.campaignUniform(school)}<div><h3>${school.stage}단계 · ${this.escape(school.name)}</h3><p>${elementName(school)} 속성 · ${done ? '클리어' : '도전 가능'}</p><small>${done ? '훈련 포인트 수령 완료' : `첫 클리어 ${school.firstClearTrainingPoints} P · 임시 보상`}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready ? 'disabled' : ''}>${done ? '재도전' : '도전'}</button></article>`;
+      return `<article class="campaign-card">${this.campaignUniform(school)}<div><h3>${escape(UI.stageSchool({ stage: school.stage, school: say(school.name) }))}</h3><p>${escape((done ? UI.elementCleared : UI.elementOpen)({ element: element(school) }))}</p><small>${escape(done ? UI.rewardCollected() : UI.firstClear({ points: school.firstClearTrainingPoints }))}</small></div><button type="button" class="primary-small" data-campaign-school="${school.id}" ${!ready ? 'disabled' : ''}>${escape(done ? UI.rechallenge() : UI.challenge())}</button></article>`;
     }).join('');
-    const mystery = hidden ? `<article class="campaign-card is-mystery"><span class="campaign-uniform is-mystery" aria-hidden="true"></span><div><h3>${count + 2}단계 · ???</h3><p>다음에 만날 학교</p></div><button type="button" class="primary-small" disabled>잠김</button></article>` : '';
-    return `<p>내 학교는 <b>${this.escape(home.name)}</b>(${elementName(home)} 속성)예요. 이기면 다음 학교가 나타나요.</p><div class="campaign-list">${cards}${mystery}</div>${count === list.length ? '<p>모든 학교를 클리어했어요!</p>' : ''}<button type="button" class="secondary-small" data-campaign-intro="replay">소개 다시 보기</button>`;
+    const mystery = hidden ? `<article class="campaign-card is-mystery"><span class="campaign-uniform is-mystery" aria-hidden="true"></span><div><h3>${escape(UI.mysteryStage({ stage: count + 2 }))}</h3><p>${escape(UI.nextSchool())}</p></div><button type="button" class="primary-small" disabled>${escape(UI.locked())}</button></article>` : '';
+    return `<p>${UI.campaignHome({ school: escape(say(home.name)), element: escape(element(home)) })}</p><div class="campaign-list">${cards}${mystery}</div>${count === list.length ? `<p>${escape(UI.allCleared())}</p>` : ''}<button type="button" class="secondary-small" data-campaign-intro="replay">${escape(UI.introReplay())}</button>`;
   }
 
   /** 소개 카드 조작: 다음 장으로, 또는 마치고 저장한다(건너뛰기·도전하기 모두 '봤음'으로 저장). */
@@ -418,8 +429,8 @@ class TakrawUI {
 
   setClub(value) {
     this.club = value; this.updateStartButtons();
-    const status = { loading:'팀을 불러오는 중', saving:'팀을 저장하는 중', conflict:'다른 탭에서 변경됨 · 최신 저장 불러오기', error:'팀 저장 확인 필요 · 관리에서 다시 불러오기' }[value.status];
-    this.text('club-home-summary', status || (value.teamName ? `${value.teamName} · 선수 ${value.roster.length}명` : '선수단 · 편성 · 훈련'));
+    const status = { loading: UI.clubLoadingHome, saving: UI.clubSavingHome, conflict: UI.clubConflictHome, error: UI.clubErrorHome }[value.status];
+    this.text('club-home-summary', status ? status() : value.teamName ? UI.clubSummary({ name: value.teamName, count: value.roster.length }) : UI.clubHint());
     if (this.dialog === 'club') this.renderClub();
     if (this.dialog === 'campaign') {
       const content = this.nodes['dialog-content'], scroll = content.scrollTop;
@@ -473,11 +484,11 @@ class TakrawUI {
     this.restoreClubPosition();
   }
 
-  clubRoleName(role) { return TAKRAW_CLUB_RULES.roles.find(value => value.id === role)?.name || '후보'; }
+  clubRoleName(role) { const value = TAKRAW_CLUB_RULES.roles.find(item => item.id === role); return value ? say(value.name) : UI.bench(); }
   clubLockReason() {
-    if (this.inGame) return '팀 변경은 처음 화면에서 할 수 있어요.';
-    if (this.clubBusy || this.club.status === 'saving') return '팀을 저장하고 있어요.';
-    if (this.club.status !== 'ready') return this.club.message || '팀을 먼저 불러와 주세요.';
+    if (this.inGame) return UI.lockInGame();
+    if (this.clubBusy || this.club.status === 'saving') return UI.lockSaving();
+    if (this.club.status !== 'ready') return clubText(this.club.message) || UI.lockLoad();
     return '';
   }
 
@@ -500,12 +511,12 @@ class TakrawUI {
     const spokes = axes.map((stat, index) => { const p = point(index,top); return `<line x1="${center.x}" y1="${center.y}" x2="${p.x}" y2="${p.y}"/>`; }).join('');
     const labels = axes.map((stat,index) => {
       const p = point(index,top,126), anchor = Math.abs(p.x - center.x) < 12 ? 'middle' : p.x > center.x ? 'start' : 'end';
-      return `<text class="radar-label" x="${p.x}" y="${p.y - 4}" text-anchor="${anchor}">${this.escape(stat.name)}</text><text class="radar-value" x="${p.x}" y="${p.y + 15}" text-anchor="${anchor}">${stats[stat.id]}</text>`;
+      return `<text class="radar-label" x="${p.x}" y="${p.y - 4}" text-anchor="${anchor}">${this.escape(say(stat.name))}</text><text class="radar-value" x="${p.x}" y="${p.y + 15}" text-anchor="${anchor}">${stats[stat.id]}</text>`;
     }).join('');
     const dots = axes.map((stat,index) => { const p = point(index,stats[stat.id]); return `<circle cx="${p.x}" cy="${p.y}" r="3.5"/>`; }).join('');
-    const description = axes.map(stat => `${stat.name} ${stats[stat.id]}`).join('. ');
+    const description = axes.map(stat => `${say(stat.name)} ${stats[stat.id]}`).join('. ');
     return `<svg class="club-radar" viewBox="0 0 360 310" role="img" aria-labelledby="club-radar-title club-radar-description">
-      <title id="club-radar-title">${this.escape(player.name)} 능력치</title><desc id="club-radar-description">0부터 ${top}까지 같은 눈금. ${this.escape(description)}.</desc>
+      <title id="club-radar-title">${this.escape(UI.radarTitle({ name: say(player.name) }))}</title><desc id="club-radar-description">${this.escape(UI.radarScale({ top, description }))}</desc>
       <g class="radar-grid">${grids}</g><g class="radar-axis">${spokes}</g>
       <g class="radar-baseline">${rings.map(value => `<text class="radar-ring-label" x="185" y="${center.y - radius * value / top + 4}">${value}</text>`).join('')}<text class="radar-ring-label" x="185" y="164">0</text></g>
       <polygon class="radar-current" points="${polygon(stats)}"/><g class="radar-dot">${dots}</g>${labels}
@@ -514,16 +525,16 @@ class TakrawUI {
 
   /** 두 선수의 능력치 차이 중 가장 큰 둘. 편성을 바꾸기 전에 무엇이 달라지는지 보여 준다. */
   clubDelta(player, other) {
-    const changes = TAKRAW_CLUB_RULES.stats.map(stat => ({ name:stat.name, change:player.stats[stat.id] - other.stats[stat.id] }))
+    const changes = TAKRAW_CLUB_RULES.stats.map(stat => ({ name:say(stat.name), change:player.stats[stat.id] - other.stats[stat.id] }))
       .filter(item => item.change).sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 2);
-    if (!changes.length) return '<span>능력치 동일</span>';
+    if (!changes.length) return `<span>${this.escape(UI.statsEqual())}</span>`;
     return changes.map(item => `<span class="${item.change > 0 ? 'positive' : 'negative'}">${this.escape(item.name)} ${item.change > 0 ? '+' : '−'}${Math.abs(item.change)}</span>`).join(' ');
   }
 
   /** 선수 한 명을 한 줄로: 등번호 셔츠 · 이름(등급) · 대표 능력치 둘(자리를 고르는 중이면 그 자리 선수와의 차이) · 상태. 추천 자리·성격은 ⓘ 상세에 있다. */
   clubCard(player, { selected = false, recommended = false, badge = '', note = '' }) {
-    const escape = value => this.escape(value), peaks = TAKRAW_CLUB_RULES.stats.slice().sort((a,b) => player.stats[b.id] - player.stats[a.id]).slice(0,2);
-    return `<div class="club-card-row ${player.role ? '' : 'is-sellable'}" data-player="${player.id}">${player.role ? '' : `<button type="button" class="club-sell-reveal" tabindex="-1" data-club-action="sell" data-value="${player.id}" aria-label="${escape(player.name)} 판매, ${player.sellValue} P 받음"><b>판매</b><small>+${player.sellValue} P</small></button>`}<button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(player.name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong>${note ? `<span class="club-card-note">${note}</span>` : `<span class="club-card-peaks">${peaks.map(stat => `${escape(stat.name)} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>`}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(player.name)} 능력치 자세히 보기">ⓘ</button></div>`;
+    const escape = value => this.escape(value), name = say(player.name), peaks = TAKRAW_CLUB_RULES.stats.slice().sort((a,b) => player.stats[b.id] - player.stats[a.id]).slice(0,2);
+    return `<div class="club-card-row ${player.role ? '' : 'is-sellable'}" data-player="${player.id}">${player.role ? '' : `<button type="button" class="club-sell-reveal" tabindex="-1" data-club-action="sell" data-value="${player.id}" aria-label="${escape(UI.sellLabel({ name, value: player.sellValue }))}"><b>${escape(UI.sell())}</b><small>+${player.sellValue} P</small></button>`}<button type="button" class="club-card ${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" data-club-action="select" data-value="${player.id}" data-club-focus="player-${player.id}" aria-pressed="${selected}">${this.clubShirt(player)}<span class="club-card-copy"><strong>${escape(name)}${player.rarity === 'common' ? '' : ` <span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span>`}</strong>${note ? `<span class="club-card-note">${note}</span>` : `<span class="club-card-peaks">${peaks.map(stat => `${escape(say(stat.name))} <b>${player.stats[stat.id]}</b>`).join(' · ')}</span>`}</span><span class="club-card-badge">${escape(badge)}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${player.id}" data-club-focus="info-${player.id}" aria-label="${escape(UI.infoLabel({ name }))}">ⓘ</button></div>`;
   }
 
   /** 선발 자리 3칸. 선수나 자리를 먼저 누르면 놓을 수 있는 쪽이 켜지고 능력치 차이가 보인다. */
@@ -531,14 +542,14 @@ class TakrawUI {
     const c = this.club, pick = this.clubSelection.pick, picked = pick?.type === 'player' ? c.roster.find(value => value.id === pick.id) : null;
     const slots = TAKRAW_CLUB_RULES.roles.map(role => {
       const starter = c.roster.find(value => value.id === c.lineup[role.id]);
-      if (!starter) return `<button type="button" disabled><small>${role.name}</small><strong>불러오는 중</strong></button>`;
+      if (!starter) return `<button type="button" disabled><small>${this.escape(say(role.name))}</small><strong>${this.escape(UI.slotLoading())}</strong></button>`;
       const current = picked?.id === starter.id, selected = pick?.type === 'slot' && pick.id === role.id, recommended = !!picked && !current && picked.preferredRole === role.id;
-      const note = picked && !current ? `${recommended ? '<span class="club-chip">추천</span>' : ''}${this.clubDelta(picked, starter)}` : `<span>${current ? '선발 중' : role.id === 'attacker' ? '직접 조작' : '동료'}</span>`;
+      const note = picked && !current ? `${recommended ? `<span class="club-chip">${this.escape(UI.recommended())}</span>` : ''}${this.clubDelta(picked, starter)}` : `<span>${this.escape(current ? UI.starting() : role.id === 'attacker' ? UI.directControl() : UI.teammate())}</span>`;
       // 선발 칸에도 선수 카드와 같은 ⓘ가 있다. 칸 자체는 자리 선택 버튼이라 ⓘ는 그 옆에 따로 둔다.
-      return `<div class="club-slot"><button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${role.name}</small><strong>${this.escape(starter.name)}</strong><span class="club-slot-note">${note}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${starter.id}" data-club-focus="lineup-info-${role.id}" aria-label="${this.escape(starter.name)} 능력치 자세히 보기">ⓘ</button></div>`;
+      return `<div class="club-slot"><button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${this.escape(say(role.name))}</small><strong>${this.escape(say(starter.name))}</strong><span class="club-slot-note">${note}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${starter.id}" data-club-focus="lineup-info-${role.id}" aria-label="${this.escape(UI.infoLabel({ name: say(starter.name) }))}">ⓘ</button></div>`;
     }).join('');
-    const hint = picked ? `${picked.name} 선수가 갈 자리를 누르세요.` : pick?.type === 'slot' ? `${this.clubRoleName(pick.id)} 자리에 올 선수를 누르세요.` : '선수나 자리를 눌러 선발을 바꿔요. 후보는 왼쪽으로 밀면 팔 수 있어요.';
-    return `<div class="club-lineup" aria-label="현재 선발">${slots}</div><p class="club-hint">${this.escape(hint)}</p>`;
+    const hint = picked ? UI.pickPlayerHint({ name: say(picked.name) }) : pick?.type === 'slot' ? UI.pickSlotHint({ role: this.clubRoleName(pick.id) }) : UI.lineupHint();
+    return `<div class="club-lineup" aria-label="${this.escape(UI.currentLineup())}">${slots}</div><p class="club-hint">${this.escape(hint)}</p>`;
   }
 
   clubRosterCards() {
@@ -546,8 +557,8 @@ class TakrawUI {
     return c.roster.map(player => {
       const selected = pick?.type === 'player' && pick.id === player.id, current = slotOccupant?.id === player.id;
       const recommended = !!slotOccupant && !current && player.preferredRole === pick.id;
-      const badge = current ? '현재 자리' : player.role ? `${this.clubRoleName(player.role)} 선발` : '후보';
-      const note = slotOccupant && !current ? `${recommended ? '<span class="club-chip">추천</span>' : ''}${this.clubDelta(player, slotOccupant)}` : '';
+      const badge = current ? UI.currentSpot() : this.clubPlayerBadge(player);
+      const note = slotOccupant && !current ? `${recommended ? `<span class="club-chip">${this.escape(UI.recommended())}</span>` : ''}${this.clubDelta(player, slotOccupant)}` : '';
       return this.clubCard(player, { selected, recommended, badge, note });
     }).join('');
   }
@@ -555,7 +566,10 @@ class TakrawUI {
   /** 하단 고정 줄. 왼쪽에 상태 한 줄, 오른쪽에 이 화면의 버튼 하나. */
   clubBar(summary, button) { return `<footer class="club-bar"><span>${this.escape(summary)}</span>${button}</footer>`; }
 
-  clubRarityName(rarity) { return TAKRAW_CLUB_RULES.rarities.find(value => value.id === rarity)?.name || ''; }
+  clubRarityName(rarity) { return say(TAKRAW_CLUB_RULES.rarities.find(value => value.id === rarity).name); }
+
+  /** 선발이면 "<자리> 선발", 아니면 "후보". */
+  clubPlayerBadge(player) { return player.role ? UI.roleStarter({ role: this.clubRoleName(player.role) }) : UI.bench(); }
 
   /** 등급 확률을 합계 대비 %로. 화면에 그대로 공개한다. */
   clubOddsText() {
@@ -566,13 +580,13 @@ class TakrawUI {
   clubTrainBar(player) {
     const c = this.club, rule = TAKRAW_CLUB_RULES.training, lock = this.clubLockReason(), points = c.trainingPoints || 0;
     const gain = Math.round((takrawTrainingFactor(player.level + 1) / takrawTrainingFactor(player.level) - 1) * 100);
-    const summary = `훈련 레벨 ${player.level} · 모든 능력치 약 +${gain}% · 보유 ${points} P`;
-    return this.clubBar(lock || (points < rule.cost ? `훈련 포인트가 없어요 · ${summary}` : summary), `<button type="button" class="primary-small" ${lock || points < rule.cost ? 'disabled' : ''} data-club-action="train" data-value="${player.id}" data-club-focus="train">훈련 · ${rule.cost} P</button>`);
+    const summary = UI.trainSummary({ level: player.level, gain, points });
+    return this.clubBar(lock || (points < rule.cost ? UI.noPoints({ summary }) : summary), `<button type="button" class="primary-small" ${lock || points < rule.cost ? 'disabled' : ''} data-club-action="train" data-value="${player.id}" data-club-focus="train">${this.escape(UI.train({ cost: rule.cost }))}</button>`);
   }
 
   clubDetailContent(player) {
-    const escape = value => this.escape(value), badge = player.role ? `${this.clubRoleName(player.role)} 선발` : '후보';
-    return `<div class="club-detail-heading"><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(player.name)}</strong><span class="club-badge">${escape(badge)}</span><span class="club-rarity" data-rarity="${player.rarity}">${this.clubRarityName(player.rarity)}</span></div><p>${escape(player.tag)} · 추천 ${this.clubRoleName(player.preferredRole)}</p></div>
+    const escape = value => this.escape(value), badge = this.clubPlayerBadge(player);
+    return `<div class="club-detail-heading"><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(say(player.name))}</strong><span class="club-badge">${escape(badge)}</span><span class="club-rarity" data-rarity="${player.rarity}">${escape(this.clubRarityName(player.rarity))}</span></div><p>${escape(UI.detailTag({ tag: say(player.tag), role: this.clubRoleName(player.preferredRole) }))}</p></div>
       <div class="club-radar-view">${this.clubRadar(player, player.stats)}</div>
       ${this.clubTrainBar(player)}`;
   }
@@ -583,29 +597,29 @@ class TakrawUI {
   clubDrawContent() {
     const c = this.club, rule = TAKRAW_CLUB_RULES.draw, reward = TAKRAW_CLUB_RULES.rewards, lock = this.clubLockReason(), pending = c.draw?.pending;
     const shortage = Math.max(0, rule.cost - (c.credits || 0));
-    const refunds = TAKRAW_CLUB_RULES.rarities.map(rarity => `${rarity.name} ${rule.refund[rarity.id]} P`).join(' · ');
+    const refunds = TAKRAW_CLUB_RULES.rarities.map(rarity => `${say(rarity.name)} ${rule.refund[rarity.id]} P`).join(' · ');
     const body = `<div class="club-draw"><div class="draw-pack-art" aria-hidden="true"><i></i><b>?</b></div>
       <p class="draw-odds">${this.escape(this.clubOddsText())}</p>
-      <p class="draw-note">뽑은 선수는 바로 선수단에 합류해요. 선수단이 가득 차면 환급(${refunds})을 받거나 후보와 교체해요.</p>
-      <p class="draw-note">코인은 AI 대전에서 받아요. 승리 ${reward.win.credits} C·${reward.win.trainingPoints} P / 패배 ${reward.loss.credits} C·${reward.loss.trainingPoints} P</p></div>`;
-    if (pending) return body + this.clubBar('지난 뽑기 결과를 아직 정리하지 않았어요.', `<button type="button" class="primary-small" ${lock ? 'disabled' : ''} data-club-action="draw-resume" data-club-focus="draw-button">결과 이어 보기</button>`);
-    const summary = lock || (shortage ? `${shortage} C 부족 · 보유 ${c.credits || 0} C` : `보유 ${c.credits || 0} C · 뽑은 횟수 ${c.draw?.runs || 0}회`);
-    return body + this.clubBar(summary, `<button type="button" class="primary-small" ${lock || shortage ? 'disabled' : ''} data-club-action="draw" data-club-focus="draw-button">뽑기 · ${rule.cost} C</button>`);
+      <p class="draw-note">${this.escape(UI.drawJoinNote({ refunds }))}</p>
+      <p class="draw-note">${this.escape(UI.drawCreditsNote({ winC: reward.win.credits, winP: reward.win.trainingPoints, lossC: reward.loss.credits, lossP: reward.loss.trainingPoints }))}</p></div>`;
+    if (pending) return body + this.clubBar(UI.drawPending(), `<button type="button" class="primary-small" ${lock ? 'disabled' : ''} data-club-action="draw-resume" data-club-focus="draw-button">${this.escape(UI.drawResume())}</button>`);
+    const summary = lock || (shortage ? UI.creditsShort({ short: shortage, credits: c.credits || 0 }) : UI.drawStatus({ credits: c.credits || 0, runs: c.draw?.runs || 0 }));
+    return body + this.clubBar(summary, `<button type="button" class="primary-small" ${lock || shortage ? 'disabled' : ''} data-club-action="draw" data-club-focus="draw-button">${this.escape(UI.draw({ cost: rule.cost }))}</button>`);
   }
 
   clubContent() {
     const c = this.club, selection = this.clubSelection, rules = TAKRAW_CLUB_RULES, escape = value => this.escape(value);
     const lock = this.clubLockReason(), isDraw = selection.tab === 'draw';
     const detail = selection.detail ? c.roster.find(value => value.id === selection.detail) : null;
-    const name = selection.rename ? `<form id="club-name-form" class="club-name-form"><label for="club-name">팀 이름 · 최대 ${rules.nameLength}자</label><input id="club-name" data-club-focus="club-name" type="text" aria-describedby="club-name-error" ${selection.nameError ? 'aria-invalid="true"' : ''} value="${escape(selection.nameDraft ?? c.teamName)}" placeholder="팀 이름" maxlength="36" ${lock ? 'disabled' : ''} autocomplete="off"><button type="submit" class="primary-small" ${lock ? 'disabled' : ''}>저장</button><button type="button" class="secondary-small" data-club-action="rename-cancel" data-club-focus="rename-cancel" ${this.clubBusy ? 'disabled' : ''}>취소</button><span id="club-name-error" class="club-name-error" role="alert">${escape(selection.nameError || '')}</span></form>` : `<button type="button" class="club-name-display" ${lock ? 'disabled' : ''} data-club-action="rename-edit" data-club-focus="rename-edit" aria-label="${escape(c.teamName || '내 팀')} 이름 바꾸기"><span>${escape(c.teamName || '내 팀')}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14Z"/></svg></button>`;
+    const name = selection.rename ? `<form id="club-name-form" class="club-name-form"><label for="club-name">${escape(UI.nameLabel({ max: rules.nameLength }))}</label><input id="club-name" data-club-focus="club-name" type="text" aria-describedby="club-name-error" ${selection.nameError ? 'aria-invalid="true"' : ''} value="${escape(selection.nameDraft ?? c.teamName)}" placeholder="${escape(UI.namePlaceholder())}" maxlength="36" ${lock ? 'disabled' : ''} autocomplete="off"><button type="submit" class="primary-small" ${lock ? 'disabled' : ''}>${escape(UI.save())}</button><button type="button" class="secondary-small" data-club-action="rename-cancel" data-club-focus="rename-cancel" ${this.clubBusy ? 'disabled' : ''}>${escape(UI.cancel())}</button><span id="club-name-error" class="club-name-error" role="alert">${escape(selection.nameError || '')}</span></form>` : `<button type="button" class="club-name-display" ${lock ? 'disabled' : ''} data-club-action="rename-edit" data-club-focus="rename-edit" aria-label="${escape(UI.rename({ name: c.teamName || UI.myTeam() }))}"><span>${escape(c.teamName || UI.myTeam())}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 14Z"/></svg></button>`;
     const passiveStatus = !this.inGame && !this.clubBusy && c.status === 'ready' && !this.clubNotice && c.pendingReward?.status !== 'error';
-    const statusMessage = this.inGame ? '현재 경기는 시작할 때의 편성을 사용해요. 팀 변경은 처음 화면에서 할 수 있어요.' : this.clubBusy ? '팀을 저장하고 있어요.' : c.status !== 'ready' ? c.message : this.clubNotice || c.message;
-    const empty = c.status === 'loading' ? '선수 정보를 불러오고 있어요.' : '선수가 없어요.';
-    const body = detail ? `<section id="club-detail" class="club-detail" aria-label="선수 상세">${this.clubDetailContent(detail)}</section>`
-      : `<div class="club-navigation"><div class="club-tabs" role="group" aria-label="팀 관리 메뉴"><button type="button" class="${!isDraw ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isDraw}">선수단 <span>${c.roster.length}</span></button><button type="button" class="${isDraw ? 'selected' : ''}" data-club-action="tab" data-value="draw" data-club-focus="tab-draw" aria-pressed="${isDraw}">선수 뽑기</button></div><span class="club-capacity">선수 ${c.roster.length} / ${rules.capacity}명</span></div>
+    const statusMessage = this.inGame ? UI.inGameLineup() : this.clubBusy ? UI.lockSaving() : c.status !== 'ready' ? clubText(c.message) : this.clubNotice || clubText(c.message);
+    const empty = c.status === 'loading' ? UI.rosterLoading() : UI.rosterEmpty();
+    const body = detail ? `<section id="club-detail" class="club-detail" aria-label="${escape(UI.playerDetail())}">${this.clubDetailContent(detail)}</section>`
+      : `<div class="club-navigation"><div class="club-tabs" role="group" aria-label="${escape(UI.clubMenu())}"><button type="button" class="${!isDraw ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isDraw}">${escape(UI.rosterTab())} <span>${c.roster.length}</span></button><button type="button" class="${isDraw ? 'selected' : ''}" data-club-action="tab" data-value="draw" data-club-focus="tab-draw" aria-pressed="${isDraw}">${escape(UI.drawTab())}</button></div><span class="club-capacity">${escape(UI.capacity({ count: c.roster.length, max: rules.capacity }))}</span></div>
       ${isDraw ? this.clubDrawContent() : `${this.clubLineupContent()}<div id="club-list" class="club-list">${this.clubRosterCards() || `<p class="club-empty">${empty}</p>`}</div>`}`;
-    return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${c.record.won || 0}승 ${c.record.lost || 0}패 · 나만의 ${TAKRAW_GAME_NAME} 팀</span></div><div class="club-wallet"><div class="club-resource"><small>코인</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>훈련 포인트</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
-      <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">최신 저장 불러오기</button>` : ''}${c.pendingReward?.status === 'error' ? '<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">보상 저장 재시도</button>' : ''}</div>
+    return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${escape(UI.record({ won: c.record.won || 0, lost: c.record.lost || 0 }))}</span></div><div class="club-wallet"><div class="club-resource"><small>${escape(UI.coins())}</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>${escape(UI.trainingPoints())}</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
+      <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error','conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">${escape(UI.refresh())}</button>` : ''}${c.pendingReward?.status === 'error' ? `<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">${escape(UI.rewardRetry())}</button>` : ''}</div>
       ${body}</div>`;
   }
 
@@ -649,7 +663,7 @@ class TakrawUI {
     let focus = null, drawn = null;
     try {
       const result = await this.callbacks.onClubAction?.(action, payload);
-      if (result?.view) { this.club = { ...this.club, ...result.view }; this.clubNotice = result.view.message || ''; this.updateStartButtons(); }
+      if (result?.view) { this.club = { ...this.club, ...result.view }; this.clubNotice = clubText(result.view.message); this.updateStartButtons(); }
       if (action === 'assign') { this.clubSelection.pick = null; focus = `lineup-${payload.role}`; }
       if (action === 'train') focus = 'train';
       if (action === 'sell') focus = 'tab-roster';
@@ -660,7 +674,7 @@ class TakrawUI {
         if (payload.release) { this.showNewPlayer(id); focus = `player-${id}`; } else focus = 'tab-draw';
       }
     } catch (error) {
-      this.clubNotice = error.message || '변경을 저장하지 못했어요. 다시 확인해 주세요.';
+      this.clubNotice = clubText(error) || UI.saveFailed();
       if (action === 'rename' && error.kind === 'validation') { this.clubSelection.nameError = this.clubNotice; focus = 'club-name'; }
     } finally {
       this.clubBusy = false; this.renderClub(focus, action === 'draw');
@@ -714,17 +728,17 @@ class TakrawUI {
   drawStageContent() {
     const { card, joined } = this.drawStage, escape = value => this.escape(value), rules = TAKRAW_CLUB_RULES;
     const bench = this.club.roster.filter(value => !value.role);
-    const front = `<span class="draw-face draw-front"><span class="draw-front-head">${this.clubShirt(card)}<span><strong>${escape(card.name)}</strong><small>${escape(card.tag)}</small></span></span><span class="club-rarity" data-rarity="${card.rarity}">${this.clubRarityName(card.rarity)} · 추천 ${this.clubRoleName(card.preferredRole)}</span>${this.clubRadar(card, card.stats)}</span>`;
+    const front = `<span class="draw-face draw-front"><span class="draw-front-head">${this.clubShirt(card)}<span><strong>${escape(say(card.name))}</strong><small>${escape(say(card.tag))}</small></span></span><span class="club-rarity" data-rarity="${card.rarity}">${escape(UI.rarityRole({ rarity: this.clubRarityName(card.rarity), role: this.clubRoleName(card.preferredRole) }))}</span>${this.clubRadar(card, card.stats)}</span>`;
     const result = joined
-      ? `<p>${escape(card.name)} 선수가 팀에 합류했어요.</p><button type="button" class="primary-small" data-draw-action="done">확인</button>`
-      : `<p>선수단이 가득 찼어요 (${this.club.roster.length} / ${rules.capacity}명). 새 선수를 어떻게 할까요?</p>
-         <button type="button" class="secondary-small" data-draw-action="refund">환급 · ${rules.draw.refund[card.rarity]} P 받기</button>
-         <span class="draw-swap-title">후보와 교체</span><div class="draw-swap">${bench.map(value => `<button type="button" class="secondary-small" data-draw-action="release" data-value="${value.id}"><b>${escape(value.name)}</b><small>${this.clubRarityName(value.rarity)} · ${this.clubRoleName(value.preferredRole)}</small></button>`).join('')}</div>
-         <button type="button" class="draw-later" data-draw-action="later">나중에 정하기</button>`;
+      ? `<p>${escape(UI.joined({ name: say(card.name) }))}</p><button type="button" class="primary-small" data-draw-action="done">${escape(UI.ok())}</button>`
+      : `<p>${escape(UI.rosterFull({ count: this.club.roster.length, max: rules.capacity }))}</p>
+         <button type="button" class="secondary-small" data-draw-action="refund">${escape(UI.refund({ points: rules.draw.refund[card.rarity] }))}</button>
+         <span class="draw-swap-title">${escape(UI.swapTitle())}</span><div class="draw-swap">${bench.map(value => `<button type="button" class="secondary-small" data-draw-action="release" data-value="${value.id}"><b>${escape(say(value.name))}</b><small>${escape(this.clubRarityName(value.rarity))} · ${escape(this.clubRoleName(value.preferredRole))}</small></button>`).join('')}</div>
+         <button type="button" class="draw-later" data-draw-action="later">${escape(UI.later())}</button>`;
     return `<div class="draw-backdrop" data-rarity="${card.rarity}" data-phase="pack">
-      <button type="button" class="draw-skip" data-draw-action="skip">건너뛰기</button>
+      <button type="button" class="draw-skip" data-draw-action="skip">${escape(UI.skip())}</button>
       <div class="draw-pack" aria-hidden="true"><i></i><b>?</b></div>
-      <button type="button" class="draw-card" data-draw-action="flip" aria-label="카드 뒤집기"><span class="draw-card-inner"><span class="draw-face draw-back"><b>?</b><small>눌러서 뒤집기</small></span>${front}</span></button>
+      <button type="button" class="draw-card" data-draw-action="flip" aria-label="${escape(UI.flip())}"><span class="draw-card-inner"><span class="draw-face draw-back"><b>?</b><small>${escape(UI.tapToFlip())}</small></span>${front}</span></button>
       <div class="draw-result" role="status">${result}</div></div>`;
   }
 
@@ -756,24 +770,30 @@ class TakrawUI {
 
   settingsContent() {
     const status = this.sound.message ? `<p class="room-status error" role="status">${this.escape(this.sound.message)}</p>` : '';
-    return `<div class="settings-row"><div><strong>효과음</strong><small>발끝의 접촉과 랠리의 리듬</small></div><button type="button" class="toggle-button" role="switch" aria-label="효과음" aria-checked="${this.settings.sound}" ${this.sound.locked ? 'disabled' : ''} data-dialog-action="sound"></button></div>${status}
-      <div class="settings-row"><div><strong>화면 품질</strong><small>느린 기기에서는 가볍게</small></div><div class="segmented" role="group" aria-label="화면 품질"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">가볍게</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">선명하게</button></div></div>
-      <div class="settings-row"><div><strong>카메라</strong><small>${this.coarse.matches ? '공과 선수를 따라가는 기본 시점' : '우클릭 드래그로 회전 · C로 기본 시점'}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">시점 초기화</button></div>
-      ${this.installable ? '<div class="settings-row"><div><strong>앱으로 설치</strong><small>홈 화면이나 바탕 화면에서 바로 열어요</small></div><button type="button" class="secondary-small" data-dialog-action="install">설치</button></div>' : ''}
-      <p class="key-tip">화면 품질을 바꿔도 공의 움직임과 경기 규칙은 같아요.</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">완료</button></div>`;
+    const escape = value => this.escape(value);
+    // 언어는 페이지를 읽을 때 한 번 정한다. 고르면 저장하고 새로고침하므로 경기 중에는 막는다.
+    const languages = Object.entries(LOCALE_NAMES).map(([code, name]) => `<button type="button" lang="${code}" class="${LOCALE.locale === code ? 'selected' : ''}" aria-pressed="${LOCALE.locale === code}" ${this.inGame ? 'disabled' : ''} data-dialog-action="locale" data-value="${code}">${escape(name)}</button>`).join('');
+    return `<div class="settings-row"><div><strong>${escape(UI.sound())}</strong><small>${escape(UI.soundHint())}</small></div><button type="button" class="toggle-button" role="switch" aria-label="${escape(UI.sound())}" aria-checked="${this.settings.sound}" ${this.sound.locked ? 'disabled' : ''} data-dialog-action="sound"></button></div>${status}
+      <div class="settings-row"><div><strong>${escape(UI.quality())}</strong><small>${escape(UI.qualityHint())}</small></div><div class="segmented" role="group" aria-label="${escape(UI.quality())}"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">${escape(UI.qualityLow())}</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">${escape(UI.qualityHigh())}</button></div></div>
+      <div class="settings-row"><div><strong>${escape(UI.camera())}</strong><small>${escape(this.coarse.matches ? UI.cameraTouch() : UI.cameraMouse())}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">${escape(UI.cameraReset())}</button></div>
+      <div class="settings-row"><div><strong>${escape(UI.language())}</strong><small>${escape(this.inGame ? UI.languageLocked() : UI.languageHint())}</small></div><div class="segmented" role="group" aria-label="${escape(UI.language())}">${languages}</div></div>
+      ${this.installable ? `<div class="settings-row"><div><strong>${escape(UI.install())}</strong><small>${escape(UI.installHint())}</small></div><button type="button" class="secondary-small" data-dialog-action="install">${escape(UI.installButton())}</button></div>` : ''}
+      <p class="key-tip">${escape(UI.qualityTip())}</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">${escape(UI.done())}</button></div>`;
   }
 
   pauseContent() {
-    return `<div class="pause-menu"><button type="button" class="primary-small" data-dialog-action="close">경기 계속하기</button>${this.mode !== 'online' ? '<button type="button" class="secondary-small" data-dialog-action="restart">처음부터 다시</button>' : '<p class="key-tip">온라인 경기에서는 메뉴를 열어도 상대의 경기가 계속돼요.</p>'}<button type="button" class="secondary-small" data-dialog-action="quit">처음 화면으로</button></div>`;
+    const escape = value => this.escape(value);
+    return `<div class="pause-menu"><button type="button" class="primary-small" data-dialog-action="close">${escape(UI.resume())}</button>${this.mode !== 'online' ? `<button type="button" class="secondary-small" data-dialog-action="restart">${escape(UI.restart())}</button>` : `<p class="key-tip">${escape(UI.onlinePauseTip())}</p>`}<button type="button" class="secondary-small" data-dialog-action="quit">${escape(UI.toHome())}</button></div>`;
   }
 
   networkContent() {
-    return `<p>방을 만들고 코드를 친구에게 전달하세요.<br>한 명이 들어오면 1대1 경기가 시작돼요.</p><div class="network-form"><button type="button" class="primary-small" data-dialog-action="host">새 방 만들기 <span aria-hidden="true">＋</span></button></div><div class="network-divider">또는 코드로 참가</div>
-      <form id="join-form" class="network-form"><label for="room-input">친구에게 받은 방 코드</label><input id="room-input" class="network-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric" maxlength="4" placeholder="4자리 방 코드"><button type="button" class="secondary-small" data-dialog-action="join">방에 참가하기</button></form>
-      <div id="room-status" class="room-status" role="status" hidden><strong id="network-phase" class="network-phase">연결 준비</strong><span id="room-status-message"></span><div id="room-code-line" class="room-code-line" hidden><input id="room-code" aria-label="내 방 코드" readonly><button type="button" data-dialog-action="copy-code">복사</button></div><small id="network-hint" class="network-hint" hidden></small></div>
-      <p class="room-help">양쪽 모두 ${TAKRAW_PRODUCT_NAME} ${TAKRAW_VERSION}로 접속해야 해요. HTTPS 사이트 사용을 권장합니다. 네트워크에 따라 WebRTC 연결이 제한될 수 있어요.</p>
-      <details class="network-debug"><summary>연결 진단</summary><pre id="network-log" aria-label="최근 연결 이벤트"></pre><button type="button" class="secondary-small" data-dialog-action="copy-network-log">진단 복사</button></details>
-      <div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="resume" id="resume-room" hidden>이전 경기 다시 연결</button><button type="button" class="secondary-small" data-dialog-action="close-network">연결 닫기</button></div>`;
+    const escape = value => this.escape(value);
+    return `<p>${escape(UI.networkIntroA())}<br>${escape(UI.networkIntroB())}</p><div class="network-form"><button type="button" class="primary-small" data-dialog-action="host">${escape(UI.host())} <span aria-hidden="true">＋</span></button></div><div class="network-divider">${escape(UI.orJoin())}</div>
+      <form id="join-form" class="network-form"><label for="room-input">${escape(UI.roomInputLabel())}</label><input id="room-input" class="network-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric" maxlength="4" placeholder="${escape(UI.roomPlaceholder())}"><button type="button" class="secondary-small" data-dialog-action="join">${escape(UI.join())}</button></form>
+      <div id="room-status" class="room-status" role="status" hidden><strong id="network-phase" class="network-phase">${escape(UI.connectionReady())}</strong><span id="room-status-message"></span><div id="room-code-line" class="room-code-line" hidden><input id="room-code" aria-label="${escape(UI.myRoomCode())}" readonly><button type="button" data-dialog-action="copy-code">${escape(UI.copy())}</button></div><small id="network-hint" class="network-hint" hidden></small></div>
+      <p class="room-help">${escape(UI.roomHelp({ version: TAKRAW_VERSION }))}</p>
+      <details class="network-debug"><summary>${escape(UI.diagnostics())}</summary><pre id="network-log" aria-label="${escape(UI.networkLog())}"></pre><button type="button" class="secondary-small" data-dialog-action="copy-network-log">${escape(UI.copyDiagnostics())}</button></details>
+      <div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="resume" id="resume-room" hidden>${escape(UI.resumeRoom())}</button><button type="button" class="secondary-small" data-dialog-action="close-network">${escape(UI.closeNetwork())}</button></div>`;
   }
 
   /**
@@ -807,7 +827,7 @@ class TakrawUI {
     this.swipeEnd = performance.now(); // 끌기 직후 따라오는 클릭은 카드 선택으로 보지 않는다
     if (type === 'pointercancel') { if (sellable) this.swipeSet(state.row, 0); return; }
     if (!sellable) {
-      if (state.dx < -40) { this.clubNotice = '출전 선수는 팔 수 없어요. 후보와 교체한 뒤 판매할 수 있어요.'; this.renderClub(); }
+      if (state.dx < -40) { this.clubNotice = UI.sellStarter(); this.renderClub(); }
       return;
     }
     const offset = Math.max(-width, Math.min(0, state.base + state.dx));
@@ -851,6 +871,7 @@ class TakrawUI {
     if (action === 'sound') { this.settings.sound = !this.settings.sound; button.setAttribute('aria-checked', String(this.settings.sound)); this.callbacks.onSetting?.('sound', this.settings.sound); }
     if (action === 'camera-reset') this.callbacks.onCameraReset?.();
     if (action === 'install') this.callbacks.onInstall?.();
+    if (action === 'locale' && !this.inGame && button.dataset.value !== LOCALE.locale) LOCALE.choose(button.dataset.value);
     if (action === 'quality') {
       this.settings.quality = button.dataset.value;
       for (const option of button.parentElement.children) { const selected = option.dataset.value === this.settings.quality; option.classList.toggle('selected', selected); option.setAttribute('aria-pressed', String(selected)); }
@@ -860,7 +881,7 @@ class TakrawUI {
     if (action === 'resume') this.callbacks.onNetwork?.('resume');
     if (action === 'join') {
       const input = document.getElementById('room-input'), code = input.value.trim();
-      if (!code) { input.focus(); input.setCustomValidity('방 코드를 입력하세요.'); input.reportValidity(); input.setCustomValidity(''); return; }
+      if (!code) { input.focus(); input.setCustomValidity(UI.enterRoomCode()); input.reportValidity(); input.setCustomValidity(''); return; }
       this.callbacks.onNetwork?.('join', code);
     }
     if (action === 'close-network') { this.callbacks.onNetwork?.('close'); this.hideDialog(true); this.setRoute(this.inGame ? 'play' : this.homeRoute()); }
@@ -870,8 +891,8 @@ class TakrawUI {
 
   async copyText(value, button) {
     const label = button.textContent;
-    try { await navigator.clipboard.writeText(value); button.textContent = '복사했어요'; }
-    catch { const input = document.getElementById('room-code'); if (input && value === this.network.code) { input.focus(); input.select(); } button.textContent = '내용을 선택해 복사하세요'; }
+    try { await navigator.clipboard.writeText(value); button.textContent = UI.copied(); }
+    catch { const input = document.getElementById('room-code'); if (input && value === this.network.code) { input.focus(); input.select(); } button.textContent = UI.copyManually(); }
     if (this.copyTimer) window.clearTimeout(this.copyTimer);
     this.copyTimer = window.setTimeout(() => { if (button.isConnected) button.textContent = label; this.copyTimer = null; }, 1800);
   }
@@ -880,7 +901,7 @@ class TakrawUI {
   setNetwork(value) {
     this.network = value; this.renderNetwork();
     const indicator = this.nodes['connection-indicator']; indicator.hidden = ['idle','closed',''].includes(this.network.state);
-    indicator.querySelector('span').textContent = this.network.state === 'connected' ? '친구와 연결됨' : this.network.message || '연결 준비 중';
+    indicator.querySelector('span').textContent = this.network.state === 'connected' ? UI.friendConnected() : this.network.message || UI.connecting();
     indicator.querySelector('i').style.background = this.network.state === 'error' ? '#ba6548' : this.network.state === 'connected' ? '#238468' : '#c69a49';
   }
 
@@ -888,13 +909,13 @@ class TakrawUI {
     if (this.dialog !== 'network') return;
     const status = document.getElementById('room-status'); status.hidden = !this.network.message && !this.network.code;
     status.classList.toggle('error', this.network.state === 'error');
-    document.getElementById('room-status-message').textContent = this.network.message || '친구를 기다리고 있어요.';
-    document.getElementById('network-phase').textContent = this.network.phase || '연결 상태';
+    document.getElementById('room-status-message').textContent = this.network.message || UI.waitingFriend();
+    document.getElementById('network-phase').textContent = this.network.phase || UI.connectionState();
     const hint = document.getElementById('network-hint');
     hint.hidden = !this.network.hint;
     hint.textContent = this.network.hint || '';
     const log = document.getElementById('network-log');
-    if (log) log.textContent = this.network.diagnostics || '연결 기록이 없어요.';
+    if (log) log.textContent = this.network.diagnostics || UI.noLog();
     document.getElementById('room-code-line').hidden = !this.network.code;
     document.getElementById('room-code').value = this.network.code || '';
     document.getElementById('resume-room').hidden = !this.network.canResume || this.network.state === 'connecting';
@@ -913,8 +934,8 @@ class TakrawUI {
    * 짧은 간격의 접촉이 겹쳐도 먼저 끝난 표시가 나중 표시를 지우지 않는다.
    */
   showTiming(timing) {
-    const labels = { perfect: '퍼펙트', good: '굿' };
-    const label = labels[timing.grade] || (timing.error < 0 ? '빠름' : '늦음');
+    const labels = { perfect: UI.timingPerfect, good: UI.timingGood };
+    const label = (labels[timing.grade] || (timing.error < 0 ? UI.timingEarly : UI.timingLate))();
     const milliseconds = Math.round(timing.error * 1000);
     const badge = document.getElementById('timing-badge');
     this.text('timing-grade', label);
@@ -933,7 +954,7 @@ class TakrawUI {
     overlay.hidden = !reason;
     if (reason) document.body.dataset.replay = reason; else delete document.body.dataset.replay;
     if (reason) {
-      this.text('replay-reason', reason === 'spike' ? '스파이크 결정타' : '긴 랠리');
+      this.text('replay-reason', reason === 'spike' ? UI.replaySpike() : UI.replayRally());
       this.hideHitPop(this.hitPopToken); this.hideTiming(this.timingToken);
     }
   }
@@ -965,60 +986,61 @@ class TakrawUI {
     if (!hud) return;
     this.text('score-0', hud.score?.[0] ?? 0); this.text('score-1', hud.score?.[1] ?? 0);
     document.getElementById('set-number').hidden = TAKRAW_CONFIG.rules.sets === 1 && this.mode !== 'training'; // 훈련은 이 칸을 안내 문구로 쓴다.
-    this.text('set-number', this.mode === 'training' ? '높은 토스 · 네 가지 발차기' : `${hud.set ?? 1}세트`);
-    for (let team = 0; team < 2; team++) { const count = hud.sets?.[team] ?? 0, node = document.getElementById(`sets-${team}`); for (let i = 0; i < node.children.length; i++) node.children[i].classList.toggle('won', i < count); node.setAttribute('aria-label', `${count}세트 획득`); }
-    const phases = { ready:'서브 준비', rally:'랠리 진행 중', point:'다음 랠리 준비', finished:'경기 종료' };
-    this.text('rally-status', this.mode === 'training' ? '스파이크 연습' : phases[hud.phase] || '경기 준비');
+    this.text('set-number', this.mode === 'training' ? UI.trainingSetLabel() : UI.setNumber({ set: hud.set ?? 1 }));
+    for (let team = 0; team < 2; team++) { const count = hud.sets?.[team] ?? 0, node = document.getElementById(`sets-${team}`); for (let i = 0; i < node.children.length; i++) node.children[i].classList.toggle('won', i < count); node.setAttribute('aria-label', UI.setsWon({ count })); }
+    const phases = { ready: UI.phaseReady, rally: UI.phaseRally, point: UI.phasePoint, finished: UI.phaseFinished };
+    this.text('rally-status', this.mode === 'training' ? UI.modeTraining() : (phases[hud.phase] || UI.phaseIdle)());
     const touch = document.querySelector('#touch-indicator b'), touches = String(hud.touches ?? 0); if (touch.textContent !== touches) touch.textContent = touches;
     this.text('touch-team', hud.possession === 0 || hud.possession === 1 ?
-      `${hud.possession === hud.localTeam ? '우리 팀' : '상대 팀'} 터치` : '터치');
-    const teamPlay = hud.teamPlay, notice = teamPlay?.title || hud.lastMessage || '';
+      UI.touchTeam({ own: hud.possession === hud.localTeam }) : UI.touch());
+    // 팀 안내(teamPlay)는 이미 내 팀 시점이고, 마지막 소식(lastMessage)은 team 값을 내 팀 기준으로 바꿔 읽는다.
+    const teamPlay = hud.teamPlay, notice = matchText(teamPlay?.title) || matchText(hud.lastMessage, hud.localTeam ?? 0);
     this.text('rally-notice', notice);
-    this.text('rally-detail', this.controlText(teamPlay?.detail || ''));
+    this.text('rally-detail', this.controlText(matchText(teamPlay?.detail)));
     const callout = document.getElementById('rally-callout'), tone = teamPlay?.tone || 'neutral';
     callout.hidden = !notice;
     if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
-    this.text('selected-name', hud.selectedName || '공격수');
+    this.text('selected-name', hud.selectedName || UI.attacker());
     if (hud.teamNames && this.mode !== 'local') {
-      this.text('team-label-0', hud.teamNames[0]); this.text('team-label-1', hud.teamNames[1]);
+      this.text('team-label-0', hud.teamNames[0] ?? UI.us()); this.text('team-label-1', hud.teamNames[1] ?? UI.them());
     }
     this.updateTeamColors(hud);
-    this.text('selected-state', hud.selectedState || '준비');
+    this.text('selected-state', hud.selectedState || UI.stateReady());
     const status = takrawMatchStatus(hud, TAKRAW_CONFIG.rules), banner = document.getElementById('match-banner');
     const teamName = team => document.getElementById(`team-label-${team}`).textContent;
-    banner.textContent = status.matchPointTeams.length ? (status.matchPointTeams.length === 2 ? '양 팀 매치 포인트' :
-      `${teamName(status.matchPointTeams[0])} 매치 포인트`) : status.deuce ? `${hud.score[0]} : ${hud.score[1]} · 듀스` : '';
+    banner.textContent = status.matchPointTeams.length ? (status.matchPointTeams.length === 2 ? UI.bothMatchPoint() :
+      UI.matchPoint({ team: teamName(status.matchPointTeams[0]) })) : status.deuce ? UI.deuce({ a: hud.score[0], b: hud.score[1] }) : '';
     banner.hidden = this.mode === 'training' || !banner.textContent;
     document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld); document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
     // 소개영상은 입력을 받지 않고, 영상 속 공격수가 누르는 동안 터치 버튼을 눌린 모양으로 보여 준다.
     if (this.showcase) for (const button of document.querySelectorAll('[data-touch]')) button.classList.toggle('is-down', button.dataset.touch === 'jump' ? !!hud.jumpHeld : !!hud.kickHeld);
     const meter = document.getElementById('toss-meter'); meter.hidden = !hud.tossReady; meter.querySelector('i').style.width = `${Math.round(100 * (hud.tossCharge || 0))}%`;
-    const kickButton = document.querySelector('.touch-kick'), label = hud.tossReady ? ['공 던지기', '꾹 · 높게'] : ['발차기', '누르고 유지'];
+    const kickButton = document.querySelector('.touch-kick'), label = hud.tossReady ? [UI.tossThrow(), UI.tossHint()] : [UI.kick(), UI.kickHint()];
     if (kickButton.dataset.label !== label[0]) { kickButton.dataset.label = label[0]; kickButton.firstChild.textContent = label[0]; kickButton.querySelector('small').textContent = label[1]; }
     if (this.mode === 'training' && hud.training) this.updateTraining(hud.training);
     if (hud.watch) {
       const input = document.getElementById('watch-seed');
       if (document.activeElement !== input && input.value !== String(hud.watch.seed)) input.value = hud.watch.seed;
-      this.text('watch-tick', `틱 ${hud.watch.tick}`);
+      this.text('watch-tick', UI.watchTick({ tick: hud.watch.tick }));
       const featured = document.getElementById('watch-featured'); if (featured.value !== String(hud.watch.seed)) featured.value = [...featured.options].some(option => option.value === String(hud.watch.seed)) ? String(hud.watch.seed) : '';
     }
     const ended = hud.phase === 'finished'; this.nodes['end-actions'].hidden = !ended;
     this.nodes['end-actions'].dataset.result = hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';
     if (ended) {
       const winnerSchool = hud.matchWinner === 0 ? takrawSchool(this.club.campaign?.home) || TAKRAW_SCHOOLS[0] :
-        TAKRAW_SCHOOLS.find(value => value.name === hud.teamNames?.[1]) || TAKRAW_SCHOOLS[1];
+        TAKRAW_SCHOOLS.find(value => say(value.name) === hud.teamNames?.[1]) || TAKRAW_SCHOOLS[1];
       const accent = hud.teamColors?.[hud.matchWinner] ?? winnerSchool.uniform.primary;
       this.nodes['end-actions'].style.setProperty('--result-accent', `#${accent.toString(16).padStart(6, '0')}`);
     }
     const school = TAKRAW_SCHOOLS.find(value => value.id === hud.campaignSchoolId), schoolResult = document.getElementById('school-result');
     schoolResult.hidden = !ended || !school;
     if (school && ended) {
-      const clear = hud.matchReward?.status === 'saved' ? 'CLEAR' : hud.matchReward?.status === 'error' ? '저장 재시도 필요' : '클리어 저장 중';
-      schoolResult.textContent = hud.matchWinner === 0 ? `${school.name} 격파 · ${clear}` : `${school.name} · 다시 도전해요`;
+      const clear = hud.matchReward?.status === 'saved' ? UI.schoolClear() : hud.matchReward?.status === 'error' ? UI.schoolRetrySave() : UI.schoolSaving();
+      schoolResult.textContent = hud.matchWinner === 0 ? UI.schoolBeaten({ school: say(school.name), clear }) : UI.schoolLost({ school: say(school.name) });
     }
     this.text('match-reward', hud.matchReward?.message || '');
     document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
-    if (ended) this.text('match-result', this.mode === 'local' ? `${hud.matchWinner === 0 ? '1P' : '2P'} 팀 승리` : ['online', 'watch'].includes(this.mode) ? `${hud.teamNames?.[hud.matchWinner] ?? '상대 팀'} 승리` : hud.matchWinner === 0 ? '우리 팀 승리!' : '패배 · 다시 도전해요');
+    if (ended) this.text('match-result', this.mode === 'local' ? UI.localWin({ side: hud.matchWinner === 0 ? '1P' : '2P' }) : ['online', 'watch'].includes(this.mode) ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() }) : hud.matchWinner === 0 ? UI.youWin() : UI.youLose());
   }
 
   /** 온라인·관전 점수판: 팀 이름 옆에 그 학교 유니폼 색 점을 찍고, 내 쪽에는 '나' 표시를 단다. */
@@ -1038,14 +1060,14 @@ class TakrawUI {
     if (lessonSelect.value !== training.lesson) lessonSelect.value = training.lesson;
     const tempoSelect = document.getElementById('training-tempo');
     if (tempoSelect.value !== training.tempo) tempoSelect.value = training.tempo;
-    this.text('training-sequence', this.controlText(training.sequence));
-    this.text('training-motion', training.motionStatus);
-    this.text('training-count', `${Math.max(1, training.attempt || 0)}번째 토스`);
-    const stages = { ready: '토스 준비', set: '세터의 토스', position: '자리 잡기', brake: '이동 멈추기', jump: '점프 타이밍', kick: '발차기 타이밍', contact: '타격', result: '이번 시도' };
-    this.text('training-stage', stages[training.stage] || training.title || '스파이크 연습');
-    this.text('training-cue', this.controlText(training.cue));
-    this.text('training-detail', this.controlText(training.detail));
-    this.text('training-successes', `성공 ${training.successes || 0}회`);
+    this.text('training-sequence', this.controlText(say(training.sequence)));
+    this.text('training-motion', this.controlText(matchText(training.motionStatus)));
+    this.text('training-count', UI.trainingCount({ count: Math.max(1, training.attempt || 0) }));
+    const stages = { ready: UI.stageReady, set: UI.stageSet, position: UI.stagePosition, brake: UI.stageBrake, jump: UI.stageJump, kick: UI.stageKick, contact: UI.stageContact, result: UI.stageResult };
+    this.text('training-stage', stages[training.stage]?.() || (training.title ? say(training.title) : UI.modeTraining()));
+    this.text('training-cue', this.controlText(matchText(training.cue)));
+    this.text('training-detail', this.controlText(matchText(training.detail)));
+    this.text('training-successes', UI.trainingSuccesses({ count: training.successes || 0 }));
     const coach = document.getElementById('training-coach');
     const tone = training.tone || 'neutral';
     if (coach.dataset.tone !== tone) coach.dataset.tone = tone;
@@ -1055,16 +1077,16 @@ class TakrawUI {
       timing.setAttribute('aria-valuenow', String(progress));
       timing.style.setProperty('--timing', `${progress}%`);
     }
-    let label = '바닥 발자국과 공중 타점을 확인하세요';
-    if (training.stage === 'ready' || training.stage === 'set') label = '세터가 공을 올리는 중';
-    else if (training.stage === 'result') label = '잠시 후 다음 토스';
-    else if (training.stage === 'contact') label = '실제 타격 결과를 확인하는 중';
-    else if (training.stage === 'brake') label = '이동을 놓고 자세를 잡으세요';
-    else if (training.stage === 'jump') label = training.shortJump ? '점프 버튼을 짧게 누르고 떼세요' : '점프 버튼을 눌러 유지하세요';
-    else if (training.stage === 'kick' && training.tone === 'retry') label = '현재 높이와 발까지의 거리를 확인하세요';
-    else if (training.stage === 'kick' && !downward) label = Number.isFinite(training.kickIn) && training.kickIn > 0 ? `발차기까지 ${(Math.ceil(training.kickIn * 10) / 10).toFixed(1)}초` : '좌클을 유지하세요';
-    else if (Number.isFinite(training.jumpIn) && training.jumpIn > 0) label = `점프까지 ${(Math.ceil(training.jumpIn * 10) / 10).toFixed(1)}초`;
-    else if (training.stage === 'kick') label = '좌클을 유지한 채 점프하세요';
+    let label = UI.timingDefault();
+    if (training.stage === 'ready' || training.stage === 'set') label = UI.timingSetting();
+    else if (training.stage === 'result') label = UI.timingNext();
+    else if (training.stage === 'contact') label = UI.timingContact();
+    else if (training.stage === 'brake') label = UI.timingBrake();
+    else if (training.stage === 'jump') label = training.shortJump ? UI.timingJumpTap() : UI.timingJumpHold();
+    else if (training.stage === 'kick' && training.tone === 'retry') label = UI.timingKickRetry();
+    else if (training.stage === 'kick' && !downward) label = Number.isFinite(training.kickIn) && training.kickIn > 0 ? UI.timingKickIn({ value: training.kickIn }) : UI.timingKickHold();
+    else if (Number.isFinite(training.jumpIn) && training.jumpIn > 0) label = UI.timingJumpIn({ value: training.jumpIn });
+    else if (training.stage === 'kick') label = UI.timingJumpWithKick();
     this.text('training-timing-label', this.controlText(label));
     timing.setAttribute('aria-valuetext', this.controlText(label));
   }

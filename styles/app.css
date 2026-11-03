@@ -560,7 +560,7 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .score-team[data-dot]:not([data-dot=""]) .team-label{color:var(--ink)}
 .score-team[data-dot]:not([data-dot=""]) .team-label::before{content:"";display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%;background:var(--team-dot);vertical-align:baseline}
 .score-team[data-dot]:not([data-dot=""]) .set-marks .won{background:var(--team-dot)}
-.score-team[data-me="true"] .team-label::after{content:"나";display:inline-block;margin-left:5px;padding:0 5px;border-radius:7px;background:var(--ink);color:#fff;font-size:10px;line-height:1.5;vertical-align:1px}
+.score-team[data-me="true"] .team-label::after{content:attr(data-me-label);display:inline-block;margin-left:5px;padding:0 5px;border-radius:7px;background:var(--ink);color:#fff;font-size:10px;line-height:1.5;vertical-align:1px}
 /* 도장깨기: 아직 모르는 학교(이름 없는 회색 유니폼)와 첫 소개 카드 */
 .campaign-uniform.is-mystery{--uniform-primary:#c8d2c5;--uniform-secondary:#dde5da}
 .campaign-card.is-mystery{opacity:.7}
@@ -608,3 +608,5 @@ body[data-showcase] .touch-actions{bottom:250px;flex-direction:column-reverse;al
 body[data-showcase] .drive-feedback>span.held{background:#1f9272;color:#fffef1;border-color:#1f9272;box-shadow:0 0 0 5px #1f927233}
 body[data-showcase] .drive-feedback>span.held i{background:#fffef1}
 body[data-showcase] .touch-actions button.is-down{transform:scale(1.08);box-shadow:inset 0 0 0 4px #d4bc79,0 0 0 6px #d4bc7955}
+/* 조작 안내의 단어(data-i18n)는 기울이지 않는다. */
+.home-controls i,.bottom-guide i,.local-guide i{font-style:normal}

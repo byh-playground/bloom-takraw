@@ -53,12 +53,13 @@ const TAKRAW_RUNTIME = Object.freeze({
     param: 'watch', showcaseSeed: 36, maxSeed: 0xffffffff, randomMax: 9999,
     // 관전은 첫 득점까지의 한 판만 보여준다. 득점 뒤 이만큼 결과를 보여주고 같은 시드를 처음부터 다시 시작한다.
     loopHoldMs: 2500,
-    // 일괄 탐색으로 고른 명경기. 낙하 여유 시간 = 스파이크를 받아낼 때 공이 지면에 닿기까지 남은 시간.
+    // 일괄 탐색으로 고른 명경기. closest = 스파이크를 받아낼 때 공이 지면에 닿기까지 남은 가장 짧은 시간(초),
+    // digs·touches = 첫 점 랠리의 받아내기 횟수·터치 수. 문구는 화면(ui.js)이 언어별로 만든다.
     featured: [
-      { seed: 36, label: '가장 아슬아슬한 받아내기 · 0.05초' },
-      { seed: 27, label: '받아내기 5번 · 11터치' },
-      { seed: 1013, label: '받아내기 4번 · 12터치' },
-      { seed: 19, label: '받아내기 4번 · 13터치' },
+      { seed: 36, closest: .05 },
+      { seed: 27, digs: 5, touches: 11 },
+      { seed: 1013, digs: 4, touches: 12 },
+      { seed: 19, digs: 4, touches: 13 },
     ],
   },
   // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailTicks에서 경기를 멈추고 그 장면을 다시 그린다.

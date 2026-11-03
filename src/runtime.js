@@ -26,14 +26,22 @@ import { takrawSoundPayload } from './presentation/sound.js';
 import { seedFromText, seededUnit } from './simulation/ai-brain.js';
 import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
+import { LOCALE } from './i18n/locale.js';
+import { RUNTIME } from './i18n/messages/runtime.js';
 
 const PLAYER_STATE_LABELS = Object.freeze({
-      ready: '준비', standing: '준비', grounded: '준비', idle: '준비',
-      airborne: '공중', jumping: '점프', falling: '낙하',
-      kicking: '발차기', spike: '스파이크', overhead: '스파이크',
-      down: '자세 회복', fallen: '자세 회복', ragdoll: '자세 회복',
-      recovering: '일어나는 중', recovery: '일어나는 중', gettingUp: '일어나는 중',
+      ready: RUNTIME.stateReady, standing: RUNTIME.stateReady, grounded: RUNTIME.stateReady, idle: RUNTIME.stateReady,
+      airborne: RUNTIME.stateAir, jumping: RUNTIME.stateJump, falling: RUNTIME.stateFall,
+      kicking: RUNTIME.stateKick, spike: RUNTIME.stateSpike, overhead: RUNTIME.stateSpike,
+      down: RUNTIME.stateDown, fallen: RUNTIME.stateDown, ragdoll: RUNTIME.stateDown,
+      recovering: RUNTIME.stateGettingUp, recovery: RUNTIME.stateGettingUp, gettingUp: RUNTIME.stateGettingUp,
     });
+
+/** 자리 id의 이 언어 이름. */
+const roleName = role => LOCALE.text(TAKRAW_CLUB_RULES.roles.find(value => value.id === role).name);
+
+/** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
+const localizedTeam = team => team && { ...team, players: team.players.map(player => ({ ...player, name: LOCALE.text(player.name) })) };
 
 async function bootTakraw() {
   const config = TAKRAW_CONFIG;
@@ -113,7 +121,7 @@ async function bootTakraw() {
   let resetMode = 'reset';
   let lastInput = new Uint8Array(TAKRAW_RUNTIME.input.size);
   let lastContact = null;
-  let network = Object.freeze({ state: 'idle', code: '', message: '', count: 0, phase: '연결 준비', hint: '', diagnostics: '' });
+  let network = Object.freeze({ state: 'idle', code: '', message: '', count: 0, phase: RUNTIME.phaseIdle(), hint: '', diagnostics: '' });
   const connection = {
     abort: null, history: [], handshake: { startedAtMs: 0 }, observedFailure: null,
     warning: { message: '', atMs: 0 }, retry: { pending: new Map(), nextCheckAtMs: 0 },
@@ -147,7 +155,7 @@ async function bootTakraw() {
   }
   function pwaFailed(error) {
     recordError(error, 'pwa');
-    showAppNotice({ message: `설치·오프라인 준비에 실패했어요. 게임은 그대로 할 수 있어요. (${error?.message || error})`, isError: true, reload: false });
+    showAppNotice({ message: RUNTIME.pwaFailed({ detail: error?.message || error }), isError: true, reload: false });
   }
   async function installPwa() {
     ui.setInstallable(false);
@@ -168,7 +176,7 @@ async function bootTakraw() {
   function resumeSaveFailed(error) {
     recordError(error, 'resume-save');
     networkEvent('resume-save-failed', `${error?.kind || ''} ${error?.message || error}`);
-    setNetwork({ hint: '이전 경기 복귀 정보를 저장하지 못했어요. 새로고침하면 이 경기로 돌아올 수 없어요.' });
+    setNetwork({ hint: RUNTIME.netResumeSaveFailed() });
   }
 
   /** 새 방은 transport의 reset처럼 이전 복귀 정보(읽지 못한 기록 포함)를 버리고 이 방을 쓴다. */
@@ -198,7 +206,7 @@ async function bootTakraw() {
   }
 
   function networkEvent(name, detail = '') {
-    const entry = `${new Date().toLocaleTimeString('ko-KR', { hour12: false })} · ${String(name).slice(0, 80)}${detail ? ` · ${String(detail).slice(0, 180)}` : ''}`;
+    const entry = `${new Date().toLocaleTimeString(LOCALE.locale, { hour12: false })} · ${String(name).slice(0, 80)}${detail ? ` · ${String(detail).slice(0, 180)}` : ''}`;
     connection.history.push(entry);
     if (connection.history.length > 28) connection.history.shift();
     setNetwork({ diagnostics: `BLOOM TAKRAW ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}` });
@@ -206,13 +214,13 @@ async function bootTakraw() {
 
   function readableConnectionError(error) {
     const raw = String(error?.message || error || 'unknown').replace(/\s+/g, ' ').slice(0, 180);
-    if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw)) return '보안 연결이 필요해요. HTTPS 사이트에서 같은 버전으로 접속하세요.';
-    if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw))
-      return `경기 물리 상태 동기화 검사에 실패했어요. (${raw})`;
-    if (/version|contract|handshake|protocol|simulationVersion|mismatch|incompatible/i.test(raw)) return `서로 다른 게임 버전이나 동기화 규칙일 수 있어요. 양쪽에서 v${TAKRAW_VERSION}를 열어 주세요. (${raw})`;
-    if (/No Nostr relay|signaling|relay|publication|Nostr/i.test(raw)) return `방 신호 서버 연결에 실패했어요. 네트워크를 확인해 주세요. (${raw})`;
-    if (/WebRTC|ICE|peer|transport|connection/i.test(raw)) return `친구와 직접 연결하는 데 실패했어요. 방화벽·NAT 설정을 확인해 주세요. (${raw})`;
-    return `연결 오류: ${raw}`;
+    const values = { detail: raw, version: TAKRAW_VERSION };
+    if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw)) return RUNTIME.errSecure();
+    if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return RUNTIME.errSync(values);
+    if (/version|contract|handshake|protocol|simulationVersion|mismatch|incompatible/i.test(raw)) return RUNTIME.errVersion(values);
+    if (/No Nostr relay|signaling|relay|publication|Nostr/i.test(raw)) return RUNTIME.errRelay(values);
+    if (/WebRTC|ICE|peer|transport|connection/i.test(raw)) return RUNTIME.errPeer(values);
+    return RUNTIME.errOther(values);
   }
 
   function listen(target, type, callback, options) {
@@ -224,18 +232,15 @@ async function bootTakraw() {
     const value = error instanceof Error ? error : new Error(String(error));
     errors.push({ source, message: value.message, stack: value.stack || '', time: performance.now() });
     if (errors.length > 12) errors.shift();
-    console.error(`[${TAKRAW_PRODUCT_NAME}]`, source, value);
+    console.error(`[${TAKRAW_PRODUCT_NAME.en}]`, source, value);
     return value;
   }
 
   /** 소리 설정을 쓰지 못하면 설정 창의 효과음 줄에 알린다. 소리는 바꾼 대로 나고 저장만 안 된 상태다. */
   function soundSaveFailed(error) {
     recordError(error, 'sound-settings-save');
-    ui.setSound({ message: {
-      conflict: '다른 탭에서 소리 설정이 바뀌었어요. 새로고침하면 최신 설정을 불러와요.',
-      unreadable: '저장된 소리 설정을 확인할 수 없어요. 기존 설정은 보존했어요.',
-      storage: '소리 설정을 저장하지 못했어요. 브라우저 저장 권한을 확인해 주세요.',
-    }[error?.kind] ?? `소리 설정을 저장하지 못했어요. (${error?.message || error})` });
+    const known = { conflict: RUNTIME.soundConflict, unreadable: RUNTIME.soundUnreadable, storage: RUNTIME.soundStorage }[error?.kind];
+    ui.setSound({ message: known ? known() : RUNTIME.soundFailed({ detail: error?.message || error }) });
   }
 
   function setNetwork(value) {
@@ -259,7 +264,7 @@ async function bootTakraw() {
     if (disposed || mode !== 'match' || !match || match.finished || state?.phase !== 'finished' || ![0,1].includes(state.matchWinner)) return;
     match.finished = true;
     const won = state.matchWinner === 0, reward = TAKRAW_CLUB_RULES.rewards[won ? 'win' : 'loss'];
-    const job = { id: match.id, won, mode: 'match', schoolId: match.schoolId, status: 'queued', message: '경기 보상을 저장하고 있어요.', ...reward };
+    const job = { id: match.id, won, mode: 'match', schoolId: match.schoolId, status: 'queued', message: RUNTIME.rewardSaving(), ...reward };
     rewards.jobs.push(job); clubSession.reward = job;
     // 완료 관측은 한 번만 한다. 영속 I/O는 시뮬레이션 콜백 밖에서 실행한다.
     scheduleRewards();
@@ -278,18 +283,18 @@ async function bootTakraw() {
     try {
       let job;
       while (!disposed && (job = rewards.jobs.find(value => value.status === 'queued'))) {
-        job.status = 'saving'; job.message = '경기 보상을 저장하고 있어요.'; publishClub(); hudTime = -Infinity;
+        job.status = 'saving'; job.message = RUNTIME.rewardSaving(); publishClub(); hudTime = -Infinity;
         try {
           await club.rewardMatch({ id: job.id, won: job.won, mode: job.mode, schoolId: job.schoolId });
           const actual = club.getView().lastReward;
           job.status = 'saved';
           if (actual?.id === job.id) {
             job.credits = actual.credits; job.trainingPoints = actual.trainingPoints;
-            job.message = `보상 저장 완료 · ${job.credits} C + ${job.trainingPoints} P`;
-          } else job.message = '이미 저장된 경기 보상을 확인했어요.';
+            job.message = RUNTIME.rewardSaved({ credits: job.credits, points: job.trainingPoints });
+          } else job.message = RUNTIME.rewardAlready();
           rewards.jobs.splice(rewards.jobs.indexOf(job), 1);
         } catch (error) {
-          job.status = 'error'; job.message = '보상을 아직 저장하지 못했어요. 탭을 닫기 전에 재시도해 주세요.';
+          job.status = 'error'; job.message = RUNTIME.rewardFailed();
           recordError(error, 'club-reward');
         }
         if (clubSession.match?.id === job.id) clubSession.reward = job;
@@ -450,7 +455,7 @@ async function bootTakraw() {
     if (mode === 'online' && !identitySent && session?.ready && session.players.length === 2) { // 두 사람이 모이면 내 팀 이름·학교를 한 번 알린다(표시 전용)
       identitySent = true;
       const mine = club.getView();
-      commands.push({ payload: takrawEncodeIdentity(mine.campaign.home, mine.teamName || '우리 팀') });
+      commands.push({ payload: takrawEncodeIdentity(mine.campaign.home, mine.teamName || RUNTIME.myTeam()) });
     }
     for (const name of actionNames) actions.sampleInto(name, samples[name]);
     if (controlsAllowed()) {
@@ -680,30 +685,29 @@ async function bootTakraw() {
     const linkCount = room?.transports?.size || 0;
     if (failed) {
       state = 'error';
-      phase = '세션 오류';
+      phase = RUNTIME.phaseSessionError();
       if (connection.observedFailure !== failed) {
         connection.observedFailure = failed;
         networkEvent('session-failed', `${failed.type || 'failed'} ${failed.reason || ''}`);
         recordError(new Error(JSON.stringify(failed)), 'session');
       }
-      message = readableConnectionError(failed.reason || failed.type || '세션 동기화 실패');
+      message = readableConnectionError(failed.reason || failed.type || 'session sync failed');
     } else if (count === 2 && (linkCount < 1 || ['interrupted', 'disconnected'].includes(session.status))) {
       state = 'connecting';
-      phase = '재접속 중';
-      message = '연결이 끊겨 경기를 기다리고 있어요. 같은 방으로 다시 연결합니다.';
+      phase = RUNTIME.phaseReconnecting();
+      message = RUNTIME.netReconnecting();
     } else if (!session.ready) {
       state = 'connecting';
-      phase = linkCount ? '경기 동기화 중' : '상대 연결 중';
-      message = linkCount ? '상대와 연결됐어요. 동일한 경기 상태를 확인하고 있어요.' :
-        '방 연결을 준비하고 있어요. 상대방의 접속을 기다리는 중입니다.';
+      phase = linkCount ? RUNTIME.phaseSyncing() : RUNTIME.phaseWaitingPeer();
+      message = linkCount ? RUNTIME.netSyncing() : RUNTIME.netPreparing();
     } else if (count < 2) {
       state = 'listening';
-      phase = '친구 입장 대기';
-      message = '방 코드를 친구에게 알려주세요. 상대가 들어오면 경기가 시작돼요.';
+      phase = RUNTIME.phaseWaitingFriend();
+      message = RUNTIME.netShareCode();
     } else {
       state = 'connected';
-      phase = '연결 완료';
-      message = '상대와 연결됐어요.';
+      phase = RUNTIME.phaseConnected();
+      message = RUNTIME.netConnected();
       connection.warning.message = '';
     }
     if (state === 'connecting' && linkCount && !connection.handshake.startedAtMs) connection.handshake.startedAtMs = performance.now();
@@ -714,9 +718,8 @@ async function bootTakraw() {
       networkEvent('session-timeout', error.message);
       recordError(error, 'session-timeout');
       stopSession();
-      setNetwork({ state: 'error', phase: '연결 시간 초과', count: 0, code: '',
-        message: '상대와 연결됐지만 경기 상태를 맞추지 못했어요. 양쪽 게임 버전이 같은지 확인하고 다시 연결해 주세요.',
-        hint: `양쪽에서 v${TAKRAW_VERSION} 실행 필요` });
+      setNetwork({ state: 'error', phase: RUNTIME.phaseTimeout(), count: 0, code: '',
+        message: RUNTIME.netTimeout(), hint: RUNTIME.netVersionHint({ version: TAKRAW_VERSION }) });
       return;
     }
     if (count !== connection.rosterSize) {
@@ -742,18 +745,18 @@ async function bootTakraw() {
     const team = localTeam();
     const selectedId = latestView.state.selected?.[team] ?? (team === 1 ? 5 : 2);
     const player = latestView.players.find(candidate => candidate.id === selectedId);
-    const motionName = TAKRAW_TRAINING_LESSONS.find(lesson => lesson.id === player?.motionId)?.title;
+    const motion = TAKRAW_TRAINING_LESSONS.find(lesson => lesson.id === player?.motionId), attacker = roleName('attacker');
     return {
       ...latestView.state,
       training: latestView.training,
       teamPlay: latestView.teamPlay?.[team] || null,
-      teamNames: mode === 'watch' ? takrawWatchSchools(watchSeed).map(school => school.name) : latestView.teamNames,
+      teamNames: mode === 'watch' ? takrawWatchSchools(watchSeed).map(school => LOCALE.text(school.name)) : latestView.teamNames,
       teamColors: mode === 'online' ? takrawIdentitySchools(latestView.teamSchools).map(school => school.uniform.primary) : mode === 'watch' ? takrawWatchSchools(watchSeed).map(school => school.uniform.primary) : null,
       matchReward: clubSession.match?.id === clubSession.reward?.id ? clubSession.reward : null,
       campaignSchoolId: clubSession.match?.schoolId || null,
       localTeam: team,
-      selectedName: player?.name ? `${player.name} · 공격수` : '공격수',
-      selectedState: motionName || (player ? PLAYER_STATE_LABELS[player.state] || (player.grounded ? '준비' : '공중') : ''),
+      selectedName: player?.name ? RUNTIME.playerOf({ name: player.name, role: attacker }) : attacker,
+      selectedState: motion ? LOCALE.text(motion.title) : player ? (PLAYER_STATE_LABELS[player.state] || (player.grounded ? RUNTIME.stateReady : RUNTIME.stateAir))() : '',
       kickHeld: Boolean(player?.kickHeld),
       jumpHeld: Boolean(player?.jumpHeld),
       tossReady: Boolean(player?.tossReady),
@@ -841,9 +844,9 @@ async function bootTakraw() {
     loop?.stop();
     releaseControls();
     if (mode === 'online') {
-      setNetwork({ state: 'error', message: '경기를 계속할 수 없어요. 방을 닫고 다시 시작해 주세요.' });
+      setNetwork({ state: 'error', message: RUNTIME.netStopped() });
     }
-    showBootStatus('게임 실행 중 문제가 생겼어요. 새로고침 후 다시 시작해 주세요.', true);
+    showBootStatus(RUNTIME.runFailed(), true);
     return value;
   }
 
@@ -921,12 +924,12 @@ async function bootTakraw() {
     view.setSchools(watching ? takrawWatchSchools(watchSeed) : [home, nextMode === 'match' ? opponent : opponents[0]]);
     paused = false;
     bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
-    clubSession.team = ['match','training'].includes(nextMode) ? club.matchTeam() : null;
+    clubSession.team = ['match','training'].includes(nextMode) ? localizedTeam(club.matchTeam()) : null;
     clubSession.match = nextMode === 'match' ? { id: matchId(), finished: false, schoolId: campaignSchoolId } : null;
     clubSession.reward = null;
     const schoolAi = nextMode === 'match' ? opponent.ai : null;
-    const away = schoolAi ? { name: opponent.name, players: schoolAi.players.map((preset, index) => ({
-      id: `${opponent.id}-${preset.role}`, name: ['리시버', '세터', '공격수'][index], role: preset.role, stats: { ...preset.stats },
+    const away = schoolAi ? { name: LOCALE.text(opponent.name), players: schoolAi.players.map(preset => ({
+      id: `${opponent.id}-${preset.role}`, name: roleName(preset.role), role: preset.role, stats: { ...preset.stats },
     })) } : null;
     game.setTeams(clubSession.team, away);
     game.setTemperaments([null, schoolAi?.temperament || null]);
@@ -1115,21 +1118,20 @@ async function bootTakraw() {
     if (action === 'resume') {
       const saved = activeRoom.data?.room;
       if (saved) return connect(saved.role, saved.room, true);
-      setNetwork({ state: 'error', canResume: false, message: '다시 연결할 경기 정보가 없어요. 새 방을 만들어 주세요.' });
+      setNetwork({ state: 'error', canResume: false, message: RUNTIME.netNoResume() });
       return;
     }
     if (action !== 'host' && action !== 'join') return;
     const roomCode = String(code || (action === 'host' ?
       String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, '0') : '')).trim();
     if (action === 'join' && !/^\d{4}$/.test(roomCode)) {
-      setNetwork({ state: 'error', message: '친구에게 받은 네 자리 방 코드를 입력해 주세요.', count: 0 });
+      setNetwork({ state: 'error', message: RUNTIME.netEnterCode(), count: 0 });
       return;
     }
     if (!window.isSecureContext || !globalThis.crypto?.subtle || typeof globalThis.WebSocket !== 'function' ||
         typeof globalThis.RTCPeerConnection !== 'function') {
-      setNetwork({ state: 'error', phase: '브라우저 연결 환경', code: '', count: 0,
-        message: 'WebRTC·WebCrypto가 동작하는 HTTPS 브라우저에서 열어 주세요.',
-        hint: '두 사람이 모두 동일한 HTML 버전을 사용해야 해요.' });
+      setNetwork({ state: 'error', phase: RUNTIME.phaseBrowser(), code: '', count: 0,
+        message: RUNTIME.netBrowser(), hint: RUNTIME.netSameVersion() });
       networkEvent('preflight-failed', `secure=${window.isSecureContext} crypto=${!!globalThis.crypto?.subtle} rtc=${typeof globalThis.RTCPeerConnection}`);
       return;
     }
@@ -1138,9 +1140,9 @@ async function bootTakraw() {
     const token = run;
     connection.abort = new AbortController();
     networkEvent('connect-start', `role=${action} version=${TAKRAW_VERSION}`);
-    setNetwork({ state: 'connecting', canResume: resuming, phase: resuming ? '이전 경기 재접속' : action === 'host' ? '방 생성 중' : '방 검색 중',
+    setNetwork({ state: 'connecting', canResume: resuming, phase: resuming ? RUNTIME.phaseResuming() : action === 'host' ? RUNTIME.phaseHosting() : RUNTIME.phaseJoining(),
       code: action === 'join' ? roomCode : '', count: 0, hint: '',
-      message: action === 'host' ? '친구를 초대할 방을 만들고 있어요.' : '친구의 방을 찾고 있어요.' });
+      message: action === 'host' ? RUNTIME.netHosting() : RUNTIME.netJoining() });
     let capability;
     try {
       capability = await createNostrDynamicRoom({
@@ -1159,7 +1161,7 @@ async function bootTakraw() {
           const reason = event.reason || event.message || '';
           if (event.type === 'signaler' && event.status === 'connected') {
             networkEvent('relay-connected', event.relay || '');
-            setNetwork({ phase: '신호 서버 연결됨' });
+            setNetwork({ phase: RUNTIME.phaseRelay() });
           } else if (event.type === 'signaler' && event.status === 'error' ||
               event.type === 'peer-failed' || event.type === 'signal-error') {
             connection.warning.message = readableConnectionError(reason || event.type);
@@ -1170,7 +1172,7 @@ async function bootTakraw() {
             resumeSaveFailed(event.error);
           } else if (['peer-connected', 'room-ready', 'peer-disconnected'].includes(event.type)) {
             networkEvent(event.type, reason);
-            if (event.type === 'peer-connected') setNetwork({ phase: '친구와 직접 연결됨', hint: '' });
+            if (event.type === 'peer-connected') setNetwork({ phase: RUNTIME.phasePeer(), hint: '' });
           }
         },
       });
@@ -1187,10 +1189,8 @@ async function bootTakraw() {
       recordError(error, 'network');
       const diagnostics = network.diagnostics;
       stopSession({ preserveResume: true });
-      setNetwork({ state: 'error', phase: '연결 실패', count: 0, code: '', diagnostics,
-        message: readableConnectionError(error),
-        hint: action === 'join' ? '방 코드 · 양쪽 버전 · 상대가 방을 열어둔 상태인지 확인하세요.' :
-          '신호 서버 상태나 브라우저 보안 설정을 확인하세요.' });
+      setNetwork({ state: 'error', phase: RUNTIME.phaseFailed(), count: 0, code: '', diagnostics,
+        message: readableConnectionError(error), hint: action === 'join' ? RUNTIME.netJoinHint() : RUNTIME.netHostHint() });
     }
   }
 
@@ -1206,7 +1206,7 @@ async function bootTakraw() {
     if (mode === 'online') {
       if (!session?.ready || session.players.length !== 2) return;
       if (localTeam() !== 0) {
-        setNetwork({ message: '새 경기는 방장이 시작할 수 있어요.' });
+        setNetwork({ message: RUNTIME.netHostRestarts() });
         return;
       }
       pendingCommands.push(4);
@@ -1230,7 +1230,7 @@ async function bootTakraw() {
     showBootStatus('', false);
     ui.showHome();
     publishClub();
-    setNetwork({ state: 'idle', code: '', message: '', count: 0, phase: '연결 준비', hint: '', canResume: false });
+    setNetwork({ state: 'idle', code: '', message: '', count: 0, phase: RUNTIME.phaseIdle(), hint: '', canResume: false });
   }
 
   function setPaused(value) {
@@ -1263,7 +1263,7 @@ async function bootTakraw() {
     },
     diagnostics() {
       return {
-        product: TAKRAW_PRODUCT_NAME,
+        product: TAKRAW_PRODUCT_NAME.en,
         version: TAKRAW_VERSION,
         status: config.status,
         ready: isReady(), bootstrapStage, mode, paused, failed,
@@ -1319,7 +1319,7 @@ async function bootTakraw() {
       campaignSchoolId = null;
       if (nextMode === 'watch') { startWatch(watchSeed); return; }
       if (nextMode === 'online') {
-        setNetwork({ state: 'idle', count: 0, message: '방을 만들거나 친구의 방 코드로 참가해 주세요.' });
+        setNetwork({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
       } else startLocal(nextMode);
     },
     onRestart: restart,
@@ -1371,7 +1371,8 @@ async function bootTakraw() {
     },
   }, network);
   const openClubSave = options => createSave({ ...options, adapter: saveAdapter('club') });
-  club = new TakrawClub({ onChange: publishClub, openSave: openClubSave });
+  const clubName = LOCALE.text({ ko: '블룸 클럽', en: 'Bloom Club' }); // 새 클럽의 이름. 처음 만든 언어로 저장되고, 이후 사용자가 바꾼다.
+  club = new TakrawClub({ onChange: publishClub, openSave: openClubSave, defaultName: clubName });
   const clubLoad = club.load().catch(error => { recordError(error, 'club-load'); return null; });
   // 소리 설정: 읽지 못하면 기본값으로 바꾸지 않는다. 원본을 그대로 두고 소리를 끈 채 설정 창에 알린다.
   const soundLoad = soundSettings.load().then(() => true, error => { recordError(error, 'sound-settings-load'); return false; });
@@ -1383,12 +1384,12 @@ async function bootTakraw() {
   listen(window, 'pagehide', () => runtime.dispose());
   // BFCache에서는 이미 정리한 물리·저장 연결을 새 부팅으로 복원한다.
   window.addEventListener('pageshow', event => { if (event.persisted) window.location.reload(); });
-  showBootStatus('코트를 준비하고 있어요.');
+  showBootStatus(RUNTIME.bootCourt());
 
   try {
     await clubLoad;
     bootstrapStage = 'physics';
-    showBootStatus('선수와 공을 준비하고 있어요.');
+    showBootStatus(RUNTIME.bootPlayers());
     if (!RAPIER || typeof RAPIER.init !== 'function') throw new Error('Rapier entry contract');
     await RAPIER.init();
     game = new TakrawGame({ RAPIER, config });
@@ -1402,7 +1403,7 @@ async function bootTakraw() {
     } else {
       audio = new AudioPlayer(TAKRAW_RUNTIME.audio);
       audio.setMuted(true);
-      ui.setSound({ on: false, locked: true, message: '저장된 소리 설정을 확인할 수 없어요. 기존 설정은 보존했고 소리는 꺼 두었어요.' });
+      ui.setSound({ on: false, locked: true, message: RUNTIME.soundLocked() });
     }
     view.setQuality(ui.settings.quality);
     actions = new ActionState();
@@ -1476,7 +1477,7 @@ async function bootTakraw() {
           // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
           let draws = 0;
           club.dispose();
-          club = new TakrawClub({ onChange: publishClub, openSave: openClubSave, random: () => seededUnit(seed, draws++) });
+          club = new TakrawClub({ onChange: publishClub, openSave: openClubSave, defaultName: clubName, random: () => seededUnit(seed, draws++) });
           await club.load();
           return club;
         },
@@ -1501,16 +1502,13 @@ async function bootTakraw() {
     // 이전 경기가 있으면 연결 창을 열어 다시 연결한다. 복귀 정보를 읽지 못했으면 같은 창에 알린다.
     const saved = await activeRoomLoad;
     if (saved) ui.openDialog('network');
-    if (saved instanceof Error) setNetwork({ state: 'error', canResume: false, phase: '이전 경기 복귀',
-      message: '이전 경기 복귀 정보를 확인할 수 없어요. 기존 정보는 보존했어요. 새 방을 만들면 지워져요.' });
+    if (saved instanceof Error) setNetwork({ state: 'error', canResume: false, phase: RUNTIME.phaseResume(), message: RUNTIME.netResumeUnreadable() });
     else if (saved) void connect(saved.role, saved.room, true);
     return runtime;
   } catch (error) {
     recordError(error, 'bootstrap');
     pump?.stop();
-    const message = bootstrapStage === 'graphics' && /webgl/i.test(String(error?.message || error)) ?
-      '이 브라우저에서 3D 화면을 사용할 수 없어요. WebGL2를 지원하는 브라우저에서 하드웨어 가속을 켜고 다시 열어주세요.' :
-        '게임 준비 중 문제가 생겼어요. 도움말의 실행 정보를 확인한 뒤 새로고침해 주세요.';
+    const message = bootstrapStage === 'graphics' && /webgl/i.test(String(error?.message || error)) ? RUNTIME.bootWebgl() : RUNTIME.bootFailed();
     bootstrapStage = 'failed';
     showBootStatus(message, true);
     throw error;

@@ -53,6 +53,10 @@
 
 `scripts/dev-server.cjs`는 원본을 JS/CSS MIME으로 제공합니다. 상대 경로이므로 `/bloom-takraw/` 같은 하위 경로도 지원합니다. 배포 파일 생성·번들링·변환은 없으며 소스 스냅샷을 그대로 사용합니다.
 
+## 화면 언어(v0.15.0~)
+
+시뮬레이션·클럽 모델은 문장 대신 코드와 값(`{ id, values }`) 또는 정의 데이터의 TextPair `{ ko, en }`를 넘기고, 화면이 `src/i18n/messages/*.js`로 문장을 만든다. 언어는 페이지를 읽을 때 한 번 정한다. 자세한 규칙은 [화면 언어](i18n.md).
+
 ## 런타임 상태의 소유권
 
 런타임의 `setNetwork`가 연결 표시 snapshot의 유일한 writer입니다. 로그 추가도 같은 경계를 통과합니다. UI는 전달받은 frozen snapshot을 읽고 표시하며 별도 부분 병합이나 연결 판정을 하지 않습니다. handshake, warning, retry 등의 수명주기 상태는 런타임의 `connection` 아래에 모으고 밀리초 단위를 leaf 이름에 표시합니다.

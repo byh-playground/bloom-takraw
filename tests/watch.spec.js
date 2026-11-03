@@ -55,8 +55,10 @@ test('소개영상 대본: 랠리 문구는 시드 36의 실제 사건 틱에 �
   expect(timed.at(-1)).toBeLessThan(TAKRAW_INTRO.durationMs - 2500);
   // 글은 장마다 한 줄이고 조작 장치 이름을 쓰지 않는다(조작은 영상 속 눌림 표시가 보여 준다).
   for (const chapter of TAKRAW_INTRO.chapters) {
-    expect(chapter.title.length).toBeLessThanOrEqual(16);
-    expect(chapter.title).not.toMatch(/좌클|우클|Space|W A S D|버튼|패드/);
+    expect(chapter.title.ko.length).toBeLessThanOrEqual(16);
+    expect(chapter.title.en.length).toBeLessThanOrEqual(30);
+    expect(chapter.title.ko).not.toMatch(/좌클|우클|Space|W A S D|버튼|패드/);
+    expect(chapter.title.en).not.toMatch(/click|Space|W A S D|button|pad/i);
   }
   // 사건 틱: 서브 75, 스파이크 393, 받아내기 436, 득점 772. 문구는 사건 직전 틱에 바뀌어야 한다.
   const at = id => TAKRAW_INTRO.chapters.find(chapter => chapter.id === id).tick;
@@ -67,7 +69,7 @@ test('소개영상 대본: 랠리 문구는 시드 36의 실제 사건 틱에 �
   const shows = TAKRAW_INTRO.chapters.filter(chapter => chapter.show).length;
   expect(timeline).toHaveLength(1 + 2 * TAKRAW_INTRO.chapters.length + shows);
   // 앞으로 볼 내용(단계 수 등)은 문구로 밝히지 않는다.
-  expect(TAKRAW_INTRO.chapters.some(chapter => /\d+\s*(곳|단계|개)/.test(chapter.title))).toBe(false);
+  expect(TAKRAW_INTRO.chapters.some(chapter => /\d+\s*(곳|단계|개)/.test(chapter.title.ko) || /\d+\s*(schools|stages)/i.test(chapter.title.en))).toBe(false);
   // 영입 장은 문구 직전에 뽑기 연출을 띄우고 다음 장에서 닫는다.
   const names = timeline.filter(item => item.action === 'custom').map(item => item.name);
   expect(names.indexOf('show:draw')).toBeLessThan(names.indexOf('show:none'));
@@ -102,9 +104,9 @@ test('소개영상 대본: 랠리 문구는 시드 36의 실제 사건 틱에 �
 test('추천 경기: 라벨의 받아내기 횟수·터치 수가 그 시드의 첫 점 랠리와 같다', async () => {
   test.skip(!rapierPath, 'RAPIER_MODULE 필요');
   const RAPIER = await loadRapier();
-  const labeled = TAKRAW_RUNTIME.watch.featured.filter(item => /^받아내기 \d+번 · \d+터치$/.test(item.label));
+  const labeled = TAKRAW_RUNTIME.watch.featured.filter(item => item.digs !== undefined);
   expect(labeled.map(item => item.seed)).toEqual(expect.arrayContaining([27, 1013, 19]));
-  for (const { seed, label } of labeled) {
+  for (const { seed, digs, touches: count } of labeled) {
     const game = new TakrawGame({ RAPIER, config: structuredClone(TAKRAW_CONFIG) });
     game.reset('ai', undefined, seed);
     const touches = [];
@@ -115,6 +117,6 @@ test('추천 경기: 라벨의 받아내기 횟수·터치 수가 그 시드의 
     game.dispose();
     // 받아내기 = 스파이크 바로 다음 터치가 상대 팀인 경우.
     const received = touches.filter((event, index) => event.spike && touches[index + 1] && touches[index + 1].team !== event.team).length;
-    expect(label, `시드 ${seed}`).toBe(`받아내기 ${received}번 · ${touches.length}터치`);
+    expect([received, touches.length], `시드 ${seed}`).toEqual([digs, count]);
   }
 });

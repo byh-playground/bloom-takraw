@@ -6,10 +6,11 @@ import { buildPwa } from './vendor/gamekit/pwa-build.mjs';
 
 await buildPwa({
   chromium,
-  name: '블룸 발 배구',
-  shortName: '발 배구',
-  description: 'AI 세터의 높은 토스에 맞춰 발등으로 스파이크를 날리는 블룸 발 배구. 네 가지 발차기와 상황별 동작 선택, 타이밍 가이드, 물리 기반 3대3 경기와 1대1 대전.',
-  lang: 'ko',
+  // 설치 이름·공유 문구는 페이지 기본 언어(en)로 쓴다. 게임 이름의 원본은 src/config/game.js TAKRAW_GAME_NAME이고 scripts/check.cjs가 index.html 제목과 맞춘다.
+  name: 'Bloom Takraw',
+  shortName: 'Takraw',
+  description: 'Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play.',
+  lang: 'en',
   icon: 'assets/pwa/icon.svg',
   maskableIcon: 'assets/pwa/icon-maskable.svg',
   share: 'assets/pwa/share.svg',

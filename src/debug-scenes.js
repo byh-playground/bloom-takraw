@@ -68,7 +68,7 @@ export function createDebugScenes({ config, openWatch, pulse, render, renderFrom
     async club({ seed, credits, draws }) {
       if (!/^\d+$/.test(seed ?? '')) throw new Error(`club needs an integer seed: ${seed}`);
       const club = await openClub(Number(seed));
-      if (credits !== undefined) await club._mutate(record => { record.credits = Number(credits); }, '코인을 바꿨어요.');
+      if (credits !== undefined) await club.debugMutate(record => { record.credits = Number(credits); });
       if (draws !== undefined) for (const _ of Array.from({ length: Number(draws) })) await club.draw();
       showClub();
       const view = () => club.getView();

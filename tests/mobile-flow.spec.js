@@ -132,7 +132,7 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await page.locator('#pause-button').tap(); await page.locator('[data-dialog-action="quit"]').tap();
     await page.locator('.bloom-showcase-link').tap();
     await expect(page.locator('#bloom-showcase')).toBeVisible();
-    await expect(page.locator('#bloom-showcase [data-copy]')).toContainText(TAKRAW_INTRO.chapters[0].title, { timeout: 45000 });
+    await expect(page.locator('#bloom-showcase [data-copy]')).toContainText(TAKRAW_INTRO.chapters[0].title.ko, { timeout: 45000 });
     await expect(page.locator('#bloom-showcase')).not.toContainText('좌클');
     await page.locator('#bloom-showcase [data-action=close]').tap();
     await expect(page.locator('#bloom-showcase')).toBeHidden();

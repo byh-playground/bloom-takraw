@@ -11,7 +11,7 @@ test('PWA: 일반 화면은 서비스 워커를 등록하고 manifest 아이콘�
     for (const icon of value.icons) { const image = await createImageBitmap(await (await fetch(icon.src)).blob()); sizes.push(`${icon.purpose} ${image.width}x${image.height}`); }
     return { name: value.name, display: value.display, sizes };
   });
-  expect(manifest).toEqual({ name: '블룸 발 배구', display: 'standalone', sizes: ['any 192x192', 'any 512x512', 'maskable 512x512'] });
+  expect(manifest).toEqual({ name: 'Bloom Takraw', display: 'standalone', sizes: ['any 192x192', 'any 512x512', 'maskable 512x512'] });
 });
 
 test('PWA: 소개영상 격리 화면은 서비스 워커를 등록하지 않는다', async ({ page }) => {

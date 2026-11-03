@@ -174,10 +174,10 @@ class TakrawPhysics {
   _athleteProfile(profile, id) {
     const definition = this.config.athletes || TAKRAW_CONFIG.athletes;
     const role = ['receiver', 'setter', 'attacker'][id % 3];
-    const names = { receiver: '리시버', setter: '세터', attacker: '공격수' };
-    const value = profile === null ? { id: 'standard-' + id, name: names[role], role, stats: {} } : profile;
-    if (!value || typeof value.id !== 'string' || !value.id || typeof value.name !== 'string' ||
-        !value.name.trim() || value.role !== role || !value.stats || typeof value.stats !== 'object' ||
+    // 기본 선수는 이름이 없다(null). 화면이 역할 이름으로 보여 준다.
+    const value = profile === null ? { id: 'standard-' + id, name: null, role, stats: {} } : profile;
+    if (!value || typeof value.id !== 'string' || !value.id || !(value.name === null || (typeof value.name === 'string' && value.name.trim())) ||
+        value.role !== role || !value.stats || typeof value.stats !== 'object' ||
         Array.isArray(value.stats) || Object.keys(value.stats).some(key => !Object.hasOwn(definition.bonus, key))) {
       throw new Error('선수 프로필과 역할을 확인하세요.');
     }

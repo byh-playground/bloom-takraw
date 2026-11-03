@@ -1,6 +1,6 @@
 {
   "name": "bloom-takraw",
-  "version": "0.15.1",
+  "version": "0.15.2",
   "private": true,
   "description": "블룸 발 배구 — Rapier 기반 3D 온라인 스포츠 게임",
   "engines": {
@@ -10,7 +10,8 @@
     "dev": "node scripts/dev-server.cjs",
     "check": "node scripts/check.cjs",
     "test": "node scripts/test.cjs",
-    "verify:dependencies": "node scripts/verify-dependencies.cjs"
+    "verify:dependencies": "node scripts/verify-dependencies.cjs",
+    "build:itch": "node scripts/build-itch.mjs"
   },
   "devDependencies": {
     "playwright": "1.63.0"

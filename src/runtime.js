@@ -144,8 +144,10 @@ async function bootTakraw() {
   }
   function showAppNotice(notice) { appNotice = notice; showBootStatus(); }
 
-  // 설치·오프라인 시작(sw.js). 새로고침하면 항상 최신 버전이라 업데이트 알림은 없다. 격리 장면(?debug, ?showcaseDemo=1)은 등록하지 않는다. 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
+  // 설치·오프라인 시작(sw.js). 새로고침하면 항상 최신 버전이라 업데이트 알림은 없다. 격리 장면(?debug, ?showcaseDemo=1)과 iframe 안은 등록하지 않는다. 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
   let pwa = null;
+  // 다른 페이지의 iframe 안(itch.io 임베드 등)에서는 설치할 수 없고, 같은 출처를 나눠 쓰는 다른 게임과 캐시가 섞일 수 있어 등록하지 않는다.
+  const embedded = window.self !== window.top;
   function startPwa() {
     pwa = registerPwa({
       serviceWorker: './sw.js',
@@ -1454,7 +1456,7 @@ async function bootTakraw() {
     showBootStatus('', false);
     ui.showHome();
     animation = requestAnimationFrame(frame);
-    if (!isolated) startPwa();
+    if (!isolated && !embedded) startPwa();
     const query = new URLSearchParams(location.search), watchParam = query.get(TAKRAW_RUNTIME.watch.param);
     if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
     if (query.has('debug')) {

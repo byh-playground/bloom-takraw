@@ -68,6 +68,8 @@ npm test                      # 서버·브라우저 시작부터 종료까지 �
 
 `index.html`, `src/`, `styles/`를 같은 소스 스냅샷의 상대 경로로 제공합니다. 생성·번들링·변환 빌드나 별도 dist 산출물은 없습니다. GitHub Pages도 소스 파일을 그대로 제공합니다. GameKit은 `gamekit.lock.json`과 HTML import map의 고정 CDN 링크로 불러옵니다.
 
+itch.io 웹 제출용 zip만 예외로 `npm run build:itch`가 만듭니다. 원본을 복사하고 CDN 의존을 zip 안 `vendor/`에 넣은 별도 산출물이며 원본은 바꾸지 않습니다([itch 제출 문서](docs/itch.md)).
+
 Pages 소스는 `main /`입니다. [태그 워크플로](.github/workflows/game-release-tags.yml)는 공통 워크플로를 불변 커밋으로 참조하고, main 푸시마다 `nightly-YYYYMMDDTHHMMSSZ-SHA12` 태그를 자동 발행합니다. Nightly는 개발 채널이며 정상 실행을 보장하지 않습니다. Stable 태그는 검증·승인을 마친 전체 커밋 SHA와 제품 버전을 수동 실행에 명시해 발행합니다. 기존 태그는 이동하지 않으며 main 배포가 Stable을 자동 승격하지 않습니다. 상세 계약은 [관리 규칙 §8.1](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#tag-preview)을 따릅니다.
 
 제품 버전은 [관리 규칙 §2](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#version)의 MAJOR=제품 세대, MINOR=비호환 변경, PATCH=호환 변경을 따릅니다. 문서·CI·순수 내부 정리는 버전을 유지합니다. 이번 배포 운영 변경도 기존 제품 버전 `0.12.9`를 유지하며, 태그 날짜·커밋은 별도 제품 버전이 아닙니다.

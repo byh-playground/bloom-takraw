@@ -78,8 +78,9 @@ const TAKRAW_RUNTIME = Object.freeze({
     timeout: 45000,
     peerTimeout: 25000,
     handshakeTimeout: 45000,
-    // The three public Nostr relays are signaling-only; gameplay stays on WebRTC.
-    relays: ['wss://relay.primal.net', 'wss://relay.damus.io', 'wss://nos.lol'],
+    // 신호 전달 전용 공개 Nostr 릴레이(경기는 WebRTC). 하나라도 붙으면 방을 열 수 있어 여러 곳을 둔다.
+    // 2026-11-03 실측: 각 릴레이 하나만으로 두 브라우저 입장 성공한 곳만. relay.damus.io(응답 없음)·offchain.pub(방 메시지 전달 실패)은 뺐다.
+    relays: ['wss://relay.primal.net', 'wss://nos.lol', 'wss://nostr.mom', 'wss://relay.nostr.net', 'wss://nostr.oxtr.dev'],
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },

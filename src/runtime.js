@@ -1164,11 +1164,13 @@ async function bootTakraw() {
           if (event.type === 'signaler' && event.status === 'connected') {
             networkEvent('relay-connected', event.relay || '');
             setNetwork({ phase: RUNTIME.phaseRelay() });
-          } else if (event.type === 'signaler' && event.status === 'error' ||
-              event.type === 'peer-failed' || event.type === 'signal-error') {
+          } else if (event.type === 'signaler' && event.status === 'error') {
+            // 릴레이 하나의 실패는 다른 릴레이가 이어 가므로 기록만 한다. 모두 실패하면 아래 catch가 오류를 띄운다.
+            networkEvent('relay-error', `${event.relay || ''} ${reason}`.trim());
+          } else if (event.type === 'peer-failed' || event.type === 'signal-error') {
             connection.warning.message = readableConnectionError(reason || event.type);
             connection.warning.atMs = performance.now();
-            networkEvent(event.type === 'signaler' ? 'relay-error' : event.type, reason);
+            networkEvent(event.type, reason);
             setNetwork({ hint: connection.warning.message });
           } else if (event.type === 'resume-save-failed') {
             resumeSaveFailed(event.error);

@@ -307,7 +307,7 @@ body .scoreboard{top:calc(64px + env(safe-area-inset-top));min-width:0;width:cal
 body .scoreboard.is-training{width:auto;min-width:190px;padding:8px 20px}
 body .score-middle>span:first-child{font-size:10px}
 body .score-middle>span:last-child{font-size:11px}
-body .team-label{max-width:72px;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+body .team-label{max-width:92px;overflow:hidden;text-overflow:ellipsis;font-size:11px}
 body .rally-strip{top:calc(132px + env(safe-area-inset-top));width:calc(100% - 32px);font-size:11px}
 body .rally-callout{padding:6px 10px}
 body #rally-notice{font-size:12px}
@@ -374,7 +374,7 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
   body .home-panel .mode-button{min-height:54px;padding:8px}
   body .home-touch-controls{font-size:11px;margin-top:5px;white-space:normal}
   body .boot-status{min-height:0;padding-top:0}
-  body .scoreboard{top:calc(10px + env(safe-area-inset-top));width:280px;padding:8px 10px;gap:8px}
+  body .scoreboard{top:calc(10px + env(safe-area-inset-top));width:auto;min-width:280px;max-width:380px;padding:8px 10px;gap:8px}
   body .score-team{width:50px;gap:4px}
   body .score-number{font-size:26px;min-width:28px}
   body .rally-strip{top:calc(68px + env(safe-area-inset-top));width:calc(100% - 340px);max-width:470px;gap:3px}
@@ -560,7 +560,12 @@ body:not([data-home-view="main"]) .home-panel .mode-button small{display:block}
 .score-team[data-dot]:not([data-dot=""]) .team-label{color:var(--ink)}
 .score-team[data-dot]:not([data-dot=""]) .team-label::before{content:"";display:inline-block;width:9px;height:9px;margin-right:5px;border-radius:50%;background:var(--team-dot);vertical-align:baseline}
 .score-team[data-dot]:not([data-dot=""]) .set-marks .won{background:var(--team-dot)}
-.score-team[data-me="true"] .team-label::after{content:attr(data-me-label);display:inline-block;margin-left:5px;padding:0 5px;border-radius:7px;background:var(--ink);color:#fff;font-size:10px;line-height:1.5;vertical-align:1px}
+/* '나' 표시는 이름과 따로 둬서 긴 이름만 말줄임으로 줄고 표시는 늘 보인다. 팀 칸은 이름만큼 넓어지되(최대 120px) 점수 숫자를 덮지 않는다. */
+.team-name{display:flex;align-items:center;justify-content:center;gap:5px;max-width:100%;min-width:0}
+.team-name .team-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.me-badge{display:none;flex:none;padding:0 5px;border-radius:7px;background:var(--ink);color:#fff;font-size:10px;font-weight:650;line-height:1.5}
+.score-team[data-me="true"] .me-badge{display:block}
+.scoreboard .score-team{width:auto;max-width:120px}
 /* 도장깨기: 아직 모르는 학교(이름 없는 회색 유니폼)와 첫 소개 카드 */
 .campaign-uniform.is-mystery{--uniform-primary:#c8d2c5;--uniform-secondary:#dde5da}
 .campaign-card.is-mystery{opacity:.7}

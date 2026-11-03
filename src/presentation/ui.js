@@ -1043,7 +1043,7 @@ class TakrawUI {
     if (ended) this.text('match-result', this.mode === 'local' ? UI.localWin({ side: hud.matchWinner === 0 ? '1P' : '2P' }) : ['online', 'watch'].includes(this.mode) ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() }) : hud.matchWinner === 0 ? UI.youWin() : UI.youLose());
   }
 
-  /** 온라인·관전 점수판: 팀 이름 옆에 그 학교 유니폼 색 점을 찍고, 내 쪽에는 '나' 표시를 단다. */
+  /** 온라인·관전 점수판: 팀 이름 옆에 그 학교 유니폼 색 점을 찍고, 내 쪽에는 '나' 표시(.me-badge)를 켠다. */
   updateTeamColors(hud) {
     const colored = ['online', 'watch'].includes(this.mode) && Array.isArray(hud.teamColors);
     document.querySelectorAll('.score-team').forEach((node, team) => {

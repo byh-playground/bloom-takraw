@@ -307,7 +307,7 @@ body .scoreboard{top:calc(64px + env(safe-area-inset-top));min-width:0;width:cal
 body .scoreboard.is-training{width:auto;min-width:190px;padding:8px 20px}
 body .score-middle>span:first-child{font-size:10px}
 body .score-middle>span:last-child{font-size:11px}
-body .team-label{max-width:72px;overflow:hidden;text-overflow:ellipsis;font-size:11px}
+body .team-label{max-width:92px;overflow:hidden;text-overflow:ellipsis;font-size:11px}
 body .rally-strip{top:calc(132px + env(safe-area-inset-top));width:calc(100% - 32px);font-size:11px}
 body .rally-callout{padding:6px 10px}
 body #rally-notice{font-size:12px}
@@ -374,7 +374,7 @@ body .training-timing-labels{font-size:10px;margin-top:5px}
   body .home-panel .mode-button{min-height:54px;padding:8px}
   body .home-touch-controls{font-size:11px;margin-top:5px;white-space:normal}
   body .boot-status{min-height:0;padding-top:0}
-  body .scoreboard{top:calc(10px + env(safe-area-inset-top));width:280px;padding:8px 10px;gap:8px}
+  body .scoreboard{top:calc(10px + env(safe-area-inset-top));width:auto;min-width:280px;max-width:380px;padding:8px 10px;gap:8px}
   body .score-team{width:50px;gap:4px}
   body .score-number{font-size:26px;min-width:28px}
   body .rally-strip{top:calc(68px + env(safe-area-inset-top));width:calc(100% - 340px);max-width:470px;gap:3px}

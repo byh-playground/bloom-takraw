@@ -65,6 +65,8 @@ const TAKRAW_RUNTIME = Object.freeze({
   // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailTicks에서 경기를 멈추고 그 장면을 다시 그린다.
   // 구간은 끝에서 leadTouches번째 터치의 leadTicks 앞부터(최대 maxSeconds초)다. 스파이크 앞 slowBefore~뒤 slowAfter 틱은 slowRate 배속이다.
   // 카메라는 측면 중계 각도(yaw·pitch, 라디안)다. 온라인은 상대와 시계를 맞춰야 하므로 멈출 수 없어 제외한다.
+  // 게임 지표(gamekit metrics). 경기 기록은 modes의 경기만 남긴다(관전·훈련 제외). 키 표는 README "게임 지표".
+  metrics: { endpoint: 'https://bloom-metrics.byh-playground.workers.dev', modes: ['match', 'local', 'online'] },
   highlight: {
     modes: ['match', 'local'], longRallyTouches: 10, leadTouches: 3, leadTicks: 15, maxSeconds: 4, tailTicks: 40,
     slowBefore: 8, slowAfter: 30, slowRate: 0.35, camera: { yaw: 1.05, pitch: 0.36 },

@@ -1,6 +1,7 @@
 import { test, expect } from 'playwright/test';
 import { chromium } from 'playwright';
 import { TAKRAW_INTRO } from '../src/config/intro.js';
+import { captureMetrics, replaySession } from './metrics.js';
 
 test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → 퇴장', async ({}, testInfo) => {
   const browser = await chromium.launch({ headless: false,
@@ -9,6 +10,7 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
   const faults = [];
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 1 });
+    const sent = await captureMetrics(context);
     const page = await context.newPage();
     page.on('pageerror', error => faults.push(error.message));
     const cdp = await context.newCDPSession(page), fingers = new Map();
@@ -86,6 +88,9 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await cancel(); await neutral();
     await layout('844×390 경기', controls);
     await page.screenshot({ path: testInfo.outputPath('mobile-landscape.png') });
+    // 혼자 하기(빠른 경로)의 터치 입력 경기 기록이 같은 결과로 다시 계산된다.
+    evidence.replay = await replaySession(page);
+    expect(evidence.replay.length === 1 && evidence.replay[0].same && evidence.replay[0].inputChangeBytes > 8).toBeTruthy();
     await page.locator('#pause-button').tap(); await page.locator('[data-dialog-action="quit"]').tap();
     await page.locator('#open-start').tap(); await page.locator('#start-training').tap();
     await expect(page.locator('#training-lesson option')).toHaveCount(5);
@@ -139,6 +144,9 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     await layout('390×568 홈', ['#open-start', '#open-club']);
     await page.screenshot({ path: testInfo.outputPath('mobile-home-short.png') });
     evidence.stages.push('메뉴 퇴장 → 터치 소개영상 확인 → 짧은 화면 홈');
+    await expect.poll(() => sent.events(), { timeout: 15000 }).toEqual(expect.arrayContaining(['menu:match:click',
+      'match:match:start', 'match:match:quit', 'menu:training:click', 'match:training:start', 'match:training:quit']));
+    evidence.metrics = { batches: sent.batches.length, events: sent.events() };
     expect(faults).toEqual([]);
   } finally {
     evidence.faults = faults;

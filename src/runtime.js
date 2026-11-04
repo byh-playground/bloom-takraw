@@ -1299,10 +1299,7 @@ async function bootTakraw() {
     }
     if (mode === 'online') {
       if (!session?.ready || session.players.length !== 2) return;
-      if (localTeam() !== 0) {
-        setNetwork({ message: RUNTIME.netHostRestarts() });
-        return;
-      }
+      if (localTeam() !== 0) return;
       pendingCommands.push(4);
       observeSoon();
     } else startLocal(mode);

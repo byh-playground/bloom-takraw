@@ -1062,6 +1062,9 @@ class TakrawUI {
     }
     this.text('match-reward', hud.matchReward?.message || '');
     document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
+    const guest = this.mode === 'online' && hud.localTeam !== 0;
+    document.getElementById('rematch-button').disabled = guest;
+    document.getElementById('rematch-hint').hidden = !(ended && guest);
     if (ended) this.text('match-result', this.mode === 'local' ? UI.localWin({ side: hud.matchWinner === 0 ? '1P' : '2P' }) : ['online', 'watch'].includes(this.mode) ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() }) : hud.matchWinner === 0 ? UI.youWin() : UI.youLose());
   }
 

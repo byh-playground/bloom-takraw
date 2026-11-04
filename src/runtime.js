@@ -252,7 +252,7 @@ async function bootTakraw() {
 
   /**
    * 놀이를 멈춘 실패를 성격별 분류로 지표에 보낸다(README "게임 지표"). 오류 메시지·스택은 보내지 않는다.
-   *   fault/<simulation·desync·session-fatal·sync>/fail: 게임 결함 의심
+   *   fault/<simulation·desync·sync>/fail: 게임 결함 의심
    *   network/<relay·peer·secure·other·timeout>/fail: 연결 사정
    *   unsupported/<browser·version>/block: 이 환경이나 버전 조합으로는 온라인을 할 수 없음
    */
@@ -978,9 +978,9 @@ async function bootTakraw() {
     if (['membership-committed', 'peer-disconnected', 'recovered', 'fatal', 'desync-unrecoverable'].includes(event.type)) {
       networkEvent(`session:${event.type}`, event.reason || `tick=${event.tick ?? '?'}`);
     }
-    if (event.type === 'fatal' || event.type === 'desync-unrecoverable') {
-      simulationFailed(new Error(event.reason || event.type), event.type === 'fatal' ? 'session-fatal' : 'desync');
-    }
+    // fatal은 단계가 던진 원래 예외를 곧바로 다시 던지므로 그 예외가 onError로 올라온다. 여기서 감싸 먼저 실패 처리하면 원래 예외가 버려진다.
+    // desync-unrecoverable은 던져진 예외가 없어 세션이 알려 준 사실로 직접 만든 오류다.
+    if (event.type === 'desync-unrecoverable') simulationFailed(new Error(event.reason || event.type), 'desync');
   }
 
   function openSession(nextMode, capability, token) {

@@ -12,6 +12,7 @@ import { createValueCodec } from '@bloom-gamekit/deterministic';
 import { createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter } from '@bloom-gamekit/save';
 import { registerPwa } from '@bloom-gamekit/pwa';
 import { createMetrics, HttpAdapter, MemoryAdapter, SessionReplayRecorder } from '@bloom-gamekit/metrics';
+import { DiagnosticRing, redactDiagnostic } from '@bloom-gamekit/debug-tools';
 
 import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
@@ -48,7 +49,7 @@ async function bootTakraw() {
   const config = TAKRAW_CONFIG;
   const stepMs = 1000 / config.simulation.tickRate;
   const dependencyState = Object.fromEntries(['three', 'rapier', '@bloom-gamekit/input', '@bloom-gamekit/simloop', '@bloom-gamekit/interpolation', '@bloom-gamekit/rollback', '@bloom-gamekit/transport', '@bloom-gamekit/audio', '@bloom-gamekit/presentation-events', '@bloom-gamekit/deterministic', '@bloom-gamekit/object-pool'].map(name => [name, { url: import.meta.resolve(name), state: 'ready' }]));
-  const errors = [];
+  const diagnosticRing = new DiagnosticRing({ release: TAKRAW_VERSION });
   const listeners = [];
   const actionNames = [
     'left', 'right', 'forward', 'back', 'jump', 'kick',
@@ -272,12 +273,23 @@ async function bootTakraw() {
     listeners.push(() => target.removeEventListener(type, callback, options));
   }
 
-  function recordError(error, source) {
+  function recordError(error, source, visibility = 'blocking') {
     const value = error instanceof Error ? error : new Error(String(error));
-    errors.push({ source, message: value.message, stack: value.stack || '', time: performance.now() });
-    if (errors.length > 12) errors.shift();
+    diagnosticRing.report(value, { kind: source, origin: source, visibility });
     console.error(`[${TAKRAW_PRODUCT_NAME.en}]`, source, value);
     return value;
+  }
+
+  /**
+   * 치명 오류 화면의 "진단 복사"가 클립보드에 넣는 글. 지금 상태 + 던져진 원래 예외(스택) + 연결 기록.
+   * 오류 기록(format)은 링이 이미 가린 JSON이라 그대로 두고(redactDiagnostic은 JSON을 통째로 지운다), 나머지 글만 경로·토큰을 가린다.
+   */
+  function diagnosticReport() {
+    const state = [`BLOOM TAKRAW ${TAKRAW_VERSION}`,
+      `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
+      `locale=${LOCALE.locale} viewport=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} touch=${matchMedia('(pointer: coarse)').matches}`,
+      `ua=${navigator.userAgent}`].join('\n');
+    return [redactDiagnostic(state, 1200), diagnosticRing.format(), ...(connection.history.length ? [redactDiagnostic(`network:\n${connection.history.join('\n')}`, 4000)] : [])].join('\n');
   }
 
   /** 소리 설정을 쓰지 못하면 설정 창의 효과음 줄에 알린다. 소리는 바꾼 대로 나고 저장만 안 된 상태다. */
@@ -907,7 +919,7 @@ async function bootTakraw() {
   function simulationFailed(error, kind = 'simulation') {
     if (failed) return error;
     failed = true;
-    const value = recordError(error, 'simulation');
+    const value = recordError(error, 'simulation', 'fatal');
     trackFailure('fault', kind, 'fail');
     pump?.stop();
     loop?.stop();
@@ -915,7 +927,7 @@ async function bootTakraw() {
     if (mode === 'online') {
       setNetwork({ state: 'error', message: RUNTIME.netStopped() });
     }
-    showBootStatus(RUNTIME.runFailed(), true);
+    ui.showFatal(RUNTIME.runFailed());
     return value;
   }
 
@@ -1368,7 +1380,7 @@ async function bootTakraw() {
         simulation: { ...stats, averageMs: stats.steps ? stats.simulationMs / stats.steps : 0 },
         lastContact,
         highlight: { anchored: highlight.anchored, playing: replayActive, played: highlight.played || 0, lastLatencyMs: highlight.lastLatencyMs ?? null, failed: highlight.failed },
-        errors: errors.slice(),
+        errors: diagnosticRing.snapshot().errors,
       };
     },
     dispose() {
@@ -1408,6 +1420,7 @@ async function bootTakraw() {
       } else startLocal(nextMode);
     },
     onRestart: restart,
+    diagnosticText: diagnosticReport,
     onWatch: seed => { metrics.track('menu', 'watch_seed', 'click'); campaignSchoolId = null; startWatch(seed); },
     onCampaign(schoolId) {
       metrics.track('menu', 'campaign', 'click', { schoolId });
@@ -1599,7 +1612,7 @@ async function bootTakraw() {
     pump?.stop();
     const message = bootstrapStage === 'graphics' && /webgl/i.test(String(error?.message || error)) ? RUNTIME.bootWebgl() : RUNTIME.bootFailed();
     bootstrapStage = 'failed';
-    showBootStatus(message, true);
+    ui.showFatal(message);
     throw error;
   }
 }

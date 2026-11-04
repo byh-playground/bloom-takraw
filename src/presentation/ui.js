@@ -4,6 +4,7 @@ import { TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, takrawTrainingFactor } from '../club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
+import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { LOCALE, LOCALE_NAMES } from '../i18n/locale.js';
 import { UI, clubText } from '../i18n/messages/ui.js';
 import { matchText, touchControlText } from '../i18n/messages/match.js';
@@ -45,7 +46,7 @@ class TakrawUI {
     this.campaignIntro = { step: 0, replay: false }; // 도장깨기 소개 카드: 몇 번째 장인지, 이미 본 뒤 다시 보는 중인지
     this.clubBusy = false; this.clubNotice = ''; this.drawStage = null; this.drawTimer = 0;
     this.nodes = {};
-    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','home-back','dialog-back','draw-stage','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
+    for (const id of ['home-panel','match-hud','modal-layer','dialog-panel','dialog-title','dialog-kicker','dialog-content','boot-status','boot-message','reload-button','fatal-panel','fatal-message','copy-diagnostic-button','diagnostic-text','home-back','dialog-back','draw-stage','touch-controls','move-pad','move-thumb','local-guide','watch-form','training-actions','end-actions','connection-indicator']) this.nodes[id] = document.getElementById(id);
     this.coarse = window.matchMedia('(pointer: coarse)');
     this.showcase = 'showcase' in document.body.dataset; // 소개영상 iframe 안의 게임(?showcaseDemo=1)
     this.showcaseScene = ''; // 소개영상 대본이 띄운 게임 화면(draw)
@@ -100,6 +101,8 @@ class TakrawUI {
     click('replay-skip', () => this.callbacks.onReplaySkip?.());
     click('dialog-close', () => this.closeDialog());
     click('reload-button', () => window.location.reload());
+    click('copy-diagnostic-button', () => this.copyDiagnosticReport());
+    click('fatal-reload', () => window.location.reload());
     click('rematch-button', () => this.callbacks.onRestart?.());
     click('training-reset', () => this.callbacks.onRestart?.());
     const lessonSelect = document.getElementById('training-lesson');
@@ -887,6 +890,25 @@ class TakrawUI {
     if (action === 'close-network') { this.callbacks.onNetwork?.('close'); this.hideDialog(true); this.setRoute(this.inGame ? 'play' : this.homeRoute()); }
     if (action === 'copy-code') this.copyText(this.network.code, button);
     if (action === 'copy-network-log') this.copyText(document.getElementById('network-log')?.textContent || '', button);
+  }
+
+  /** 치명 오류: 경기 중에도 보이는 패널. 멈춘 화면에 아무 말이 없지 않게 하고, 진단을 바로 복사해 알릴 수 있게 한다. */
+  showFatal(message) {
+    this.nodes['fatal-message'].textContent = message;
+    this.nodes['fatal-panel'].hidden = false;
+    this.nodes['copy-diagnostic-button'].focus({ preventScroll: true });
+  }
+
+  /** 오류 진단을 클립보드로. 복사가 막히면 선택된 글상자를 보여 직접 복사하게 한다. */
+  async copyDiagnosticReport() {
+    const button = this.nodes['copy-diagnostic-button'], area = this.nodes['diagnostic-text'], label = button.textContent;
+    area.value = this.callbacks.diagnosticText?.() ?? '';
+    area.hidden = false;
+    const result = await copyDiagnostic(area.value, { clipboard: navigator.clipboard, textarea: area });
+    area.hidden = result.copied;
+    button.textContent = result.copied ? UI.copied() : UI.copyManually();
+    if (this.diagnosticTimer) window.clearTimeout(this.diagnosticTimer);
+    this.diagnosticTimer = window.setTimeout(() => { if (button.isConnected) button.textContent = label; this.diagnosticTimer = null; }, 1800);
   }
 
   async copyText(value, button) {

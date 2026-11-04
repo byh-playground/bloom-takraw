@@ -58,6 +58,7 @@ const PAGE = LOCALE.messages({
   skip: { ko: '건너뛰기', en: 'Skip' },
   rewardRetry: { ko: '보상 저장 재시도', en: 'Retry saving reward' },
   rematch: { ko: '다시 경기', en: 'Rematch' },
+  rematchHostOnly: { ko: '방장이 다음 경기를 시작해요', en: 'The host starts the next match' },
   home: { ko: '처음으로', en: 'Home' },
   trainingGuide: { ko: '스파이크 연습 가이드', en: 'Spike practice guide' },
   trainingLesson: { ko: '스파이크 레슨', en: 'Spike lesson' },

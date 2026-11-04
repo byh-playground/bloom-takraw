@@ -72,7 +72,6 @@ const RUNTIME = LOCALE.messages({
   netJoining: { ko: '친구의 방을 찾고 있어요.', en: 'Looking for your friend’s room.' },
   netJoinHint: { ko: '방 코드 · 양쪽 버전 · 상대가 방을 열어둔 상태인지 확인하세요.', en: 'Check the room code, both versions, and that the room is still open.' },
   netHostHint: { ko: '브라우저 보안 설정과 네트워크 연결을 확인하세요.', en: 'Check your browser’s security settings and network connection.' },
-  netHostRestarts: { ko: '새 경기는 방장이 시작할 수 있어요.', en: 'Only the host can start a new match.' },
   netChoose: { ko: '방을 만들거나 친구의 방 코드로 참가해 주세요.', en: 'Create a room or join with your friend’s code.' },
   netResumeUnreadable: { ko: '이전 경기 복귀 정보를 확인할 수 없어요. 기존 정보는 보존했어요. 새 방을 만들면 지워져요.', en: 'Couldn’t read the rejoin info. It was kept, and creating a new room clears it.' },
 

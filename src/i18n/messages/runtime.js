@@ -35,7 +35,10 @@ const RUNTIME = LOCALE.messages({
 
   // 온라인 연결: 단계(phase)
   phaseIdle: { ko: '연결 준비', en: 'Ready to connect' },
-  phaseSessionError: { ko: '세션 오류', en: 'Session error' },
+  phaseRelayFailed: { ko: '중계 서버 문제', en: 'Relay server problem' },
+  phasePeerFailed: { ko: '직접 연결 실패', en: 'Direct connection failed' },
+  phaseSyncFailed: { ko: '게임 상태 불일치', en: 'Game state mismatch' },
+  phaseVersionFailed: { ko: '게임 버전 불일치', en: 'Version mismatch' },
   phaseReconnecting: { ko: '재접속 중', en: 'Reconnecting' },
   phaseSyncing: { ko: '경기 동기화 중', en: 'Syncing the match' },
   phaseWaitingPeer: { ko: '상대 연결 중', en: 'Connecting to your friend' },
@@ -46,9 +49,9 @@ const RUNTIME = LOCALE.messages({
   phaseResuming: { ko: '이전 경기 재접속', en: 'Rejoining the last match' },
   phaseHosting: { ko: '방 생성 중', en: 'Creating the room' },
   phaseJoining: { ko: '방 검색 중', en: 'Finding the room' },
-  phaseRelay: { ko: '신호 서버 연결됨', en: 'Signal server connected' },
+  phaseRelay: { ko: '중계 서버 연결됨', en: 'Relay server connected' },
   phasePeer: { ko: '친구와 직접 연결됨', en: 'Connected directly to your friend' },
-  phaseFailed: { ko: '연결 실패', en: 'Connection failed' },
+  phaseFailed: { ko: '연결 오류', en: 'Connection error' },
   phaseResume: { ko: '이전 경기 복귀', en: 'Rejoin the last match' },
 
   // 온라인 연결: 안내(message)·도움말(hint)
@@ -57,7 +60,7 @@ const RUNTIME = LOCALE.messages({
   netPreparing: { ko: '방 연결을 준비하고 있어요. 상대방의 접속을 기다리는 중입니다.', en: 'Setting up the room. Waiting for your friend to join.' },
   netShareCode: { ko: '방 코드를 친구에게 알려주세요. 상대가 들어오면 경기가 시작돼요.', en: 'Share the room code with your friend. The match starts when they join.' },
   netConnected: { ko: '상대와 연결됐어요.', en: 'Connected with your friend.' },
-  netTimeout: { ko: '상대와 연결됐지만 경기 상태를 맞추지 못했어요. 양쪽 게임 버전이 같은지 확인하고 다시 연결해 주세요.', en: 'Connected, but the two games couldn’t sync. Make sure both run the same version, then reconnect.' },
+  netTimeout: { ko: '상대와 연결은 됐지만 시간 안에 경기 상태를 맞추지 못했어요. 네트워크가 느리거나 두 게임 버전이 다를 수 있어요. 두 분 모두 새로고침해 같은 버전으로 다시 연결해 주세요.', en: 'Connected, but the two games didn’t sync in time. The network may be slow, or the versions may differ. Both players should reload to the same version and reconnect.' },
   netVersionHint: { ko: ({ version }) => `양쪽에서 v${version} 실행 필요`, en: ({ version }) => `Both players need v${version}` },
   netResumeSaveFailed: { ko: '이전 경기 복귀 정보를 저장하지 못했어요. 새로고침하면 이 경기로 돌아올 수 없어요.', en: 'Couldn’t save the rejoin info. If you reload, you can’t return to this match.' },
   netStopped: { ko: '경기를 계속할 수 없어요. 방을 닫고 다시 시작해 주세요.', en: 'The match can’t continue. Close the room and start again.' },
@@ -68,18 +71,18 @@ const RUNTIME = LOCALE.messages({
   netHosting: { ko: '친구를 초대할 방을 만들고 있어요.', en: 'Creating a room to invite your friend.' },
   netJoining: { ko: '친구의 방을 찾고 있어요.', en: 'Looking for your friend’s room.' },
   netJoinHint: { ko: '방 코드 · 양쪽 버전 · 상대가 방을 열어둔 상태인지 확인하세요.', en: 'Check the room code, both versions, and that the room is still open.' },
-  netHostHint: { ko: '신호 서버 상태나 브라우저 보안 설정을 확인하세요.', en: 'Check the signal server or your browser’s security settings.' },
+  netHostHint: { ko: '브라우저 보안 설정과 네트워크 연결을 확인하세요.', en: 'Check your browser’s security settings and network connection.' },
   netHostRestarts: { ko: '새 경기는 방장이 시작할 수 있어요.', en: 'Only the host can start a new match.' },
   netChoose: { ko: '방을 만들거나 친구의 방 코드로 참가해 주세요.', en: 'Create a room or join with your friend’s code.' },
   netResumeUnreadable: { ko: '이전 경기 복귀 정보를 확인할 수 없어요. 기존 정보는 보존했어요. 새 방을 만들면 지워져요.', en: 'Couldn’t read the rejoin info. It was kept, and creating a new room clears it.' },
 
   // 연결 오류 풀이. detail은 원문(진단용)이다.
-  errSecure: { ko: '보안 연결이 필요해요. HTTPS 사이트에서 같은 버전으로 접속하세요.', en: 'A secure connection is required. Open the same version over HTTPS.' },
-  errSync: { ko: ({ detail }) => `경기 물리 상태 동기화 검사에 실패했어요. (${detail})`, en: ({ detail }) => `The match physics sync check failed. (${detail})` },
-  errVersion: { ko: ({ version, detail }) => `서로 다른 게임 버전이나 동기화 규칙일 수 있어요. 양쪽에서 v${version}를 열어 주세요. (${detail})`, en: ({ version, detail }) => `The two games may be different versions. Both players should open v${version}. (${detail})` },
-  errRelay: { ko: ({ detail }) => `방 신호 서버 연결에 실패했어요. 네트워크를 확인해 주세요. (${detail})`, en: ({ detail }) => `Couldn’t reach the room signal server. Check your network. (${detail})` },
-  errPeer: { ko: ({ detail }) => `친구와 직접 연결하는 데 실패했어요. 방화벽·NAT 설정을 확인해 주세요. (${detail})`, en: ({ detail }) => `Couldn’t connect directly to your friend. Check firewall and NAT settings. (${detail})` },
-  errOther: { ko: ({ detail }) => `연결 오류: ${detail}`, en: ({ detail }) => `Connection error: ${detail}` },
+  errSecure: { ko: '이 브라우저나 주소에서는 온라인 연결에 필요한 보안 기능을 쓸 수 없어요. 게임 문제가 아니라 접속 환경 문제예요. HTTPS 주소에서 다시 열어 주세요.', en: 'This browser or address can’t use the security features online play needs. This isn’t a game problem. Open the game over HTTPS and try again.' },
+  errSync: { ko: ({ detail }) => `두 게임의 경기 상태가 달라 검사에 실패했어요. 게임 쪽 문제일 수 있어요. 두 분 모두 새로고침해 같은 버전으로 다시 연결해 주세요. (진단: ${detail})`, en: ({ detail }) => `The two games’ match states didn’t agree, so the check failed. This may be a problem in the game. Both players should reload to the same version and reconnect. (Diagnostic: ${detail})` },
+  errVersion: { ko: ({ version, detail }) => `서로 다른 게임 버전일 수 있어요. 두 분 모두 새로고침해 v${version}으로 맞춰 다시 연결해 주세요. (진단: ${detail})`, en: ({ version, detail }) => `The two games may be different versions. Both players should reload to v${version} and reconnect. (Diagnostic: ${detail})` },
+  errRelay: { ko: ({ detail }) => `친구를 찾아 주는 중계 서버(Nostr)에 연결하지 못했어요. 게임 문제가 아니라 중계 서버나 네트워크 쪽 문제예요. 잠시 뒤 다시 시도해 주세요. (진단: ${detail})`, en: ({ detail }) => `Couldn’t reach the relay server (Nostr) that helps you find your friend. This isn’t a game problem — it’s the relay server or the network. Try again in a moment. (Diagnostic: ${detail})` },
+  errPeer: { ko: ({ detail }) => `친구와 직접 연결되지 않았어요. 게임 문제가 아니라 두 분 중 한쪽 네트워크(방화벽·공용 망)가 막은 걸 수 있어요. Wi-Fi와 데이터를 바꿔 다시 시도해 보세요. (진단: ${detail})`, en: ({ detail }) => `Couldn’t connect directly to your friend. This isn’t a game problem — one of your networks (a firewall or public network) may be blocking it. Switch between Wi-Fi and mobile data and try again. (Diagnostic: ${detail})` },
+  errOther: { ko: ({ detail }) => `연결 중 원인을 알 수 없는 문제가 생겼어요. 다시 시도해 주세요. 계속되면 진단 정보를 알려 주세요. (진단: ${detail})`, en: ({ detail }) => `Something unexpected went wrong while connecting. Try again. If it keeps happening, share the diagnostic info. (Diagnostic: ${detail})` },
 });
 
 export { RUNTIME };

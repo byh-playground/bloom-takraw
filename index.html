@@ -127,6 +127,11 @@
       </section>
       <div id="draw-stage" class="draw-stage" role="dialog" aria-modal="true" data-i18n-aria-label="drawStage" hidden></div>
     </div>
+    <section id="fatal-panel" class="fatal-panel" role="alertdialog" aria-modal="true" aria-labelledby="fatal-message" hidden="">
+      <p id="fatal-message"></p>
+      <div class="fatal-actions"><button id="copy-diagnostic-button" type="button" class="primary-small" data-i18n="copyDiagnostic"></button><button id="fatal-reload" type="button" class="secondary-small"><span aria-hidden="true">↻</span> <span data-i18n="reload"></span></button></div>
+      <textarea id="diagnostic-text" class="diagnostic-text" readonly hidden="" rows="5" aria-labelledby="copy-diagnostic-button"></textarea>
+    </section>
   </div>
   <script type="importmap">
 {

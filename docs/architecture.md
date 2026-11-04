@@ -33,6 +33,12 @@
 - 읽지 못한 레코드는 기본값으로 바꾸지 않고 원본을 둔다. 소리 설정은 소리를 끈 채 설정 창 효과음 줄에 알리고 토글을 막는다. 방 복귀 정보는 부팅 때 연결 창을 열어 알리고, 사용자가 새 방을 만들 때 `reset()`으로 버린다(transport의 `reset: true`와 같은 때).
 - 쓰기 실패: 소리 설정(`onSaveError`)은 설정 창 효과음 줄, 방 복귀(`active-room` 쓰기와 transport의 `resume-save-failed`)는 연결 창 안내 줄에 알린다. 실패는 `diagnostics().errors`에도 남는다.
 
+## 치명 오류 진단 (v0.15.10~)
+
+- 오류 기록의 단일 원본은 gamekit `debug-tools`의 `DiagnosticRing`(runtime `recordError`)이다. `diagnostics().errors`는 그 스냅샷에서 파생한다.
+- 경기 중 실패(`simulationFailed`)와 시작 실패는 경기 중에도 보이는 치명 오류 패널(`#fatal-panel`)로 알린다. 패널의 **진단 복사**는 지금 상태(버전·모드·단계·tick·언어·화면·브라우저)와 오류 기록(원래 예외의 이름·메시지·스택)과 연결 기록을 클립보드에 넣는다. 클립보드가 막히면 선택된 글상자로 직접 복사하게 한다(`copyDiagnostic`). 경로·URL·토큰은 모듈이 가린다(스택의 파일 위치는 `[source]`로 가려져 함수 이름만 남는다).
+- 예외는 원본 그대로 올린다(bloom-reference DEV-027). 롤백 세션의 `fatal` 이벤트는 단계가 던진 예외를 곧바로 다시 던지므로 이벤트 쪽에서 감싸 먼저 실패 처리하지 않는다. 던져진 예외가 없는 `desync-unrecoverable`만 직접 만든 오류로 알린다.
+
 ## 설치·오프라인(PWA, v0.14.0~)
 
 - `node scripts/pwa.mjs`가 gamekit `pwa-build.mjs`(`scripts/vendor/gamekit/`, `gamekit.lock.json`의 `tools`에 dist commit·SHA-256 고정)로 `manifest.webmanifest`·`pwa/*.png`·`sw.js`와 `index.html`의 `<!-- bloom-pwa:start/end -->` 사이 태그를 만든다. 생성 결과는 커밋한다. `npm run check`가 `--check`로 원본(`assets/pwa/*.svg`, 이름·색 같은 설정)과 어긋난 결과를 막는다. sw.js는 게임 파일 목록을 갖지 않는 고정 코드라(gamekit v0.41.0~) `src/`·`styles/`만 고친 배포는 다시 생성할 필요가 없다.

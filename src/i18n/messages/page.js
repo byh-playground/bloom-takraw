@@ -35,6 +35,7 @@ const PAGE = LOCALE.messages({
   watch: { ko: 'AI 관전', en: 'Watch AI' },
   watchHint: { ko: '시드로 명경기 보기', en: 'Watch great matches by seed' },
   reload: { ko: '다시 열기', en: 'Reload' },
+  copyDiagnostic: { ko: '진단 복사', en: 'Copy diagnostics' },
   touchControls: { ko: '왼손으로 이동 · 오른손으로 점프와 발차기', en: 'Left hand moves · right hand jumps and kicks' },
   move: { ko: '이동', en: 'Move' },
   jump: { ko: '점프', en: 'Jump' },

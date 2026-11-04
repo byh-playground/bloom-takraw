@@ -146,7 +146,8 @@ test('터치로 시작·이동·점프·킥 → 메뉴 → 회전·연습 → �
     evidence.stages.push('메뉴 퇴장 → 터치 소개영상 확인 → 짧은 화면 홈');
     await expect.poll(() => sent.events(), { timeout: 15000 }).toEqual(expect.arrayContaining(['menu:match:click',
       'match:match:start', 'match:match:quit', 'menu:training:click', 'match:training:start', 'match:training:quit']));
-    evidence.metrics = { batches: sent.batches.length, events: sent.events() };
+    evidence.metrics = { batches: sent.batches.length, events: sent.events(), sessionStarts: sent.sessionStarts() };
+    expect(sent.sessionStarts()[0]).toMatchObject({ viewport: expect.stringMatching(/^\d+x\d+$/), touch: true });
     expect(faults).toEqual([]);
   } finally {
     evidence.faults = faults;

@@ -20,6 +20,9 @@ export async function captureMetrics(context) {
     /** 보낸 사람 행동 이벤트를 `분류:대상:동작`으로 */
     events: () => batches.flatMap(batch => batch.events.filter(event => event.type === 'event')
       .map(event => `${event.category}:${event.target}:${event.action}`)),
+    /** 세션 시작마다 모듈이 붙인 언어·화면 구간·터치 여부 */
+    sessionStarts: () => batches.flatMap(batch => batch.events.filter(event => event.type === 'session_start')
+      .map(event => event.props)),
   };
 }
 

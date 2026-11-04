@@ -11,6 +11,7 @@ import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { createValueCodec } from '@bloom-gamekit/deterministic';
 import { createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter } from '@bloom-gamekit/save';
 import { registerPwa } from '@bloom-gamekit/pwa';
+import { createMetrics, HttpAdapter, MemoryAdapter, SessionReplayRecorder } from '@bloom-gamekit/metrics';
 
 import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
@@ -94,6 +95,10 @@ async function bootTakraw() {
     resume: () => localStorageAdapter({ storage: sessionStorage, prefix: `bloom-takraw:${TAKRAW_VERSION}:` }),
   };
   const saveAdapter = store => isolated ? memoryAdapter() : SAVE_STORES[store]();
+  // 지표도 격리 장면에서는 메모리에만 남긴다. 개발자 본인 플레이는 수집 서버가 접속 키로 나중에 거른다.
+  const metrics = createMetrics({ game: 'bloom-takraw', version: TAKRAW_VERSION,
+    adapter: isolated ? new MemoryAdapter() : new HttpAdapter(TAKRAW_RUNTIME.metrics.endpoint) });
+  let metricsMatch = null; // 기록 중인 세션의 경기 관측: { ordinal, finishedAt, recorded }
   let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
   let watchPoint = { tick: null, restarting: false };
   // 득점 리플레이. 경기 시작 상태 + 입력으로 워커의 그림자 경기가 다시 계산한 장면을 그린다. 재생 중에는 경기 진행과 조작을 멈춘다.
@@ -270,6 +275,26 @@ async function bootTakraw() {
     rewards.jobs.push(job); clubSession.reward = job;
     // 완료 관측은 한 번만 한다. 영속 I/O는 시뮬레이션 콜백 밖에서 실행한다.
     scheduleRewards();
+  }
+
+  // 끝난 경기 하나를 지표로 남긴다. 온라인은 예측한 끝을 남기지 않도록 그 tick이 확정된 뒤에 남긴다.
+  // 두 사람이 같은 matchId(방 세션·roster 세대·그 세대에서 끝난 순번)를 보내 서버에 한 행만 남는다.
+  function observeMetricsMatch() {
+    const state = latestView?.state, track = metricsMatch;
+    if (disposed || !session || !track) return;
+    if (state?.phase !== 'finished' || ![0, 1].includes(state.matchWinner)) { track.finishedAt = null; track.recorded = false; return; }
+    if (track.recorded) return;
+    track.finishedAt ??= session.tick;
+    if (session.resimulating || session.confirmedTick + 1 < track.finishedAt) return;
+    track.recorded = true;
+    const online = mode === 'online';
+    const recorder = new SessionReplayRecorder({ session, mode,
+      ...(online ? { matchId: `${session.sessionId}:${session.epoch}:${track.ordinal}` } : {}) });
+    track.ordinal += 1;
+    try {
+      metrics.recordMatch(recorder, { winner: state.matchWinner, sets: [...state.sets], score: [...state.score], ticks: state.tick, seed: state.seed,
+        ...(mode === 'match' ? { schoolId: clubSession.match?.schoolId ?? null } : {}), ...(online ? { localTeam: localTeam() } : {}) });
+    } catch (error) { recordError(error, 'metrics-match'); }
   }
 
   function scheduleRewards(retry = false) {
@@ -456,6 +481,7 @@ async function bootTakraw() {
     const commands = pendingCommands.splice(0).map(code => ({ payload: Uint8Array.of(code) }));
     if (mode === 'online' && !identitySent && session?.ready && session.players.length === 2) { // 두 사람이 모이면 내 팀 이름·학교를 한 번 알린다(표시 전용)
       identitySent = true;
+      metrics.track('match', 'online', 'start');
       const mine = club.getView();
       commands.push({ payload: takrawEncodeIdentity(mine.campaign.home, mine.teamName || RUNTIME.myTeam()) });
     }
@@ -904,6 +930,7 @@ async function bootTakraw() {
       replaceJournal();
       latestView = game.getView();
       resetMode = 'reset';
+      if (event.type === 'membership-committed' && metricsMatch) metricsMatch.ordinal = 0;
       loop?.resetTiming();
       pump?.rebase();
     }
@@ -917,6 +944,10 @@ async function bootTakraw() {
 
   function openSession(nextMode, capability, token) {
     mode = nextMode;
+    const recorded = TAKRAW_RUNTIME.metrics.modes.includes(nextMode);
+    metricsMatch = recorded ? { ordinal: 0, finishedAt: null, recorded: false } : null;
+    // 온라인 경기 시작은 두 사람이 모였을 때(identitySent) 남긴다.
+    if (nextMode !== 'online') metrics.track('match', nextMode, 'start');
     // 내 학교는 저장된 값이다. 온라인은 두 사람의 화면이 같도록 고정 학교 쌍을 쓴다. 퀵 대전(도전 학교 없음)의 상대는 가장 높은 단계다.
     const watching = nextMode === 'watch';
     watchPoint = { tick: null, restarting: false };
@@ -1025,6 +1056,7 @@ async function bootTakraw() {
       inputSize: TAKRAW_RUNTIME.input.size,
       adapter,
       profile,
+      recordReplay: recorded,
       membership: {
         maxPlayers: 2,
         transitionTimeoutMs: TAKRAW_RUNTIME.network.transitionTimeout,
@@ -1044,7 +1076,7 @@ async function bootTakraw() {
       canObserveInput: () => Boolean(session?.ready && !session.failure),
       canAdvance: () => Boolean(session?.ready && !session.failure &&
         (online ? session.players.length === 2 : !paused && !replayActive)),
-      onAdvance() { publish(); confirmEvents(); observeMatchResult(); observeWatchLoop(token); observeHighlight(); },
+      onAdvance() { publish(); confirmEvents(); observeMatchResult(); observeMetricsMatch(); observeWatchLoop(token); observeHighlight(); },
       onInputRelease: clearDeviceState,
       onError: simulationFailed,
       onBacklogDrop() { stats.backlogDrops += 1; },
@@ -1124,6 +1156,7 @@ async function bootTakraw() {
       return;
     }
     if (action !== 'host' && action !== 'join') return;
+    metrics.track('online', resuming ? 'resume' : action, 'click');
     const roomCode = String(code || (action === 'host' ?
       String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, '0') : '')).trim();
     if (action === 'join' && !/^\d{4}$/.test(roomCode)) {
@@ -1200,6 +1233,7 @@ async function bootTakraw() {
 
   function restart() {
     if (!mode) return;
+    metrics.track('match', mode, 'restart');
     if (mode === 'training') {
       releaseControls();
       pendingCommands.push(4);
@@ -1220,6 +1254,7 @@ async function bootTakraw() {
 
   function quit() {
     if (!isReady() || disposed) return;
+    if (mode) metrics.track('match', mode, 'quit');
     observeMatchResult();
     stopSession();
     bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
@@ -1258,6 +1293,7 @@ async function bootTakraw() {
     get view() { return view; },
     get ui() { return ui; },
     get ready() { return isReady(); },
+    get metrics() { return metrics; },
     watch: startWatch,
     /** 소개영상 화면(?showcaseDemo=1)에서만: 대본이 장마다 게임 화면을 띄운다. draw는 intro.drawCard 선수의 뽑기 연출, none은 닫기. */
     showcase(scene, intro) {
@@ -1320,6 +1356,7 @@ async function bootTakraw() {
   ui = new TakrawUI({
     canStart,
     onStart(nextMode) {
+      metrics.track('menu', nextMode, 'click');
       campaignSchoolId = null;
       if (nextMode === 'watch') { startWatch(watchSeed); return; }
       if (nextMode === 'online') {
@@ -1327,13 +1364,17 @@ async function bootTakraw() {
       } else startLocal(nextMode);
     },
     onRestart: restart,
-    onWatch: seed => { campaignSchoolId = null; startWatch(seed); },
+    onWatch: seed => { metrics.track('menu', 'watch_seed', 'click'); campaignSchoolId = null; startWatch(seed); },
     onCampaign(schoolId) {
+      metrics.track('menu', 'campaign', 'click', { schoolId });
       const { home, cleared } = club.getView().campaign, index = home ? takrawOpponents(home).findIndex(school => school.id === schoolId) : -1;
       if (index < 0 || index > cleared.length || !canStart('match')) return;
       campaignSchoolId = schoolId; startLocal('match');
     },
-    onClubAction: clubAction,
+    onClubAction(action, payload) {
+      if (action !== 'refresh') metrics.track('club', action, 'click');
+      return clubAction(action, payload);
+    },
     onRewardRetry: retryReward,
     onTrainingLesson(lesson) {
       const option = TAKRAW_TRAINING_LESSONS.find(item => item.id === lesson);

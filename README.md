@@ -47,7 +47,32 @@ artifacts/                   새 실행 결과, Git 제외
 
 공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
-GameKit dist 커밋 `3654287f308b3cfc7bc2a9e2808ac479c1825882`(v0.42.0), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
+GameKit dist 커밋 `b50791b81d957f3cd6df0d7dad57a7b6bb854d62`(v0.45.0), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
+
+## 게임 지표
+
+[gamekit metrics](https://github.com/byh-playground/bloom-gamekit/blob/main/modules/metrics/README.md)로 플레이 시간·행동 이벤트·경기 기록을 수집 서버(`TAKRAW_RUNTIME.metrics.endpoint`)에 보냅니다. 격리 장면(`?debug`, `?showcaseDemo=1`)은 메모리에만 남깁니다. 개발자 본인 플레이는 서버가 접속 키로 나중에 거르므로 게임 쪽 표시는 없습니다. 값의 뜻이 바뀌면 게임 버전을 올립니다(집계는 `build`로 나눕니다).
+
+| category | target | action | 언제 |
+| --- | --- | --- | --- |
+| `menu` | `match`·`local`·`training`·`watch`·`online` | `click` | 시작 메뉴 버튼 |
+| `menu` | `campaign` | `click` | 도장깨기 학교 선택. props `{ schoolId }` |
+| `menu` | `watch_seed` | `click` | 관전 시드 입력·추천·무작위 |
+| `match` | 모드(`match`·`local`·`training`·`watch`·`online`) | `start` | 경기 시작. 온라인은 두 사람이 모였을 때 |
+| `match` | 모드 | `restart`·`quit` | 다시 하기·연습 재시도, 메뉴에서 나가기 |
+| `online` | `host`·`join`·`resume` | `click` | 방 만들기·입장·재접속 |
+| `club` | 클럽 동작(`rename`·`assign`·`train`·`draw` 등) | `click` | 팀 관리 |
+
+경기 기록은 `match`(도장깨기·AI 대전)·`local`(2인)·`online` 경기가 끝날 때 하나씩 남깁니다(관전·연습 제외). rollback `RoomSession`의 `recordReplay` 기록(`SessionReplayRecorder`)이라 같은 게임 버전에서 `playReplay`로 다시 계산할 수 있습니다. 온라인은 예측한 끝이 확정된 뒤에 남기고, 두 사람이 같은 `matchId`(`방 세션:roster 세대:그 세대의 순번`)를 보내 한 행만 남습니다.
+
+| summary 키 | 뜻 |
+| --- | --- |
+| `winner` | 이긴 팀(0 홈, 1 원정) |
+| `sets`·`score` | 끝난 순간의 세트·점수 |
+| `ticks` | 경기 시뮬레이션 tick(60Hz) |
+| `seed` | 경기 변주 시드(`state.seed`). 기록의 시드는 세션 시드입니다 |
+| `schoolId` | `match`만: 도장깨기 상대 학교, AI 대전은 `null` |
+| `localTeam` | `online`만: 보낸 사람의 팀 |
 
 ## 검사
 
@@ -58,7 +83,7 @@ npx playwright install chromium
 npm test                      # 서버·브라우저 시작부터 종료까지 자동 실행
 ```
 
-`npm test`는 클럽 이름 변경·저장·새로고침 복구 → AI 경기 시작·퇴장 → 훈련 → 친구 초대·실제 WebRTC 입장 → 연결 단절·재접속 → 양쪽 새로고침 → 명시적 퇴장을 확인합니다. 물리·전송을 mock으로 대체하지 않습니다. 모바일 흐름은 터치 이동·점프·킥 동시 조작, 입력 해제, 화면 회전, 작은 화면 배치, 연습의 아군 토스 반복을 추가로 확인합니다. Windows Chromium 에뮬레이션이며 실물 휴대폰 검증과 구별합니다. 관찰에는 기존 런타임 진단과 같은 확정 경계의 해시를 사용하며 게임 상태를 강제로 종료 상태로 바꾸지 않습니다.
+`npm test`는 클럽 이름 변경·저장·새로고침 복구 → AI 경기 시작·퇴장 → 훈련 → 친구 초대·실제 WebRTC 입장 → 연결 단절·재접속 → 양쪽 새로고침 → 명시적 퇴장을 확인합니다. 물리·전송을 mock으로 대체하지 않습니다. 모바일 흐름은 터치 이동·점프·킥 동시 조작, 입력 해제, 화면 회전, 작은 화면 배치, 연습의 아군 토스 반복을 추가로 확인합니다. Windows Chromium 에뮬레이션이며 실물 휴대폰 검증과 구별합니다. 관찰에는 기존 런타임 진단과 같은 확정 경계의 해시를 사용하며 게임 상태를 강제로 종료 상태로 바꾸지 않습니다. 두 흐름 모두 지표 요청을 가로채(운영 서버로 보내지 않음) 행동 이벤트를 확인하고, 진행 중인 경기 기록(온라인은 재접속 구간 포함)을 새 게임에서 다시 계산해 같은 hash인지 봅니다. 경기 끝 기록은 한 판이 길어 이 흐름에 넣지 않습니다.
 
 실행 구성은 `playwright.config.js`입니다. Playwright 전체 제한 170초와 시작/정리를 포함한 외부 상한 180초를 사용하며 초과는 실패입니다. 긴 전체 경기 종료 관찰을 이 기본 흐름의 성공으로 주장하지 않습니다. 결과·스크린샷은 `artifacts/e2e/`에 저장합니다. 성능/부하 측정은 이 버그 검사와 분리합니다. 정책 원문은 [검증 정책 §13](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#verification)을 따릅니다.
 

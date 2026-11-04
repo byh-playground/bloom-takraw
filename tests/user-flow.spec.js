@@ -1,9 +1,10 @@
 import { test, expect } from 'playwright/test';
 import { chromium } from 'playwright';
+import { captureMetrics, replaySession } from './metrics.js';
 
 test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}, testInfo) => {
   const url = testInfo.project.use.baseURL;
-  const browsers = [], pages = [], faults = [];
+  const browsers = [], pages = [], faults = [], sent = [];
   const evidence = { stages: [], checkpoints: [] };
   const stage = name => { evidence.stages.push(name); console.log(name); };
   async function connected() {
@@ -26,6 +27,7 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
       const browser = await chromium.launch({ headless: false, args: ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', `--window-position=${i * 650},20`] });
       browsers.push(browser);
       const context = await browser.newContext({ viewport: { width: 960, height: 720 } });
+      sent.push(await captureMetrics(context));
       const page = await context.newPage(); pages.push(page);
       page.on('pageerror', error => faults.push(error.message));
       await page.goto(url);
@@ -88,6 +90,9 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
       expect(after.id).toBe(before.id); expect(after.tick).toBeGreaterThanOrEqual(before.tick - 24);
       await equalState(label + ' 복귀');
     }
+    stage('온라인 경기 기록(재접속 구간 포함)을 새 게임에서 다시 계산');
+    evidence.replays = await Promise.all(pages.map(replaySession));
+    expect(evidence.replays.every(segments => segments.length > 0 && segments.every(segment => segment.same))).toBeTruthy();
     await host.screenshot({ path: testInfo.outputPath('online-host.png') });
     await guest.screenshot({ path: testInfo.outputPath('online-guest.png') });
     evidence.final = await Promise.all(pages.map(page => page.evaluate(() => window.__takraw.diagnostics())));
@@ -100,6 +105,13 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
       await expect(page.locator('#home-panel')).toBeVisible();
       expect(await page.evaluate(() => window.__takraw.diagnostics().mode)).toBeNull();
     }
+    stage('지표: 운영 서버 대신 가로챈 배치에 행동 이벤트');
+    // 마지막 새로고침의 숨김 전송까지 받는다.
+    await expect.poll(() => sent[0].events()).toEqual(expect.arrayContaining(['menu:match:click', 'match:match:start',
+      'match:match:quit', 'menu:training:click', 'match:training:start', 'online:host:click', 'match:online:start']));
+    await expect.poll(() => sent[1].events()).toEqual(expect.arrayContaining(['online:join:click', 'match:online:start']));
+    evidence.metrics = sent.map(capture => ({ batches: capture.batches.length, events: capture.events() }));
+    expect(sent.every(capture => capture.batches.every(batch => batch.game === 'bloom-takraw'))).toBeTruthy();
     expect(faults).toEqual([]);
   } finally {
     evidence.faults = faults;

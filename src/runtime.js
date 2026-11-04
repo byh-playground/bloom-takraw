@@ -96,7 +96,7 @@ async function bootTakraw() {
   };
   const saveAdapter = store => isolated ? memoryAdapter() : SAVE_STORES[store]();
   // 지표도 격리 장면에서는 메모리에만 남긴다. 개발자 본인 플레이는 수집 서버가 접속 키로 나중에 거른다.
-  const metrics = createMetrics({ game: 'bloom-takraw', version: TAKRAW_VERSION,
+  const metrics = createMetrics({ game: 'bloom-takraw', version: TAKRAW_VERSION, locale: LOCALE.locale,
     adapter: isolated ? new MemoryAdapter() : new HttpAdapter(TAKRAW_RUNTIME.metrics.endpoint) });
   let metricsMatch = null; // 기록 중인 세션의 경기 관측: { ordinal, finishedAt, recorded }
   let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
@@ -219,15 +219,32 @@ async function bootTakraw() {
     setNetwork({ diagnostics: `BLOOM TAKRAW ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}` });
   }
 
+  /** 연결 실패의 종류. 화면 문구와 지표(error/<where>-<cause>/fail)가 같은 분류를 쓴다. */
+  function connectionCause(raw) {
+    if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw)) return 'secure';
+    if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return 'sync';
+    if (/version|contract|handshake|protocol|simulationVersion|mismatch|incompatible/i.test(raw)) return 'version';
+    if (/No Nostr relay|signaling|relay|publication|Nostr/i.test(raw)) return 'relay';
+    if (/WebRTC|ICE|peer|transport|connection/i.test(raw)) return 'peer';
+    return 'other';
+  }
+
+  function connectionText(error) {
+    return String(error?.message || error || 'unknown').replace(/\s+/g, ' ').slice(0, 180);
+  }
+
   function readableConnectionError(error) {
-    const raw = String(error?.message || error || 'unknown').replace(/\s+/g, ' ').slice(0, 180);
+    const raw = connectionText(error);
     const values = { detail: raw, version: TAKRAW_VERSION };
-    if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw)) return RUNTIME.errSecure();
-    if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return RUNTIME.errSync(values);
-    if (/version|contract|handshake|protocol|simulationVersion|mismatch|incompatible/i.test(raw)) return RUNTIME.errVersion(values);
-    if (/No Nostr relay|signaling|relay|publication|Nostr/i.test(raw)) return RUNTIME.errRelay(values);
-    if (/WebRTC|ICE|peer|transport|connection/i.test(raw)) return RUNTIME.errPeer(values);
-    return RUNTIME.errOther(values);
+    return {
+      secure: () => RUNTIME.errSecure(), sync: () => RUNTIME.errSync(values), version: () => RUNTIME.errVersion(values),
+      relay: () => RUNTIME.errRelay(values), peer: () => RUNTIME.errPeer(values), other: () => RUNTIME.errOther(values),
+    }[connectionCause(raw)]();
+  }
+
+  /** 놀이를 멈춘 실패의 종류만 지표로 보낸다. 오류 메시지·스택은 보내지 않는다(metrics README). */
+  function trackFailure(kind) {
+    metrics.track('error', kind, 'fail', { mode: mode || 'menu' });
   }
 
   function listen(target, type, callback, options) {
@@ -718,6 +735,7 @@ async function bootTakraw() {
         connection.observedFailure = failed;
         networkEvent('session-failed', `${failed.type || 'failed'} ${failed.reason || ''}`);
         recordError(new Error(JSON.stringify(failed)), 'session');
+        trackFailure(`session-${connectionCause(connectionText(failed.reason || failed.type || 'session sync failed'))}`);
       }
       message = readableConnectionError(failed.reason || failed.type || 'session sync failed');
     } else if (count === 2 && (linkCount < 1 || ['interrupted', 'disconnected'].includes(session.status))) {
@@ -745,6 +763,7 @@ async function bootTakraw() {
       const error = new Error('온라인 세션 참가/동기화 시간 초과');
       networkEvent('session-timeout', error.message);
       recordError(error, 'session-timeout');
+      trackFailure('handshake-timeout');
       stopSession();
       setNetwork({ state: 'error', phase: RUNTIME.phaseTimeout(), count: 0, code: '',
         message: RUNTIME.netTimeout(), hint: RUNTIME.netVersionHint({ version: TAKRAW_VERSION }) });
@@ -864,10 +883,11 @@ async function bootTakraw() {
     }
   }
 
-  function simulationFailed(error) {
+  function simulationFailed(error, kind = 'simulation') {
     if (failed) return error;
     failed = true;
     const value = recordError(error, 'simulation');
+    trackFailure(kind);
     pump?.stop();
     loop?.stop();
     releaseControls();
@@ -938,7 +958,7 @@ async function bootTakraw() {
       networkEvent(`session:${event.type}`, event.reason || `tick=${event.tick ?? '?'}`);
     }
     if (event.type === 'fatal' || event.type === 'desync-unrecoverable') {
-      simulationFailed(new Error(event.reason || event.type));
+      simulationFailed(new Error(event.reason || event.type), event.type === 'fatal' ? 'session-fatal' : 'desync');
     }
   }
 
@@ -1078,7 +1098,7 @@ async function bootTakraw() {
         (online ? session.players.length === 2 : !paused && !replayActive)),
       onAdvance() { publish(); confirmEvents(); observeMatchResult(); observeMetricsMatch(); observeWatchLoop(token); observeHighlight(); },
       onInputRelease: clearDeviceState,
-      onError: simulationFailed,
+      onError: error => simulationFailed(error),
       onBacklogDrop() { stats.backlogDrops += 1; },
       render: () => renderScene(performance.now()),
     });
@@ -1167,6 +1187,7 @@ async function bootTakraw() {
         typeof globalThis.RTCPeerConnection !== 'function') {
       setNetwork({ state: 'error', phase: RUNTIME.phaseBrowser(), code: '', count: 0,
         message: RUNTIME.netBrowser(), hint: RUNTIME.netSameVersion() });
+      trackFailure('browser-unsupported');
       networkEvent('preflight-failed', `secure=${window.isSecureContext} crypto=${!!globalThis.crypto?.subtle} rtc=${typeof globalThis.RTCPeerConnection}`);
       return;
     }
@@ -1224,6 +1245,7 @@ async function bootTakraw() {
       if (token !== run || disposed) return;
       networkEvent('connect-error', String(error?.message || error));
       recordError(error, 'network');
+      trackFailure(`connect-${connectionCause(connectionText(error))}`);
       const diagnostics = network.diagnostics;
       stopSession({ preserveResume: true });
       setNetwork({ state: 'error', phase: RUNTIME.phaseFailed(), count: 0, code: '', diagnostics,

@@ -47,7 +47,7 @@ artifacts/                   새 실행 결과, Git 제외
 
 공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
-GameKit dist 커밋 `b50791b81d957f3cd6df0d7dad57a7b6bb854d62`(v0.45.0), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
+GameKit dist 커밋 `e0caedb4d6ad5fce163c093052aab42a3e934933`(v0.46.2), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
 
 ## 게임 지표
 
@@ -62,6 +62,20 @@ GameKit dist 커밋 `b50791b81d957f3cd6df0d7dad57a7b6bb854d62`(v0.45.0), Three.j
 | `match` | 모드 | `restart`·`quit` | 다시 하기·연습 재시도, 메뉴에서 나가기 |
 | `online` | `host`·`join`·`resume` | `click` | 방 만들기·입장·재접속 |
 | `club` | 클럽 동작(`rename`·`assign`·`train`·`draw` 등) | `click` | 팀 관리 |
+| `error` | 실패 종류(아래) | `fail` | 놀이를 멈춘 실패. props `{ mode }`(메뉴면 `menu`). 오류 메시지·스택은 보내지 않습니다 |
+
+세션 시작(`session_start`)에는 모듈이 언어(`LOCALE.locale`)·화면 크기 구간·터치 여부를 붙입니다(gamekit v0.46.2).
+
+| 실패 종류 | 지점 |
+| --- | --- |
+| `simulation` | 시뮬레이션·루프 예외(`simulationFailed`) |
+| `session-fatal`·`desync` | 세션 이벤트 `fatal`·`desync-unrecoverable` |
+| `session-<cause>` | 온라인 세션 실패(`session.failure`) |
+| `connect-<cause>` | 방 만들기·입장 실패(`createNostrDynamicRoom`) |
+| `handshake-timeout` | 참가·동기화 시간 초과 |
+| `browser-unsupported` | 보안 연결·WebRTC가 없는 브라우저 |
+
+`<cause>`는 화면 오류 문구와 같은 분류 `secure`·`sync`·`version`·`relay`·`peer`·`other`입니다. 놀이가 계속되는 실패(소리·저장·보상·PWA)와 부팅 실패(지표 생성 전)는 보내지 않습니다.
 
 경기 기록은 `match`(도장깨기·AI 대전)·`local`(2인)·`online` 경기가 끝날 때 하나씩 남깁니다(관전·연습 제외). rollback `RoomSession`의 `recordReplay` 기록(`SessionReplayRecorder`)이라 같은 게임 버전에서 `playReplay`로 다시 계산할 수 있습니다. 온라인은 예측한 끝이 확정된 뒤에 남기고, 두 사람이 같은 `matchId`(`방 세션:roster 세대:그 세대의 순번`)를 보내 한 행만 남습니다.
 

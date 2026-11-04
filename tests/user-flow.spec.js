@@ -112,6 +112,9 @@ test('클럽 저장·플레이·친구 입장·연결 복구·퇴장', async ({}
     await expect.poll(() => sent[1].events()).toEqual(expect.arrayContaining(['online:join:click', 'match:online:start']));
     evidence.metrics = sent.map(capture => ({ batches: capture.batches.length, events: capture.events() }));
     expect(sent.every(capture => capture.batches.every(batch => batch.game === 'bloom-takraw'))).toBeTruthy();
+    // 세션 시작에는 게임이 고른 언어, 구간으로 내린 화면 크기, 주 입력(마우스)이 붙는다. 정확한 크기는 보내지 않는다.
+    const pageLocale = await pages[0].evaluate(() => document.documentElement.lang);
+    expect(sent[0].sessionStarts()[0]).toEqual({ locale: pageLocale, viewport: expect.stringMatching(/^\d+x\d+$/), touch: false });
     expect(faults).toEqual([]);
   } finally {
     evidence.faults = faults;

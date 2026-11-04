@@ -219,7 +219,7 @@ async function bootTakraw() {
     setNetwork({ diagnostics: `BLOOM TAKRAW ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}` });
   }
 
-  /** 연결 실패의 종류. 화면 문구와 지표(error/<where>-<cause>/fail)가 같은 분류를 쓴다. */
+  /** 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다. */
   function connectionCause(raw) {
     if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw)) return 'secure';
     if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return 'sync';
@@ -242,9 +242,29 @@ async function bootTakraw() {
     }[connectionCause(raw)]();
   }
 
-  /** 놀이를 멈춘 실패의 종류만 지표로 보낸다. 오류 메시지·스택은 보내지 않는다(metrics README). */
-  function trackFailure(kind) {
-    metrics.track('error', kind, 'fail', { mode: mode || 'menu' });
+  /** 연결 오류 카드의 단계 이름. 원인을 알면 그 원인을 말한다. */
+  function failurePhase(cause) {
+    return {
+      secure: () => RUNTIME.phaseBrowser(), relay: () => RUNTIME.phaseRelayFailed(), peer: () => RUNTIME.phasePeerFailed(),
+      sync: () => RUNTIME.phaseSyncFailed(), version: () => RUNTIME.phaseVersionFailed(), other: () => RUNTIME.phaseFailed(),
+    }[cause]();
+  }
+
+  /**
+   * 놀이를 멈춘 실패를 성격별 분류로 지표에 보낸다(README "게임 지표"). 오류 메시지·스택은 보내지 않는다.
+   *   fault/<simulation·desync·session-fatal·sync>/fail: 게임 결함 의심
+   *   network/<relay·peer·secure·other·timeout>/fail: 연결 사정
+   *   unsupported/<browser·version>/block: 이 환경이나 버전 조합으로는 온라인을 할 수 없음
+   */
+  function trackFailure(category, target, action, props = {}) {
+    metrics.track(category, target, action, { mode: mode || 'menu', ...props });
+  }
+
+  /** 연결 오류를 원인별로 분류해 보낸다. phase: connect(방 만들기·입장) | session(온라인 세션 중) */
+  function trackConnectionFailure(cause, phase) {
+    if (cause === 'sync') trackFailure('fault', 'sync', 'fail', { phase });
+    else if (cause === 'version') trackFailure('unsupported', 'version', 'block', { phase });
+    else trackFailure('network', cause, 'fail', { phase });
   }
 
   function listen(target, type, callback, options) {
@@ -730,12 +750,13 @@ async function bootTakraw() {
     const linkCount = room?.transports?.size || 0;
     if (failed) {
       state = 'error';
-      phase = RUNTIME.phaseSessionError();
+      const cause = connectionCause(connectionText(failed.reason || failed.type || 'session sync failed'));
+      phase = failurePhase(cause);
       if (connection.observedFailure !== failed) {
         connection.observedFailure = failed;
         networkEvent('session-failed', `${failed.type || 'failed'} ${failed.reason || ''}`);
         recordError(new Error(JSON.stringify(failed)), 'session');
-        trackFailure(`session-${connectionCause(connectionText(failed.reason || failed.type || 'session sync failed'))}`);
+        trackConnectionFailure(cause, 'session');
       }
       message = readableConnectionError(failed.reason || failed.type || 'session sync failed');
     } else if (count === 2 && (linkCount < 1 || ['interrupted', 'disconnected'].includes(session.status))) {
@@ -763,7 +784,7 @@ async function bootTakraw() {
       const error = new Error('온라인 세션 참가/동기화 시간 초과');
       networkEvent('session-timeout', error.message);
       recordError(error, 'session-timeout');
-      trackFailure('handshake-timeout');
+      trackFailure('network', 'timeout', 'fail', { phase: 'handshake' });
       stopSession();
       setNetwork({ state: 'error', phase: RUNTIME.phaseTimeout(), count: 0, code: '',
         message: RUNTIME.netTimeout(), hint: RUNTIME.netVersionHint({ version: TAKRAW_VERSION }) });
@@ -887,7 +908,7 @@ async function bootTakraw() {
     if (failed) return error;
     failed = true;
     const value = recordError(error, 'simulation');
-    trackFailure(kind);
+    trackFailure('fault', kind, 'fail');
     pump?.stop();
     loop?.stop();
     releaseControls();
@@ -1187,7 +1208,7 @@ async function bootTakraw() {
         typeof globalThis.RTCPeerConnection !== 'function') {
       setNetwork({ state: 'error', phase: RUNTIME.phaseBrowser(), code: '', count: 0,
         message: RUNTIME.netBrowser(), hint: RUNTIME.netSameVersion() });
-      trackFailure('browser-unsupported');
+      trackFailure('unsupported', 'browser', 'block');
       networkEvent('preflight-failed', `secure=${window.isSecureContext} crypto=${!!globalThis.crypto?.subtle} rtc=${typeof globalThis.RTCPeerConnection}`);
       return;
     }
@@ -1245,10 +1266,11 @@ async function bootTakraw() {
       if (token !== run || disposed) return;
       networkEvent('connect-error', String(error?.message || error));
       recordError(error, 'network');
-      trackFailure(`connect-${connectionCause(connectionText(error))}`);
+      const cause = connectionCause(connectionText(error));
+      trackConnectionFailure(cause, 'connect');
       const diagnostics = network.diagnostics;
       stopSession({ preserveResume: true });
-      setNetwork({ state: 'error', phase: RUNTIME.phaseFailed(), count: 0, code: '', diagnostics,
+      setNetwork({ state: 'error', phase: failurePhase(cause), count: 0, code: '', diagnostics,
         message: readableConnectionError(error), hint: action === 'join' ? RUNTIME.netJoinHint() : RUNTIME.netHostHint() });
     }
   }

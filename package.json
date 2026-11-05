@@ -1,20 +1,25 @@
 {
-  "name": "bloom-takraw",
-  "version": "0.15.11",
-  "private": true,
-  "description": "블룸 발 배구 — Rapier 기반 3D 온라인 스포츠 게임",
-  "engines": {
-    "node": ">=22"
-  },
-  "scripts": {
-    "dev": "node scripts/dev-server.cjs",
-    "check": "node scripts/check.cjs",
-    "test": "node scripts/test.cjs",
-    "verify:dependencies": "node scripts/verify-dependencies.cjs",
-    "build:itch": "node scripts/build-itch.mjs"
-  },
-  "devDependencies": {
-    "playwright": "1.63.0"
-  },
-  "type": "module"
+    "name": "bloom-takraw",
+    "version": "0.15.11",
+    "private": true,
+    "description": "블룸 발 배구 — Rapier 기반 3D 온라인 스포츠 게임",
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "dev": "node scripts/dev-server.cjs",
+        "check": "node scripts/check.cjs",
+        "test": "node scripts/test.cjs",
+        "verify:dependencies": "node scripts/verify-dependencies.cjs",
+        "build:itch": "node scripts/build-itch.mjs"
+    },
+    "devDependencies": {
+        "@eslint/js": "9.39.5",
+        "eslint": "9.39.5",
+        "eslint-plugin-html": "8.2.1",
+        "globals": "17.14.0",
+        "playwright": "1.63.0",
+        "prettier": "3.9.10"
+    },
+    "type": "module"
 }

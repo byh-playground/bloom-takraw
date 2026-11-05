@@ -25,6 +25,14 @@ v0.15.2 기준 결과는 파일 86개, 압축 전 8.4MB, zip 3.1MB다.
 - **주소 파라미터:** itch 페이지 주소의 `?lang=`, `?debug`는 iframe으로 넘어가지 않는다. 언어는 설정 창의 언어 줄에서 바꾼다.
 - **저장:** 팀·설정은 그 iframe 출처에 저장된다. 브라우저가 itch 페이지 기준으로 따로 나눠 저장하므로, Pages에서 만든 팀과 이어지지 않는다.
 
+## 게임 커버
+
+itch.io 게임 커버는 [itch-cover.png](images/itch-cover.png)를 사용한다. 크기는 **630 × 500px**, 비율은 **63:50**이며 제목·스파이크 캐릭터와 코트 배경을 함께 담는다.
+
+![Bloom Takraw itch.io 게임 커버](images/itch-cover.png)
+
+이미지는 저장소에 보관하며 itch.io 업로드와 Save는 사용자가 직접 한다. 게임 실행 파일과 커버 교체는 별개다.
+
 ## itch 페이지 설정
 
 - Kind of project: HTML, 업로드한 zip에 "This file will be played in the browser" 체크

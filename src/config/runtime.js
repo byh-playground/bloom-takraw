@@ -1,3 +1,5 @@
+import { TAKRAW_ID } from './game.js';
+
 // 발차기 한 번은 네 층이다. 낮은 쿵(thump)은 무게를, 중음 몸통(body, 삼각파)은 작은 스피커에서도 들리는 울림을,
 // 슬랩(slap)과 클릭(click)은 발이 공에 닿는 순간의 "탁"을 맡는다. 공 속도가 세질수록 모든 층이 커지고 길어지고 밝아진다.
 // (이전 소리는 사실상 120~500Hz 사인파 하나라 2kHz 위 에너지가 0이었고, 단계별 음량 차이도 2dB뿐이었다.)
@@ -126,6 +128,10 @@ const TAKRAW_RUNTIME = Object.freeze({
     },
     clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },
     network: {
+        // 신호 릴레이에서 방을 찾는 이름공간(게임 식별자). 다른 게임과 방 코드가 섞이지 않게 한다.
+        namespace: TAKRAW_ID,
+        // 온라인·로컬 롤백 세션이 두 피어와 맞추는 초기 시드(createRoomSession). 경기 변주 시드와는 별개다.
+        sessionSeed: 7,
         timeout: 45000,
         peerTimeout: 25000,
         handshakeTimeout: 45000,

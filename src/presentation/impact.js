@@ -22,7 +22,7 @@ class TakrawImpactEffects {
         this.styles = config.visual.impact;
         this.shakeCap = config.visual.shakeCap;
         this.teamColors = [config.visual.colors.home, config.visual.colors.away];
-        this.seed = config.network.seed;
+        this.seed = config.visual.effectSeed;
         this.reducedMotion = reducedMotion;
         this.ringGeometry = new THREE.TorusGeometry(0.13, 0.009, 4, 20);
         this.dotGeometry = new THREE.SphereGeometry(0.024, 5, 4);

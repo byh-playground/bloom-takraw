@@ -34,10 +34,10 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
-    simulation: { tickRate: 60, substeps: 2, aiRate: 15 },
+    // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
+    simulation: { tickRate: 60, substeps: 2, aiRate: 15, fixedSeed: 7 },
     // 매 틱 입력 바이트열: [x, z, 버튼] × 2명(1P·2P). x·z는 -1..1을 axisScale배 한 부호 있는 바이트(runtime.js가 쓰고 game.js decode가 읽는다).
     input: { size: 6, axisScale: 127 },
-    network: { namespace: 'bloom-takraw', seed: 7 },
     court: { halfLength: 6.7, halfWidth: 3.05, netHeight: 1.52 },
     // Team 0 coordinates; team 1 mirrors X/Z: receive, central set, front attack.
     formation: {
@@ -162,6 +162,8 @@ const TAKRAW_CONFIG = Object.freeze({
         },
     },
     visual: {
+        // 접촉·착지 효과의 변주(무늬·방향)를 이벤트에서 뽑는 난수의 시드. 표시 전용이라 경기에 영향이 없다.
+        effectSeed: 7,
         receiveGuide: {
             groundHeight: 0.07,
             contactRadius: 0.1,

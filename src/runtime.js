@@ -1554,7 +1554,7 @@ async function bootTakraw() {
             mode: online ? 'online' : 'local',
             ...(online ? { room: capability } : { localPlayerId: 'local', localFastPath: true }),
             simulationVersion: TAKRAW_VERSION,
-            seed: config.network.seed,
+            seed: TAKRAW_RUNTIME.network.sessionSeed,
             inputSize: config.input.size,
             adapter,
             profile,
@@ -1750,7 +1750,7 @@ async function bootTakraw() {
             capability = await createNostrDynamicRoom({
                 role: action,
                 room: roomCode,
-                namespace: config.network.namespace,
+                namespace: TAKRAW_RUNTIME.network.namespace,
                 resume: { adapter: resumeAdapter, key: `room:${roomCode}`, reset: !resuming },
                 maxPlayers: 2,
                 timeoutMs: TAKRAW_RUNTIME.network.timeout,

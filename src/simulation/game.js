@@ -238,7 +238,7 @@ class TakrawGame {
     reset(
         mode = this.mode,
         lesson = this.state?.training?.lesson || 'auto',
-        seed = this.config.network.seed,
+        seed = this.config.simulation.fixedSeed,
         tempo = this.state?.training?.tempo || 'high',
     ) {
         const reused = Boolean(this.state);
@@ -248,7 +248,7 @@ class TakrawGame {
             phase: 'ready',
             tick: 0,
             time: 0,
-            seed: mode === 'training' ? this.config.network.seed : seed >>> 0,
+            seed: mode === 'training' ? this.config.simulation.fixedSeed : seed >>> 0,
             score: [0, 0],
             sets: [0, 0],
             set: 1,

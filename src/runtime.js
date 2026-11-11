@@ -6,15 +6,10 @@ import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation';
 import { createRoomSession } from '@bloom-gamekit/rollback';
 import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
-import { AudioPlayer, audioSettings } from '@bloom-gamekit/audio';
+import { AudioPlayer } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import * as deterministic from '@bloom-gamekit/deterministic';
-import {
-    createSave,
-    indexedDbAdapter,
-    localStorageAdapter,
-    memoryAdapter,
-} from '@bloom-gamekit/save';
+import { createSave, memoryAdapter } from '@bloom-gamekit/save';
 import { registerPwa } from '@bloom-gamekit/pwa';
 import {
     createMetrics,
@@ -22,7 +17,6 @@ import {
     MemoryAdapter,
     SessionReplayRecorder,
 } from '@bloom-gamekit/metrics';
-import { DiagnosticRing, redactDiagnostic } from '@bloom-gamekit/debug-tools';
 
 import {
     TAKRAW_VERSION,
@@ -31,6 +25,8 @@ import {
     TAKRAW_ID,
     TAKRAW_CONFIG,
 } from './config/game.js';
+import { createRuntimeDiagnostics } from './runtime/diagnostics.js';
+import { createRuntimeStores } from './runtime/stores.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
@@ -76,7 +72,8 @@ async function bootTakraw() {
             '@bloom-gamekit/object-pool',
         ].map((name) => [name, { url: import.meta.resolve(name), state: 'ready' }]),
     );
-    const diagnosticRing = new DiagnosticRing({ release: TAKRAW_VERSION });
+    const diagnostics = createRuntimeDiagnostics({ version: TAKRAW_VERSION });
+    const recordError = diagnostics.recordError;
     const listeners = [];
     const actionNames = [
         'left',
@@ -128,19 +125,7 @@ async function bootTakraw() {
     let mode = null;
     const demo = TAKRAW_LAUNCH.showcaseDemo;
     if (demo) document.body.dataset.showcase = '';
-    // 저장소는 여기서만 고른다. 격리 장면(확인용 주소 ?debug, 소개영상 화면 ?showcaseDemo=1)은 모든 저장(팀·소리 설정·방 복귀)을
-    // 메모리에만 남겨 실제 저장을 읽지도 쓰지도 않는다. 방 복귀는 탭마다 따로이고 같은 게임 버전끼리만 이어지도록 sessionStorage에 버전을 붙여 둔다.
     const isolated = TAKRAW_LAUNCH.isolated;
-    const SAVE_STORES = {
-        club: () => indexedDbAdapter({ database: `${TAKRAW_ID}-club`, store: 'club' }),
-        settings: () => localStorageAdapter({ prefix: `${TAKRAW_ID}:` }),
-        resume: () =>
-            localStorageAdapter({
-                storage: sessionStorage,
-                prefix: `${TAKRAW_ID}:${TAKRAW_VERSION}:`,
-            }),
-    };
-    const saveAdapter = (store) => (isolated ? memoryAdapter() : SAVE_STORES[store]());
     // 지표도 격리 장면에서는 메모리에만 남긴다. 개발자 본인 플레이는 수집 서버가 접속 키로 나중에 거른다.
     const metrics = createMetrics({
         game: TAKRAW_ID,
@@ -252,27 +237,8 @@ async function bootTakraw() {
         }
     }
 
-    // 방 복귀: 마지막으로 연 방(activeRoom)과 transport의 방별 identity가 같은 어댑터의 레코드다.
-    const resumeAdapter = saveAdapter('resume');
-    const activeRoom = createSave({
-        adapter: resumeAdapter,
-        key: 'active-room',
-        version: 1,
-        create: () => ({ room: null }),
-        validate(data) {
-            const value = data.room;
-            if (
-                value !== null &&
-                (!value || !['host', 'join'].includes(value.role) || !/^\d{4}$/.test(value.room))
-            )
-                throw new TypeError('active room record');
-        },
-    });
-
-    const soundSettings = createSave({
-        ...audioSettings(TAKRAW_RUNTIME.audio),
-        adapter: saveAdapter('settings'),
-    });
+    const stores = createRuntimeStores({ isolated });
+    const { resume: resumeAdapter, activeRoom, soundSettings, openClubSave } = stores;
 
     /** 방 복귀 정보를 쓰지 못하면 연결 창의 안내 줄에 알린다. 경기는 그대로 이어지고 새로고침 뒤 복귀만 안 된다. */
     function resumeSaveFailed(error) {
@@ -360,31 +326,13 @@ async function bootTakraw() {
         listeners.push(() => target.removeEventListener(type, callback, options));
     }
 
-    function recordError(error, source, visibility = 'blocking') {
-        const value = error instanceof Error ? error : new Error(String(error));
-        diagnosticRing.report(value, { kind: source, origin: source, visibility });
-        console.error(`[${TAKRAW_PRODUCT_NAME.en}]`, source, value);
-        return value;
-    }
-
-    /**
-     * 치명 오류 화면의 "진단 복사"가 클립보드에 넣는 글. 지금 상태 + 던져진 원래 예외(스택) + 연결 기록.
-     * 오류 기록(format)은 링이 이미 가린 JSON이라 그대로 두고(redactDiagnostic은 JSON을 통째로 지운다), 나머지 글만 경로·토큰을 가린다.
-     */
     function diagnosticReport() {
-        const state = [
-            `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION}`,
-            `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
-            `locale=${LOCALE.locale} viewport=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} touch=${matchMedia('(pointer: coarse)').matches}`,
-            `ua=${navigator.userAgent}`,
-        ].join('\n');
-        return [
-            redactDiagnostic(state, 1200),
-            diagnosticRing.format(),
-            ...(connection.history.length
-                ? [redactDiagnostic(`network:\n${connection.history.join('\n')}`, 4000)]
-                : []),
-        ].join('\n');
+        return diagnostics.report({
+            stateLines: [
+                `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
+            ],
+            networkHistory: connection.history,
+        });
     }
 
     /** 소리 설정을 쓰지 못하면 설정 창의 효과음 줄에 알린다. 소리는 바꾼 대로 나고 저장만 안 된 상태다. */
@@ -1804,7 +1752,7 @@ async function bootTakraw() {
                     lastLatencyMs: highlight.lastLatencyMs ?? null,
                     failed: highlight.failed,
                 },
-                errors: diagnosticRing.snapshot().errors,
+                errors: diagnostics.errors(),
             };
         },
         dispose() {
@@ -1824,8 +1772,7 @@ async function bootTakraw() {
             clearTimeout(bgmDuckTimer);
             bgm = null;
             audio?.dispose();
-            soundSettings.dispose();
-            activeRoom.dispose();
+            stores.dispose();
             view?.dispose();
             highlight.dispose();
             game?.physics.dispose();
@@ -1910,7 +1857,6 @@ async function bootTakraw() {
         },
         network,
     );
-    const openClubSave = (options) => createSave({ ...options, adapter: saveAdapter('club') });
     const clubName = LOCALE.text({ ko: '블룸 클럽', en: 'Bloom Club' }); // 새 클럽의 이름. 처음 만든 언어로 저장되고, 이후 사용자가 바꾼다.
     club = new TakrawClub({ onChange: publishClub, openSave: openClubSave, defaultName: clubName });
     const clubLoad = club.load().catch((error) => {

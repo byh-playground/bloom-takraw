@@ -4,7 +4,7 @@ import { takrawMessage as message } from '../simulation/game.js';
  * 연습 안내의 순수 함수: 시뮬레이션이 낸 사실(game.getTrainingFacts, getView().training)에서
  * 단계(stage)·문구(cue·detail)·색(tone)·진행 막대(progress)를 만든다. 상태를 바꾸지 않는다.
  * maxLead는 표시 설정(config.visual.attackGuide.maxLead)이고 runtime의 HUD 조립이 넘긴다.
- * 결과는 ui.updateTraining이 읽는 모양이다. cue·detail은 message(id, values)이고 문장은 src/i18n/messages/match.js가 만든다.
+ * 결과는 presentation/training-panel.js의 update가 읽는 모양이다. cue·detail은 message(id, values)이고 문장은 src/i18n/messages/match.js가 만든다.
  */
 function takrawTrainingCoach(facts, { maxLead }) {
     if (!facts) return null;
@@ -40,16 +40,18 @@ function takrawTrainingCoach(facts, { maxLead }) {
         progress: 0,
     };
     // 결과 단계의 cue·detail은 결과 코드의 제목·설명이다(값은 결과의 code와 갈래).
-    const outcome = t.attemptResult && { code: t.attemptResult.code, ...t.attemptResult.values };
-    if (t.rallyPhase === 'point')
+    // 득점(point)은 awardPoint에서만 되고 그때 drill.finish가 결과를 반드시 채우므로 attemptResult가 있다.
+    if (t.rallyPhase === 'point') {
+        const outcome = { code: t.attemptResult.code, ...t.attemptResult.values };
         return {
             ...base,
             stage: 'result',
-            cue: outcome ? message('resultTitle', outcome) : message('cueRetry'),
-            detail: outcome ? message('resultDetail', outcome) : message('none'),
-            tone: t.attemptResult?.tone || 'neutral',
+            cue: message('resultTitle', outcome),
+            detail: message('resultDetail', outcome),
+            tone: t.attemptResult.tone,
             progress: 1,
         };
+    }
     if (t.rallyPhase === 'ready')
         return {
             ...base,

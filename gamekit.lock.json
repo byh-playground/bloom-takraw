@@ -62,6 +62,10 @@
         "metrics": {
             "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/metrics.js",
             "sha256": "645eaae91b16c3a141bc6d7f98562baa6c64eaabedcaea50ad288b8a78394838"
+        },
+        "navigation": {
+            "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/navigation.js",
+            "sha256": "2c8e12432f6eae5472418d80898c93af32f5b14dce8217f6fa75bd198893b417"
         }
     },
     "tools": {

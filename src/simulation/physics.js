@@ -1,6 +1,7 @@
 import { TAKRAW_CONFIG, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
+import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
 
 /**
  * Articulated, force-driven players. Rendering never writes back into this world.
@@ -271,7 +272,7 @@ class TakrawPhysics {
 
     _athleteProfile(profile, id) {
         const definition = this.config.athletes || TAKRAW_CONFIG.athletes;
-        const role = ['receiver', 'setter', 'attacker'][id % 3];
+        const role = TAKRAW_ROLES[takrawSlotOf(id)];
         // 기본 선수는 이름이 없다(null). 화면이 역할 이름으로 보여 준다.
         const value =
             profile === null ? { id: 'standard-' + id, name: null, role, stats: {} } : profile;
@@ -566,10 +567,10 @@ class TakrawPhysics {
 
     _buildPlayer(id) {
         const R = this.R;
-        const team = Math.floor(id / 3),
-            slot = id % 3,
+        const team = takrawTeamOf(id),
+            slot = takrawSlotOf(id),
             toward = team === 0 ? 1 : -1;
-        const role = ['receiver', 'setter', 'attacker'][slot];
+        const role = TAKRAW_ROLES[slot];
         const formation = (this.config.formation || TAKRAW_CONFIG.formation)[role];
         const home = { x: formation.x * toward, z: formation.z * toward };
         const p = {
@@ -2622,7 +2623,7 @@ class TakrawPhysics {
             const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * prediction, z: ballVel.z };
             const impact = this._add(ballPos, this._mul(ballVel, prediction));
             impact.y -= 0.5 * s.gravity * prediction * prediction;
-            const attacking = input.tossTarget.playerId % 3 === 2;
+            const attacking = takrawIsAttacker(input.tossTarget.playerId);
             const goalHeight = attacking ? toss.attackHeight : height;
             const upSpeed = Math.sqrt(
                 2 *

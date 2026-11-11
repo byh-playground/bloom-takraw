@@ -34,6 +34,7 @@ import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
+import { takrawHumanPlayerId, takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
@@ -1175,7 +1176,7 @@ async function bootTakraw() {
 
     function selectedHud() {
         const team = localTeam();
-        const selectedId = latestView.state.selected?.[team] ?? (team === 1 ? 5 : 2);
+        const selectedId = latestView.state.selected?.[team] ?? takrawHumanPlayerId(team);
         const player = latestView.players.find((candidate) => candidate.id === selectedId);
         const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
             attacker = roleName('attacker', LOCALE.locale);
@@ -1904,7 +1905,7 @@ async function bootTakraw() {
                 dependencies: { ...dependencyState },
                 tick: session?.tick ?? latestView?.state.tick ?? 0,
                 phase: latestView?.state.phase || 'loading',
-                selected: latestView?.state.selected?.slice() || [2, 5],
+                selected: latestView?.state.selected?.slice() || takrawHumanPlayerIds(),
                 physics: {
                     players: game?.physics.players.length || 0,
                     entities: latestView?.entities.length || 0,

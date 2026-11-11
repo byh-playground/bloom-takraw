@@ -1,4 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
+import { takrawHumanPlayerIds, takrawSlotOf, takrawTeamOf } from '../simulation/roster.js';
 import { LOCALE } from '../i18n/locale.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
@@ -485,7 +486,7 @@ class TakrawView {
             shadow.castShadow = false;
             shadow.receiveShadow = false;
             const ringMaterial = new T.MeshBasicMaterial({
-                color: i < 3 ? 0xd9f1b5 : 0xffddba,
+                color: takrawTeamOf(i) === 0 ? 0xd9f1b5 : 0xffddba,
                 transparent: true,
                 opacity: 0.96,
                 depthWrite: false,
@@ -502,7 +503,7 @@ class TakrawView {
             );
             const arrow = this.mesh(
                 arrowGeometry,
-                this.material(i < 3 ? 0xe2f7b3 : 0xffd6af, { basic: true }),
+                this.material(takrawTeamOf(i) === 0 ? 0xe2f7b3 : 0xffd6af, { basic: true }),
             );
             arrow.rotation.z = Math.PI;
             arrow.castShadow = false;
@@ -1067,7 +1068,10 @@ class TakrawView {
                     );
                 const number = this.mesh(
                     this.geometry('backnumber', () => new T.PlaneGeometry(0.19, 0.19)),
-                    this.numberMaterial(school.backnumber[playerId % 3], uniform.secondary),
+                    this.numberMaterial(
+                        school.backnumber[takrawSlotOf(playerId)],
+                        uniform.secondary,
+                    ),
                     group,
                 );
                 number.position.set(0, y * 0.12, -z - 0.015);
@@ -1156,7 +1160,7 @@ class TakrawView {
         const team = mode === 'local' ? 0 : context.team === 1 ? 1 : 0;
         this.setViewTeam(team);
         const toward = team === 0 ? 1 : -1;
-        const selected = viewData.state?.selected || [2, 5];
+        const selected = viewData.state?.selected || takrawHumanPlayerIds();
         const player = this.meshes.get(`p${selected[team]}:pelvis`);
         if (!player) return;
         const ball = this.meshes.get('ball');
@@ -1308,7 +1312,7 @@ class TakrawView {
         this.squashBall();
         this.updateAttackGuides(viewData, context);
         this.updateReceiveGuides(viewData, context);
-        const selected = viewData.state?.selected || [2, 5];
+        const selected = viewData.state?.selected || takrawHumanPlayerIds();
         for (let i = 0; i < 6; i++) {
             const body = this.meshes.get(`p${i}:pelvis`),
                 head = this.meshes.get(`p${i}:head`),
@@ -1326,8 +1330,8 @@ class TakrawView {
             marker.ring.position.x = body.position.x;
             marker.ring.position.z = body.position.z;
             const human =
-                viewData.state?.mode === 'local' || (i < 3 ? 0 : 1) === this.cameraRig.team;
-            marker.ring.visible = human && selected[i < 3 ? 0 : 1] === i;
+                viewData.state?.mode === 'local' || takrawTeamOf(i) === this.cameraRig.team;
+            marker.ring.visible = human && selected[takrawTeamOf(i)] === i;
             marker.arrow.visible = marker.ring.visible;
             if (head)
                 marker.arrow.position.set(head.position.x, head.position.y + 0.3, head.position.z);

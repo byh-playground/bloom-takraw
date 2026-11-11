@@ -241,6 +241,11 @@ class TakrawClubScreen {
         if (focus) this.selection.focus = focus;
     }
 
+    /** 헤더의 뒤로 버튼(#dialog-back)은 선수 상세가 그려져 있을 때만 보인다(대화상자를 처음 열 때와 다시 그릴 때). */
+    syncBack() {
+        this.back.hidden = !document.getElementById('club-detail');
+    }
+
     restore() {
         for (const [id, scroll] of Object.entries(this.selection.scroll)) {
             const node = id === 'dialog' ? this.node : document.getElementById(id);
@@ -280,7 +285,7 @@ class TakrawClubScreen {
                 : null;
         if (name) this.selection.nameDraft = name.value;
         this.node.innerHTML = this.content();
-        this.back.hidden = !document.getElementById('club-detail');
+        this.syncBack();
         const nextName = document.getElementById('club-name');
         if (caret && nextName && !nextName.disabled) {
             nextName.focus({ preventScroll: true });

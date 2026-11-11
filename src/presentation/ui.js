@@ -294,8 +294,13 @@ class TakrawUI {
         this.touch.sync(false, this.mode, this.showcase);
         this.nodes['connection-indicator'].hidden = true;
         // 소개영상 호스트는 부팅 직후 이 주소를 읽어 소개를 연다. 호스트가 붙기 전에 지우지 않는다.
+        // 처음 표시 전에 연 팀 관리 화면은 선수 상세(#/club/<선수 id>)까지 주소에 남긴다.
         if (this.routes.snapshot().screen !== 'showcase')
-            this.setRoute(initialDialog || this.home.route(), true);
+            this.setRoute(
+                initialDialog || this.home.route(),
+                true,
+                initialDialog === 'club' ? this.screens.club.detail : null,
+            );
         if (initialDialog) this.openDialog(initialDialog);
     }
 
@@ -379,7 +384,10 @@ class TakrawUI {
         this.nodes['dialog-content'].innerHTML = screen.content();
         this.nodes['dialog-content'].scrollTop = 0;
         if (route === 'network') this.screens.network.render();
-        if (route === 'club') this.screens.club.restore();
+        if (route === 'club') {
+            this.screens.club.syncBack();
+            this.screens.club.restore();
+        }
         queueMicrotask(() => {
             if (route !== 'club' || !this.screens.club.restoreFocus())
                 document.getElementById('dialog-close').focus({ preventScroll: true });

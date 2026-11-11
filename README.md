@@ -30,7 +30,10 @@ manifest.webmanifest, sw.js, pwa/  설치·오프라인(PWA) 생성 결과. scri
 src/
   main.js                    로딩/오류 화면과 부팅
   launch.js                  페이지를 연 맥락(격리 장면·소개영상·iframe)의 단일 출처
-  runtime.js                 게임과 GameKit의 수명주기 연결
+  runtime.js                 조립 지점: 모듈 생성·콜백 연결·UI 콜백·window.__takraw·확인용 장면·PWA
+  runtime/{match-session,network,render-loop,boot-status}.js  경기 세션 수명주기, 온라인 연결, 그리기 주기, 부팅 단계
+  runtime/{presentation-feed,match-events,highlight-controller,rewards,match-record}.js  보간 표시, 경기 표시 이벤트, 득점 리플레이 제어, 경기 보상, 경기 기록 지표
+  runtime/{audio,input,diagnostics,stores,hud-model,match-setup}.js  소리, 입력, 오류 기록, 저장소, HUD 모델, 경기 준비
   debug-scenes.js            주소(?debug=1&scene=…)로 여는 확인용 장면
   config/{game,physics,runtime,schools,intro}.js  게임 정의, 물리 설정, 실행 정책, 학교 외형, 소개영상 대본
   club/{club,generator,names}.js  선수·편성·보상·뽑기·IndexedDB 저장, 생성 선수, 이름 표
@@ -49,7 +52,7 @@ docs/                        구조·화면 언어·itch.io 제출 문서
 artifacts/                   새 실행 결과, Git 제외
 ```
 
-공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`는 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
+공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`와 `src/runtime/`은 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
 GameKit dist 커밋 `bbd03f6e18068fc51f44df7e4389a2cc6d437829`(v0.56.0), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
 

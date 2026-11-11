@@ -5,19 +5,45 @@ import { LOCALE } from '../i18n/locale.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
 
 /**
- * 연결 실패 원인별 화면 문구(error)와 연결 카드 단계 이름(phase). 키가 connectionCause가 돌려주는 원인이고,
- * 문구·단계·지표(trackConnectionFailure)가 이 분류 하나를 쓴다.
- * desync·game은 연결 사정이 아니라 게임 쪽 실패다(세션 failure.type desync-unrecoverable·fatal).
+ * 연결 실패 원인별 화면 문구(error), 연결 카드 단계 이름(phase), 지표(metric: [category, target, action]).
+ * 키가 connectionCause가 돌려주는 원인이고, 문구·단계·지표(trackConnectionFailure)가 이 분류 하나를 쓴다.
+ * 지표의 성격: fault(게임 결함 의심)·network(연결 사정)·unsupported(이 환경·버전 조합으로는 못 함).
+ * desync·game은 연결 사정이 아니라 게임 쪽 실패다(세션 failure.type desync-unrecoverable·fatal). 같은 실패를
+ * MatchSession.simulationFailed가 이미 fault:desync·fault:simulation으로 보내므로 metric이 없다(한 실패를 두 번 세지 않는다).
  */
 const CONNECTION_CAUSES = Object.freeze({
-    secure: { error: RUNTIME.errSecure, phase: RUNTIME.phaseBrowser },
-    sync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
-    desync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
-    game: { error: RUNTIME.errGame, phase: RUNTIME.phaseGameFailed },
-    version: { error: RUNTIME.errVersion, phase: RUNTIME.phaseVersionFailed },
-    relay: { error: RUNTIME.errRelay, phase: RUNTIME.phaseRelayFailed },
-    peer: { error: RUNTIME.errPeer, phase: RUNTIME.phasePeerFailed },
-    other: { error: RUNTIME.errOther, phase: RUNTIME.phaseFailed },
+    secure: {
+        error: RUNTIME.errSecure,
+        phase: RUNTIME.phaseBrowser,
+        metric: ['network', 'secure', 'fail'],
+    },
+    sync: {
+        error: RUNTIME.errSync,
+        phase: RUNTIME.phaseSyncFailed,
+        metric: ['fault', 'sync', 'fail'],
+    },
+    desync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed, metric: null },
+    game: { error: RUNTIME.errGame, phase: RUNTIME.phaseGameFailed, metric: null },
+    version: {
+        error: RUNTIME.errVersion,
+        phase: RUNTIME.phaseVersionFailed,
+        metric: ['unsupported', 'version', 'block'],
+    },
+    relay: {
+        error: RUNTIME.errRelay,
+        phase: RUNTIME.phaseRelayFailed,
+        metric: ['network', 'relay', 'fail'],
+    },
+    peer: {
+        error: RUNTIME.errPeer,
+        phase: RUNTIME.phasePeerFailed,
+        metric: ['network', 'peer', 'fail'],
+    },
+    other: {
+        error: RUNTIME.errOther,
+        phase: RUNTIME.phaseFailed,
+        metric: ['network', 'other', 'fail'],
+    },
 });
 
 /**
@@ -509,16 +535,10 @@ class NetworkLink {
         this.set({ hint: RUNTIME.netResumeSaveFailed() });
     }
 
-    /**
-     * 연결 오류를 원인별로 분류해 보낸다. phase: connect(방 만들기·입장) | session(온라인 세션 중)
-     * desync·game은 같은 실패를 MatchSession.simulationFailed가 이미 fault:desync·fault:simulation으로 보냈으므로 다시 보내지 않는다.
-     */
+    /** 연결 오류를 원인별로 분류해 보낸다(CONNECTION_CAUSES의 metric). phase: connect(방 만들기·입장) | session(온라인 세션 중) */
     trackConnectionFailure(cause, phase) {
-        if (cause === 'desync' || cause === 'game') return;
-        if (cause === 'sync') this.trackFailure('fault', 'sync', 'fail', { phase });
-        else if (cause === 'version')
-            this.trackFailure('unsupported', 'version', 'block', { phase });
-        else this.trackFailure('network', cause, 'fail', { phase });
+        const metric = CONNECTION_CAUSES[cause].metric;
+        if (metric) this.trackFailure(...metric, { phase });
     }
 }
 

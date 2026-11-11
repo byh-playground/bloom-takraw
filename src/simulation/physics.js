@@ -3114,6 +3114,9 @@ class TakrawPhysics {
 
     step(dt, inputs = []) {
         this.restoredSnapshotBytes = null;
+        // 1/60은 tickRate가 아니라 Rapier 한 번 적분에 허용하는 가장 긴 시간이다(큰 dt가 와도 한 걸음을 이보다 길게 적분하지 않는 안전장치).
+        // 게임은 1/(tickRate·substeps) = 1/120을 넘기므로 지금은 닿지 않지만, tickRate를 낮춰도 이 상한은 따라 커지면 안 된다.
+        // 잘못된 dt(0·NaN)일 때의 1/120은 그때 쓸 기본 한 걸음이다.
         const h = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 1 / 60) : 1 / 120;
         this.world.integrationParameters.dt = h;
         for (const p of this.players) this._drivePlayer(p, inputs[p.id] || {}, h);

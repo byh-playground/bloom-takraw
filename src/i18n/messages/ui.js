@@ -206,6 +206,10 @@ const UI = LOCALE.messages({
         ko: '다른 탭에서 변경됨 · 최신 저장 불러오기',
         en: 'Changed in another tab · load the latest save',
     },
+    clubLockedHome: {
+        ko: '저장된 팀을 읽지 못했어요 · 팀 관리에서 새로 시작',
+        en: 'The saved team couldn’t be read · start over in Team',
+    },
     clubErrorHome: {
         ko: '팀 저장 확인 필요 · 관리에서 다시 불러오기',
         en: 'Check your team save · reload it in Team',
@@ -332,6 +336,12 @@ const UI = LOCALE.messages({
     coins: { ko: '코인', en: 'Coins' },
     trainingPoints: { ko: '훈련 포인트', en: 'Training points' },
     refresh: { ko: '최신 저장 불러오기', en: 'Load the latest save' },
+    resetClub: { ko: '기록 지우고 새로 시작', en: 'Delete the save and start over' },
+    resetClubConfirm: {
+        ko: '저장된 팀을 지우고 새로 시작할까요? 지운 기록은 되돌릴 수 없어요.',
+        en: 'Delete the saved team and start over? This can’t be undone.',
+    },
+    resetClubDelete: { ko: '기록 지우기', en: 'Delete the save' },
     rewardRetry: { ko: '보상 저장 재시도', en: 'Retry saving reward' },
     saveFailed: {
         ko: '변경을 저장하지 못했어요. 다시 확인해 주세요.',
@@ -529,6 +539,14 @@ const CLUB = LOCALE.messages({
     schoolInvalid: { ko: '도전한 학교를 확인해 주세요.', en: 'Check which school you challenged.' },
     schoolLocked: { ko: '앞 학교를 먼저 클리어해 주세요.', en: 'Clear the earlier school first.' },
     rewarded: { ko: '경기 보상을 저장했어요.', en: 'Match reward saved.' },
+    resetInvalid: {
+        ko: '읽지 못한 저장이 없어 지우지 않았어요.',
+        en: 'There is no unreadable save, so nothing was deleted.',
+    },
+    resetDone: {
+        ko: '저장을 지우고 새 팀으로 시작했어요.',
+        en: 'The save was deleted and a new team has started.',
+    },
     debugChanged: { ko: '확인용 값을 바꿨어요.', en: 'Debug value changed.' },
 });
 

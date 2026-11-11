@@ -4,12 +4,7 @@
  */
 import { takrawGenerateCard, takrawCardTag } from './generator.js';
 import { TAKRAW_NAMES } from './names.js';
-import {
-    TAKRAW_SCHOOLS,
-    takrawOpponents,
-    takrawPickHome,
-    takrawSchool,
-} from '../config/schools.js';
+import { takrawOpponents, takrawPickHome, takrawSchool } from '../config/schools.js';
 
 const TAKRAW_CLUB_RULES = Object.freeze({
     initial: { credits: 600, trainingPoints: 6 },
@@ -323,107 +318,78 @@ class TakrawClub {
             record.rewards.some((id) => typeof id !== 'string' || !/^[a-f\d]{32}$/.test(id))
         )
             fail();
-        if (record.campaign !== undefined) {
-            const campaign = record.campaign,
-                keys =
-                    campaign && typeof campaign === 'object' && !Array.isArray(campaign)
-                        ? Object.keys(campaign)
-                        : [];
-            // 내 학교(home)가 없는 이전 저장본은 읽을 수 있고, 불러올 때 한 번 학교를 정해 바꾼다(_read).
-            // introSeen(도장깨기 첫 소개를 봤는지)은 있어도 없어도 되는 값이라 키 개수에서 뺀다.
-            const base = keys.filter((key) => key !== 'introSeen');
-            if (keys.includes('introSeen') && typeof campaign.introSeen !== 'boolean') fail();
-            const legacy = base.length === 1 && base[0] === 'cleared';
-            if (
-                !(
-                    legacy ||
-                    (base.length === 2 &&
-                        Object.hasOwn(campaign, 'home') &&
-                        Object.hasOwn(campaign, 'cleared'))
-                ) ||
-                !Array.isArray(campaign.cleared)
-            )
-                fail();
-            if (legacy) {
-                if (
-                    campaign.cleared.length > TAKRAW_SCHOOLS.length ||
-                    Array.from(campaign.cleared).some(
-                        (id, index) => id !== TAKRAW_SCHOOLS[index].id,
-                    )
-                )
-                    fail();
-            } else {
-                const list = takrawSchool(campaign.home) ? takrawOpponents(campaign.home) : null;
-                if (
-                    !list ||
-                    campaign.cleared.length > list.length ||
-                    Array.from(campaign.cleared).some((id, index) => id !== list[index].id)
-                )
-                    fail();
-            }
-        }
-        if (record.cards !== undefined) {
-            const cards = record.cards,
-                stats = TAKRAW_CLUB_RULES.stats.map((stat) => stat.id);
-            const validCard = (id, card) =>
-                card &&
-                typeof card === 'object' &&
-                card.id === id &&
-                /^gen-\d+$/.test(id) &&
-                typeof card.name === 'string' &&
-                TAKRAW_NAMES.has(card.name) &&
-                TAKRAW_CLUB_RULES.roles.some((role) => role.id === card.preferredRole) &&
-                TAKRAW_CLUB_RULES.rarities.some((rarity) => rarity.id === card.rarity) &&
-                Number.isSafeInteger(card.number) &&
-                card.number >= 0 &&
-                card.number <= 99 &&
-                card.stats &&
-                typeof card.stats === 'object' &&
-                Object.keys(card.stats).length === stats.length &&
-                stats.every(
-                    (key) =>
-                        Number.isSafeInteger(card.stats[key]) &&
-                        card.stats[key] >= 0 &&
-                        card.stats[key] <= 100,
-                );
-            if (
-                !cards ||
-                typeof cards !== 'object' ||
-                Array.isArray(cards) ||
-                Object.entries(cards).some(
-                    ([id, card]) =>
-                        !validCard(id, card) ||
-                        !(record.owned.includes(id) || record.pending === id),
-                )
-            )
-                fail();
-        }
+        // introSeen(도장깨기 첫 소개를 봤는지)은 처음 보기 전에는 없는 값이라 있어도 없어도 된다.
+        const campaign = record.campaign,
+            plain = campaign && typeof campaign === 'object' && !Array.isArray(campaign);
         if (
-            record.pending !== undefined &&
+            !plain ||
+            (Object.hasOwn(campaign, 'introSeen') && typeof campaign.introSeen !== 'boolean')
+        )
+            fail();
+        const list = takrawSchool(campaign.home) ? takrawOpponents(campaign.home) : null;
+        if (
+            Object.keys(campaign).filter((key) => key !== 'introSeen').length !== 2 ||
+            !Object.hasOwn(campaign, 'home') ||
+            !Object.hasOwn(campaign, 'cleared') ||
+            !Array.isArray(campaign.cleared) ||
+            !list ||
+            campaign.cleared.length > list.length ||
+            Array.from(campaign.cleared).some((id, index) => id !== list[index].id)
+        )
+            fail();
+        const cards = record.cards,
+            stats = TAKRAW_CLUB_RULES.stats.map((stat) => stat.id);
+        const validCard = (id, card) =>
+            card &&
+            typeof card === 'object' &&
+            card.id === id &&
+            /^gen-\d+$/.test(id) &&
+            typeof card.name === 'string' &&
+            TAKRAW_NAMES.has(card.name) &&
+            TAKRAW_CLUB_RULES.roles.some((role) => role.id === card.preferredRole) &&
+            TAKRAW_CLUB_RULES.rarities.some((rarity) => rarity.id === card.rarity) &&
+            Number.isSafeInteger(card.number) &&
+            card.number >= 0 &&
+            card.number <= 99 &&
+            card.stats &&
+            typeof card.stats === 'object' &&
+            Object.keys(card.stats).length === stats.length &&
+            stats.every(
+                (key) =>
+                    Number.isSafeInteger(card.stats[key]) &&
+                    card.stats[key] >= 0 &&
+                    card.stats[key] <= 100,
+            );
+        if (
+            !cards ||
+            typeof cards !== 'object' ||
+            Array.isArray(cards) ||
+            Object.entries(cards).some(
+                ([id, card]) =>
+                    !validCard(id, card) || !(record.owned.includes(id) || record.pending === id),
+            )
+        )
+            fail();
+        if (
             record.pending !== null &&
             (typeof record.pending !== 'string' ||
                 !this._known(record, record.pending) ||
                 record.owned.includes(record.pending))
         )
             fail();
+        if (!(record.gacha && typeof record.gacha === 'object' && integer(record.gacha.runs)))
+            fail();
+        const levels = record.levels;
         if (
-            record.gacha !== undefined &&
-            !(record.gacha && typeof record.gacha === 'object' && integer(record.gacha.runs))
+            !levels ||
+            typeof levels !== 'object' ||
+            Array.isArray(levels) ||
+            Object.entries(levels).some(
+                ([id, level]) =>
+                    !record.owned.includes(id) || !Number.isSafeInteger(level) || level < 1,
+            )
         )
             fail();
-        if (record.levels !== undefined) {
-            const levels = record.levels;
-            if (
-                !levels ||
-                typeof levels !== 'object' ||
-                Array.isArray(levels) ||
-                Object.entries(levels).some(
-                    ([id, level]) =>
-                        !record.owned.includes(id) || !Number.isSafeInteger(level) || level < 1,
-                )
-            )
-                fail();
-        }
         for (const [id, training] of Object.entries(record.trained)) {
             const player = TAKRAW_CLUB_PLAYERS.find((value) => value.id === id);
             if (
@@ -455,15 +421,14 @@ class TakrawClub {
             if (receipt.schoolId === undefined) {
                 if (receipt.trainingPoints !== base.trainingPoints) fail();
             } else {
-                const index = (
-                    record.campaign?.home ? takrawOpponents(record.campaign.home) : TAKRAW_SCHOOLS
-                ).findIndex((school) => school.id === receipt.schoolId);
+                const index = takrawOpponents(record.campaign.home).findIndex(
+                    (school) => school.id === receipt.schoolId,
+                );
                 // 영수증의 과거 금액은 임시 보상값 변경 뒤에도 읽는다. 지급 판정은 cleared뿐이다.
                 if (
                     index < 0 ||
                     !integer(receipt.trainingPoints) ||
                     (!receipt.won && receipt.trainingPoints !== 0) ||
-                    !record.campaign ||
                     index > record.campaign.cleared.length ||
                     (receipt.won && !record.campaign.cleared.includes(receipt.schoolId))
                 )
@@ -532,19 +497,11 @@ class TakrawClub {
         return run;
     }
 
-    /** 저장을 읽는다. 내 학교(home)가 없는 이전 저장본은 이때 한 번 학교를 정하고, 단계 구성이 바뀌어 도전 기록과 영수증을 새로 시작한다. */
+    /** 저장을 읽는다. 읽지 못한 저장은 원본을 두고 던지며(status 'error', view.locked), 사용자가 확인한 뒤 reset()으로만 새로 시작한다. */
     async _read(message) {
         const save = this._open();
         this.metrics.reads++;
-        let data = await save.load();
-        if (!data.campaign?.home) {
-            data = await save.update((next) => {
-                next.campaign = { home: takrawPickHome(this.random()), cleared: [] };
-                next.lastReward = null;
-            });
-            this.metrics.writes++;
-        }
-        return this._commit(data, false, message);
+        return this._commit(await save.load(), false, message);
     }
 
     load() {
@@ -562,6 +519,23 @@ class TakrawClub {
             this.message = clubMessage('refreshing');
             this._notify();
             return this._read(clubMessage('refreshed'));
+        });
+    }
+
+    /**
+     * 읽지 못해 잠긴 저장(view.locked)을 버리고 새 팀으로 시작한다. 되돌릴 수 없으므로 화면이 사용자 확인을 받은 뒤에만 부른다.
+     * 읽을 수 있는 저장은 지우지 않는다.
+     */
+    reset() {
+        return this._queue(async () => {
+            const save = this._open();
+            if (!save.locked) throw this._error('resetInvalid');
+            this.status = 'saving';
+            this.message = clubMessage('saving');
+            this._notify();
+            const data = await save.reset();
+            this.metrics.writes++;
+            return this._commit(data, true, clubMessage('resetDone'));
         });
     }
 
@@ -616,7 +590,6 @@ class TakrawClub {
             const rule = TAKRAW_CLUB_RULES.training;
             if (!record.owned.includes(playerId)) throw this._error('trainInvalid');
             if (record.trainingPoints < rule.cost) throw this._error('pointsShort');
-            record.levels ??= {};
             record.levels[playerId] = (record.levels[playerId] || 0) + 1;
             record.trainingPoints -= rule.cost;
         }, clubMessage('trained'));
@@ -624,7 +597,7 @@ class TakrawClub {
 
     /** 저장된 카드 또는 프리셋 선수 하나. 생성 선수는 저장 기록의 cards에만 있다. */
     _card(id) {
-        return TAKRAW_CLUB_PLAYERS.find((value) => value.id === id) ?? this.record?.cards?.[id];
+        return TAKRAW_CLUB_PLAYERS.find((value) => value.id === id) ?? this.record?.cards[id];
     }
     _known(record, id) {
         return TAKRAW_CLUB_PLAYERS.some((value) => value.id === id) || !!record.cards?.[id];
@@ -661,8 +634,6 @@ class TakrawClub {
                     player.rarity === rarity &&
                     !record.owned.includes(player.id),
             );
-            record.gacha ??= { runs: 0 };
-            record.cards ??= {};
             let id;
             if (presets.length && this.random() < rule.presetShare)
                 id = presets[Math.floor(this.random() * presets.length)].id;
@@ -696,7 +667,6 @@ class TakrawClub {
     /** 도장깨기 첫 소개를 봤다고 저장한다. 이미 봤으면 그대로 둔다. */
     seeCampaignIntro() {
         return this._mutate((record) => {
-            if (!record.campaign?.home) throw this._error('loadFirst');
             record.campaign.introSeen = true;
         }, clubMessage('campaignIntroSeen'));
     }
@@ -705,7 +675,7 @@ class TakrawClub {
     _sellValue(record, id) {
         const rules = TAKRAW_CLUB_RULES,
             rarity = this._card(id)?.rarity ?? 'common';
-        return rules.draw.refund[rarity] + (record.levels?.[id] || 0) * rules.sell.levelRefund;
+        return rules.draw.refund[rarity] + (record.levels[id] || 0) * rules.sell.levelRefund;
     }
 
     /** 후보 선수를 팔아 훈련 포인트로 바꾼다. 출전 선수는 팔 수 없고, 선수단은 최소 인원 밑으로 줄지 않는다. */
@@ -720,9 +690,9 @@ class TakrawClub {
             value = this._sellValue(record, playerId);
             record.trainingPoints += value;
             record.owned.splice(record.owned.indexOf(playerId), 1);
-            delete record.cards?.[playerId];
+            delete record.cards[playerId];
             delete record.trained[playerId];
-            delete record.levels?.[playerId];
+            delete record.levels[playerId];
         }, clubMessage('sold')).then((result) => ({ ...result, sold: value }));
     }
 
@@ -736,9 +706,9 @@ class TakrawClub {
                 const card = this._card(id);
                 const drop = (playerId) => {
                     // 생성 선수는 카드째 지우고 훈련 기록도 함께 정리한다.
-                    delete record.cards?.[playerId];
+                    delete record.cards[playerId];
                     delete record.trained[playerId];
-                    delete record.levels?.[playerId];
+                    delete record.levels[playerId];
                 };
                 if (release === null) {
                     record.trainingPoints += rules.draw.refund[card.rarity];
@@ -775,7 +745,7 @@ class TakrawClub {
             let trainingPoints = baseReward.trainingPoints;
             if (schoolId !== null) {
                 const campaign = record.campaign,
-                    opponents = campaign?.home ? takrawOpponents(campaign.home) : [],
+                    opponents = takrawOpponents(campaign.home),
                     schoolIndex = opponents.findIndex((school) => school.id === schoolId);
                 if (schoolIndex < 0) throw this._error('schoolInvalid');
                 trainingPoints = 0;
@@ -812,7 +782,7 @@ class TakrawClub {
                   }
                 : card,
             number = base.number ?? TAKRAW_CLUB_PLAYERS.findIndex((value) => value.id === id) + 1;
-        const level = this.record?.levels?.[id] || 0,
+        const level = this.record?.levels[id] || 0,
             factor = takrawTrainingFactor(level);
         return {
             ...base,
@@ -843,16 +813,17 @@ class TakrawClub {
             lineup: { ...record?.lineup },
             draw: {
                 ...TAKRAW_CLUB_RULES.draw,
-                runs: record?.gacha?.runs || 0,
+                runs: record?.gacha.runs || 0,
                 pending: record?.pending ? this._player(record.pending) : null,
             },
             record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 },
             lastReward: record?.lastReward ? { ...record.lastReward } : null,
             campaign: {
-                home: record?.campaign?.home || null,
-                cleared: [...(record?.campaign?.cleared || [])],
-                introSeen: !!record?.campaign?.introSeen,
+                home: record?.campaign.home ?? null,
+                cleared: [...(record?.campaign.cleared ?? [])],
+                introSeen: !!record?.campaign.introSeen,
             },
+            locked: Boolean(this.save?.locked),
             revision: this.save?.revision ?? null,
         };
     }

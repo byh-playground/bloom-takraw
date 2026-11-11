@@ -630,6 +630,7 @@ async function bootTakraw() {
         if (action === 'assign') return club.assign(payload.role, payload.playerId);
         if (action === 'train') return club.train(payload.playerId);
         if (action === 'sell') return club.sell(payload.playerId);
+        if (action === 'reset') return club.reset();
         if (action === 'campaign-intro') return club.seeCampaignIntro();
         if (action === 'draw') return club.draw();
         if (action === 'resolve') return club.resolveDraw({ release: payload.release ?? null });
@@ -2207,17 +2208,27 @@ async function bootTakraw() {
                         tick: game.state.tick,
                         score: [...game.state.score],
                     }),
-                    async openClub(seed) {
+                    async openClub(seed, stored = null) {
                         // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
+                        // stored가 있으면 메모리 저장에 그 레코드가 이미 있는 것으로 시작한다(읽지 못하는 저장의 화면 확인용).
                         let draws = 0;
                         club.dispose();
                         club = new TakrawClub({
                             onChange: publishClub,
-                            openSave: openClubSave,
+                            openSave: stored
+                                ? (options) =>
+                                      createSave({
+                                          ...options,
+                                          adapter: memoryAdapter({ [options.key]: stored }),
+                                      })
+                                : openClubSave,
                             defaultName: clubName,
                             random: () => seededUnit(seed, draws++),
                         });
-                        await club.load();
+                        await club.load().catch((error) => {
+                            if (!stored) throw error;
+                            recordError(error, 'club-load');
+                        });
                         return club;
                     },
                     showClub() {

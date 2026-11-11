@@ -64,6 +64,7 @@ class TakrawUI {
             rename: false,
             nameDraft: null,
             nameError: '',
+            resetConfirm: false,
             scroll: {},
         };
         this.campaignIntro = { step: 0, replay: false }; // 도장깨기 소개 카드: 몇 번째 장인지, 이미 본 뒤 다시 보는 중인지
@@ -604,6 +605,7 @@ class TakrawUI {
         if (this.drawStage && !this.showcaseScene) this.closeDrawStage();
         const wasOpen = !!this.dialog;
         this.dialog = '';
+        this.clubSelection.resetConfirm = false;
         this.nodes['modal-layer'].hidden = true;
         this.nodes['modal-layer'].classList.remove('is-club-layer');
         if (this.copyTimer) {
@@ -755,7 +757,7 @@ class TakrawUI {
             loading: UI.clubLoadingHome,
             saving: UI.clubSavingHome,
             conflict: UI.clubConflictHome,
-            error: UI.clubErrorHome,
+            error: value.locked ? UI.clubLockedHome : UI.clubErrorHome,
         }[value.status];
         this.text(
             'club-home-summary',
@@ -1102,20 +1104,31 @@ class TakrawUI {
             c.status === 'ready' &&
             !this.clubNotice &&
             c.pendingReward?.status !== 'error';
+        // 읽지 못한 저장은 원본을 두고, 사용자가 확인한 뒤에만 지우고 새로 시작한다(club.reset).
+        const confirming = c.locked && selection.resetConfirm && !this.clubBusy;
         const statusMessage = this.inGame
             ? UI.inGameLineup()
             : this.clubBusy
               ? UI.lockSaving()
-              : c.status !== 'ready'
-                ? clubText(c.message)
-                : this.clubNotice || clubText(c.message);
+              : confirming
+                ? UI.resetClubConfirm()
+                : c.status !== 'ready'
+                  ? clubText(c.message)
+                  : this.clubNotice || clubText(c.message);
+        const statusActions = c.locked
+            ? confirming
+                ? `<button type="button" class="primary-small" data-club-action="reset" data-club-focus="reset-delete">${escape(UI.resetClubDelete())}</button><button type="button" class="secondary-small" data-club-action="reset-cancel" data-club-focus="reset-cancel">${escape(UI.cancel())}</button>`
+                : `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="reset-ask" data-club-focus="reset">${escape(UI.resetClub())}</button>`
+            : ['error', 'conflict'].includes(c.status)
+              ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">${escape(UI.refresh())}</button>`
+              : '';
         const empty = c.status === 'loading' ? UI.rosterLoading() : UI.rosterEmpty();
         const body = detail
             ? `<section id="club-detail" class="club-detail" aria-label="${escape(UI.playerDetail())}">${this.clubDetailContent(detail)}</section>`
             : `<div class="club-navigation"><div class="club-tabs" role="group" aria-label="${escape(UI.clubMenu())}"><button type="button" class="${!isDraw ? 'selected' : ''}" data-club-action="tab" data-value="roster" data-club-focus="tab-roster" aria-pressed="${!isDraw}">${escape(UI.rosterTab())} <span>${c.roster.length}</span></button><button type="button" class="${isDraw ? 'selected' : ''}" data-club-action="tab" data-value="draw" data-club-focus="tab-draw" aria-pressed="${isDraw}">${escape(UI.drawTab())}</button></div><span class="club-capacity">${escape(UI.capacity({ count: c.roster.length, max: rules.capacity }))}</span></div>
       ${isDraw ? this.clubDrawContent() : `${this.clubLineupContent()}<div id="club-list" class="club-list">${this.clubRosterCards() || `<p class="club-empty">${empty}</p>`}</div>`}`;
         return `<div class="club-layout"><div class="club-summary"><div class="club-identity">${name}<span class="club-record">${escape(UI.record({ won: c.record.won || 0, lost: c.record.lost || 0 }))}</span></div><div class="club-wallet"><div class="club-resource"><small>${escape(UI.coins())}</small><b>${c.credits || 0} <span>C</span></b></div><div class="club-resource"><small>${escape(UI.trainingPoints())}</small><b>${c.trainingPoints || 0} <span>P</span></b></div></div></div>
-      <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${['error', 'conflict'].includes(c.status) ? `<button type="button" class="secondary-small" ${this.clubBusy ? 'disabled' : ''} data-club-action="refresh" data-club-focus="refresh">${escape(UI.refresh())}</button>` : ''}${c.pendingReward?.status === 'error' ? `<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">${escape(UI.rewardRetry())}</button>` : ''}</div>
+      <div class="club-status" data-status="${c.status}" data-passive="${passiveStatus}" role="status" aria-live="polite" aria-atomic="true"><span>${escape(statusMessage)}</span>${statusActions}${c.pendingReward?.status === 'error' ? `<button type="button" class="secondary-small" data-club-action="reward" data-club-focus="reward">${escape(UI.rewardRetry())}</button>` : ''}</div>
       ${body}</div>`;
     }
 
@@ -1171,6 +1184,11 @@ class TakrawUI {
         if (action === 'draw-resume' && this.club.draw?.pending)
             this.openDrawStage(this.club.draw.pending, { joined: false, phase: 'front' });
         if (action === 'refresh') this.clubAction('refresh');
+        if (action === 'reset-ask' || action === 'reset-cancel') {
+            selection.resetConfirm = action === 'reset-ask';
+            this.renderClub(selection.resetConfirm ? 'reset-cancel' : 'reset');
+        }
+        if (action === 'reset') this.clubAction('reset');
         if (action === 'reward') this.callbacks.onRewardRetry?.();
     }
 
@@ -1183,7 +1201,7 @@ class TakrawUI {
 
     async clubAction(action, payload = {}) {
         if (this.clubBusy) return;
-        const reason = action === 'refresh' ? '' : this.clubLockReason();
+        const reason = ['refresh', 'reset'].includes(action) ? '' : this.clubLockReason();
         if (reason) {
             this.clubNotice = reason;
             this.renderClub();
@@ -1191,6 +1209,7 @@ class TakrawUI {
         }
         this.clubBusy = true;
         this.clubNotice = '';
+        this.clubSelection.resetConfirm = false;
         this.renderClub();
         let focus = null,
             drawn = null;
@@ -1206,6 +1225,7 @@ class TakrawUI {
                 focus = `lineup-${payload.role}`;
             }
             if (action === 'train') focus = 'train';
+            if (action === 'reset') focus = 'rename-edit';
             if (action === 'sell') focus = 'tab-roster';
             if (action === 'rename' && result) {
                 this.clubSelection.rename = false;

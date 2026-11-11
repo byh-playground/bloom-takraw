@@ -1,15 +1,10 @@
-import {
-    TAKRAW_SCHOOLS,
-    takrawOpponents,
-    takrawSchool,
-    takrawWatchSchools,
-} from './config/schools.js';
+import { takrawOpponents } from './config/schools.js';
 import * as THREE from 'three';
 import RAPIER from 'rapier';
 import { ActionState, createDOMInput } from '@bloom-gamekit/input';
 import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation';
-import { createRoomSession, profiles } from '@bloom-gamekit/rollback';
+import { createRoomSession } from '@bloom-gamekit/rollback';
 import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
 import { AudioPlayer, audioSettings } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
@@ -40,9 +35,8 @@ import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
-import { takrawTrainingCoach } from './presentation/training-coach.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
-import { takrawHumanPlayerId, takrawHumanPlayerIds } from './simulation/roster.js';
+import { takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
@@ -55,46 +49,14 @@ import { TakrawIntro } from './presentation/intro.js';
 import { TAKRAW_LAUNCH } from './launch.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
-import { roleName } from './i18n/messages/match.js';
-
-// physics.js가 내는 선수 상태(standing·moving·airborne·kicking·overhead·falling·recovering)의 문구. moving은 접지 여부로 정한다.
-const PLAYER_STATE_LABELS = Object.freeze({
-    standing: RUNTIME.stateReady,
-    airborne: RUNTIME.stateAir,
-    falling: RUNTIME.stateFall,
-    kicking: RUNTIME.stateKick,
-    overhead: RUNTIME.stateSpike,
-    recovering: RUNTIME.stateGettingUp,
-});
-
-/**
- * 연결 실패 원인별 화면 문구(error)와 연결 카드 단계 이름(phase). 키가 connectionCause가 돌려주는 원인이고,
- * 문구·단계·지표(trackConnectionFailure)가 이 분류 하나를 쓴다.
- */
-const CONNECTION_CAUSES = Object.freeze({
-    secure: { error: RUNTIME.errSecure, phase: RUNTIME.phaseBrowser },
-    sync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
-    version: { error: RUNTIME.errVersion, phase: RUNTIME.phaseVersionFailed },
-    relay: { error: RUNTIME.errRelay, phase: RUNTIME.phaseRelayFailed },
-    peer: { error: RUNTIME.errPeer, phase: RUNTIME.phasePeerFailed },
-    other: { error: RUNTIME.errOther, phase: RUNTIME.phaseFailed },
-});
-
-/**
- * gamekit가 코드를 주는 실패의 원인. 코드는 transport 방 오류의 Error.code(version-mismatch)와
- * rollback 세션 failure.reason(join-rejected의 incompatible-session)이다. 코드가 없는 실패는 connectionCause가 메시지로 분류한다.
- */
-const CONNECTION_CAUSE_BY_CODE = Object.freeze({
-    'version-mismatch': 'version',
-    'incompatible-session': 'version',
-});
-
-/** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
-const localizedTeam = (team) =>
-    team && {
-        ...team,
-        players: team.players.map((player) => ({ ...player, name: LOCALE.text(player.name) })),
-    };
+import {
+    connectionCause,
+    connectionText,
+    failurePhase,
+    readableConnectionError,
+} from './runtime/network.js';
+import { takrawHudModel } from './runtime/hud-model.js';
+import { takrawMatchSetup, takrawSessionProfile } from './runtime/match-setup.js';
 
 async function bootTakraw() {
     const config = TAKRAW_CONFIG;
@@ -374,45 +336,6 @@ async function bootTakraw() {
         setNetwork({
             diagnostics: `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}`,
         });
-    }
-
-    /**
-     * 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다.
-     * code는 gamekit가 준 실패 코드다. 코드가 없거나 모르는 코드면 메시지(raw)를 정규식으로 분류한다.
-     * 코드를 주지 않는 실패(릴레이·WebRTC·브라우저 보안 오류와 자유 형식 reason)는 아직 정규식으로 분류한다.
-     */
-    function connectionCause(raw, code) {
-        const coded = CONNECTION_CAUSE_BY_CODE[code];
-        if (coded) return coded;
-        if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw))
-            return 'secure';
-        if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return 'sync';
-        if (
-            /version|contract|handshake|protocol|simulationVersion|mismatch|incompatible/i.test(raw)
-        )
-            return 'version';
-        if (/No Nostr relay|signaling|relay|publication|Nostr/i.test(raw)) return 'relay';
-        if (/WebRTC|ICE|peer|transport|connection/i.test(raw)) return 'peer';
-        return 'other';
-    }
-
-    function connectionText(error) {
-        return String(error?.message || error || 'unknown')
-            .replace(/\s+/g, ' ')
-            .slice(0, 180);
-    }
-
-    function readableConnectionError(error, code = error?.code) {
-        const raw = connectionText(error);
-        return CONNECTION_CAUSES[connectionCause(raw, code)].error({
-            detail: raw,
-            version: TAKRAW_VERSION,
-        });
-    }
-
-    /** 연결 오류 카드의 단계 이름. 원인을 알면 그 원인을 말한다. */
-    function failurePhase(cause) {
-        return CONNECTION_CAUSES[cause].phase();
     }
 
     /**
@@ -1202,52 +1125,18 @@ async function bootTakraw() {
     }
 
     function selectedHud() {
-        const team = localTeam();
-        const selectedId = latestView.state.selected?.[team] ?? takrawHumanPlayerId(team);
-        const player = latestView.players.find((candidate) => candidate.id === selectedId);
-        const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
-            attacker = roleName('attacker', LOCALE.locale);
-        return {
-            ...latestView.state,
-            // 시뮬레이션은 연습 사실만 내고, 단계·문구·진행 막대는 coach가 표시 설정으로 만든다.
-            training: takrawTrainingCoach(latestView.training, {
-                maxLead: config.visual.attackGuide.maxLead,
-            }),
-            teamPlay: latestView.teamPlay?.[team] || null,
-            teamNames:
-                mode === 'watch'
-                    ? takrawWatchSchools(watchSeed).map((school) => LOCALE.text(school.name))
-                    : latestView.teamNames,
-            teamColors:
-                mode === 'online'
-                    ? takrawIdentitySchools(latestView.teamSchools).map(
-                          (school) => school.uniform.primary,
-                      )
-                    : mode === 'watch'
-                      ? takrawWatchSchools(watchSeed).map((school) => school.uniform.primary)
-                      : null,
+        return takrawHudModel({
+            view: latestView,
+            mode,
+            team: localTeam(),
+            watchSeed,
+            tick: game.state.tick,
             matchReward:
                 clubSession.match?.id === clubSession.reward?.id ? clubSession.reward : null,
             campaignSchoolId: clubSession.match?.schoolId || null,
-            localTeam: team,
-            selectedName: player?.name
-                ? RUNTIME.playerOf({ name: player.name, role: attacker })
-                : attacker,
-            selectedState: motion
-                ? LOCALE.text(motion.title)
-                : player
-                  ? (
-                        PLAYER_STATE_LABELS[player.state] ||
-                        (player.grounded ? RUNTIME.stateReady : RUNTIME.stateAir)
-                    )()
-                  : '',
-            kickHeld: Boolean(player?.kickHeld),
-            jumpHeld: Boolean(player?.jumpHeld),
-            tossReady: Boolean(player?.tossReady),
-            tossCharge: Number(player?.tossCharge) || 0,
-            connection: mode === 'online' ? network.message : '',
-            watch: mode === 'watch' ? { seed: watchSeed, tick: game.state.tick } : null,
-        };
+            connection: network.message,
+            maxLead: config.visual.attackGuide.maxLead,
+        });
     }
 
     /** 꼬리 구간까지 기록된 명장면이 있으면 경기를 멈추고 재생을 시작한다(onAdvance에서 호출). */
@@ -1431,57 +1320,29 @@ async function bootTakraw() {
         metricsMatch = recorded ? { ordinal: 0, finishedAt: null, recorded: false } : null;
         // 온라인 경기 시작은 두 사람이 모였을 때(identitySent) 남긴다.
         if (nextMode !== 'online') metrics.track('match', nextMode, 'start');
-        // 내 학교는 저장된 값이다. 온라인은 두 사람의 화면이 같도록 고정 학교 쌍을 쓴다. 퀵 대전(도전 학교 없음)의 상대는 가장 높은 단계다.
-        const watching = nextMode === 'watch';
         watchPoint = { tick: null, restarting: false };
-        const home =
-            nextMode === 'online' || watching
-                ? TAKRAW_SCHOOLS[0]
-                : takrawSchool(club.getView().campaign.home) || TAKRAW_SCHOOLS[0];
-        const opponents = takrawOpponents(home.id);
-        const opponent =
-            opponents.find((school) => school.id === campaignSchoolId) ||
-            opponents[opponents.length - 1];
-        view.setSchools(
-            watching
-                ? takrawWatchSchools(watchSeed)
-                : [home, nextMode === 'match' ? opponent : opponents[0]],
-        );
+        const setup = takrawMatchSetup({
+            mode: nextMode,
+            home: () => club.getView().campaign.home,
+            homeTeam: () => club.matchTeam(),
+            campaignSchoolId,
+            watchSeed,
+            roomCode: capability?.room,
+            debugSeed: debugMatchSeed,
+            randomSeed: () => crypto.getRandomValues(new Uint32Array(1))[0],
+        });
+        view.setSchools(setup.schools);
         paused = false;
         bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
-        clubSession.team = ['match', 'training'].includes(nextMode)
-            ? localizedTeam(club.matchTeam())
-            : null;
+        clubSession.team = setup.home;
         clubSession.match =
             nextMode === 'match'
                 ? { id: matchId(), finished: false, schoolId: campaignSchoolId }
                 : null;
         clubSession.reward = null;
-        const schoolAi = nextMode === 'match' ? opponent.ai : null;
-        const away = schoolAi
-            ? {
-                  name: LOCALE.text(opponent.name),
-                  players: schoolAi.players.map((preset) => ({
-                      id: `${opponent.id}-${preset.role}`,
-                      name: roleName(preset.role, LOCALE.locale),
-                      role: preset.role,
-                      stats: { ...preset.stats },
-                  })),
-              }
-            : null;
-        game.setTeams(clubSession.team, away);
-        game.setTemperaments([null, schoolAi?.temperament || null]);
-        // 경기마다 AI 성향·서브가 달라지도록 시드를 정한다. 온라인은 두 사람이 같은 방 코드에서 같은 시드를 얻고, 혼자 하는 경기는 새 값이다.
-        const matchSeed = watching
-            ? watchSeed
-            : nextMode === 'online'
-              ? deterministic.hashBytes(new TextEncoder().encode(capability.room))
-              : nextMode === 'training'
-                ? undefined
-                : nextMode === 'match' && debugMatchSeed !== null
-                  ? debugMatchSeed
-                  : crypto.getRandomValues(new Uint32Array(1))[0];
-        game.reset(nextMode, undefined, matchSeed);
+        game.setTeams(clubSession.team, setup.away);
+        game.setTemperaments(setup.temperaments);
+        game.reset(nextMode, undefined, setup.seed);
         latestView = game.getView();
         BodyPose = createPresentation();
         replaceJournal();
@@ -1545,33 +1406,7 @@ async function bootTakraw() {
                 stats.maxSimulationMs = Math.max(stats.maxSimulationMs, elapsed);
             },
         };
-        const profile = online
-            ? {
-                  ...profiles.action,
-                  mode: 'rollback',
-                  tickRate: config.simulation.tickRate,
-                  baseInputDelayTicks: 1,
-                  minInputDelayTicks: 0,
-                  maxInputDelayTicks: 6,
-                  rollbackWindowTicks: TAKRAW_RUNTIME.network.rollbackWindow,
-                  stateHistorySize: TAKRAW_RUNTIME.network.historySize,
-                  checksumInterval: config.simulation.tickRate,
-                  maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
-                  maxSnapshotBytes: TAKRAW_RUNTIME.network.maxSnapshotBytes,
-                  maxHistoryBytes: TAKRAW_RUNTIME.network.maxHistoryBytes,
-                  maxReplayBytes: TAKRAW_RUNTIME.network.maxReplayBytes,
-              }
-            : {
-                  ...profiles.lockstep,
-                  mode: 'lockstep',
-                  tickRate: config.simulation.tickRate,
-                  baseInputDelayTicks: 0,
-                  minInputDelayTicks: 0,
-                  maxInputDelayTicks: 0,
-                  adaptiveInputDelay: false,
-                  pacingPolicy: 'none',
-                  maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
-              };
+        const profile = takrawSessionProfile({ online, tickRate: config.simulation.tickRate });
         identitySent = false;
         session = createRoomSession({
             mode: online ? 'online' : 'local',

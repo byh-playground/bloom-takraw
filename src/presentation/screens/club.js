@@ -185,6 +185,10 @@ class TakrawClubScreen {
         });
     }
 
+    heading() {
+        return [UI.clubKicker(), UI.clubTitle()];
+    }
+
     /** runtime이 넘긴 팀 조회 결과로 바꾼다(ui.setClub). */
     set(value) {
         this.club = value;

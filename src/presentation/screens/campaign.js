@@ -17,6 +17,10 @@ class TakrawCampaignScreen {
         this.intro = { step: 0, replay: false }; // 도장깨기 소개 카드: 몇 번째 장인지, 이미 본 뒤 다시 보는 중인지
     }
 
+    heading() {
+        return [UI.campaignKicker(), UI.campaignTitle()];
+    }
+
     uniform(school, big = false) {
         const hex = (value) => `#${value.toString(16).padStart(6, '0')}`;
         return `<span class="campaign-uniform ${big ? 'is-big' : ''}" aria-label="${escape(UI.uniform({ school: say(school.name) }))}" style="--uniform-primary:${hex(school.uniform.primary)};--uniform-secondary:${hex(school.uniform.secondary)}"></span>`;

@@ -2,10 +2,8 @@ import { TAKRAW_VERSION } from '../config/game.js';
 import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { createNavigation } from '@bloom-gamekit/navigation';
 import { takrawRoute } from './routes.js';
-import { LOCALE, LOCALE_NAMES } from '../i18n/locale.js';
 import { UI } from '../i18n/messages/ui.js';
 import { touchControlText } from '../i18n/messages/match.js';
-import { escape } from './markup.js';
 import { TakrawTouchControls } from './touch-controls.js';
 import { TakrawMatchHud } from './match-hud.js';
 import { TakrawTrainingPanel } from './training-panel.js';
@@ -13,23 +11,21 @@ import { TakrawHomeScreen } from './screens/home.js';
 import { TakrawClubScreen } from './screens/club.js';
 import { TakrawCampaignScreen } from './screens/campaign.js';
 import { TakrawDrawStage } from './screens/draw-stage.js';
+import { TakrawSettingsScreen } from './screens/settings.js';
+import { TakrawPauseScreen } from './screens/pause.js';
+import { TakrawNetworkScreen } from './screens/network.js';
 
 class TakrawUI {
     constructor(callbacks, network) {
         this.callbacks = callbacks;
         this.canvas = document.getElementById('court-canvas');
         this.canvas.tabIndex = -1;
-        this.settings = { sound: true, quality: 'high' };
-        this.sound = { locked: false, message: '' }; // 소리 설정 저장 상태. 읽지 못하면 locked, 실패 문구는 message.
-        this.installable = false; // PWA 설치 창을 띄울 수 있을 때 true(registerPwa의 onInstallable)
         this.inGame = false;
         this.mode = 'match';
         this.dialog = '';
-        this.network = network;
         this.controller = new AbortController();
         this.previousFocus = null;
         this.homeShown = false;
-        this.copyTimer = null;
         this.nodes = {};
         for (const id of [
             'home-panel',
@@ -85,6 +81,32 @@ class TakrawUI {
                 isOpen: () => this.dialog === 'campaign',
                 callbacks: this.callbacks,
             }),
+            settings: new TakrawSettingsScreen({
+                node: content,
+                coarse: this.coarse,
+                inGame: () => this.inGame,
+                isOpen: () => this.dialog === 'settings',
+                close: () => this.closeDialog(),
+                callbacks: this.callbacks,
+            }),
+            pause: new TakrawPauseScreen({
+                mode: () => this.mode,
+                close: () => this.closeDialog(),
+                quit: () => this.quit(),
+                callbacks: this.callbacks,
+            }),
+            network: new TakrawNetworkScreen({
+                node: content,
+                indicator: this.nodes['connection-indicator'],
+                value: network,
+                isOpen: () => this.dialog === 'network',
+                // 방 닫기 버튼: 연결은 이미 닫았으니 창만 닫는다.
+                hide: () => {
+                    this.hideDialog(true);
+                    this.setRoute(this.inGame ? 'play' : this.home.route());
+                },
+                callbacks: this.callbacks,
+            }),
         };
         // 주소와 브라우저 이력은 gamekit navigation이 소유한다. 이력 복원(뒤로·앞으로·주소 입력)에만 화면을 맞추고,
         // 내부 이동은 navigate가 주소를 바꾼 뒤 직접 화면을 맞춘다.
@@ -95,6 +117,11 @@ class TakrawUI {
         this.bind();
         this.syncInputMode();
         this.applyRoute(this.routes.snapshot());
+    }
+
+    /** 소리·그래픽 품질 설정 값(runtime이 settings.quality를 읽는다). 설정 화면이 가진다. */
+    get settings() {
+        return this.screens.settings.values;
     }
 
     listen(node, type, listener, options = {}) {
@@ -244,9 +271,7 @@ class TakrawUI {
 
     /** 브라우저가 설치를 허락했을 때만 설정 창에 앱 설치 줄을 둔다. */
     setInstallable(installable) {
-        this.installable = installable;
-        if (this.dialog === 'settings')
-            this.nodes['dialog-content'].innerHTML = this.settingsContent();
+        this.screens.settings.setInstallable(installable);
     }
 
     showHome() {
@@ -342,26 +367,15 @@ class TakrawUI {
         this.dialog = route;
         this.nodes['modal-layer'].hidden = false;
         this.nodes['dialog-back'].hidden = true;
-        const online = this.mode === 'online';
-        const meta = {
-            club: [UI.clubKicker(), UI.clubTitle()],
-            settings: [UI.settingsKicker(), UI.settingsTitle()],
-            pause: [
-                online ? UI.pauseKickerOnline() : UI.pauseKicker(),
-                online ? UI.pauseTitleOnline() : UI.pauseTitle(),
-            ],
-            network: [UI.networkKicker(), UI.networkTitle()],
-        }[route];
+        const screen = this.screens[route];
         this.nodes['dialog-panel'].classList.toggle('is-club', route === 'club');
         this.nodes['modal-layer'].classList.toggle('is-club-layer', route === 'club');
-        const heading = meta || [UI.campaignKicker(), UI.campaignTitle()];
+        const heading = screen.heading();
         this.nodes['dialog-kicker'].textContent = heading[0];
         this.nodes['dialog-title'].textContent = heading[1];
-        this.nodes['dialog-content'].innerHTML = this.screens[route]
-            ? this.screens[route].content()
-            : this[`${route}Content`]();
+        this.nodes['dialog-content'].innerHTML = screen.content();
         this.nodes['dialog-content'].scrollTop = 0;
-        if (route === 'network') this.renderNetwork();
+        if (route === 'network') this.screens.network.render();
         if (route === 'club') this.screens.club.restore();
         queueMicrotask(() => {
             if (route !== 'club' || !this.screens.club.restoreFocus())
@@ -370,11 +384,7 @@ class TakrawUI {
     }
 
     closeDialog() {
-        if (
-            this.dialog === 'network' &&
-            !this.inGame &&
-            ['listening', 'connecting'].includes(this.network.state)
-        )
+        if (this.dialog === 'network' && !this.inGame && this.screens.network.waiting)
             this.callbacks.onNetwork?.('close');
         this.hideDialog(true);
         this.setRoute(this.inGame ? 'play' : this.home.route());
@@ -388,10 +398,7 @@ class TakrawUI {
         this.dialog = '';
         this.nodes['modal-layer'].hidden = true;
         this.nodes['modal-layer'].classList.remove('is-club-layer');
-        if (this.copyTimer) {
-            window.clearTimeout(this.copyTimer);
-            this.copyTimer = null;
-        }
+        this.screens.network.clearCopyTimer();
         if (wasOpen && resume && this.inGame) this.callbacks.onPause?.(false);
         if (wasOpen && this.previousFocus?.isConnected)
             this.previousFocus.focus({ preventScroll: true });
@@ -440,103 +447,13 @@ class TakrawUI {
     }
 
     /** 소리 설정 저장의 현재 값과 상태를 받는다. 설정 창이 열려 있으면 바로 다시 그린다. */
-    setSound({
-        on = this.settings.sound,
-        locked = this.sound.locked,
-        message = this.sound.message,
-    }) {
-        this.settings.sound = on;
-        this.sound = { locked, message };
-        if (this.dialog === 'settings')
-            this.nodes['dialog-content'].innerHTML = this.settingsContent();
+    setSound(sound) {
+        this.screens.settings.setSound(sound);
     }
 
-    settingsContent() {
-        const status = this.sound.message
-            ? `<p class="room-status error" role="status">${escape(this.sound.message)}</p>`
-            : '';
-        // 언어는 페이지를 읽을 때 한 번 정한다. 고르면 저장하고 새로고침하므로 경기 중에는 막는다.
-        const languages = Object.entries(LOCALE_NAMES)
-            .map(
-                ([code, name]) =>
-                    `<button type="button" lang="${code}" class="${LOCALE.locale === code ? 'selected' : ''}" aria-pressed="${LOCALE.locale === code}" ${this.inGame ? 'disabled' : ''} data-dialog-action="locale" data-value="${code}">${escape(name)}</button>`,
-            )
-            .join('');
-        return `<div class="settings-row"><div><strong>${escape(UI.sound())}</strong><small>${escape(UI.soundHint())}</small></div><button type="button" class="toggle-button" role="switch" aria-label="${escape(UI.sound())}" aria-checked="${this.settings.sound}" ${this.sound.locked ? 'disabled' : ''} data-dialog-action="sound"></button></div>${status}
-      <div class="settings-row"><div><strong>${escape(UI.quality())}</strong><small>${escape(UI.qualityHint())}</small></div><div class="segmented" role="group" aria-label="${escape(UI.quality())}"><button type="button" class="${this.settings.quality === 'low' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'low'}" data-dialog-action="quality" data-value="low">${escape(UI.qualityLow())}</button><button type="button" class="${this.settings.quality === 'high' ? 'selected' : ''}" aria-pressed="${this.settings.quality === 'high'}" data-dialog-action="quality" data-value="high">${escape(UI.qualityHigh())}</button></div></div>
-      <div class="settings-row"><div><strong>${escape(UI.camera())}</strong><small>${escape(this.coarse.matches ? UI.cameraTouch() : UI.cameraMouse())}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">${escape(UI.cameraReset())}</button></div>
-      <div class="settings-row"><div><strong>${escape(UI.language())}</strong><small>${escape(this.inGame ? UI.languageLocked() : UI.languageHint())}</small></div><div class="segmented" role="group" aria-label="${escape(UI.language())}">${languages}</div></div>
-      ${this.installable ? `<div class="settings-row"><div><strong>${escape(UI.install())}</strong><small>${escape(UI.installHint())}</small></div><button type="button" class="secondary-small" data-dialog-action="install">${escape(UI.installButton())}</button></div>` : ''}
-      <p class="key-tip">${escape(UI.qualityTip())}</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">${escape(UI.done())}</button></div>`;
-    }
-
-    pauseContent() {
-        return `<div class="pause-menu"><button type="button" class="primary-small" data-dialog-action="close">${escape(UI.resume())}</button>${this.mode !== 'online' ? `<button type="button" class="secondary-small" data-dialog-action="restart">${escape(UI.restart())}</button>` : `<p class="key-tip">${escape(UI.onlinePauseTip())}</p>`}<button type="button" class="secondary-small" data-dialog-action="quit">${escape(UI.toHome())}</button></div>`;
-    }
-
-    networkContent() {
-        return `<p>${escape(UI.networkIntroA())}<br>${escape(UI.networkIntroB())}</p><div class="network-form"><button type="button" class="primary-small" data-dialog-action="host">${escape(UI.host())} <span aria-hidden="true">＋</span></button></div><div class="network-divider">${escape(UI.orJoin())}</div>
-      <form id="join-form" class="network-form"><label for="room-input">${escape(UI.roomInputLabel())}</label><input id="room-input" class="network-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric" maxlength="4" placeholder="${escape(UI.roomPlaceholder())}"><button type="button" class="secondary-small" data-dialog-action="join">${escape(UI.join())}</button></form>
-      <div id="room-status" class="room-status" role="status" hidden><strong id="network-phase" class="network-phase">${escape(UI.connectionReady())}</strong><span id="room-status-message"></span><div id="room-code-line" class="room-code-line" hidden><input id="room-code" aria-label="${escape(UI.myRoomCode())}" readonly><button type="button" data-dialog-action="copy-code">${escape(UI.copy())}</button></div><small id="network-hint" class="network-hint" hidden></small></div>
-      <p class="room-help">${escape(UI.roomHelp({ version: TAKRAW_VERSION }))}</p>
-      <details class="network-debug"><summary>${escape(UI.diagnostics())}</summary><pre id="network-log" aria-label="${escape(UI.networkLog())}"></pre><button type="button" class="secondary-small" data-dialog-action="copy-network-log">${escape(UI.copyDiagnostics())}</button></details>
-      <div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="resume" id="resume-room" hidden>${escape(UI.resumeRoom())}</button><button type="button" class="secondary-small" data-dialog-action="close-network">${escape(UI.closeNetwork())}</button></div>`;
-    }
-
+    /** 대화상자 안 클릭은 열린 화면이 처리한다. */
     dialogClick(event) {
-        if (this.dialog === 'club' || this.dialog === 'campaign') {
-            this.screens[this.dialog].click(event);
-            return;
-        }
-        const button = event.target.closest('[data-dialog-action]');
-        if (!button) return;
-        const action = button.dataset.dialogAction;
-        if (action === 'close') this.closeDialog();
-        if (action === 'restart') {
-            this.callbacks.onRestart?.();
-            this.closeDialog();
-        }
-        if (action === 'quit') this.quit();
-        if (action === 'sound') {
-            this.settings.sound = !this.settings.sound;
-            button.setAttribute('aria-checked', String(this.settings.sound));
-            this.callbacks.onSetting?.('sound', this.settings.sound);
-        }
-        if (action === 'camera-reset') this.callbacks.onCameraReset?.();
-        if (action === 'install') this.callbacks.onInstall?.();
-        if (action === 'locale' && !this.inGame && button.dataset.value !== LOCALE.locale)
-            LOCALE.choose(button.dataset.value);
-        if (action === 'quality') {
-            this.settings.quality = button.dataset.value;
-            for (const option of button.parentElement.children) {
-                const selected = option.dataset.value === this.settings.quality;
-                option.classList.toggle('selected', selected);
-                option.setAttribute('aria-pressed', String(selected));
-            }
-            this.callbacks.onSetting?.('quality', this.settings.quality);
-        }
-        if (action === 'host') this.callbacks.onNetwork?.('host');
-        if (action === 'resume') this.callbacks.onNetwork?.('resume');
-        if (action === 'join') {
-            const input = document.getElementById('room-input'),
-                code = input.value.trim();
-            if (!code) {
-                input.focus();
-                input.setCustomValidity(UI.enterRoomCode());
-                input.reportValidity();
-                input.setCustomValidity('');
-                return;
-            }
-            this.callbacks.onNetwork?.('join', code);
-        }
-        if (action === 'close-network') {
-            this.callbacks.onNetwork?.('close');
-            this.hideDialog(true);
-            this.setRoute(this.inGame ? 'play' : this.home.route());
-        }
-        if (action === 'copy-code') this.copyText(this.network.code, button);
-        if (action === 'copy-network-log')
-            this.copyText(document.getElementById('network-log')?.textContent || '', button);
+        this.screens[this.dialog]?.click(event);
     }
 
     /** 치명 오류: 경기 중에도 보이는 패널. 멈춘 화면에 아무 말이 없지 않게 하고, 진단을 바로 복사해 알릴 수 있게 한다. */
@@ -566,70 +483,9 @@ class TakrawUI {
         }, 1800);
     }
 
-    async copyText(value, button) {
-        const label = button.textContent;
-        try {
-            await navigator.clipboard.writeText(value);
-            button.textContent = UI.copied();
-        } catch {
-            const input = document.getElementById('room-code');
-            if (input && value === this.network.code) {
-                input.focus();
-                input.select();
-            }
-            button.textContent = UI.copyManually();
-        }
-        if (this.copyTimer) window.clearTimeout(this.copyTimer);
-        this.copyTimer = window.setTimeout(() => {
-            if (button.isConnected) button.textContent = label;
-            this.copyTimer = null;
-        }, 1800);
-    }
-
+    /** runtime이 연결 상태를 넘긴다. 화면 위 연결 표시와 열린 친구와 하기 창을 갱신한다. */
     setNetwork(value) {
-        this.network = value;
-        this.renderNetwork();
-        const indicator = this.nodes['connection-indicator'];
-        indicator.hidden = ['idle', 'closed', ''].includes(this.network.state);
-        indicator.querySelector('span').textContent =
-            this.network.state === 'connected'
-                ? UI.friendConnected()
-                : this.network.message || UI.connecting();
-        indicator.querySelector('i').style.background =
-            this.network.state === 'error'
-                ? '#ba6548'
-                : this.network.state === 'connected'
-                  ? '#238468'
-                  : '#c69a49';
-    }
-
-    renderNetwork() {
-        if (this.dialog !== 'network') return;
-        const status = document.getElementById('room-status');
-        status.hidden = !this.network.message && !this.network.code;
-        status.classList.toggle('error', this.network.state === 'error');
-        document.getElementById('room-status-message').textContent =
-            this.network.message || UI.waitingFriend();
-        document.getElementById('network-phase').textContent =
-            this.network.phase || UI.connectionState();
-        const hint = document.getElementById('network-hint');
-        hint.hidden = !this.network.hint;
-        hint.textContent = this.network.hint || '';
-        const log = document.getElementById('network-log');
-        if (log) log.textContent = this.network.diagnostics || UI.noLog();
-        document.getElementById('room-code-line').hidden = !this.network.code;
-        document.getElementById('room-code').value = this.network.code || '';
-        document.getElementById('resume-room').hidden =
-            !this.network.canResume || this.network.state === 'connecting';
-        const busy = ['connecting', 'listening', 'connected'].includes(this.network.state);
-        for (const button of this.nodes['dialog-content'].querySelectorAll(
-            '[data-dialog-action="host"],[data-dialog-action="join"]',
-        ))
-            button.disabled = busy;
-        document.getElementById('join-form').onsubmit = (event) => {
-            event.preventDefault();
-            this.nodes['dialog-content'].querySelector('[data-dialog-action="join"]').click();
-        };
+        this.screens.network.set(value);
     }
 
     /** 접촉 타이밍 등급 표시. 반환된 토큰으로 hideTiming하면 그 표시만 지운다(match-hud.js). */
@@ -664,7 +520,7 @@ class TakrawUI {
     dispose() {
         this.touch.release();
         this.drawStage.dispose();
-        if (this.copyTimer) window.clearTimeout(this.copyTimer);
+        this.screens.network.clearCopyTimer();
         this.controller.abort();
         this.routes.dispose();
     }

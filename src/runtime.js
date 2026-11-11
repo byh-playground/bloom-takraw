@@ -27,6 +27,7 @@ import { RuntimeAudio, takrawBgmLevel } from './runtime/audio.js';
 import { RuntimeInput } from './runtime/input.js';
 import { PresentationFeed } from './runtime/presentation-feed.js';
 import { MatchEventJournal } from './runtime/match-events.js';
+import { HighlightController } from './runtime/highlight-controller.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
@@ -34,7 +35,6 @@ import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/tr
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
 import { takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';
-import { TakrawHighlight } from './presentation/highlight.js';
 import { takrawUnitStream } from './simulation/random.js';
 import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
@@ -107,18 +107,21 @@ async function bootTakraw() {
     let metricsMatch = null; // 기록 중인 세션의 경기 관측: { ordinal, finishedAt, recorded }
     let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
     let watchPoint = { tick: null, restarting: false };
-    // 득점 리플레이. 경기 시작 상태 + 입력으로 워커의 그림자 경기가 다시 계산한 장면을 그린다. 재생 중에는 경기 진행과 조작을 멈춘다.
-    // 워커에는 import map이 없어 모듈 주소를 여기서 풀어 넘긴다. playedAt은 재생 시계의 직전 렌더 시각이다.
-    const highlight = new TakrawHighlight(
-        { ...TAKRAW_RUNTIME.highlight, tickRate: config.simulation.tickRate },
-        {
-            rapierUrl: import.meta.resolve('rapier'),
-            deterministicUrl: import.meta.resolve('@bloom-gamekit/deterministic'),
+    const highlight = new HighlightController({
+        tickRate: config.simulation.tickRate,
+        showReplay: (reason) => ui.showReplay(reason),
+        snapCamera: () => view.snapCamera(),
+        onPlaybackChange(active) {
+            releaseControls();
+            loop?.resetTiming();
+            if (active) pump?.stop();
+            else if (!paused) {
+                pump?.start();
+                pump?.wake();
+            }
         },
-    );
-    let highlightPlayedAt = 0;
+    });
     let debugMatchSeed = null; // 확인용 장면(scene=match)이 고정한 AI 대전 시드
-    let replayActive = false; // 리플레이 화면을 띄우고 경기를 멈춘 동안 true. 워커가 장면을 못 만들면 재생 없이 끝난다.
     let bootstrapStage = 'interface';
     let disposed = false;
     let failed = false;
@@ -495,7 +498,7 @@ async function bootTakraw() {
             isReady() &&
             session?.ready &&
             !paused &&
-            !replayActive &&
+            !highlight.active &&
             !session.failure &&
             (mode !== 'online' || session.players.length === 2),
         );
@@ -692,43 +695,10 @@ async function bootTakraw() {
         });
     }
 
-    /** 꼬리 구간까지 기록된 명장면이 있으면 경기를 멈추고 재생을 시작한다(onAdvance에서 호출). */
-    function observeHighlight() {
-        if (!TAKRAW_RUNTIME.highlight.modes.includes(mode) || replayActive || !highlight.begin())
-            return;
-        replayActive = true;
-        releaseControls();
-        loop?.resetTiming();
-        pump?.stop();
-        highlightPlayedAt = performance.now();
-        view.snapCamera();
-        ui.showReplay(highlight.clip.reason);
-    }
-
-    /** 재생이 끝났거나 사용자가 건너뛰었다. 멈춘 동안의 시간은 따라잡지 않고 득점 뒤 대기부터 이어 간다. */
-    function endHighlight() {
-        if (!replayActive) return;
-        replayActive = false;
-        highlight.stop();
-        ui.showReplay(null);
-        view.snapCamera();
-        releaseControls();
-        loop?.resetTiming();
-        if (!paused) {
-            pump?.start();
-            pump?.wake();
-        }
-    }
-
+    /** 재생 장면을 그린다. 그릴 장면이 없으면(끝남·첫 장면 대기) false라 멈춘 실제 경기를 그대로 그린다. */
     function renderHighlight(now) {
-        const dt = paused ? 0 : Math.min(0.1, Math.max(0, (now - highlightPlayedAt) / 1000));
-        highlightPlayedAt = now;
-        if (!highlight.advance(dt)) {
-            endHighlight();
-            return false;
-        }
-        const replay = highlight.frame();
-        if (!replay) return false; // 워커의 첫 장면을 기다리는 동안은 멈춘 실제 경기를 그대로 그린다.
+        const replay = highlight.frame(now, paused);
+        if (!replay) return false;
         events?.update(now);
         view.render(
             replay.poses,
@@ -741,8 +711,8 @@ async function bootTakraw() {
 
     function renderScene(now = performance.now()) {
         if (!view || !feed?.ready || !latestView) return;
-        if (replayActive && !highlight.playing) endHighlight();
-        if (replayActive && renderHighlight(now)) {
+        if (highlight.active && !highlight.running) highlight.end();
+        if (highlight.active && renderHighlight(now)) {
             stats.frames += 1;
             return;
         }
@@ -812,9 +782,7 @@ async function bootTakraw() {
         room?.close();
         room = null;
         events?.close();
-        if (replayActive) ui.showReplay(null);
-        replayActive = false;
-        highlight.reset();
+        highlight.stop();
         pendingCommands.length = 0;
         paused = false;
         failed = false;
@@ -936,13 +904,7 @@ async function bootTakraw() {
             },
             step(context) {
                 const begin = performance.now();
-                // 리플레이 기준점: 이 세션의 첫 스텝 직전 상태. 새로 만든 물리 월드와 스냅샷에서 되살린 월드는 계산이 달라지므로,
-                // 실제 경기도 같은 바이트에서 되살려 두 경기를 같은 출발점에 둔다(락스텝 합류와 같은 방식). 세션이 상태를 불러오거나 바꾸면 다시 잡는다.
-                if (TAKRAW_RUNTIME.highlight.modes.includes(mode) && !highlight.anchored) {
-                    const start = codec.encode(game.save()).slice();
-                    game.load(codec.decode(start));
-                    highlight.anchor(start);
-                }
+                highlight.anchorIfNeeded(game, codec, mode);
                 game.step(context);
                 latestView = game.getView();
                 events.emit(context, latestView);
@@ -985,7 +947,7 @@ async function bootTakraw() {
                 Boolean(
                     session?.ready &&
                     !session.failure &&
-                    (online ? session.players.length === 2 : !paused && !replayActive),
+                    (online ? session.players.length === 2 : !paused && !highlight.active),
                 ),
             onAdvance() {
                 feed.publish(latestView);
@@ -993,7 +955,7 @@ async function bootTakraw() {
                 observeMatchResult();
                 observeMetricsMatch();
                 observeWatchLoop(token);
-                observeHighlight();
+                highlight.tryBegin(mode);
             },
             onInputRelease: clearDeviceState,
             onError: (error) => simulationFailed(error),
@@ -1344,13 +1306,7 @@ async function bootTakraw() {
                     averageMs: stats.steps ? stats.simulationMs / stats.steps : 0,
                 },
                 lastContact: events?.lastContact ?? null,
-                highlight: {
-                    anchored: highlight.anchored,
-                    playing: replayActive,
-                    played: highlight.played || 0,
-                    lastLatencyMs: highlight.lastLatencyMs ?? null,
-                    failed: highlight.failed,
-                },
+                highlight: highlight.diagnostics(),
                 errors: diagnostics.errors(),
             };
         },
@@ -1432,7 +1388,7 @@ async function bootTakraw() {
             onCameraReset: resetCamera,
             onInstall: installPwa,
             onPause: setPaused,
-            onReplaySkip: endHighlight,
+            onReplaySkip: () => highlight.end(),
             onQuit: quit,
             onSetting(key, value) {
                 if (key === 'sound') audio?.setMuted(!value);
@@ -1516,8 +1472,8 @@ async function bootTakraw() {
             config,
             onPointer(event) {
                 if (event.type === 'down') audio.unlock();
-                if (event.type === 'down' && replayActive) {
-                    endHighlight();
+                if (event.type === 'down' && highlight.active) {
+                    highlight.end();
                     return;
                 }
                 input.orbit(event, controlsAllowed(), view);
@@ -1612,16 +1568,11 @@ async function bootTakraw() {
                     openMatch(seed, every) {
                         debugMatchSeed = seed;
                         // every: 모든 득점을 리플레이한다(화면 확인용). 판정 기준만 낮추고 재생 방식은 그대로다.
-                        if (every)
-                            highlight.settings = { ...highlight.settings, longRallyTouches: 0 };
+                        if (every) highlight.replayEveryScore();
                         startLocal('match');
                         return mode === 'match';
                     },
-                    readReplay: () => ({
-                        playing: replayActive,
-                        played: highlight.played || 0,
-                        lastLatencyMs: highlight.lastLatencyMs ?? null,
-                    }),
+                    readReplay: () => highlight.replayState(),
                 }),
             });
         }

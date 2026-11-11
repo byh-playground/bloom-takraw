@@ -489,7 +489,7 @@ class MatchSession {
     }
 
     open(nextMode, capability, token) {
-        const { game, view, config } = this;
+        const { game, view } = this;
         this.mode = nextMode;
         const policy = TAKRAW_MODE_POLICY[nextMode],
             flags = TAKRAW_MODES[nextMode];
@@ -519,10 +519,32 @@ class MatchSession {
         this.resetPresentation();
         this.events.replace();
         const online = policy.room;
+        const session = this.createSession(online, capability, recorded, token);
+        this.session = session;
+        const loop = this.createSimLoop(session, token, flags, policy);
+        this.loop = loop;
+        this.pump = this.createPump(token, flags);
+        this.feed.publish(this.latestView, true);
+        loop.observeInput(performance.now());
+        this.pump.start();
+        this.clearStatus();
+        if (online) this.net.sessionOpened(session);
+        else {
+            this.ui.showGame(nextMode);
+            this.ui.canvas.focus({ preventScroll: true });
+            this.net.set({ state: 'idle', code: '', message: '', count: 0 });
+        }
+        this.hud.invalidate();
+        this.audio.unlock();
+    }
+
+    /** open 1단계: 롤백 세션을 만든다. 온라인은 방(capability)에 붙고, 혼자·로컬 2인은 지연 없는 로컬 세션이다. */
+    createSession(online, capability, recorded, token) {
+        const { config } = this;
         const adapter = this.sessionAdapter(online);
         const profile = takrawSessionProfile({ online, tickRate: config.simulation.tickRate });
         this.identitySent = false;
-        const session = createRoomSession({
+        return createRoomSession({
             mode: online ? 'online' : 'local',
             ...(online ? { room: capability } : { localPlayerId: 'local', localFastPath: true }),
             simulationVersion: TAKRAW_VERSION,
@@ -539,8 +561,11 @@ class MatchSession {
             },
             onEvent: (event) => this.onSessionEvent(event, token),
         });
-        this.session = session;
-        const loop = createLoop({
+    }
+
+    /** open 2단계: 세션을 진행하는 시뮬 루프. 진행 조건은 세션 준비·실패 없음·상대 대기(waitsForPeers)·멈춤(holdsSimulation)이다. */
+    createSimLoop(session, token, flags, policy) {
+        return createLoop({
             session,
             rates: {
                 baseHz: TAKRAW_RUNTIME.clock.baseHz,
@@ -571,9 +596,12 @@ class MatchSession {
             },
             render: () => this.render(performance.now()),
         });
-        this.loop = loop;
+    }
+
+    /** open 3단계: 루프 마감에 맞춰 입력·진행·연결 정비를 부르는 pump. 입장 대기 중에는 방 정비만 inputHz로 돈다. */
+    createPump(token, flags) {
         let maintenanceDeadline = null;
-        this.pump = createDeadlineScheduler({
+        return createDeadlineScheduler({
             getDeadlineMs: () => {
                 // 입장 대기는 simulation debt를 따라잡는 시간이 아니다. 방 정비만 60Hz로 유지한다.
                 const current = this.session;
@@ -594,18 +622,6 @@ class MatchSession {
                 this.maintainNetwork(now);
             },
         });
-        this.feed.publish(this.latestView, true);
-        loop.observeInput(performance.now());
-        this.pump.start();
-        this.clearStatus();
-        if (online) this.net.sessionOpened(session);
-        else {
-            this.ui.showGame(nextMode);
-            this.ui.canvas.focus({ preventScroll: true });
-            this.net.set({ state: 'idle', code: '', message: '', count: 0 });
-        }
-        this.hud.invalidate();
-        this.audio.unlock();
     }
 
     /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */

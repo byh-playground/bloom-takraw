@@ -137,7 +137,8 @@ class TakrawTouchControls {
             label = hud.tossReady ? [UI.tossThrow(), UI.tossHint()] : [UI.kick(), UI.kickHint()];
         if (kickButton.dataset.label !== label[0]) {
             kickButton.dataset.label = label[0];
-            kickButton.firstChild.textContent = label[0];
+            // 버튼의 첫 자식은 HTML 들여쓰기 공백 글자 노드라 이름 칸(span)을 직접 고른다.
+            kickButton.querySelector('span').textContent = label[0];
             kickButton.querySelector('small').textContent = label[1];
         }
     }

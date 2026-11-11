@@ -1444,7 +1444,7 @@ async function bootTakraw() {
         const matchSeed = watching
             ? watchSeed
             : nextMode === 'online'
-              ? deterministic.hashBytes(new TextEncoder().encode(String(capability)))
+              ? deterministic.hashBytes(new TextEncoder().encode(capability.room))
               : nextMode === 'training'
                 ? undefined
                 : nextMode === 'match' && debugMatchSeed !== null

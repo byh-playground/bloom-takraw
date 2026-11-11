@@ -110,6 +110,8 @@ const TAKRAW_PHYSICS = Object.freeze({
             rootGain: 6,
             angularSpeed: 2,
             poseStrength: 0.72,
+            // 들어 올리는(lift) 단계의 차는 무릎 굽힘에서 IK 비율. 나머지는 동작 클립의 무릎 굽힘.
+            liftGeometryWeight: 0.75,
         },
     },
     // 블로킹: 공중에서 발차기를 누른 선수의 다리·발이 네트 앞에서 내려꽂히는 공을 맞히면, 발이 휘두르는 방향과 상관없이 네트를 넘겨 되받아친다.
@@ -205,6 +207,11 @@ const TAKRAW_PHYSICS = Object.freeze({
         ankleCompensation: 0.7,
         // 공중 준비 자세가 아닐 때의 공중 몸 방향 잡기 세기(준비 자세는 airReady.bodyStrength).
         airBalance: 0.1,
+        // 공을 위로 차 올리는 지상 발차기(_kickCommand): lead초 뒤 공 위치를 노리고, 수평 성분 비율 horizontal(위 성분 1)의
+        // 방향으로 차며, 공 중심에서 그 방향 반대로 behind만큼 뒤를 발 목표로 둔다. 발 목표는 엉덩이에서 reach까지.
+        groundKick: { lead: 0.04, horizontal: 0.48, behind: 0.045, reach: 0.84 },
+        // 차는 다리(엉덩이·무릎·발목) 관절 모터 세기.
+        kickLegStrength: { air: 0.72, ground: 0.85 },
     },
     // Scale units per second: full extension takes 250 ms, return 500 ms.
     legStretch: { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 },

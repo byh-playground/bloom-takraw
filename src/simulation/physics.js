@@ -1631,7 +1631,8 @@ class TakrawPhysics {
             targetMap['knee' + suffix] = pose.knee;
             if (mode === 'air') {
                 const motion = p.kick.airPlan.motion;
-                const geometryWeight = p.kick.airPlan.phase === 'lift' ? 0.75 : 1;
+                const geometryWeight =
+                    p.kick.airPlan.phase === 'lift' ? s.airKick.motion.liftGeometryWeight : 1;
                 targetMap['knee' + suffix] = [
                     this._clamp(
                         motion.pose.activeKnee[0] * (1 - geometryWeight) +
@@ -1719,7 +1720,7 @@ class TakrawPhysics {
         const s = p.settings;
         const ballPos = this.ball.translation(),
             ballVel = this.ball.linvel();
-        const lead = 0.04;
+        const lead = s.drive.groundKick.lead;
         const predicted = this._add(ballPos, this._mul(ballVel, lead));
         predicted.y -= 0.5 * s.gravity * lead * lead;
         let target,
@@ -1753,11 +1754,11 @@ class TakrawPhysics {
                     { x: p.toward, y: 0, z: 0 },
                 );
                 const kickDirection = this._unit({
-                    x: horizontal.x * 0.48,
+                    x: horizontal.x * s.drive.groundKick.horizontal,
                     y: 1,
-                    z: horizontal.z * 0.48,
+                    z: horizontal.z * s.drive.groundKick.horizontal,
                 });
-                target = this._add(predicted, this._mul(kickDirection, -0.045));
+                target = this._add(predicted, this._mul(kickDirection, -s.drive.groundKick.behind));
                 targetVelocity = this._mul(kickDirection, s.groundKickSpeed);
             }
         }
@@ -1814,7 +1815,7 @@ class TakrawPhysics {
                 );
             }
         } else {
-            const delta = this._limit(this._sub(target, hip), 0.84);
+            const delta = this._limit(this._sub(target, hip), p.settings.drive.groundKick.reach);
             target = this._add(hip, delta);
         }
         command.target = target;
@@ -1850,7 +1851,10 @@ class TakrawPhysics {
                     j.name === 'knee' + p.kick.side ||
                     j.name === 'ankle' + p.kick.side)
             )
-                strength = (mode === 'air' ? 0.72 : 0.85) * muscleResponse;
+                strength =
+                    (mode === 'air'
+                        ? s.drive.kickLegStrength.air
+                        : s.drive.kickLegStrength.ground) * muscleResponse;
             if (
                 orientedFoot &&
                 (j.name === 'ankle' + orientedFoot ||

@@ -44,6 +44,7 @@ import { takrawSoundPayload } from './presentation/sound.js';
 import { takrawUnitStream } from './simulation/random.js';
 import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
+import { TAKRAW_LAUNCH } from './launch.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
 import { roleName } from './i18n/messages/match.js';
@@ -133,11 +134,11 @@ async function bootTakraw() {
     let latestView = null;
     let intro = null;
     let mode = null;
-    const demo = new URLSearchParams(location.search).get('showcaseDemo') === '1';
+    const demo = TAKRAW_LAUNCH.showcaseDemo;
     if (demo) document.body.dataset.showcase = '';
     // 저장소는 여기서만 고른다. 격리 장면(확인용 주소 ?debug, 소개영상 화면 ?showcaseDemo=1)은 모든 저장(팀·소리 설정·방 복귀)을
     // 메모리에만 남겨 실제 저장을 읽지도 쓰지도 않는다. 방 복귀는 탭마다 따로이고 같은 게임 버전끼리만 이어지도록 sessionStorage에 버전을 붙여 둔다.
-    const isolated = demo || new URLSearchParams(location.search).has('debug');
+    const isolated = TAKRAW_LAUNCH.isolated;
     const SAVE_STORES = {
         club: () => indexedDbAdapter({ database: 'bloom-takraw-club', store: 'club' }),
         settings: () => localStorageAdapter({ prefix: 'bloom-takraw:' }),
@@ -234,7 +235,7 @@ async function bootTakraw() {
     // 설치·오프라인 시작(sw.js). 새로고침하면 항상 최신 버전이라 업데이트 알림은 없다. 격리 장면(?debug, ?showcaseDemo=1)과 iframe 안은 등록하지 않는다. 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
     let pwa = null;
     // 다른 페이지의 iframe 안(itch.io 임베드 등)에서는 설치할 수 없고, 같은 출처를 나눠 쓰는 다른 게임과 캐시가 섞일 수 있어 등록하지 않는다.
-    const embedded = window.self !== window.top;
+    const embedded = TAKRAW_LAUNCH.embedded;
     function startPwa() {
         pwa = registerPwa({
             serviceWorker: './sw.js',
@@ -2163,7 +2164,7 @@ async function bootTakraw() {
         const query = new URLSearchParams(location.search),
             watchParam = query.get(TAKRAW_RUNTIME.watch.param);
         if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
-        if (query.has('debug')) {
+        if (TAKRAW_LAUNCH.debug) {
             // 확인용 주소(`?debug=1&scene=…`)일 때만 불러온다. 실시간 구동을 멈추고 가상 시계로 틱을 직접 진행한다.
             const [{ installDebugHost }, { createDebugScenes }] = await Promise.all([
                 import('@bloom-gamekit/debug-tools'),

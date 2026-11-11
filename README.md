@@ -82,7 +82,7 @@ GameKit dist 커밋 `0a0e5e216c45096dd4008e844adb7c3a3f44df3e`(v0.57.0), Three.j
 | 이벤트                                          | 성격           | 지점                                                                                                                |
 | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `fault:simulation:fail`                         | 게임 결함 의심 | 시뮬레이션·루프 예외(`simulationFailed`). 세션 단계가 던진 예외(`fatal`)도 감싸지 않고 원래 예외 그대로 여기로 온다 |
-| `fault:desync:fail`                             | 게임 결함 의심 | 세션 이벤트 `desync-unrecoverable`. 같은 실패의 연결 카드 분류(`desync`)는 지표를 다시 보내지 않는다(v0.17.1~)      |
+| `fault:desync:fail`                             | 게임 결함 의심 | 세션 이벤트 `desync-unrecoverable`. 같은 실패의 연결 카드 분류(`desync`)는 지표를 다시 보내지 않는다(v0.17.2~)      |
 | `fault:sync:fail` `{ phase }`                   | 게임 결함 의심 | 연결 중 경기 상태 검사(부트스트랩·체크포인트·스냅샷) 실패                                                           |
 | `network:relay:fail` `{ phase }`                | 연결 사정      | 중계 서버(Nostr)에 닿지 못함                                                                                        |
 | `network:peer:fail` `{ phase }`                 | 연결 사정      | 친구와 직접 연결(WebRTC·ICE) 실패                                                                                   |

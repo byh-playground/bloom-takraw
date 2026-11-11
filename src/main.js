@@ -1,3 +1,5 @@
+import { TAKRAW_DIAGNOSTIC_NAME } from './config/game.js';
+
 // Load the runtime after the shell so a failed CDN import stays visible.
 // The page text comes first: index.html leaves every data-i18n element empty until LOCALE.applyPage fills it (docs/i18n.md).
 const message = document.getElementById('boot-message');
@@ -14,7 +16,7 @@ try {
     const { bootTakraw } = await import('./runtime.js');
     await bootTakraw();
 } catch (error) {
-    console.error('[BLOOM TAKRAW]', error);
+    console.error(`[${TAKRAW_DIAGNOSTIC_NAME}]`, error);
     document.getElementById('boot-status').className = 'boot-status error';
     // Without the i18n module there is no language to write in; the reload button keeps its ↻ glyph.
     if (!window.__takraw) message.textContent = boot ? boot.failed() : '⚠';

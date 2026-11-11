@@ -1,4 +1,5 @@
 import { createLocale } from '@bloom-gamekit/i18n';
+import { TAKRAW_ID } from '../config/game.js';
 import { TAKRAW_LAUNCH } from '../launch.js';
 
 // 페이지 언어와 모든 화면 문구(docs/i18n.md). 언어는 페이지를 읽을 때 한 번 정하고, 바꾸면 저장한 뒤 새로고침한다.
@@ -7,7 +8,7 @@ import { TAKRAW_LAUNCH } from '../launch.js';
 const LOCALE = createLocale({
     locales: ['ko', 'en'],
     fallback: 'en',
-    storageKey: 'bloom-takraw-locale',
+    storageKey: `${TAKRAW_ID}-locale`,
     isolated: TAKRAW_LAUNCH.isolated,
 });
 /** 언어마다 그 언어로 쓴 이름. 어느 언어 화면에서도 그대로 보인다. */

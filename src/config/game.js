@@ -1,10 +1,18 @@
+// 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_VERSION = '0.17.0';
-// 게임 이름의 단일 출처(TextPair). 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일과의 일치(index.html은 en, README·AGENTS·package.json은 ko)는 scripts/check.cjs가 검사한다.
+// 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
+//   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
+//   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
+//   TAKRAW_DIAGNOSTIC_NAME: 진단 글·콘솔 머리글의 영어 대문자 제품 이름.
+// 정적 파일과의 일치(index.html은 en, README·AGENTS·package.json은 ko)는 scripts/check.cjs가 검사한다.
 const TAKRAW_GAME_NAME = Object.freeze({ ko: '발 배구', en: 'Takraw' });
 const TAKRAW_PRODUCT_NAME = Object.freeze({
     ko: `블룸 ${TAKRAW_GAME_NAME.ko}`,
     en: `Bloom ${TAKRAW_GAME_NAME.en}`,
 });
+const TAKRAW_DIAGNOSTIC_NAME = TAKRAW_PRODUCT_NAME.en.toUpperCase();
+// 저장·방·지표가 이 게임을 가리키는 식별자. 화면 이름이 아니라서 바꾸면 기존 저장·방 복귀·지표가 끊긴다.
+const TAKRAW_ID = 'bloom-takraw';
 
 /**
  * 능력치 → 경기 효과의 단일 공식(경기와 팀 관리 화면이 같이 읽는다).
@@ -709,6 +717,8 @@ export {
     TAKRAW_VERSION,
     TAKRAW_GAME_NAME,
     TAKRAW_PRODUCT_NAME,
+    TAKRAW_DIAGNOSTIC_NAME,
+    TAKRAW_ID,
     TAKRAW_CONFIG,
     takrawAthleteEffects,
 };

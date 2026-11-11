@@ -29,7 +29,13 @@ import {
 } from '@bloom-gamekit/metrics';
 import { DiagnosticRing, redactDiagnostic } from '@bloom-gamekit/debug-tools';
 
-import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
+import {
+    TAKRAW_VERSION,
+    TAKRAW_PRODUCT_NAME,
+    TAKRAW_DIAGNOSTIC_NAME,
+    TAKRAW_ID,
+    TAKRAW_CONFIG,
+} from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
@@ -140,18 +146,18 @@ async function bootTakraw() {
     // 메모리에만 남겨 실제 저장을 읽지도 쓰지도 않는다. 방 복귀는 탭마다 따로이고 같은 게임 버전끼리만 이어지도록 sessionStorage에 버전을 붙여 둔다.
     const isolated = TAKRAW_LAUNCH.isolated;
     const SAVE_STORES = {
-        club: () => indexedDbAdapter({ database: 'bloom-takraw-club', store: 'club' }),
-        settings: () => localStorageAdapter({ prefix: 'bloom-takraw:' }),
+        club: () => indexedDbAdapter({ database: `${TAKRAW_ID}-club`, store: 'club' }),
+        settings: () => localStorageAdapter({ prefix: `${TAKRAW_ID}:` }),
         resume: () =>
             localStorageAdapter({
                 storage: sessionStorage,
-                prefix: `bloom-takraw:${TAKRAW_VERSION}:`,
+                prefix: `${TAKRAW_ID}:${TAKRAW_VERSION}:`,
             }),
     };
     const saveAdapter = (store) => (isolated ? memoryAdapter() : SAVE_STORES[store]());
     // 지표도 격리 장면에서는 메모리에만 남긴다. 개발자 본인 플레이는 수집 서버가 접속 키로 나중에 거른다.
     const metrics = createMetrics({
-        game: 'bloom-takraw',
+        game: TAKRAW_ID,
         version: TAKRAW_VERSION,
         locale: LOCALE.locale,
         adapter: isolated ? new MemoryAdapter() : new HttpAdapter(TAKRAW_RUNTIME.metrics.endpoint),
@@ -342,7 +348,7 @@ async function bootTakraw() {
         connection.history.push(entry);
         if (connection.history.length > 28) connection.history.shift();
         setNetwork({
-            diagnostics: `BLOOM TAKRAW ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}`,
+            diagnostics: `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}`,
         });
     }
 
@@ -426,7 +432,7 @@ async function bootTakraw() {
      */
     function diagnosticReport() {
         const state = [
-            `BLOOM TAKRAW ${TAKRAW_VERSION}`,
+            `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION}`,
             `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
             `locale=${LOCALE.locale} viewport=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} touch=${matchMedia('(pointer: coarse)').matches}`,
             `ua=${navigator.userAgent}`,

@@ -90,5 +90,15 @@ requireCondition(
     ),
     `package.json 설명이 ${productName}과 다르다`,
 );
+// 제품 버전은 package.json과 src/config/game.js(TAKRAW_VERSION) 두 곳에 있다. 빌드 단계가 없어 한 곳에서 읽을 수 없으므로 일치를 검사한다.
+const [sourceVersion] = fs
+    .readFileSync(path.join(root, 'src/config/game.js'), 'utf8')
+    .match(/const TAKRAW_VERSION = '([^']+)'/)
+    .slice(1);
+const packageVersion = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
+requireCondition(
+    sourceVersion === packageVersion,
+    `버전이 다르다: package.json ${packageVersion}, src/config/game.js ${sourceVersion}`,
+);
 execFileSync(process.execPath, ['--check', path.join(root, 'playwright.config.js')]);
 console.log('Source syntax, native import paths, and pinned dependency links are valid.');

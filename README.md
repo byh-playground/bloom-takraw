@@ -53,44 +53,44 @@ GameKit dist 커밋 `bbd03f6e18068fc51f44df7e4389a2cc6d437829`(v0.56.0), Three.j
 
 [gamekit metrics](https://github.com/byh-playground/bloom-gamekit/blob/main/modules/metrics/README.md)로 플레이 시간·행동 이벤트·경기 기록을 수집 서버(`TAKRAW_RUNTIME.metrics.endpoint`)에 보냅니다. 격리 장면(`?debug`, `?showcaseDemo=1`)은 메모리에만 남깁니다. 개발자 본인 플레이는 서버가 접속 키로 나중에 거르므로 게임 쪽 표시는 없습니다. 값의 뜻이 바뀌면 게임 버전을 올립니다(집계는 `build`로 나눕니다).
 
-| category | target | action | 언제 |
-| --- | --- | --- | --- |
-| `menu` | `match`·`local`·`training`·`watch`·`online` | `click` | 시작 메뉴 버튼 |
-| `menu` | `campaign` | `click` | 도장깨기 학교 선택. props `{ schoolId }` |
-| `menu` | `watch_seed` | `click` | 관전 시드 입력·추천·무작위 |
-| `match` | 모드(`match`·`local`·`training`·`watch`·`online`) | `start` | 경기 시작. 온라인은 두 사람이 모였을 때 |
-| `match` | 모드 | `restart`·`quit` | 다시 하기·연습 재시도, 메뉴에서 나가기 |
-| `online` | `host`·`join`·`resume` | `click` | 방 만들기·입장·재접속 |
-| `club` | 클럽 동작(`rename`·`assign`·`train`·`draw` 등) | `click` | 팀 관리 |
-| `fault`·`network`·`unsupported` | 아래 표 | `fail`·`block` | 놀이를 멈춘 실패를 성격별로. props `{ mode }`(메뉴면 `menu`), 연결 원인 이벤트(`network`·`fault:sync`·`unsupported:version`)는 `phase`도. 오류 메시지·스택은 보내지 않습니다 |
+| category                        | target                                            | action           | 언제                                                                                                                                                                         |
+| ------------------------------- | ------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `menu`                          | `match`·`local`·`training`·`watch`·`online`       | `click`          | 시작 메뉴 버튼                                                                                                                                                               |
+| `menu`                          | `campaign`                                        | `click`          | 도장깨기 학교 선택. props `{ schoolId }`                                                                                                                                     |
+| `menu`                          | `watch_seed`                                      | `click`          | 관전 시드 입력·추천·무작위                                                                                                                                                   |
+| `match`                         | 모드(`match`·`local`·`training`·`watch`·`online`) | `start`          | 경기 시작. 온라인은 두 사람이 모였을 때                                                                                                                                      |
+| `match`                         | 모드                                              | `restart`·`quit` | 다시 하기·연습 재시도, 메뉴에서 나가기                                                                                                                                       |
+| `online`                        | `host`·`join`·`resume`                            | `click`          | 방 만들기·입장·재접속                                                                                                                                                        |
+| `club`                          | 클럽 동작(`rename`·`assign`·`train`·`draw` 등)    | `click`          | 팀 관리                                                                                                                                                                      |
+| `fault`·`network`·`unsupported` | 아래 표                                           | `fail`·`block`   | 놀이를 멈춘 실패를 성격별로. props `{ mode }`(메뉴면 `menu`), 연결 원인 이벤트(`network`·`fault:sync`·`unsupported:version`)는 `phase`도. 오류 메시지·스택은 보내지 않습니다 |
 
 세션 시작(`session_start`)에는 모듈이 언어(`LOCALE.locale`)·화면 크기 구간·터치 여부를 붙입니다(gamekit v0.46.2).
 
-| 이벤트 | 성격 | 지점 |
-| --- | --- | --- |
-| `fault:simulation:fail` | 게임 결함 의심 | 시뮬레이션·루프 예외(`simulationFailed`). 세션 단계가 던진 예외(`fatal`)도 감싸지 않고 원래 예외 그대로 여기로 온다 |
-| `fault:desync:fail` | 게임 결함 의심 | 세션 이벤트 `desync-unrecoverable` |
-| `fault:sync:fail` `{ phase }` | 게임 결함 의심 | 연결 중 경기 상태 검사(부트스트랩·체크포인트·스냅샷) 실패 |
-| `network:relay:fail` `{ phase }` | 연결 사정 | 중계 서버(Nostr)에 닿지 못함 |
-| `network:peer:fail` `{ phase }` | 연결 사정 | 친구와 직접 연결(WebRTC·ICE) 실패 |
-| `network:secure:fail` `{ phase }` | 연결 사정 | 보안 컨텍스트·WebCrypto 문제 |
-| `network:other:fail` `{ phase }` | 연결 사정 | 위에 맞지 않는 연결 오류 |
-| `network:timeout:fail` `{ phase: 'handshake' }` | 연결 사정 | 연결은 됐지만 시간 안에 경기 상태를 못 맞춤 |
-| `unsupported:version:block` `{ phase }` | 환경 | 두 게임 버전이 달라 맞출 수 없음(새로고침으로 같은 버전을 받으면 해소) |
-| `unsupported:browser:block` | 환경 | 보안 연결·암호화·WebSocket·WebRTC 중 하나가 없는 브라우저 |
+| 이벤트                                          | 성격           | 지점                                                                                                                |
+| ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `fault:simulation:fail`                         | 게임 결함 의심 | 시뮬레이션·루프 예외(`simulationFailed`). 세션 단계가 던진 예외(`fatal`)도 감싸지 않고 원래 예외 그대로 여기로 온다 |
+| `fault:desync:fail`                             | 게임 결함 의심 | 세션 이벤트 `desync-unrecoverable`                                                                                  |
+| `fault:sync:fail` `{ phase }`                   | 게임 결함 의심 | 연결 중 경기 상태 검사(부트스트랩·체크포인트·스냅샷) 실패                                                           |
+| `network:relay:fail` `{ phase }`                | 연결 사정      | 중계 서버(Nostr)에 닿지 못함                                                                                        |
+| `network:peer:fail` `{ phase }`                 | 연결 사정      | 친구와 직접 연결(WebRTC·ICE) 실패                                                                                   |
+| `network:secure:fail` `{ phase }`               | 연결 사정      | 보안 컨텍스트·WebCrypto 문제                                                                                        |
+| `network:other:fail` `{ phase }`                | 연결 사정      | 위에 맞지 않는 연결 오류                                                                                            |
+| `network:timeout:fail` `{ phase: 'handshake' }` | 연결 사정      | 연결은 됐지만 시간 안에 경기 상태를 못 맞춤                                                                         |
+| `unsupported:version:block` `{ phase }`         | 환경           | 두 게임 버전이 달라 맞출 수 없음(새로고침으로 같은 버전을 받으면 해소)                                              |
+| `unsupported:browser:block`                     | 환경           | 보안 연결·암호화·WebSocket·WebRTC 중 하나가 없는 브라우저                                                           |
 
 `phase`는 `connect`(방 만들기·입장 중)·`session`(온라인 세션 중)·`handshake`(시간 초과)입니다. 원인은 화면 오류 문구·단계 이름과 같은 분류(`connectionCause`) `secure`·`sync`·`version`·`relay`·`peer`·`other`이고, 지표는 원인의 성격(결함 의심·연결 사정·환경)으로 나눠 보냅니다. `version`은 게임 결함도 연결 사정도 아니라 이 두 사람의 버전 조합 문제라 `unsupported`로 둡니다. v0.15.6~0.15.7 빌드는 같은 지점을 `error:<kind>:fail`로 보냈습니다(D1에는 원본 그대로 남음). 놀이가 계속되는 실패(소리·저장·보상·PWA)와 부팅 실패(지표 생성 전)는 보내지 않습니다.
 
 경기 기록은 `match`(도장깨기·AI 대전)·`local`(2인)·`online` 경기가 끝날 때 하나씩 남깁니다(관전·연습 제외). rollback `RoomSession`의 `recordReplay` 기록(`SessionReplayRecorder`)이라 같은 게임 버전에서 `playReplay`로 다시 계산할 수 있습니다. 온라인은 예측한 끝이 확정된 뒤에 남기고, 두 사람이 같은 `matchId`(`방 세션:roster 세대:그 세대의 순번`)를 보내 한 행만 남습니다.
 
-| summary 키 | 뜻 |
-| --- | --- |
-| `winner` | 이긴 팀(0 홈, 1 원정) |
-| `sets`·`score` | 끝난 순간의 세트·점수 |
-| `ticks` | 경기 시뮬레이션 tick(60Hz) |
-| `seed` | 경기 변주 시드(`state.seed`). 기록의 시드는 세션 시드입니다 |
-| `schoolId` | `match`만: 도장깨기 상대 학교, AI 대전은 `null` |
-| `localTeam` | `online`만: 보낸 사람의 팀 |
+| summary 키     | 뜻                                                          |
+| -------------- | ----------------------------------------------------------- |
+| `winner`       | 이긴 팀(0 홈, 1 원정)                                       |
+| `sets`·`score` | 끝난 순간의 세트·점수                                       |
+| `ticks`        | 경기 시뮬레이션 tick(60Hz)                                  |
+| `seed`         | 경기 변주 시드(`state.seed`). 기록의 시드는 세션 시드입니다 |
+| `schoolId`     | `match`만: 도장깨기 상대 학교, AI 대전은 `null`             |
+| `localTeam`    | `online`만: 보낸 사람의 팀                                  |
 
 ## 검사
 

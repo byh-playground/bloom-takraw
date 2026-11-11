@@ -1,161 +1,533 @@
-<!DOCTYPE html>
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <!-- bloom-pwa:start -->
-  <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#e8eee3" />
-  <meta name="description" content="Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play." />
-  <link rel="icon" type="image/png" sizes="192x192" href="pwa/icon-192.png" />
-  <link rel="apple-touch-icon" href="pwa/apple-touch-icon.png" />
-  <meta name="apple-mobile-web-app-title" content="Takraw" />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://byh-playground.github.io/bloom-takraw/" />
-  <meta property="og:title" content="Bloom Takraw" />
-  <meta property="og:description" content="Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play." />
-  <meta property="og:image" content="https://byh-playground.github.io/bloom-takraw/pwa/share.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <!-- bloom-pwa:end -->
-  <title>Bloom Takraw</title>
-  <link rel="stylesheet" href="./styles/app.css">
-</head>
-<body class="is-home" data-mode="home" data-home-view="main">
-  <div id="app">
-    <canvas id="court-canvas" data-i18n-aria-label="courtLabel" tabindex="0" data-engine="three.js r180" width="1680" height="949" style="touch-action: none;"></canvas>
-    <div class="scene-shade" aria-hidden="true"></div>
-    <header class="site-header">
-      <button id="home-back" class="home-back" type="button" hidden><span aria-hidden="true">←</span> <span data-i18n="back"></span></button>
-      <a class="wordmark" href="#/" data-i18n-aria-label="wordmarkLabel">
-        <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
-        <span><b data-i18n="brandBloom"></b><small data-i18n="brandGame"></small></span>
-      </a>
-      <nav class="header-actions" data-i18n-aria-label="gameMenu">
-        <button id="settings-button" class="icon-button" type="button" data-i18n-aria-label="settings" data-i18n-title="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"></path></svg><span class="icon-label" data-i18n="settings"></span></button>
-        <button id="pause-button" class="icon-button in-game" type="button" data-i18n-aria-label="pause" data-i18n-title="pause"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6v12m6-12v12"></path></svg></button>
-      </nav>
-    </header>
+        <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+        <!-- bloom-pwa:start -->
+        <link rel="manifest" href="manifest.webmanifest" />
+        <meta name="theme-color" content="#e8eee3" />
+        <meta
+            name="description"
+            content="Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play."
+        />
+        <link rel="icon" type="image/png" sizes="192x192" href="pwa/icon-192.png" />
+        <link rel="apple-touch-icon" href="pwa/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-title" content="Takraw" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://byh-playground.github.io/bloom-takraw/" />
+        <meta property="og:title" content="Bloom Takraw" />
+        <meta
+            property="og:description"
+            content="Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play."
+        />
+        <meta
+            property="og:image"
+            content="https://byh-playground.github.io/bloom-takraw/pwa/share.png"
+        />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <!-- bloom-pwa:end -->
+        <title>Bloom Takraw</title>
+        <link rel="stylesheet" href="./styles/app.css" />
+    </head>
+    <body class="is-home" data-mode="home" data-home-view="main">
+        <div id="app">
+            <canvas
+                id="court-canvas"
+                data-i18n-aria-label="courtLabel"
+                tabindex="0"
+                data-engine="three.js r180"
+                width="1680"
+                height="949"
+                style="touch-action: none"
+            ></canvas>
+            <div class="scene-shade" aria-hidden="true"></div>
+            <header class="site-header">
+                <button id="home-back" class="home-back" type="button" hidden>
+                    <span aria-hidden="true">←</span> <span data-i18n="back"></span>
+                </button>
+                <a class="wordmark" href="#/" data-i18n-aria-label="wordmarkLabel">
+                    <span class="brand-symbol" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <span><b data-i18n="brandBloom"></b><small data-i18n="brandGame"></small></span>
+                </a>
+                <nav class="header-actions" data-i18n-aria-label="gameMenu">
+                    <button
+                        id="settings-button"
+                        class="icon-button"
+                        type="button"
+                        data-i18n-aria-label="settings"
+                        data-i18n-title="settings"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M4 7h16M4 17h16M8 4v6m8 4v6"></path></svg
+                        ><span class="icon-label" data-i18n="settings"></span>
+                    </button>
+                    <button
+                        id="pause-button"
+                        class="icon-button in-game"
+                        type="button"
+                        data-i18n-aria-label="pause"
+                        data-i18n-title="pause"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M9 6v12m6-12v12"></path>
+                        </svg>
+                    </button>
+                </nav>
+            </header>
 
-    <main id="home-panel" class="home-panel">
-      <div class="eyebrow"><span class="live-dot"></span> <span data-i18n="eyebrow"></span></div>
-      <h1><span data-i18n="heroLead"></span><br><em data-i18n="heroEmphasis"></em></h1>
-      <p class="home-description"><span data-i18n="homeDescriptionA"></span><br><span data-i18n="homeDescriptionB"></span></p>
-      <div class="mode-buttons" data-home-view="main">
-        <button id="open-start" class="primary-button" type="button" data-home-go="start"><span><small data-i18n="startHint"></small><span data-i18n="start"></span></span><span class="button-arrow" aria-hidden="true">→</span></button>
-        <button id="open-club" class="mode-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"></circle><path d="M3 20v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5v1"></path></svg><span><span data-i18n="club"></span><small id="club-home-summary"></small></span></button>
-      </div>
-      <div class="mode-buttons" data-home-view="start" hidden>
-        <h2 class="mode-title" data-i18n="start"></h2>
-        <button id="open-campaign" class="primary-button" type="button"><span><small data-i18n="campaignHint"></small><span data-i18n="campaign"></span></span><span class="button-arrow" aria-hidden="true">→</span></button>
-        <button id="start-match" data-start-mode="match" class="mode-button start-button" type="button"><span><span data-i18n="match"></span><small data-i18n="matchHint"></small></span></button>
-        <button id="start-training" data-start-mode="training" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3m0 14v3M2 12h3m14 0h3"></path></svg><span><span data-i18n="training"></span><small data-i18n="trainingHint"></small></span></button>
-        <button id="open-multi" class="mode-button" type="button" data-home-go="multi"><span class="network-icon" aria-hidden="true">＋</span><span><span data-i18n="multi"></span><small data-i18n="multiHint"></small></span><span class="more-arrow" aria-hidden="true">→</span></button>
-      </div>
-      <div class="mode-buttons mode-list" data-home-view="multi" hidden>
-        <h2 class="mode-title" data-i18n="multi"></h2>
-        <button id="open-network" data-start-mode="online" class="mode-button start-button" type="button"><span class="network-icon" aria-hidden="true">↔</span><span><span data-i18n="online"></span><small data-i18n="onlineHint"></small></span></button>
-        <button id="start-local" data-start-mode="local" class="mode-button start-button" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M2 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 6"></path></svg><span><span data-i18n="local"></span><small data-i18n="localHint"></small></span></button>
-        <button id="start-watch" data-start-mode="watch" class="mode-button start-button" type="button"><span class="network-icon" aria-hidden="true">▷</span><span><span data-i18n="watch"></span><small data-i18n="watchHint"></small></span></button>
-      </div>
-      <div id="boot-status" class="boot-status" role="status"><span class="loading-dot"></span><span id="boot-message"></span><button id="reload-button" type="button" hidden=""><span aria-hidden="true">↻</span> <span data-i18n="reload"></span></button></div>
-      <p class="home-touch-controls" data-i18n="touchControls"></p>
-      <p class="home-controls"><kbd>W A S D</kbd> <i data-i18n="move"></i> <span></span><kbd>Space</kbd> <i data-i18n="jump"></i> <span></span><kbd data-i18n="leftClick"></kbd> <i data-i18n="kick"></i></p>
-    </main>
+            <main id="home-panel" class="home-panel">
+                <div class="eyebrow">
+                    <span class="live-dot"></span> <span data-i18n="eyebrow"></span>
+                </div>
+                <h1><span data-i18n="heroLead"></span><br /><em data-i18n="heroEmphasis"></em></h1>
+                <p class="home-description">
+                    <span data-i18n="homeDescriptionA"></span><br /><span
+                        data-i18n="homeDescriptionB"
+                    ></span>
+                </p>
+                <div class="mode-buttons" data-home-view="main">
+                    <button
+                        id="open-start"
+                        class="primary-button"
+                        type="button"
+                        data-home-go="start"
+                    >
+                        <span
+                            ><small data-i18n="startHint"></small
+                            ><span data-i18n="start"></span></span
+                        ><span class="button-arrow" aria-hidden="true">→</span>
+                    </button>
+                    <button id="open-club" class="mode-button" type="button">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="9" cy="7" r="3"></circle>
+                            <path
+                                d="M3 20v-3a6 6 0 0 1 12 0v3M17 5a3 3 0 0 1 0 6m1 3a5 5 0 0 1 3 5v1"
+                            ></path></svg
+                        ><span
+                            ><span data-i18n="club"></span><small id="club-home-summary"></small
+                        ></span>
+                    </button>
+                </div>
+                <div class="mode-buttons" data-home-view="start" hidden>
+                    <h2 class="mode-title" data-i18n="start"></h2>
+                    <button id="open-campaign" class="primary-button" type="button">
+                        <span
+                            ><small data-i18n="campaignHint"></small
+                            ><span data-i18n="campaign"></span></span
+                        ><span class="button-arrow" aria-hidden="true">→</span>
+                    </button>
+                    <button
+                        id="start-match"
+                        data-start-mode="match"
+                        class="mode-button start-button"
+                        type="button"
+                    >
+                        <span
+                            ><span data-i18n="match"></span><small data-i18n="matchHint"></small
+                        ></span>
+                    </button>
+                    <button
+                        id="start-training"
+                        data-start-mode="training"
+                        class="mode-button start-button"
+                        type="button"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="12" r="7"></circle>
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M12 2v3m0 14v3M2 12h3m14 0h3"></path></svg
+                        ><span
+                            ><span data-i18n="training"></span
+                            ><small data-i18n="trainingHint"></small
+                        ></span>
+                    </button>
+                    <button id="open-multi" class="mode-button" type="button" data-home-go="multi">
+                        <span class="network-icon" aria-hidden="true">＋</span
+                        ><span
+                            ><span data-i18n="multi"></span
+                            ><small data-i18n="multiHint"></small></span
+                        ><span class="more-arrow" aria-hidden="true">→</span>
+                    </button>
+                </div>
+                <div class="mode-buttons mode-list" data-home-view="multi" hidden>
+                    <h2 class="mode-title" data-i18n="multi"></h2>
+                    <button
+                        id="open-network"
+                        data-start-mode="online"
+                        class="mode-button start-button"
+                        type="button"
+                    >
+                        <span class="network-icon" aria-hidden="true">↔</span
+                        ><span
+                            ><span data-i18n="online"></span><small data-i18n="onlineHint"></small
+                        ></span>
+                    </button>
+                    <button
+                        id="start-local"
+                        data-start-mode="local"
+                        class="mode-button start-button"
+                        type="button"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="8" cy="8" r="3"></circle>
+                            <path
+                                d="M2 20v-2a6 6 0 0 1 12 0v2M16 5a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 6"
+                            ></path></svg
+                        ><span
+                            ><span data-i18n="local"></span><small data-i18n="localHint"></small
+                        ></span>
+                    </button>
+                    <button
+                        id="start-watch"
+                        data-start-mode="watch"
+                        class="mode-button start-button"
+                        type="button"
+                    >
+                        <span class="network-icon" aria-hidden="true">▷</span
+                        ><span
+                            ><span data-i18n="watch"></span><small data-i18n="watchHint"></small
+                        ></span>
+                    </button>
+                </div>
+                <div id="boot-status" class="boot-status" role="status">
+                    <span class="loading-dot"></span><span id="boot-message"></span
+                    ><button id="reload-button" type="button" hidden="">
+                        <span aria-hidden="true">↻</span> <span data-i18n="reload"></span>
+                    </button>
+                </div>
+                <p class="home-touch-controls" data-i18n="touchControls"></p>
+                <p class="home-controls">
+                    <kbd>W A S D</kbd> <i data-i18n="move"></i> <span></span><kbd>Space</kbd>
+                    <i data-i18n="jump"></i> <span></span><kbd data-i18n="leftClick"></kbd>
+                    <i data-i18n="kick"></i>
+                </p>
+            </main>
 
-    <section id="match-hud" class="match-hud" data-i18n-aria-label="matchStatus" hidden="">
-      <div class="scoreboard">
-        <div class="score-team team-mint"><div class="team-name"><span class="team-label" id="team-label-0"></span><b class="me-badge" data-i18n="me"></b></div><div class="set-marks" id="sets-0" data-i18n-aria-label="setsWon"><i></i><i></i></div></div>
-        <strong id="score-0" class="score-number">0</strong>
-        <div class="score-middle"><span id="match-type"></span><span id="set-number"></span></div>
-        <strong id="score-1" class="score-number">0</strong>
-        <div class="score-team team-coral"><div class="team-name"><span class="team-label" id="team-label-1"></span><b class="me-badge" data-i18n="me"></b></div><div class="set-marks" id="sets-1" data-i18n-aria-label="setsWon"><i></i><i></i></div></div>
-      </div>
-      <div id="match-banner" class="match-banner" role="status" aria-live="polite" hidden></div>
-      <div class="rally-strip">
-        <div class="rally-status-row"><span id="rally-status"></span><span class="strip-divider"></span><span id="touch-indicator"><span id="touch-team"></span> <b>0</b><i>/ 3</i></span></div>
-        <div id="rally-callout" class="rally-callout" data-tone="neutral" role="status" aria-live="polite" aria-atomic="true" hidden=""><strong id="rally-notice"></strong><span id="rally-detail"></span></div>
-        <div id="timing-badge" class="timing-badge" data-grade="normal" role="status" aria-live="polite" aria-atomic="true" hidden><strong id="timing-grade"></strong><span id="timing-offset"></span></div>
-        <div id="hit-pop" class="hit-pop" data-team="0" aria-hidden="true" hidden></div>
-      </div>
-      <div class="player-panel"><span class="player-avatar" aria-hidden="true"><i></i></span><div><small data-i18n="myPlayer"></small><strong id="selected-name"></strong><span id="selected-state"></span></div></div>
-      <div class="drive-feedback"><span id="jump-light"><i></i><span data-i18n="jump"></span></span><span id="kick-light"><i></i><span data-i18n="kick"></span></span><span id="toss-meter" hidden><b data-i18n="tossMeter"></b><u><i></i></u></span></div>
-      <div class="bottom-guide"><span><kbd>W A S D</kbd> <i data-i18n="move"></i></span><span><kbd>Space</kbd> <i data-i18n="holdHigher"></i></span><span><kbd data-i18n="leftClick"></kbd> <i data-i18n="holdPower"></i></span><span><kbd data-i18n="rightDrag"></kbd> <i data-i18n="camera"></i> · <kbd>C</kbd> <i data-i18n="cameraReset"></i></span></div>
-      <div id="local-guide" class="local-guide" hidden="">2P · <i data-i18n="attacker"></i> <kbd data-i18n="arrowKeys"></kbd> <i data-i18n="move"></i> <kbd>Enter</kbd> <i data-i18n="jump"></i> <kbd data-i18n="rightShift"></kbd> <i data-i18n="kick"></i></div>
-      <div id="replay-overlay" class="replay-overlay" hidden><span class="replay-tag"><b data-i18n="replay"></b><span id="replay-reason"></span></span><button id="replay-skip" type="button" class="replay-skip"><span data-i18n="skip"></span> <kbd>Space</kbd></button></div>
-      <div id="end-actions" class="end-actions" hidden=""><strong id="match-result"></strong><span id="school-result" hidden></span><span id="match-reward" role="status"></span><button id="reward-retry" type="button" class="secondary-small" hidden="" data-i18n="rewardRetry"></button><button id="rematch-button" type="button" class="primary-small" aria-describedby="rematch-hint" data-i18n="rematch"></button><button id="result-home" type="button" class="secondary-small" data-i18n="home"></button><span id="rematch-hint" class="rematch-hint" hidden="" data-i18n="rematchHostOnly"></span></div>
-      <section id="training-actions" class="training-actions" data-i18n-aria-label="trainingGuide" hidden="">
-        <div class="training-heading"><span data-i18n="trainingLesson"></span><span id="training-count"></span></div>
-        <label class="training-lessons" for="training-lesson"><span data-i18n="lessonLabel"></span><select id="training-lesson" data-i18n-aria-label="lessonLabel"></select></label>
-        <label class="training-lessons training-tempo" for="training-tempo"><span data-i18n="tempoLabel"></span><select id="training-tempo" data-i18n-aria-label="tempoLabel"></select></label>
-        <p id="training-sequence" class="training-sequence"></p>
-        <div id="training-coach" class="training-coach" data-tone="neutral">
-          <span id="training-stage" class="training-stage"></span>
-          <strong id="training-cue" aria-live="polite" aria-atomic="true"></strong>
-          <p id="training-detail"></p>
-          <p id="training-motion" class="training-motion"></p>
-          <div id="training-timing" class="training-timing" role="progressbar" data-i18n-aria-label="trainingTiming" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i><span></span></div>
-          <div class="training-timing-labels"><span id="training-timing-label"></span><span id="training-successes"></span></div>
+            <section id="match-hud" class="match-hud" data-i18n-aria-label="matchStatus" hidden="">
+                <div class="scoreboard">
+                    <div class="score-team team-mint">
+                        <div class="team-name">
+                            <span class="team-label" id="team-label-0"></span
+                            ><b class="me-badge" data-i18n="me"></b>
+                        </div>
+                        <div class="set-marks" id="sets-0" data-i18n-aria-label="setsWon">
+                            <i></i><i></i>
+                        </div>
+                    </div>
+                    <strong id="score-0" class="score-number">0</strong>
+                    <div class="score-middle">
+                        <span id="match-type"></span><span id="set-number"></span>
+                    </div>
+                    <strong id="score-1" class="score-number">0</strong>
+                    <div class="score-team team-coral">
+                        <div class="team-name">
+                            <span class="team-label" id="team-label-1"></span
+                            ><b class="me-badge" data-i18n="me"></b>
+                        </div>
+                        <div class="set-marks" id="sets-1" data-i18n-aria-label="setsWon">
+                            <i></i><i></i>
+                        </div>
+                    </div>
+                </div>
+                <div
+                    id="match-banner"
+                    class="match-banner"
+                    role="status"
+                    aria-live="polite"
+                    hidden
+                ></div>
+                <div class="rally-strip">
+                    <div class="rally-status-row">
+                        <span id="rally-status"></span><span class="strip-divider"></span
+                        ><span id="touch-indicator"
+                            ><span id="touch-team"></span> <b>0</b><i>/ 3</i></span
+                        >
+                    </div>
+                    <div
+                        id="rally-callout"
+                        class="rally-callout"
+                        data-tone="neutral"
+                        role="status"
+                        aria-live="polite"
+                        aria-atomic="true"
+                        hidden=""
+                    >
+                        <strong id="rally-notice"></strong><span id="rally-detail"></span>
+                    </div>
+                    <div
+                        id="timing-badge"
+                        class="timing-badge"
+                        data-grade="normal"
+                        role="status"
+                        aria-live="polite"
+                        aria-atomic="true"
+                        hidden
+                    >
+                        <strong id="timing-grade"></strong><span id="timing-offset"></span>
+                    </div>
+                    <div id="hit-pop" class="hit-pop" data-team="0" aria-hidden="true" hidden></div>
+                </div>
+                <div class="player-panel">
+                    <span class="player-avatar" aria-hidden="true"><i></i></span>
+                    <div>
+                        <small data-i18n="myPlayer"></small><strong id="selected-name"></strong
+                        ><span id="selected-state"></span>
+                    </div>
+                </div>
+                <div class="drive-feedback">
+                    <span id="jump-light"><i></i><span data-i18n="jump"></span></span
+                    ><span id="kick-light"><i></i><span data-i18n="kick"></span></span
+                    ><span id="toss-meter" hidden
+                        ><b data-i18n="tossMeter"></b><u><i></i></u
+                    ></span>
+                </div>
+                <div class="bottom-guide">
+                    <span><kbd>W A S D</kbd> <i data-i18n="move"></i></span
+                    ><span><kbd>Space</kbd> <i data-i18n="holdHigher"></i></span
+                    ><span><kbd data-i18n="leftClick"></kbd> <i data-i18n="holdPower"></i></span
+                    ><span
+                        ><kbd data-i18n="rightDrag"></kbd> <i data-i18n="camera"></i> · <kbd>C</kbd>
+                        <i data-i18n="cameraReset"></i
+                    ></span>
+                </div>
+                <div id="local-guide" class="local-guide" hidden="">
+                    2P · <i data-i18n="attacker"></i> <kbd data-i18n="arrowKeys"></kbd>
+                    <i data-i18n="move"></i> <kbd>Enter</kbd> <i data-i18n="jump"></i>
+                    <kbd data-i18n="rightShift"></kbd> <i data-i18n="kick"></i>
+                </div>
+                <div id="replay-overlay" class="replay-overlay" hidden>
+                    <span class="replay-tag"
+                        ><b data-i18n="replay"></b><span id="replay-reason"></span></span
+                    ><button id="replay-skip" type="button" class="replay-skip">
+                        <span data-i18n="skip"></span> <kbd>Space</kbd>
+                    </button>
+                </div>
+                <div id="end-actions" class="end-actions" hidden="">
+                    <strong id="match-result"></strong><span id="school-result" hidden></span
+                    ><span id="match-reward" role="status"></span
+                    ><button
+                        id="reward-retry"
+                        type="button"
+                        class="secondary-small"
+                        hidden=""
+                        data-i18n="rewardRetry"
+                    ></button
+                    ><button
+                        id="rematch-button"
+                        type="button"
+                        class="primary-small"
+                        aria-describedby="rematch-hint"
+                        data-i18n="rematch"
+                    ></button
+                    ><button
+                        id="result-home"
+                        type="button"
+                        class="secondary-small"
+                        data-i18n="home"
+                    ></button
+                    ><span
+                        id="rematch-hint"
+                        class="rematch-hint"
+                        hidden=""
+                        data-i18n="rematchHostOnly"
+                    ></span>
+                </div>
+                <section
+                    id="training-actions"
+                    class="training-actions"
+                    data-i18n-aria-label="trainingGuide"
+                    hidden=""
+                >
+                    <div class="training-heading">
+                        <span data-i18n="trainingLesson"></span><span id="training-count"></span>
+                    </div>
+                    <label class="training-lessons" for="training-lesson"
+                        ><span data-i18n="lessonLabel"></span
+                        ><select id="training-lesson" data-i18n-aria-label="lessonLabel"></select
+                    ></label>
+                    <label class="training-lessons training-tempo" for="training-tempo"
+                        ><span data-i18n="tempoLabel"></span
+                        ><select id="training-tempo" data-i18n-aria-label="tempoLabel"></select
+                    ></label>
+                    <p id="training-sequence" class="training-sequence"></p>
+                    <div id="training-coach" class="training-coach" data-tone="neutral">
+                        <span id="training-stage" class="training-stage"></span>
+                        <strong id="training-cue" aria-live="polite" aria-atomic="true"></strong>
+                        <p id="training-detail"></p>
+                        <p id="training-motion" class="training-motion"></p>
+                        <div
+                            id="training-timing"
+                            class="training-timing"
+                            role="progressbar"
+                            data-i18n-aria-label="trainingTiming"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow="0"
+                        >
+                            <i></i><span></span>
+                        </div>
+                        <div class="training-timing-labels">
+                            <span id="training-timing-label"></span
+                            ><span id="training-successes"></span>
+                        </div>
+                    </div>
+                    <button id="training-reset" type="button" class="training-retry">
+                        <span data-i18n="trainingReset"></span> <span aria-hidden="true">↻</span>
+                    </button>
+                </section>
+            </section>
+
+            <form id="watch-form" class="watch-form" data-i18n-aria-label="watchForm" hidden>
+                <label for="watch-seed" data-i18n="watchSeed"></label>
+                <button type="button" data-watch-step="-1" data-i18n-aria-label="previousSeed">
+                    ◀
+                </button>
+                <select id="watch-featured" data-i18n-aria-label="featured"></select>
+                <input
+                    id="watch-seed"
+                    type="number"
+                    min="0"
+                    max="4294967295"
+                    step="1"
+                    inputmode="numeric"
+                    value="36"
+                    autocomplete="off"
+                />
+                <button type="button" data-watch-step="1" data-i18n-aria-label="nextSeed">▶</button>
+                <button id="watch-random" type="button" data-i18n="random"></button>
+                <button type="submit" class="primary-small" data-i18n="watchFromStart"></button>
+                <span id="watch-tick" role="status"></span>
+            </form>
+
+            <div id="touch-controls" class="touch-controls" hidden="">
+                <div id="move-pad" class="move-pad" role="group" data-i18n-aria-label="movePad">
+                    <span class="move-label" aria-hidden="true" data-i18n="move"></span>
+                    <div class="pad-cross" aria-hidden="true"></div>
+                    <div id="move-thumb" class="move-thumb" aria-hidden="true"></div>
+                </div>
+                <div class="touch-actions">
+                    <button data-touch="jump" class="touch-jump" type="button">
+                        <span data-i18n="jump"></span
+                        ><small data-i18n="touchJumpHint"></small></button
+                    ><button data-touch="kick" class="touch-kick" type="button">
+                        <span data-i18n="kick"></span><small data-i18n="touchKickHint"></small>
+                    </button>
+                </div>
+            </div>
+
+            <footer class="site-footer">
+                <span><span data-i18n="product"></span> <b id="version-label">—</b></span
+                ><span id="connection-indicator" hidden=""><i></i><span></span></span
+                ><span class="home-only" data-i18n="tagline"></span>
+            </footer>
+            <div id="rotate-note" class="rotate-note">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="7" width="18" height="10" rx="2"></rect>
+                    <path d="m9 2-3 3 3 3m-3-3h9M15 22l3-3-3-3m3 3H9"></path></svg
+                ><span data-i18n="rotate"></span
+                ><button id="dismiss-rotate" type="button" data-i18n-aria-label="rotateDismiss">
+                    ×
+                </button>
+            </div>
+
+            <div id="modal-layer" class="modal-layer" hidden="">
+                <section
+                    id="dialog-panel"
+                    class="dialog-panel"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="dialog-title"
+                >
+                    <header class="dialog-header">
+                        <button
+                            id="dialog-back"
+                            class="icon-button dialog-back"
+                            type="button"
+                            hidden
+                            data-i18n-aria-label="dialogBack"
+                        >
+                            ←
+                        </button>
+                        <div>
+                            <span id="dialog-kicker" class="eyebrow"></span>
+                            <h2 id="dialog-title"></h2>
+                        </div>
+                        <button
+                            id="dialog-close"
+                            class="icon-button"
+                            type="button"
+                            data-i18n-aria-label="close"
+                        >
+                            ×
+                        </button>
+                    </header>
+                    <div id="dialog-content" class="dialog-content"></div>
+                </section>
+                <div
+                    id="draw-stage"
+                    class="draw-stage"
+                    role="dialog"
+                    aria-modal="true"
+                    data-i18n-aria-label="drawStage"
+                    hidden
+                ></div>
+            </div>
+            <section
+                id="fatal-panel"
+                class="fatal-panel"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="fatal-message"
+                hidden=""
+            >
+                <p id="fatal-message"></p>
+                <div class="fatal-actions">
+                    <button
+                        id="copy-diagnostic-button"
+                        type="button"
+                        class="primary-small"
+                        data-i18n="copyDiagnostic"
+                    ></button
+                    ><button id="fatal-reload" type="button" class="secondary-small">
+                        <span aria-hidden="true">↻</span> <span data-i18n="reload"></span>
+                    </button>
+                </div>
+                <textarea
+                    id="diagnostic-text"
+                    class="diagnostic-text"
+                    readonly
+                    hidden=""
+                    rows="5"
+                    aria-labelledby="copy-diagnostic-button"
+                ></textarea>
+            </section>
         </div>
-        <button id="training-reset" type="button" class="training-retry"><span data-i18n="trainingReset"></span> <span aria-hidden="true">↻</span></button>
-      </section>
-    </section>
-
-    <form id="watch-form" class="watch-form" data-i18n-aria-label="watchForm" hidden>
-      <label for="watch-seed" data-i18n="watchSeed"></label>
-      <button type="button" data-watch-step="-1" data-i18n-aria-label="previousSeed">◀</button>
-      <select id="watch-featured" data-i18n-aria-label="featured"></select>
-      <input id="watch-seed" type="number" min="0" max="4294967295" step="1" inputmode="numeric" value="36" autocomplete="off">
-      <button type="button" data-watch-step="1" data-i18n-aria-label="nextSeed">▶</button>
-      <button id="watch-random" type="button" data-i18n="random"></button>
-      <button type="submit" class="primary-small" data-i18n="watchFromStart"></button>
-      <span id="watch-tick" role="status"></span>
-    </form>
-
-    <div id="touch-controls" class="touch-controls" hidden="">
-      <div id="move-pad" class="move-pad" role="group" data-i18n-aria-label="movePad"><span class="move-label" aria-hidden="true" data-i18n="move"></span><div class="pad-cross" aria-hidden="true"></div><div id="move-thumb" class="move-thumb" aria-hidden="true"></div></div>
-      <div class="touch-actions"><button data-touch="jump" class="touch-jump" type="button"><span data-i18n="jump"></span><small data-i18n="touchJumpHint"></small></button><button data-touch="kick" class="touch-kick" type="button"><span data-i18n="kick"></span><small data-i18n="touchKickHint"></small></button></div>
-    </div>
-
-  <footer class="site-footer"><span><span data-i18n="product"></span> <b id="version-label">—</b></span><span id="connection-indicator" hidden=""><i></i><span></span></span><span class="home-only" data-i18n="tagline"></span></footer>
-    <div id="rotate-note" class="rotate-note"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="m9 2-3 3 3 3m-3-3h9M15 22l3-3-3-3m3 3H9"></path></svg><span data-i18n="rotate"></span><button id="dismiss-rotate" type="button" data-i18n-aria-label="rotateDismiss">×</button></div>
-
-    <div id="modal-layer" class="modal-layer" hidden="">
-      <section id="dialog-panel" class="dialog-panel" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-        <header class="dialog-header"><button id="dialog-back" class="icon-button dialog-back" type="button" hidden data-i18n-aria-label="dialogBack">←</button><div><span id="dialog-kicker" class="eyebrow"></span><h2 id="dialog-title"></h2></div><button id="dialog-close" class="icon-button" type="button" data-i18n-aria-label="close">×</button></header>
-        <div id="dialog-content" class="dialog-content"></div>
-      </section>
-      <div id="draw-stage" class="draw-stage" role="dialog" aria-modal="true" data-i18n-aria-label="drawStage" hidden></div>
-    </div>
-    <section id="fatal-panel" class="fatal-panel" role="alertdialog" aria-modal="true" aria-labelledby="fatal-message" hidden="">
-      <p id="fatal-message"></p>
-      <div class="fatal-actions"><button id="copy-diagnostic-button" type="button" class="primary-small" data-i18n="copyDiagnostic"></button><button id="fatal-reload" type="button" class="secondary-small"><span aria-hidden="true">↻</span> <span data-i18n="reload"></span></button></div>
-      <textarea id="diagnostic-text" class="diagnostic-text" readonly hidden="" rows="5" aria-labelledby="copy-diagnostic-button"></textarea>
-    </section>
-  </div>
-  <script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
-    "@bloom-gamekit/input": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/input.js",
-    "@bloom-gamekit/simloop": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/simloop.js",
-    "@bloom-gamekit/interpolation": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/interpolation.js",
-    "@bloom-gamekit/rollback": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/rollback.js",
-    "@bloom-gamekit/transport": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/transport.js",
-    "@bloom-gamekit/audio": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/audio.js",
-    "@bloom-gamekit/presentation-events": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/presentation-events.js",
-    "@bloom-gamekit/deterministic": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/deterministic.js",
-    "@bloom-gamekit/object-pool": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/object-pool.js",
-    "@bloom-gamekit/scenario": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/scenario.js",
-    "@bloom-gamekit/debug-tools": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/debug-tools.js",
-    "@bloom-gamekit/save": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/save.js",
-    "@bloom-gamekit/pwa": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/pwa.js",
-    "@bloom-gamekit/i18n": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/i18n.js",
-    "@bloom-gamekit/metrics": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/metrics.js"
-  }
-}
-  </script>
-  <script type="module" src="./src/main.js"></script>
-</body>
+        <script type="importmap">
+            {
+                "imports": {
+                    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+                    "rapier": "https://cdn.jsdelivr.net/npm/@dimforge/rapier3d-compat@0.21.0/dist/rapier.mjs",
+                    "@bloom-gamekit/input": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/input.js",
+                    "@bloom-gamekit/simloop": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/simloop.js",
+                    "@bloom-gamekit/interpolation": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/interpolation.js",
+                    "@bloom-gamekit/rollback": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/rollback.js",
+                    "@bloom-gamekit/transport": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/transport.js",
+                    "@bloom-gamekit/audio": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/audio.js",
+                    "@bloom-gamekit/presentation-events": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/presentation-events.js",
+                    "@bloom-gamekit/deterministic": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/deterministic.js",
+                    "@bloom-gamekit/object-pool": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/object-pool.js",
+                    "@bloom-gamekit/scenario": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/scenario.js",
+                    "@bloom-gamekit/debug-tools": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/debug-tools.js",
+                    "@bloom-gamekit/save": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/save.js",
+                    "@bloom-gamekit/pwa": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/pwa.js",
+                    "@bloom-gamekit/i18n": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/i18n.js",
+                    "@bloom-gamekit/metrics": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/metrics.js"
+                }
+            }
+        </script>
+        <script type="module" src="./src/main.js"></script>
+    </body>
 </html>

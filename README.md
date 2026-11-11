@@ -32,16 +32,16 @@ src/
   launch.js                  페이지를 연 맥락(격리 장면·소개영상·iframe)의 단일 출처
   runtime.js                 게임과 GameKit의 수명주기 연결
   debug-scenes.js            주소(?debug=1&scene=…)로 여는 확인용 장면
-  config/{game,runtime,schools,intro}.js  게임 정의, 실행 정책, 학교 외형, 소개영상 대본
+  config/{game,physics,runtime,schools,intro}.js  게임 정의, 물리 설정, 실행 정책, 학교 외형, 소개영상 대본
   club/{club,generator,names}.js  선수·편성·보상·뽑기·IndexedDB 저장, 생성 선수, 이름 표
   motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
   simulation/{game,physics,timing,ai-brain,ai-formation,identity,roster,joint-limits,random}.js
-                             경기 규칙, Rapier 어댑터, 입력 타이밍 판정, AI 선수 행동과 대형, 온라인 팀 표기, 선수 id 배치(팀·슬롯·조종 선수), 관절 가동 범위, 시드 난수 이름
+                             경기 규칙, Rapier 어댑터(단계 메서드로 나뉜 step·선수 제어·스냅샷 복원), 입력 타이밍 판정, AI 선수 행동과 대형, 온라인 팀 표기, 선수 id 배치(팀·슬롯·조종 선수), 관절 가동 범위, 시드 난수 이름
   presentation/              Three.js 표시(view), DOM UI(ui), 접촉·착지·득점 효과, 득점 리플레이(highlight*), 소리, 소개영상 연결
   i18n/                      화면 언어(ko/en) 선택과 문구 표
 styles/app.css               화면 스타일
 assets/                      배경 음악, PWA 아이콘·공유 이미지 원본(SVG)
-scripts/                     원본 HTTP 서버, 정적 참조·의존성 검사, PWA 생성, itch.io 제출 zip
+scripts/                     원본 HTTP 서버, 정적 참조·의존성 검사, PWA 생성, 확인용 장면 실행기, itch.io 제출 zip
 tools/check-changed.mjs      PR 변경 파일의 Prettier·ESLint 검사
 playwright.config.js         사용자 시나리오 실행 구성
 tests/{user-flow,mobile-flow}.spec.js  고정 사용자 흐름 E2E(공용 보조: tests/metrics.js)
@@ -106,6 +106,8 @@ npm test                      # 서버·브라우저 시작부터 종료까지 �
 ```
 
 `npm test`는 클럽 이름 변경·저장·새로고침 복구 → AI 경기 시작·퇴장 → 훈련 → 친구 초대·실제 WebRTC 입장 → 연결 단절·재접속 → 양쪽 새로고침 → 명시적 퇴장을 확인합니다. 물리·전송을 mock으로 대체하지 않습니다. 모바일 흐름은 터치 이동·점프·킥 동시 조작, 입력 해제, 화면 회전, 작은 화면 배치, 연습의 아군 토스 반복을 추가로 확인합니다. Windows Chromium 에뮬레이션이며 실물 휴대폰 검증과 구별합니다. 관찰에는 기존 런타임 진단과 같은 확정 경계의 해시를 사용하며 게임 상태를 강제로 종료 상태로 바꾸지 않습니다. 두 흐름 모두 지표 요청을 가로채(운영 서버로 보내지 않음) 행동 이벤트를 확인하고, 진행 중인 경기 기록(온라인은 재접속 구간 포함)을 새 게임에서 다시 계산해 같은 hash인지 봅니다. 경기 끝 기록은 한 판이 길어 이 흐름에 넣지 않습니다.
+
+구조만 바꾸는 변경은 확인용 주소 장면을 두 체크아웃에서 열어 전후를 비교합니다. `node scripts/debug-scene.mjs "scene=watch&seed=1252&tick=844" --compare <기준 체크아웃>`이 같은 주소를 헤드리스 Chromium(SwiftShader, 1280x720)으로 두 번 열어 `__bloomDebug.state()`의 tick·점수와 장면 `hash()`(경기 전체 상태 `game.save()` 코덱 바이트의 FNV-1a)를 표로 냅니다. `--capture out.png`는 캡처(비교 쪽은 `out-compare.png`), `--ticks N`은 준비 뒤 N틱을 더 진행합니다. 실행기는 gamekit debug-tools의 `runDebugScene`(`scripts/vendor/gamekit/debug-scene.mjs`, `gamekit.lock.json`의 `tools`에 고정)이고 판정하지 않는 도구라 `npm test`에 넣지 않습니다. 주소에 항상 `debug=1`이 붙어 격리 장면(메모리 저장·지표 미전송)으로만 열립니다.
 
 실행 구성은 `playwright.config.js`입니다. Playwright 전체 제한 170초와 시작/정리를 포함한 외부 상한 180초를 사용하며 초과는 실패입니다. 긴 전체 경기 종료 관찰을 이 기본 흐름의 성공으로 주장하지 않습니다. 결과·스크린샷은 `artifacts/e2e/`에 저장합니다. 성능/부하 측정은 이 버그 검사와 분리합니다. 정책 원문은 [검증 정책 §13](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#verification)을 따릅니다.
 

@@ -1,3 +1,5 @@
+import { TAKRAW_PHYSICS } from './physics.js';
+
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_VERSION = '0.17.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
@@ -69,11 +71,8 @@ const TAKRAW_CONFIG = Object.freeze({
             recovery: 0.15,
         },
     },
-    physics: {
-        groundToss: { receiveApex: 2.4, attackApex: 4.2 },
-        // 주발: 기본으로 오른발로 차고, 공이 주발 반대쪽으로 groundOffset(지상, m) 넘거나 반대 발이 airMargin(공중, m) 넘게 가까울 때만 왼발.
-        dominantFoot: { side: 'R', groundOffset: 0.25, airMargin: 0.05 },
-    },
+    // 물리 어댑터 설정의 원본은 config/physics.js다.
+    physics: TAKRAW_PHYSICS,
     training: {
         ready: 1.1,
         retry: 2.2,

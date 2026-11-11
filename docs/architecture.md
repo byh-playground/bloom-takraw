@@ -2,19 +2,19 @@
 
 `index.html`은 `styles/app.css`와 `src/main.js`를 로드합니다. main은 로딩 표시 후 runtime을 가져오므로 로컬/CDN 모듈 실패도 화면에서 안내합니다. runtime은 GameKit 공개 API를 직접 import하며 세션·입력·표현 수명주기를 연결합니다. 공통 API를 재집계하는 wrapper는 없습니다.
 
-| GameKit 소유 모듈 | 사용하는 공개 API | 게임에서 제공하는 부분 |
-| --- | --- | --- |
-| input | ActionState, createDOMInput | 키/포인터 매핑과 6바이트 입력 |
-| simloop | createLoop, createDeadlineScheduler | 60TPS 정책·진행/관찰 조건 |
-| rollback | createRoomSession, profiles | save/load/step/validateSnapshot 및 membership 어댑터 |
-| transport | createNostrDynamicRoom | 방 UI·재접속 정책·방 복귀 어댑터 |
-| deterministic | createValueCodec, SeededPRNG, statelessRandom | 게임/물리 상태의 값 구조, 접촉 효과 입자 방향의 시드 난수 |
-| interpolation | PresentationRuntime, RenderObject | 신체 pose와 생명주기 바인딩 |
-| presentation-events | PresentationEventQueue | 확정 경기 이벤트와 표현 정책, 접촉 효과의 start·update·reconcile·stop |
-| object-pool | ObjectPool | 접촉 효과 노드 재사용 |
-| audio | AudioPlayer, audioSettings | 소리 정의·음량·동시 재생 한도·소리 설정 save |
-| save | createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter | 저장 레코드 정의·어댑터 선택 |
-| pwa | registerPwa (+ Node 도구 `pwa-build.mjs`) | 오류·설치 위치(처음 화면 상태 줄·설정 창), 격리 장면 제외 |
+| GameKit 소유 모듈   | 사용하는 공개 API                                                | 게임에서 제공하는 부분                                                |
+| ------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
+| input               | ActionState, createDOMInput                                      | 키/포인터 매핑과 6바이트 입력                                         |
+| simloop             | createLoop, createDeadlineScheduler                              | 60TPS 정책·진행/관찰 조건                                             |
+| rollback            | createRoomSession, profiles                                      | saveInto/load/step/validateSnapshot 및 membership 어댑터              |
+| transport           | createNostrDynamicRoom                                           | 방 UI·재접속 정책·방 복귀 어댑터                                      |
+| deterministic       | createValueCodec, SeededPRNG, statelessRandom                    | 게임/물리 상태의 값 구조, 접촉 효과 입자 방향의 시드 난수             |
+| interpolation       | PresentationRuntime, RenderObject                                | 신체 pose와 생명주기 바인딩                                           |
+| presentation-events | PresentationEventQueue                                           | 확정 경기 이벤트와 표현 정책, 접촉 효과의 start·update·reconcile·stop |
+| object-pool         | ObjectPool                                                       | 접촉 효과 노드 재사용                                                 |
+| audio               | AudioPlayer, audioSettings                                       | 소리 정의·음량·동시 재생 한도·소리 설정 save                          |
+| save                | createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter | 저장 레코드 정의·어댑터 선택                                          |
+| pwa                 | registerPwa (+ Node 도구 `pwa-build.mjs`)                        | 오류·설치 위치(처음 화면 상태 줄·설정 창), 격리 장면 제외             |
 
 별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm test`가 lock과 일치를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 현재 외부 요청은 GameKit 9개와 Three.js·Rapier를 합친 11개이며, 로컬 JS 14개와 CSS 1개 요청이 추가됩니다.
 
@@ -22,11 +22,11 @@
 
 모든 저장은 gamekit `save`를 거치고, 저장소는 `runtime.js`의 `saveAdapter(store)` 한 곳에서 고른다. 게임 코드는 localStorage·sessionStorage·IndexedDB를 직접 부르지 않는다.
 
-| store | 실제 저장소 | 레코드(key) |
-| --- | --- | --- |
-| club | IndexedDB `bloom-takraw-club`/`club` | `my-team` |
-| settings | localStorage, 접두사 `bloom-takraw:` | `audio-settings`(`audioSettings(TAKRAW_RUNTIME.audio)`: 음량·음소거·분류별 음량) |
-| resume | sessionStorage, 접두사 `bloom-takraw:<버전>:` | `active-room`(마지막 방 `{ role, room }`), `room:<방 코드>`(transport의 방 identity) |
+| store    | 실제 저장소                                   | 레코드(key)                                                                          |
+| -------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
+| club     | IndexedDB `bloom-takraw-club`/`club`          | `my-team`                                                                            |
+| settings | localStorage, 접두사 `bloom-takraw:`          | `audio-settings`(`audioSettings(TAKRAW_RUNTIME.audio)`: 음량·음소거·분류별 음량)     |
+| resume   | sessionStorage, 접두사 `bloom-takraw:<버전>:` | `active-room`(마지막 방 `{ role, room }`), `room:<방 코드>`(transport의 방 identity) |
 
 - 격리 장면(`?debug`, 소개영상 `?showcaseDemo=1`)은 세 store 모두 `memoryAdapter()`라 실제 저장을 읽지도 쓰지도 않는다. 장면 안에서 일부 저장만 건너뛰는 분기는 두지 않는다.
 - 이전 키(`bloom-takraw-audio`, `bloom-takraw:<버전>:active-room` 원시 JSON)는 읽지 않는다. 출시 전이라 옮기지 않는다.
@@ -45,7 +45,7 @@
 - 아이콘·공유 이미지 원본은 게임 실제 렌더를 넣은 SVG다. 장면은 `?debug=1&scene=spike&seed=1&tick=589&camera=…`(가위차기 직전, 공 바로 아래 발)이며 카메라 값은 `scripts/pwa.mjs` 주석에 있다. 제목 글자는 path로 바꿔 넣어 PC 글꼴에 기대지 않는다.
 - 미리 받는 파일(precache)은 없다. 같은 origin 파일은 매번 서버에 재확인하고(`no-cache`) 받은 응답을 오프라인 사본으로 둔다. 그래서 새로고침하면 항상 최신 버전이고, 오프라인 시작은 서비스 워커가 제어한 상태로 한 번 연 뒤(두 번째 방문)부터다. 고정 gamekit 주소는 cache-first다. Three.js·Rapier(npm CDN)는 서비스 워커가 캐시하지 않는다. 그래서 오프라인 시작은 브라우저 HTTP 캐시에 두 파일이 남아 있을 때만 된다(HTTP 캐시를 지우면 "게임 모듈을 불러오지 못했어요"로 멈춘다).
 - `registerPwa`는 부팅을 마친 뒤 부르고, 격리 장면(`?debug`, `?showcaseDemo=1`)과 다른 페이지의 iframe 안(itch.io 임베드, v0.15.2~)에서는 부르지 않는다. 새로고침이 곧 업데이트라 새 버전 알림은 없다. 등록 실패(`onError`)는 처음 화면 상태 줄에 오류로 띄운다. 이 알림은 경기 시작·처음 화면 복귀로 상태 줄을 비울 때도 남는다. 설치(`onInstallable`)는 설정 창의 "앱으로 설치" 줄이다.
-- 확인용 장면 `spike`(`?debug=1&scene=spike&seed=N&tick=T&camera=x,y,z,tx,ty,tz,fov`)는 `watch`와 같은 재생을 고정 카메라로 다시 그리고 HUD를 숨긴다. 카메라 위치는 월드 좌표, 바라보는 점은 공 기준 상대 좌표다. 경기 카메라를 향한 안내(공 테두리·높이선·받기/공격 안내·선택 표시)는 그 그림에서만 뺀다.
+- 확인용 장면 `spike`(`?debug=1&scene=spike&seed=N&tick=T&camera=x,y,z,tx,ty,tz,fov`)는 `watch`와 같은 재생을 고정 카메라로 다시 그리고 HUD를 숨긴다. 카메라 위치는 월드 좌표, 바라보는 점은 공 기준 상대 좌표다. 경기 카메라를 향한 안내(공 테두리·높이선·받기/공격 안내·선택 표시)는 그 그림에서만 뺀다. `watch`는 debug-tools가 주는 `freezeClock()`으로 `performance.now`를 가상 시계로 바꾸고 틱마다 `advance`하며, 시계 복원은 호스트가 한다.
 
 `simulation/game.js`는 규칙·AI·득점·세트·훈련·스냅샷 메타데이터를 소유합니다. `simulation/physics.js`는 Rapier World·몸체·관절·접촉·신체 제어와 물리 스냅샷을 소유합니다. 복원용 SerializationPipeline은 physics 인스턴스가 생성·재사용·해제합니다. 모션 데이터/모델/매칭은 `motion/`에 있는 게임별 저작 자료입니다. `simulation/timing.js`의 `TakrawTimingJudge`는 점프·발차기 입력의 타이밍 오차 공식과 등급 창(`config.timing`)을 소유합니다. 기록은 `state.timing`에 두어 스냅샷·롤백에 함께 저장되며, 연습의 오차 기록과 접촉 판정이 같은 공식을 씁니다.
 
@@ -90,7 +90,6 @@ runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(hand
 경기와의 접점은 `game.setTuning(team, values)`뿐이다. 조정 값은 팀별 `game.tuning`에 두고 `save`·`load`·`validate`가 포함한다. 물리에 영향을 주는 값(`contactHeight`, `strokeTime`, `attackApex`)은 `physics.setTossTuning`이 팀별 설정 사본으로 반영한다. 조정이 없으면 기본 설정 객체를 그대로 쓴다. 정책 추론은 사칙연산만 쓰는 활성 함수(`x / (1 + |x|)`)로 구현해 엔진이 달라도 같은 값을 내도록 했다. 저장 형식은 4비트 양자화한 가중치의 base64이며 변환은 `TeammateLearning.encode`·`decode`(경기 학습은 `MatchLearning`)가 소유한다. 정책을 따로 두는 저장소는 없고, 학습 결과는 클럽 레코드의 `learning.policy`로 팀 저장(gamekit `save`)에 함께 들어간다.
 
 v0.12.13~15에는 유저 기능에 연결되었고 v0.12.16에서 화면과 경기 연결을 제거했다(아래는 연결 당시의 설계이며 복구 방법은 docs/learning-tobe.md). 접점이 하나 더 늘었다: `game.setTuner(team, fn)`. 상대가 스파이크를 칠 때마다 공이 반응한 뒤(`applyTuner`) 착지 예상 지점에 가장 가까운 팀 선수 기준으로 `fn(game, playerId)`를 불러 `setTuning`에 넘긴다. 학습 한 번의 규칙(비용·epoch 수·정책 최대 길이)은 `TAKRAW_CLUB_RULES.learning`이 유일한 정의이고, 학습 결과는 클럽 레코드의 선택 필드 `learning: { runs, policy(base64 양자화) }`에 저장한다. `TeammateLearning`(`src/learning/teammate.js`)이 학습·평가·저장 형식 변환·경기용 조정기를 소유하고, 런타임은 학습을 마친 뒤에만 `club.learn()`을 호출한다. 로컬 AI 대전(`mode === 'match'`)의 우리 팀에만 적용하고 온라인에는 쓰지 않는다. 학습은 받는 첫 접촉만 다뤘으므로 조정은 그 접촉(또는 득점)까지만 유지하고 `releaseTuning`이 기본값으로 되돌린다.
-
 
 ## 학교 외형
 

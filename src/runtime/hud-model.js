@@ -1,7 +1,7 @@
 import { takrawWatchSchools } from '../config/schools.js';
 import { TAKRAW_TRAINING_LESSONS } from '../simulation/training.js';
 import { takrawIdentitySchools } from '../simulation/identity.js';
-import { takrawHumanPlayerId } from '../simulation/roster.js';
+import { TAKRAW_HUMAN_ROLE, takrawHumanPlayerId } from '../simulation/roster.js';
 import { takrawTrainingCoach } from '../presentation/training-coach.js';
 import { LOCALE } from '../i18n/locale.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
@@ -37,7 +37,7 @@ function takrawHudModel({
     const selectedId = view.state.selected?.[team] ?? takrawHumanPlayerId(team);
     const player = view.players.find((candidate) => candidate.id === selectedId);
     const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
-        attacker = roleName('attacker', LOCALE.locale);
+        attacker = roleName(TAKRAW_HUMAN_ROLE, LOCALE.locale);
     return {
         ...view.state,
         // 시뮬레이션은 연습 사실만 내고, 단계·문구·진행 막대는 coach가 표시 설정으로 만든다.

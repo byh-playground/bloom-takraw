@@ -39,6 +39,24 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
  */
 const TAKRAW_TIMING_GRADES = Object.freeze({ perfect: 'perfect', good: 'good', normal: 'normal' });
 
+/**
+ * 선수 역할 id와 팀 안 순서(슬롯 0 리시버, 1 세터, 2 공격수)의 단일 출처. 선수 id 배치(simulation/roster.js)·
+ * AI 학교 선수(config/schools.js)·팀 편성(club/club.js)·화면이 이 목록을 읽고, 역할별 판단(AI·토스·물리)과 선호 역할 데이터는
+ * TAKRAW_ROLE의 이름으로 가리킨다. 값(글자)은 스냅샷·저장의 player.role·preferredRole에 그대로 들어가므로 바꾸지 않는다.
+ */
+const TAKRAW_ROLE = Object.freeze({ receiver: 'receiver', setter: 'setter', attacker: 'attacker' });
+const TAKRAW_ROLES = Object.freeze([
+    TAKRAW_ROLE.receiver,
+    TAKRAW_ROLE.setter,
+    TAKRAW_ROLE.attacker,
+]);
+/** 역할의 표시 이름(TextPair). 팀 편성(club.js roles)과 화면 문구(i18n SHARED.attacker)가 읽는다. */
+const TAKRAW_ROLE_NAMES = Object.freeze({
+    receiver: Object.freeze({ ko: '리시버', en: 'Receiver' }),
+    setter: Object.freeze({ ko: '세터', en: 'Setter' }),
+    attacker: Object.freeze({ ko: '공격수', en: 'Attacker' }),
+});
+
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
@@ -731,6 +749,9 @@ export {
     TAKRAW_DIAGNOSTIC_NAME,
     TAKRAW_ID,
     TAKRAW_CONFIG,
+    TAKRAW_ROLE,
+    TAKRAW_ROLES,
+    TAKRAW_ROLE_NAMES,
     TAKRAW_TIMING_GRADES,
     takrawAthleteEffects,
 };

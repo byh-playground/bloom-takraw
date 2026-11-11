@@ -1,4 +1,4 @@
-import { takrawAthleteEffects } from '../config/game.js';
+import { TAKRAW_ROLE, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
 import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
@@ -1387,7 +1387,7 @@ class TakrawPhysics {
         // After the attacker stops walking, brake the whole articulated body's
         // momentum before takeoff. Receivers/setters retain their planted-pass
         // controller, as do ground kicks and recovery.
-        if (p.role !== 'attacker' || airborne || fallen || mode === 'ground')
+        if (p.role !== TAKRAW_ROLE.attacker || airborne || fallen || mode === 'ground')
             p.locomotionActive = false;
         else if (moving > p.settings.drive.gaitInput) p.locomotionActive = true;
         if (p.grounded || fallen || receiving)

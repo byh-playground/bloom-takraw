@@ -10,6 +10,7 @@ import {
 import { takrawDecodeIdentity } from './identity.js';
 import { takrawModeProfile } from './modes.js';
 import { takrawSeededUnit } from './random.js';
+import { TAKRAW_ROLE } from '../config/game.js';
 import {
     TAKRAW_ROLES,
     TAKRAW_TEAM_PLAYER_IDS,
@@ -1280,17 +1281,17 @@ class TakrawGame {
             return { kind: 'return', reason: 'last_touch', from: player.id, target: null };
         // The designated attacker prepares a high foot for the incoming set. This
         // is the same final-attack intent for either team and either input owner.
-        if (player.role === 'attacker' && this.state.toss?.to === player.id)
+        if (player.role === TAKRAW_ROLE.attacker && this.state.toss?.to === player.id)
             return { kind: 'attack', reason: 'set_received', from: player.id, target: null };
         const preferred =
-            player.role === 'setter' ||
+            player.role === TAKRAW_ROLE.setter ||
             (this.state.possession === player.team && this.state.touches > 0)
-                ? 'attacker'
-                : 'setter';
+                ? TAKRAW_ROLE.attacker
+                : TAKRAW_ROLE.setter;
         const origin = player.root.translation();
         const recoveringAttacker = (ally) =>
-            ally.role === 'attacker' &&
-            preferred === 'attacker' &&
+            ally.role === TAKRAW_ROLE.attacker &&
+            preferred === TAKRAW_ROLE.attacker &&
             this.state.lastTouch === ally.id &&
             this.state.touches === 1 &&
             ally.receive?.mode === 'slide' &&
@@ -1324,13 +1325,14 @@ class TakrawGame {
               : /fall|recover|down/i.test(preferredAlly.state)
                 ? 'recovering'
                 : 'distance';
-        const spread = ally.role === 'attacker' ? this.tossSpread(player) : { x: 0, z: 0 };
+        const spread =
+            ally.role === TAKRAW_ROLE.attacker ? this.tossSpread(player) : { x: 0, z: 0 };
         return {
             kind: 'toss',
             reason:
                 condition && condition !== 'recovering_attacker'
                     ? 'cover'
-                    : ally.role === 'attacker'
+                    : ally.role === TAKRAW_ROLE.attacker
                       ? 'set'
                       : 'receive',
             condition,
@@ -1998,7 +2000,7 @@ class TakrawGame {
             const pass = this.state.toss?.team === team ? this.state.toss : null;
             const recipient = pass ? this.physics.players[pass.to] : null;
             const aerialPass =
-                recipient?.role === 'attacker' ? this.predictAerial(recipient) : null;
+                recipient?.role === TAKRAW_ROLE.attacker ? this.predictAerial(recipient) : null;
             const useAerial =
                 aerialPass?.reachable &&
                 aerialPass.time > 0 &&
@@ -2067,7 +2069,7 @@ class TakrawGame {
                     jumpServe ||
                     (this.state.possession === team &&
                         (this.state.touches >= 2 ||
-                            (player.role === 'attacker' && this.state.touches >= 1)));
+                            (player.role === TAKRAW_ROLE.attacker && this.state.touches >= 1)));
                 const highContact =
                     !defense && attacking && aerial.reachable && aerial.time > attack.minLead;
                 const aim = highContact ? aerial : intercept;

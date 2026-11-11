@@ -40,16 +40,18 @@ function takrawTrainingCoach(facts, { maxLead }) {
         progress: 0,
     };
     // 결과 단계의 cue·detail은 결과 코드의 제목·설명이다(값은 결과의 code와 갈래).
-    const outcome = t.attemptResult && { code: t.attemptResult.code, ...t.attemptResult.values };
-    if (t.rallyPhase === 'point')
+    // 득점(point)은 awardPoint에서만 되고 그때 drill.finish가 결과를 반드시 채우므로 attemptResult가 있다.
+    if (t.rallyPhase === 'point') {
+        const outcome = { code: t.attemptResult.code, ...t.attemptResult.values };
         return {
             ...base,
             stage: 'result',
-            cue: outcome ? message('resultTitle', outcome) : message('cueRetry'),
-            detail: outcome ? message('resultDetail', outcome) : message('none'),
-            tone: t.attemptResult?.tone || 'neutral',
+            cue: message('resultTitle', outcome),
+            detail: message('resultDetail', outcome),
+            tone: t.attemptResult.tone,
             progress: 1,
         };
+    }
     if (t.rallyPhase === 'ready')
         return {
             ...base,

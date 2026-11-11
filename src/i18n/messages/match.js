@@ -419,8 +419,6 @@ const MATCH = LOCALE.messages({
         ko: ({ code, ...values }) => RESULT_DETAIL[code](values),
         en: ({ code, ...values }) => RESULT_DETAIL[code](values),
     },
-    none: { ko: '', en: '' },
-    cueRetry: { ko: '다시 도전해 보세요', en: 'Try again' },
     cueWaitSet: { ko: '세터의 토스를 기다리세요', en: 'Wait for the setter’s set' },
     detailWaitSet: {
         ko: '바닥 발자국과 타점은 예상 위치예요. 공이 올라오면 이동해 준비하세요.',

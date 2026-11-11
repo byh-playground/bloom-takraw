@@ -3,7 +3,7 @@ import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation'
 /**
  * 시뮬레이션 뷰를 보간 표시(gamekit PresentationRuntime)에 넘기는 통로. 신체 pose 캐시와 게시 리비전·순번을 소유한다.
  * reset()마다 새 PresentationRuntime과 새 BodyPose 클래스를 만든다(이전 리셋의 pose가 섞이지 않게).
- * 해제할 자원은 없다(타이머·구독 없음).
+ * 타이머·구독은 없다. dispose()는 보간 런타임과 pose 캐시를 놓는다.
  */
 class PresentationFeed {
     constructor({ stepMs }) {
@@ -123,6 +123,14 @@ class PresentationFeed {
     /** 지금 시각의 보간 pose. */
     frame(now) {
         return this.presentation.frame(now);
+    }
+
+    /** 런타임 종료: 보간 런타임과 pose 캐시를 놓는다. 그 뒤 ready는 false다. */
+    dispose() {
+        this.presentation = null;
+        this.BodyPose = null;
+        this.poseCache.clear();
+        this.poseEntities.length = 0;
     }
 }
 

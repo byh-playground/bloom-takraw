@@ -804,9 +804,11 @@ class MatchSession {
         return this.highlight.diagnostics();
     }
 
-    /** stop() 뒤에 부른다. 리플레이 worker를 닫는다. */
+    /** stop() 뒤에 부른다. 리플레이 worker를 닫고 이벤트 저널·표시 통로를 놓는다. */
     dispose() {
         this.highlight.dispose();
+        this.events?.dispose();
+        this.feed?.dispose();
     }
 }
 

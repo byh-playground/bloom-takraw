@@ -15,18 +15,18 @@ const DEG = Math.PI / 180;
  * 근거: docs/verification/joint-limits.md
  */
 const HUMAN_JOINT_LIMITS = Object.freeze({
-  waist: { x: [-40, 25], z: [-30, 30], twist: [-35, 35] },
-  neck: { x: [-45, 40], z: [-35, 35], twist: [-60, 60] },
-  shoulder: { x: [-120, 70], z: [-40, 120], twist: [-60, 60] },
-  wrist: { x: [-70, 70], z: [-30, 30], twist: [-30, 30] },
+    waist: { x: [-40, 25], z: [-30, 30], twist: [-35, 35] },
+    neck: { x: [-45, 40], z: [-35, 35], twist: [-60, 60] },
+    shoulder: { x: [-120, 70], z: [-40, 120], twist: [-60, 60] },
+    wrist: { x: [-70, 70], z: [-30, 30], twist: [-30, 30] },
 });
 
-const conj = q => ({ x: -q.x, y: -q.y, z: -q.z, w: q.w });
+const conj = (q) => ({ x: -q.x, y: -q.y, z: -q.z, w: q.w });
 const mul = (a, b) => ({
-  x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
-  y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
-  z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
-  w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+    x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+    y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+    z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+    w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
 });
 
 /**
@@ -34,18 +34,30 @@ const mul = (a, b) => ({
  * 결과는 오른쪽 몸 기준 표와 비교할 수 있게 z와 twist에 side를 곱해 돌려준다.
  */
 function jointAngles(parentRotation, childRotation, side = 1) {
-  const q = mul(conj(parentRotation), childRotation);
-  if (q.w < 0) { q.x = -q.x; q.y = -q.y; q.z = -q.z; q.w = -q.w; }
-  const twistNorm = Math.hypot(q.y, q.w) || 1, twist = { x: 0, y: q.y / twistNorm, z: 0, w: q.w / twistNorm };
-  const swing = mul(q, conj(twist)), size = Math.hypot(swing.x, swing.z);
-  const scale = size > 1e-9 ? 2 * Math.atan2(size, swing.w) / size : 2;
-  return { x: swing.x * scale, z: swing.z * scale * side, twist: 2 * Math.atan2(twist.y, twist.w) * side };
+    const q = mul(conj(parentRotation), childRotation);
+    if (q.w < 0) {
+        q.x = -q.x;
+        q.y = -q.y;
+        q.z = -q.z;
+        q.w = -q.w;
+    }
+    const twistNorm = Math.hypot(q.y, q.w) || 1,
+        twist = { x: 0, y: q.y / twistNorm, z: 0, w: q.w / twistNorm };
+    const swing = mul(q, conj(twist)),
+        size = Math.hypot(swing.x, swing.z);
+    const scale = size > 1e-9 ? (2 * Math.atan2(size, swing.w)) / size : 2;
+    return {
+        x: swing.x * scale,
+        z: swing.z * scale * side,
+        twist: 2 * Math.atan2(twist.y, twist.w) * side,
+    };
 }
 
 /** 표의 한계를 넘은 양(라디안, 한계 안이면 0). 넘은 방향은 부호로 나타낸다. */
 function excessOf(angle, [min, max]) {
-  const lo = min * DEG, hi = max * DEG;
-  return angle > hi ? angle - hi : angle < lo ? angle - lo : 0;
+    const lo = min * DEG,
+        hi = max * DEG;
+    return angle > hi ? angle - hi : angle < lo ? angle - lo : 0;
 }
 
 export { DEG, HUMAN_JOINT_LIMITS, jointAngles, excessOf };

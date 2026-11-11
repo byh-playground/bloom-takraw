@@ -40,6 +40,7 @@ import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
+import { takrawTrainingCoach } from './presentation/training-coach.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
 import { takrawHumanPlayerId, takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';
@@ -1208,7 +1209,10 @@ async function bootTakraw() {
             attacker = roleName('attacker', LOCALE.locale);
         return {
             ...latestView.state,
-            training: latestView.training,
+            // 시뮬레이션은 연습 사실만 내고, 단계·문구·진행 막대는 coach가 표시 설정으로 만든다.
+            training: takrawTrainingCoach(latestView.training, {
+                maxLead: config.visual.attackGuide.maxLead,
+            }),
             teamPlay: latestView.teamPlay?.[team] || null,
             teamNames:
                 mode === 'watch'

@@ -1719,7 +1719,11 @@ class TakrawGame {
         return attack.kickDelay * (lesson?.kickDelayScale ?? 1);
     }
 
-    getTraining(guide = this.getAttackGuides()[0]) {
+    /**
+     * 연습 안내의 재료(사실)만 낸다. 단계·문구·색·진행 막대는 화면(presentation/training-coach.js)이 이 값으로 만든다.
+     * 상태를 바꾸지 않는다(DEV-008). guide는 사람 팀의 공격 안내(getAttackGuides()[0])다.
+     */
+    getTrainingFacts(guide = this.getAttackGuides()[0]) {
         const t = this.state.training;
         if (!t) return null;
         const player = this.physics.players[this.state.selected[0]],
@@ -1762,19 +1766,18 @@ class TakrawGame {
                 ? null
                 : jumpIn + kickDelay;
         const contactIn = Number.isFinite(plan?.remaining) ? Math.max(0, plan.remaining) : null;
-        const base = {
+        return {
             lesson: t.lesson,
             tempo: t.tempo,
             attempt: t.attempt,
             successes: t.successes,
             title: lesson.title,
             sequence: lesson.sequence,
+            anyMotion: lesson.anyMotion,
+            prehold: lesson.prehold,
             motionId: motionId || null,
-            motionStatus: motionKnown
-                ? message('motionStatus', { motionId, adjustment })
-                : message(lesson.anyMotion ? 'motionAuto' : 'motionLesson', {
-                      lesson: t.lesson,
-                  }),
+            motionKnown,
+            adjustment,
             jumpIn,
             kickIn,
             shortJump,
@@ -1784,149 +1787,30 @@ class TakrawGame {
             contactIn,
             phase: plan?.phase || null,
             estimated: !plan,
+            // 화면에 남길 결과(이번 시도, 없으면 지난 시도)와 이번 시도의 결과.
             result: t.result || t.previousResult,
-            stage: 'set',
-            cue: message('cueWaitSet'),
-            detail: message('detailWaitSet'),
-            tone: 'neutral',
-            progress: 0,
-        };
-        // 결과 단계의 cue·detail은 결과 코드의 제목·설명이다(값은 결과의 code와 갈래).
-        const outcome = t.result && { code: t.result.code, ...t.result.values };
-        if (this.state.phase === 'point')
-            return {
-                ...base,
-                stage: 'result',
-                cue: outcome ? message('resultTitle', outcome) : message('cueRetry'),
-                detail: outcome ? message('resultDetail', outcome) : message('none'),
-                tone: t.result?.tone || 'neutral',
-                progress: 1,
-            };
-        if (this.state.phase === 'ready')
-            return {
-                ...base,
-                stage: 'ready',
-                cue: message('cueNextToss'),
-                detail: message('lessonSequence', { lesson: lesson.id }),
-            };
-        if (t.contact && (!player.jump.active || !plan || plan.phase === 'follow' || !input.kick)) {
-            const down = t.contact.foot && t.contact.downward && t.contact.outgoing?.y < -0.2;
-            return {
-                ...base,
-                stage: 'contact',
-                cue: message(
-                    down
-                        ? 'cueStruckDown'
-                        : t.contact.foot
-                          ? 'cueFoot'
-                          : /^lowerLeg/.test(t.contact.part)
-                            ? 'cueShin'
-                            : 'cueBody',
-                ),
-                detail: message(down ? 'detailWatchNet' : 'detailRetryTiming'),
-                tone: down ? 'success' : 'retry',
-                progress: 1,
-            };
-        }
-        if (t.setAt === null) return base;
-        if (player.jump.active) {
-            const jump = shortJump ? 'tap' : player.jump.time < jumpHold ? 'hold' : 'release';
-            if (plan && input.kick) {
-                const follow = plan.phase === 'follow',
-                    striking = plan.phase === 'strike';
-                const horizon = this.physics.settings.airKick.contact?.horizon || contactLead;
-                return {
-                    ...base,
-                    stage: follow ? 'contact' : 'kick',
-                    cue: message(follow ? 'cueLanding' : striking ? 'cueStriking' : 'cueRaising'),
-                    detail: follow ? message('detailLanding') : message('detailKeepKick', { jump }),
-                    tone: follow ? 'neutral' : 'ready',
-                    progress: follow
-                        ? 1
-                        : Math.max(
-                              0,
-                              Math.min(1, 1 - (contactIn ?? horizon) / Math.max(horizon, 0.01)),
-                          ),
-                };
-            }
-            const wait = !lesson.prehold && kickIn > 0;
-            return {
-                ...base,
-                stage: 'kick',
-                cue: message(wait ? 'cueRise' : input.kick ? 'cueHoldKick' : 'cueKickNow'),
-                detail: message(wait ? 'detailWaitKick' : 'detailPressKick', { jump }),
-                tone: wait ? 'neutral' : 'ready',
-                progress: Math.max(0, Math.min(1, player.jump.time / Math.max(kickDelay, 0.01))),
-            };
-        }
-        if (!guide)
-            return {
-                ...base,
-                stage: 'position',
-                cue: message('cueBesideBall'),
-                detail: message('detailGuideSoon'),
-            };
-        const progress =
-            jumpIn === null
-                ? 0
-                : Math.max(0, Math.min(1, 1 - jumpIn / this.config.visual.attackGuide.maxLead));
-        // The ground hold starts while approaching; waiting until the position
-        // circle is reached can consume the whole preparation interval.
-        if (guide.preholdWindow && !guide.preheld)
-            return {
-                ...base,
-                stage: 'kick',
-                cue: message(input.kick ? 'cueKeepRaised' : 'cuePressFirst'),
-                detail: message('detailPrehold'),
-                tone: 'ready',
-                progress,
-            };
-        if (!guide.inPosition || (!guide.settled && !guide.braking))
-            return {
-                ...base,
-                stage: 'position',
-                cue: message('cueMoveToFootprint', {
-                    holding: lesson.prehold && input.kick,
-                }),
-                detail: message('detailPrediction'),
-                progress,
-            };
-        if (guide.braking)
-            return {
-                ...base,
-                stage: 'brake',
-                cue: message('cueBrake', { holding: lesson.prehold && input.kick }),
-                detail: message('detailBrake'),
-                tone: 'neutral',
-                progress,
-            };
-        if (guide.jumpWindow)
-            return {
-                ...base,
-                stage: 'jump',
-                cue: message('cueJumpNow'),
-                detail: message('detailJumpNow', {
-                    downward: lesson.prehold,
-                    short: shortJump,
-                }),
-                tone: 'ready',
-                progress: 1,
-            };
-        if (guide.preholdWindow && input.kick)
-            return {
-                ...base,
-                stage: 'kick',
-                cue: message('cueWaitJump'),
-                detail: message('detailWaitJump'),
-                tone: 'ready',
-                progress,
-            };
-        return {
-            ...base,
-            stage: 'position',
-            cue: message('cueJumpTiming'),
-            detail: message('detailOrder', { downward: lesson.prehold }),
-            progress,
+            attemptResult: t.result,
+            rallyPhase: this.state.phase,
+            set: t.setAt !== null,
+            contact: t.contact && {
+                part: t.contact.part,
+                foot: t.contact.foot,
+                downward: t.contact.downward,
+                outgoingY: t.contact.outgoing?.y,
+            },
+            jumpActive: player.jump.active,
+            jumpTime: player.jump.time,
+            planned: !!plan,
+            kickHeld: input.kick,
+            horizon: this.physics.settings.airKick.contact?.horizon || contactLead,
+            guide: guide && {
+                preholdWindow: guide.preholdWindow,
+                preheld: guide.preheld,
+                inPosition: guide.inPosition,
+                settled: guide.settled,
+                braking: guide.braking,
+                jumpWindow: guide.jumpWindow,
+            },
         };
     }
 
@@ -2343,7 +2227,7 @@ class TakrawGame {
             revision: this.revision,
             attackGuides,
             receiveGuides: this.getReceiveGuides(),
-            training: this.getTraining(attackGuides[0]),
+            training: this.getTrainingFacts(attackGuides[0]),
             teamNames: [...this.teamNames],
             teamSchools: [...this.teamSchools],
             teamPlay: [this.getTeamPlay(0), this.getTeamPlay(1)],
@@ -2488,4 +2372,4 @@ class TakrawGame {
     }
 }
 
-export { TakrawGame };
+export { TakrawGame, message as takrawMessage };

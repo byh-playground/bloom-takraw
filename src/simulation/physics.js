@@ -1592,8 +1592,7 @@ class TakrawPhysics {
 
     /** 차는 발을 목표 위치·속도로 끌고 접촉면 방향을 맞춘다. 발 방향을 제어한 발('L'|'R'|'')을 돌려준다. */
     _driveKick(p, input, body, action, targetMap, dt) {
-        const s = p.settings,
-            root = p.root;
+        const root = p.root;
         const { pos, rootRotation, muscleResponse } = body;
         const { fallen, kicking, mode, airTarget } = action;
         let orientedFoot = '';
@@ -1606,45 +1605,21 @@ class TakrawPhysics {
             // into the current leg workspace. Ground reception keeps its own path.
             if (mode !== 'air') this._limitGroundKickReach(p, suffix, foot, hip, command, dt);
             const target = command.target,
-                groundAcceleration = command.groundAcceleration,
                 contactNormal = command.contactNormal,
                 contactForward = command.contactForward,
-                groundContactDrive = command.groundContactDrive,
                 footControl = command.footControl;
             let targetVelocity = command.targetVelocity;
             // Controlled contacts drive the actual ankle. Convert the planned foot
             // centre to that anchor, cancelling _legTargets' standing COM offset.
-            const ikTarget =
-                mode === 'air'
-                    ? this._add(airTarget.ankle, this._rotate(rootRotation, this._v(0, 0, 0.055)))
-                    : contactNormal
-                      ? this._add(
-                            this._add(target, this._mul(contactNormal, 0.065)),
-                            this._add(
-                                this._mul(contactForward, -0.085),
-                                this._rotate(rootRotation, this._v(0, 0, 0.055)),
-                            ),
-                        )
-                      : target;
-            const pose = this._legTargets(p, suffix, ikTarget, 1, pos, rootRotation);
-            targetMap['hip' + suffix] = pose.hip;
-            targetMap['knee' + suffix] = pose.knee;
-            if (mode === 'air') {
-                const motion = p.kick.airPlan.motion;
-                const geometryWeight =
-                    p.kick.airPlan.phase === 'lift' ? s.airKick.motion.liftGeometryWeight : 1;
-                targetMap['knee' + suffix] = [
-                    this._clamp(
-                        motion.pose.activeKnee[0] * (1 - geometryWeight) +
-                            pose.knee[0] * geometryWeight,
-                        0,
-                        2.45,
-                    ),
-                    0,
-                    0,
-                ];
-            }
-            targetMap['ankle' + suffix] = pose.ankle;
+            const ikTarget = this._kickIkTarget(
+                mode,
+                airTarget,
+                target,
+                contactNormal,
+                contactForward,
+                rootRotation,
+            );
+            this._setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap);
             if (contactNormal) orientedFoot = suffix;
             const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
             const forcePoint = ankleDriven
@@ -1654,52 +1629,26 @@ class TakrawPhysics {
                 mode !== 'air' && ankleDriven
                     ? this._sub(ikTarget, this._rotate(rootRotation, this._v(0, 0, 0.055)))
                     : target;
-            if (mode === 'ground' && ankleDriven) {
-                const plan = p.kick.receivePlan,
-                    toss = this.settings.groundToss;
-                const terminal = this._clamp(
-                    (this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) /
-                        toss.strokeTime,
-                    0,
-                    1,
+            if (mode === 'ground' && ankleDriven)
+                targetVelocity = this._groundStrokeVelocity(
+                    p,
+                    foot,
+                    forcePoint,
+                    targetVelocity,
+                    dt,
                 );
-                const instep = this._point(foot.body, this._v(0, 0.055, toss.forefoot));
-                const rotationVelocity = this._sub(
-                    foot.body.velocityAtPoint(instep),
-                    foot.body.velocityAtPoint(forcePoint),
-                );
-                targetVelocity = this._sub(targetVelocity, this._mul(rotationVelocity, terminal));
-            }
             // Both controls read the same solved state. A point impulse temporarily
             // changes free-body omega before the ankle joint is solved again.
             const angularVelocity = ankleDriven ? foot.body.angvel() : null;
-            this._footDrive(
-                p,
-                foot,
+            this._driveKickFoot(p, foot, command, {
+                mode,
+                airTarget,
                 driveTarget,
                 targetVelocity,
-                (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
-                dt,
-                (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
-                (footControl === this.settings.groundToss
-                    ? 2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass)
-                    : footControl
-                      ? footControl.velocityGain
-                      : s.footVelocityGain) * muscleResponse,
                 forcePoint,
-                mode === 'air' && airTarget.acceleration
-                    ? this._mul(
-                          this._add(airTarget.acceleration, this._v(0, s.gravity, 0)),
-                          s.airKick.trackingMass * muscleResponse,
-                      )
-                    : groundAcceleration
-                      ? this._mul(
-                            this._add(groundAcceleration, this._v(0, s.gravity, 0)),
-                            this.settings.groundToss.accelerationMass * muscleResponse,
-                        )
-                      : null,
-                mode === 'air' ? airTarget.contactDrive : groundContactDrive,
-            );
+                muscleResponse,
+                dt,
+            });
             if (contactNormal)
                 this._orientFootNormal(
                     p,
@@ -1713,6 +1662,100 @@ class TakrawPhysics {
                 );
         }
         return orientedFoot;
+    }
+
+    /** 차는 발의 IK 목표(발목 기준점). 공중은 공중 계획 발목, 지상 접촉은 발 중심에서 발목으로 옮긴 점, 그 밖은 목표 그대로다. */
+    _kickIkTarget(mode, airTarget, target, contactNormal, contactForward, rootRotation) {
+        return mode === 'air'
+            ? this._add(airTarget.ankle, this._rotate(rootRotation, this._v(0, 0, 0.055)))
+            : contactNormal
+              ? this._add(
+                    this._add(target, this._mul(contactNormal, 0.065)),
+                    this._add(
+                        this._mul(contactForward, -0.085),
+                        this._rotate(rootRotation, this._v(0, 0, 0.055)),
+                    ),
+                )
+              : target;
+    }
+
+    /** 차는 다리의 엉덩이·무릎·발목 목표. 공중은 들어 올리는 동안 동작 클립 무릎과 기하 무릎을 섞는다. */
+    _setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap) {
+        const s = p.settings;
+        const pose = this._legTargets(p, suffix, ikTarget, 1, pos, rootRotation);
+        targetMap['hip' + suffix] = pose.hip;
+        targetMap['knee' + suffix] = pose.knee;
+        if (mode === 'air') {
+            const motion = p.kick.airPlan.motion;
+            const geometryWeight =
+                p.kick.airPlan.phase === 'lift' ? s.airKick.motion.liftGeometryWeight : 1;
+            targetMap['knee' + suffix] = [
+                this._clamp(
+                    motion.pose.activeKnee[0] * (1 - geometryWeight) +
+                        pose.knee[0] * geometryWeight,
+                    0,
+                    2.45,
+                ),
+                0,
+                0,
+            ];
+        }
+        targetMap['ankle' + suffix] = pose.ankle;
+    }
+
+    /** 지상 토스 마무리 구간: 발등과 힘점의 회전 속도 차이를 목표 속도에서 뺀다(구간 끝으로 갈수록 크게). */
+    _groundStrokeVelocity(p, foot, forcePoint, targetVelocity, dt) {
+        const plan = p.kick.receivePlan,
+            toss = this.settings.groundToss;
+        const terminal = this._clamp(
+            (this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) / toss.strokeTime,
+            0,
+            1,
+        );
+        const instep = this._point(foot.body, this._v(0, 0.055, toss.forefoot));
+        const rotationVelocity = this._sub(
+            foot.body.velocityAtPoint(instep),
+            foot.body.velocityAtPoint(forcePoint),
+        );
+        return this._sub(targetVelocity, this._mul(rotationVelocity, terminal));
+    }
+
+    /** 차는 발에 힘을 건다. 공중·지상과 발 제어 설정(footControl)에 따라 힘·위치·속도 이득과 가속 보상이 달라진다. */
+    _driveKickFoot(
+        p,
+        foot,
+        command,
+        { mode, airTarget, driveTarget, targetVelocity, forcePoint, muscleResponse, dt },
+    ) {
+        const s = p.settings;
+        const { groundAcceleration, groundContactDrive, footControl } = command;
+        this._footDrive(
+            p,
+            foot,
+            driveTarget,
+            targetVelocity,
+            (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
+            dt,
+            (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
+            (footControl === this.settings.groundToss
+                ? 2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass)
+                : footControl
+                  ? footControl.velocityGain
+                  : s.footVelocityGain) * muscleResponse,
+            forcePoint,
+            mode === 'air' && airTarget.acceleration
+                ? this._mul(
+                      this._add(airTarget.acceleration, this._v(0, s.gravity, 0)),
+                      s.airKick.trackingMass * muscleResponse,
+                  )
+                : groundAcceleration
+                  ? this._mul(
+                        this._add(groundAcceleration, this._v(0, s.gravity, 0)),
+                        this.settings.groundToss.accelerationMass * muscleResponse,
+                    )
+                  : null,
+            mode === 'air' ? airTarget.contactDrive : groundContactDrive,
+        );
     }
 
     /** 차는 발의 목표: 공중은 공중 발 계획, 지상 토스는 받기 계획, 그 밖의 지상 발차기는 공을 위로 차 올리는 방향. */

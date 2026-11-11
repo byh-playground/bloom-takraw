@@ -1458,7 +1458,7 @@ async function bootTakraw() {
                 : nextMode === 'match' && debugMatchSeed !== null
                   ? debugMatchSeed
                   : crypto.getRandomValues(new Uint32Array(1))[0];
-        game.reset(watching ? 'ai' : nextMode, undefined, matchSeed);
+        game.reset(nextMode, undefined, matchSeed);
         latestView = game.getView();
         BodyPose = createPresentation();
         replaceJournal();

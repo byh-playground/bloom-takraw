@@ -145,10 +145,6 @@ class TakrawGame {
         this.temperaments = { key: '', list: [] };
         this.temperamentProfiles = [null, null];
         this.revision = 0;
-        this.tuning = [null, null]; // 팀별 학습 조정 값(이름 → 절대값). 없으면 config 기본값을 쓴다.
-        this.tuners = [null, null]; // 팀별 상황 반응형 조정기: (game, playerId) → 조정 값. 상대가 공을 칠 때마다 다시 계산한다(로컬 경기 전용).
-        this.retuneTeam = -1;
-        this.isolated = false; // 학습 장면 전용: 훈련 모드에서도 상대 공에 대한 리시브 판단을 켠다.
         this.teamById = {};
         this.setTeams();
         this.reset('match');
@@ -232,7 +228,6 @@ class TakrawGame {
     ) {
         const reused = Boolean(this.state);
         this.mode = mode;
-        this.retuneTeam = -1;
         this.state = {
             mode,
             phase: 'ready',
@@ -602,7 +597,6 @@ class TakrawGame {
             this.metrics.physicsSteps++;
             for (const event of events) this.handlePhysicsEvent(event, humans);
             this.confirmToss(humans);
-            this.applyTuner();
             const afterBall = this.physics.ball.translation();
             if (this.mode === 'training') this.observeTraining();
             if (this.state.phase === 'rally' && beforeBall.x * afterBall.x < 0) {
@@ -940,7 +934,6 @@ class TakrawGame {
             }
             this.state.touches++;
             this.state.lastTouch = event.playerId;
-            this.releaseTuning(event.team);
             const defendedTouch = this.state.defense[event.team]?.playerId === event.playerId;
             if (this.mode !== 'training') {
                 const defense = this.state.defense[event.team];
@@ -964,7 +957,6 @@ class TakrawGame {
                 return;
             }
             if (spike) this.metrics.spikes++;
-            if (spike && this.tuners[1 - event.team]) this.retuneTeam = 1 - event.team; // 학습한 받기 조정은 스파이크에만 학습했다
             const target = this.inputs[event.playerId]?.tossTarget;
             const set =
                 target &&
@@ -1067,8 +1059,6 @@ class TakrawGame {
     /** reason은 득점 사유 코드다(underNet·out·nextToss·serveLine·hand·fourthTouch·grounded·netTouch). 문구는 화면이 만든다. */
     awardPoint(winner, reason) {
         if (this.state.phase !== 'rally') return;
-        this.releaseTuning(0);
-        this.releaseTuning(1);
         this.state.phase = 'point';
         this.state.toss = null;
         this.state.defense = [null, null];
@@ -1156,8 +1146,7 @@ class TakrawGame {
     }
 
     isReceiveBall(team, intercept) {
-        if ((this.mode === 'training' && !this.isolated) || this.state.phase !== 'rally')
-            return false;
+        if (this.mode === 'training' || this.state.phase !== 'rally') return false;
         const toward = team === 0 ? 1 : -1;
         // A ball already below the normal receiving height may still have a
         // reachable lower slide contact. The physical planner verifies that path.
@@ -1478,22 +1467,11 @@ class TakrawGame {
                     n *
                     Math.max(
                         -this.config.court.halfLength + 0.5,
-                        Math.min(
-                            -0.95,
-                            p.x * n +
-                                this.tuned(player.team, 'aimDx', this.config.ai.toss.aim.dx) +
-                                spread.x,
-                        ),
+                        Math.min(-0.95, p.x * n + this.config.ai.toss.aim.dx + spread.x),
                     ),
                 z: Math.max(
                     -2.55,
-                    Math.min(
-                        2.55,
-                        p.z -
-                            n * 0.1 +
-                            this.tuned(player.team, 'aimDz', this.config.ai.toss.aim.dz) +
-                            spread.z,
-                    ),
+                    Math.min(2.55, p.z - n * 0.1 + this.config.ai.toss.aim.dz + spread.z),
                 ),
             },
         };
@@ -1519,56 +1497,6 @@ class TakrawGame {
             x: half('x') * (2 * seededUnit(...key, 1) - 1),
             z: half('z') * (2 * seededUnit(...key, 2) - 1),
         };
-    }
-
-    /** 팀의 학습 조정 값. 조정이 없거나 해당 이름이 없으면 기본값을 돌려준다. */
-    tuned(team, name, fallback) {
-        return this.tuning[team]?.[name] ?? fallback;
-    }
-
-    /** 팀의 조정 값을 바꾼다. values는 이름 → 유한한 수의 객체이며 null이면 기본으로 되돌린다. */
-    setTuning(team, values) {
-        if (values && !Object.values(values).every(Number.isFinite))
-            throw new Error('조정 값은 유한한 수여야 합니다.');
-        this.tuning[team] = values ? { ...values } : null;
-        this.physics.setTossTuning(team, this.tuning[team]);
-    }
-
-    /** 팀의 조정기를 등록한다. null이면 해제하고 조정 값도 기본으로 되돌린다. */
-    setTuner(team, tuner) {
-        if (tuner !== null && typeof tuner !== 'function')
-            throw new Error('조정기는 함수여야 합니다.');
-        this.tuners[team] = tuner;
-        if (!tuner) this.setTuning(team, null);
-    }
-
-    // TOBE(learning) 받는 선수 선택: applyTuner는 착지 예상 지점에 가장 가까운 선수를 고른다. 학습 장면의 받는 선수(세터)와 다를 수 있다(docs/learning-tobe.md ①).
-    /** 조정기가 있는 팀의 조정 값을 기본으로 되돌린다. 받기 학습은 첫 접촉(받는 동작)만 학습했으므로 그 뒤의 토스·공격에는 쓰지 않는다. */
-    releaseTuning(team) {
-        if (this.tuners[team] && this.tuning[team]) this.setTuning(team, null);
-    }
-
-    /** 상대가 방금 공을 쳤다면, 공이 반응한 뒤 착지 예상 지점에 가장 가까운 선수 기준으로 팀 조정 값을 갱신한다. */
-    applyTuner() {
-        const team = this.retuneTeam;
-        if (team < 0) return;
-        this.retuneTeam = -1;
-        const tuner = this.tuners[team];
-        if (!tuner || this.state.phase !== 'rally') return;
-        const land = this.predictAtHeight(this.config.ai.receiveHeight);
-        if (!land.reachable) return;
-        let nearest = null,
-            best = Infinity;
-        for (const player of this.physics.players) {
-            if (player.team !== team) continue;
-            const t = player.root.translation(),
-                d = Math.hypot(t.x - land.x, t.z - land.z);
-            if (d < best) {
-                best = d;
-                nearest = player.id;
-            }
-        }
-        if (nearest !== null) this.setTuning(team, tuner(this, nearest));
     }
 
     tossTarget(player) {
@@ -2457,14 +2385,7 @@ class TakrawGame {
                         ? this.physics.players[1]
                         : null;
             const groundBase = this.config.ai.toss.ground;
-            const groundTuned = this.tuning[team]
-                ? {
-                      ...groundBase,
-                      lead: this.tuned(team, 'lead', groundBase.lead),
-                      followThrough: this.tuned(team, 'followThrough', groundBase.followThrough),
-                  }
-                : groundBase;
-            const braking = this.tuned(team, 'braking', this.config.ai.receive.braking);
+            const braking = this.config.ai.receive.braking;
             const defense = this.decideReceive(team, human, available, intercept, active);
             if (defense) active = this.physics.players[defense.playerId];
             for (const player of available) {
@@ -2477,7 +2398,7 @@ class TakrawGame {
                     { shortJump } = aerial;
                 const q = player.root.translation();
                 const setTarget = this.tossTarget(player);
-                const ground = groundTuned;
+                const ground = groundBase;
                 const kickLead = setTarget ? ground.lead : 0.2;
                 const kickWindow = setTarget ? ground.window : 0.36;
                 // 서브: 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브(공중 공격과 같은 점프·발차기), 아니면 지상서브다(사람과 같은 기준).
@@ -2694,7 +2615,6 @@ class TakrawGame {
             rallyStart: this.rallyStart || 0,
             metrics: { ...this.metrics },
             physics: this.physics.save(),
-            tuning: structuredClone(this.tuning),
             temperamentProfiles: structuredClone(this.temperamentProfiles),
         };
     }
@@ -2724,9 +2644,6 @@ class TakrawGame {
                 (!assignment.human || assignment.playerId === team * 3 + 2) &&
                 receivePlan(assignment.plan) &&
                 (assignment.humanPlan === null || receivePlan(assignment.humanPlan)));
-        const tuning = (value) =>
-            value === null ||
-            (value && typeof value === 'object' && Object.values(value).every(Number.isFinite));
         return (
             data &&
             data.version === this.config.version &&
@@ -2737,9 +2654,6 @@ class TakrawGame {
             Array.from(data.temperamentProfiles).every(
                 (value) => value === null || Temperament.validConfig(value),
             ) &&
-            Array.isArray(data.tuning) &&
-            data.tuning.length === 2 &&
-            data.tuning.every(tuning) &&
             Array.isArray(data.teamNames) &&
             data.teamNames.length === 2 &&
             data.teamNames.every(
@@ -2783,8 +2697,6 @@ class TakrawGame {
         if (!this.validate(data)) throw new Error('경기 상태 형식 또는 버전이 맞지 않습니다.');
         this.physics.load(data.physics);
         this.setTemperaments(data.temperamentProfiles);
-        this.tuning = structuredClone(data.tuning);
-        data.tuning.forEach((values, team) => this.physics.setTossTuning(team, values));
         this.mode = data.mode;
         this.state = structuredClone(data.state);
         this.teamById = { ...data.teamById };

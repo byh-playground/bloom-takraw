@@ -11,8 +11,6 @@ class TakrawPhysics {
         this.R = RAPIER;
         this.config = config;
         this.motionMatcher = new MotionMatcher();
-        this.tossTuning = [null, null]; // 팀별 지면 토스 보정 값(조정이 없으면 null)
-        this._toss = [null, null];
         this.settings = Object.assign(
             {
                 gravity: 9.81,
@@ -227,7 +225,6 @@ class TakrawPhysics {
         this.netContacts = new Set();
         this.lastBallTouch = null;
         this.time = 0;
-        this._toss = [null, null];
         this._buildCourt();
         for (let id = 0; id < 6; id++) this.players.push(this._buildPlayer(id));
         this.setAthletes(profiles);
@@ -491,7 +488,7 @@ class TakrawPhysics {
                 (!sliding || moving);
             return { mode, reachable, point, time, stance, moving, at: this.time, distance };
         };
-        const toss = this.tossFor(p);
+        const toss = this.settings.groundToss;
         const normal = candidate(toss.contactHeight, false);
         if (normal?.reachable) return normal;
         const slides = receive.slideContactFractions.map((fraction) =>
@@ -1433,7 +1430,7 @@ class TakrawPhysics {
             p.kick.airPlan = null;
             let choose = this.ball.translation();
             if (mode === 'ground' && input.tossTarget) {
-                const toss = this.tossFor(p),
+                const toss = this.settings.groundToss,
                     bv = this.ball.linvel(),
                     height = toss.contactHeight;
                 const disc = bv.y * bv.y + 2 * s.gravity * (choose.y - height);
@@ -1688,7 +1685,7 @@ class TakrawPhysics {
                     groundContactDrive = receive.contactDrive || null;
                     contactNormal = receive.normal;
                     contactForward = p.kick.receivePlan.forward;
-                    footControl = this.tossFor(p);
+                    footControl = this.settings.groundToss;
                 } else {
                     const horizontal = this._unit(
                         { x: predicted.x - hip.x, y: 0, z: predicted.z - hip.z },
@@ -1794,7 +1791,7 @@ class TakrawPhysics {
                     : target;
             if (mode === 'ground' && ankleDriven) {
                 const plan = p.kick.receivePlan,
-                    toss = this.tossFor(p);
+                    toss = this.settings.groundToss;
                 const terminal = this._clamp(
                     (this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) /
                         toss.strokeTime,
@@ -1819,7 +1816,7 @@ class TakrawPhysics {
                 (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
                 dt,
                 (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
-                (footControl === this.tossFor(p)
+                (footControl === this.settings.groundToss
                     ? 2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass)
                     : footControl
                       ? footControl.velocityGain
@@ -1833,7 +1830,7 @@ class TakrawPhysics {
                     : groundAcceleration
                       ? this._mul(
                             this._add(groundAcceleration, this._v(0, s.gravity, 0)),
-                            this.tossFor(p).accelerationMass * muscleResponse,
+                            this.settings.groundToss.accelerationMass * muscleResponse,
                         )
                       : null,
                 mode === 'air' ? airTarget.contactDrive : groundContactDrive,
@@ -2661,29 +2658,9 @@ class TakrawPhysics {
         };
     }
 
-    /** 팀별 지면 토스 설정. 조정이 없으면 기본 설정 객체를 그대로 돌려준다. */
-    tossFor(p) {
-        return this._toss[p.team] || this.settings.groundToss;
-    }
-
-    /** 학습 조정 값(contactHeight, strokeTime, attackApex)을 팀 단위로 덮어쓴다. null이면 기본으로 되돌린다. */
-    setTossTuning(team, values) {
-        const keys = ['contactHeight', 'strokeTime', 'attackApex'];
-        this.tossTuning[team] = values
-            ? Object.fromEntries(
-                  keys
-                      .filter((key) => Number.isFinite(values[key]))
-                      .map((key) => [key, values[key]]),
-              )
-            : null;
-        this._toss[team] = this.tossTuning[team]
-            ? Object.freeze({ ...this.settings.groundToss, ...this.tossTuning[team] })
-            : null;
-    }
-
     _receiveFootTarget(p, input, ballPos, ballVel, dt) {
         const s = this.settings,
-            toss = this.tossFor(p);
+            toss = this.settings.groundToss;
         // An early held input can prepare the real foot while the ball is still
         // outside the stroke horizon. Commit the stroke only once its actual
         // predicted arrival enters that horizon. Once committed, retain the
@@ -3221,7 +3198,7 @@ class TakrawPhysics {
      * 접촉 위치와 목표만으로 정해지는 값이라 저장할 상태가 없다. 발이 이미 공을 맞힌 뒤의 보정이므로 접촉·터치 판정은 그대로다.
      */
     assistSet(p, position, target) {
-        const toss = this.tossFor(p),
+        const toss = this.settings.groundToss,
             g = this.settings.gravity;
         if (!toss.attackAssist) return false;
         const up = Math.sqrt(2 * g * Math.max(0.4, toss.attackApex - position.y));
@@ -3236,7 +3213,7 @@ class TakrawPhysics {
 
     /** 사람의 서브 발차기(지상·공중 모두): 접촉 직후 공을 꼭짓점 serveApex를 지나 상대 코트 목표점(serveHeight 높이)에 내려오는 포물선으로 보낸다. */
     assistServe(p, position, target) {
-        const toss = this.tossFor(p),
+        const toss = this.settings.groundToss,
             g = this.settings.gravity;
         if (!toss.attackAssist) return false;
         const apex = Math.max(toss.serveApex, position.y + 0.6),

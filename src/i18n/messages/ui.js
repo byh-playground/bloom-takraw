@@ -529,14 +529,6 @@ const CLUB = LOCALE.messages({
     schoolInvalid: { ko: '도전한 학교를 확인해 주세요.', en: 'Check which school you challenged.' },
     schoolLocked: { ko: '앞 학교를 먼저 클리어해 주세요.', en: 'Clear the earlier school first.' },
     rewarded: { ko: '경기 보상을 저장했어요.', en: 'Match reward saved.' },
-    policyInvalid: {
-        ko: '저장할 학습 결과를 확인해 주세요.',
-        en: 'Check the learning result to save.',
-    },
-    learned: {
-        ko: '학습 결과를 저장했어요. 다음 AI 대전·연습부터 적용돼요.',
-        en: 'Learning saved. It applies from the next AI match and practice.',
-    },
     debugChanged: { ko: '확인용 값을 바꿨어요.', en: 'Debug value changed.' },
 });
 

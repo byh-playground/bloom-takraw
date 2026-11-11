@@ -2,7 +2,6 @@
  * 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다.
  * 규칙·프리셋의 이름은 TextPair이고, 상태 문구(message)와 오류는 코드 + 값이다. 문구는 화면(presentation/club-text.js)이 언어별로 만든다(docs/i18n.md).
  */
-// TOBE(learning) 학습 비용: `learning.cost`는 능력치 훈련과 같은 trainingPoints를 쓴다. 학습이 경기에 도움이 되는 것으로 확인되면 별도 포인트 분리 여부를 결정한다(docs/learning-tobe.md ⑥).
 import { takrawGenerateCard, takrawCardTag } from './generator.js';
 import { TAKRAW_NAMES } from './names.js';
 import {
@@ -56,7 +55,6 @@ const TAKRAW_CLUB_RULES = Object.freeze({
             recovery: { ko: '빠른 회복', en: 'Fast recovery' },
         },
     },
-    learning: { cost: 1, epochs: 100, policyLength: 1024 },
     rewards: {
         win: { credits: 180, trainingPoints: 3 },
         loss: { credits: 100, trainingPoints: 2 },
@@ -285,7 +283,6 @@ class TakrawClub {
             record: { played: 0, won: 0, lost: 0 },
             rewards: [],
             lastReward: null,
-            learning: { runs: 0, policy: null },
             campaign: { home: takrawPickHome(this.random()), cleared: [] },
         };
     }
@@ -326,24 +323,6 @@ class TakrawClub {
             record.rewards.some((id) => typeof id !== 'string' || !/^[a-f\d]{32}$/.test(id))
         )
             fail();
-        // 선택 필드: 이전 저장본에는 없다. 있으면 형식을 엄격히 확인한다.
-        if (record.learning !== undefined) {
-            const learning = record.learning,
-                policy = learning?.policy;
-            if (
-                !learning ||
-                typeof learning !== 'object' ||
-                !integer(learning.runs) ||
-                !(
-                    policy === null ||
-                    (typeof policy === 'string' &&
-                        policy.length <= TAKRAW_CLUB_RULES.learning.policyLength &&
-                        /^[A-Za-z\d+/]+={0,2}$/.test(policy))
-                ) ||
-                (policy === null) !== (learning.runs === 0)
-            )
-                fail();
-        }
         if (record.campaign !== undefined) {
             const campaign = record.campaign,
                 keys =
@@ -816,30 +795,6 @@ class TakrawClub {
         }, clubMessage('rewarded'));
     }
 
-    /** 훈련 포인트 1개로 받기 학습 한 번(100 epoch)을 마친 정책을 저장한다. policy는 양자화한 정책의 base64다. */
-    learn(policy) {
-        const rule = TAKRAW_CLUB_RULES.learning;
-        if (
-            typeof policy !== 'string' ||
-            !policy ||
-            policy.length > rule.policyLength ||
-            !/^[A-Za-z\d+/]+={0,2}$/.test(policy)
-        )
-            return Promise.reject(this._error('policyInvalid'));
-        return this._mutate((record) => {
-            if (record.trainingPoints < rule.cost) throw this._error('pointsShort');
-            record.trainingPoints -= rule.cost;
-            const learning = record.learning ?? { runs: 0, policy: null };
-            record.learning = { runs: learning.runs + 1, policy };
-        }, clubMessage('learned'));
-    }
-
-    /** 저장된 학습 정책(base64)과 누적 학습 횟수. 학습한 적이 없으면 null이다. */
-    learnedPolicy() {
-        const learning = this.record?.learning;
-        return learning?.policy ? { policy: learning.policy, runs: learning.runs } : null;
-    }
-
     /** 저장 기록과 무관하게 프리셋 선수 하나를 화면용으로 만든다(소개영상의 뽑기 연출). */
     preview(id) {
         return this._player(id);
@@ -892,7 +847,6 @@ class TakrawClub {
                 pending: record?.pending ? this._player(record.pending) : null,
             },
             record: record ? { ...record.record } : { played: 0, won: 0, lost: 0 },
-            learning: { runs: record?.learning?.runs || 0 },
             lastReward: record?.lastReward ? { ...record.lastReward } : null,
             campaign: {
                 home: record?.campaign?.home || null,

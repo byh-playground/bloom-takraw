@@ -6,7 +6,6 @@ import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation';
 import { createRoomSession } from '@bloom-gamekit/rollback';
 import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
-import { AudioPlayer } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { createSave, memoryAdapter } from '@bloom-gamekit/save';
@@ -27,6 +26,7 @@ import {
 } from './config/game.js';
 import { createRuntimeDiagnostics } from './runtime/diagnostics.js';
 import { createRuntimeStores } from './runtime/stores.js';
+import { RuntimeAudio, takrawBgmLevel } from './runtime/audio.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
@@ -108,11 +108,6 @@ async function bootTakraw() {
     let actions;
     let device;
     let audio;
-    let bgm = null,
-        bgmBuffer = false,
-        bgmLoading = false,
-        bgmFailed = false,
-        bgmDuckTimer = 0;
     let codec;
     let session = null;
     let room = null;
@@ -527,55 +522,6 @@ async function bootTakraw() {
         return game.teamById?.[session.localPlayerId] ?? 0;
     }
 
-    /** 배경 음악 크기: 홈 homeLevel, 경기 중 level, 일시정지·소개영상 중에는 낮게. */
-    function bgmLevel() {
-        if (!mode) return TAKRAW_RUNTIME.bgm.homeLevel;
-        return paused ? TAKRAW_RUNTIME.bgm.pausedLevel : TAKRAW_RUNTIME.bgm.level;
-    }
-
-    /** 곡 파일을 한 번만 읽어 디코드하고 모듈에 등록한다. 실패해도 음악만 빠질 뿐 게임은 계속된다. */
-    async function loadBgm() {
-        if (bgmBuffer || bgmLoading || bgmFailed) return;
-        bgmLoading = true;
-        try {
-            const response = await fetch(TAKRAW_RUNTIME.bgm.url);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const decoded = await audio.context.decodeAudioData(await response.arrayBuffer());
-            if (disposed) return;
-            audio.setBuffer('bgm', decoded);
-            bgmBuffer = true;
-        } catch (error) {
-            bgmFailed = true;
-            recordError(error, 'bgm-load');
-        } finally {
-            bgmLoading = false;
-        }
-    }
-
-    function startBgm() {
-        if (!bgm && bgmBuffer && !disposed)
-            bgm = audio.startBed('bgm', { level: bgmLevel(), fadeMs: TAKRAW_RUNTIME.bgm.fadeMs });
-    }
-
-    /** 오디오 잠금을 풀고 배경 음악을 켠다(이미 켜져 있으면 그대로). 첫 제스처 전에는 켜지지 않고 다음 제스처에서 켠다. */
-    function unlockAudio() {
-        return audio.unlock().then((ok) => {
-            if (!ok) return ok;
-            if (bgmBuffer) startBgm();
-            else loadBgm().then(startBgm);
-            return ok;
-        });
-    }
-
-    /** 타격·득점 순간에 음악을 잠깐 낮춰 효과음이 묻히지 않게 한다(kind는 TAKRAW_RUNTIME.bgm.duck의 키). */
-    function duckBgm(kind) {
-        if (!bgm) return;
-        const { depth, holdMs, releaseMs } = TAKRAW_RUNTIME.bgm.duck[kind];
-        bgm.setLevel(bgmLevel() * depth, 15);
-        clearTimeout(bgmDuckTimer);
-        bgmDuckTimer = setTimeout(() => bgm?.setLevel(bgmLevel(), releaseMs), holdMs);
-    }
-
     function controlsAllowed() {
         return Boolean(
             isReady() &&
@@ -837,7 +783,7 @@ async function bootTakraw() {
                 contact: {
                     reversible: true,
                     start(event) {
-                        duckBgm('touch');
+                        audio.duck('touch');
                         return {
                             impact: view.impacts.start(event.payload),
                             badge: showBadge(event.payload),
@@ -882,7 +828,7 @@ async function bootTakraw() {
                     reversible: false,
                     start(event) {
                         view.startCheer(performance.now());
-                        duckBgm('point');
+                        audio.duck('point');
                         if (mode === 'match' && event.payload.winningSpike && !view.reducedMotion())
                             view.scoreMotion.start(performance.now());
                         return { node: view.field.startConfetti(event.payload) };
@@ -895,7 +841,7 @@ async function bootTakraw() {
                         view.field.release(handle.node);
                     },
                 },
-                sound: audio.createAdapter({ onEnded: (event) => journal?.finish(event) }),
+                sound: audio.eventAdapter((event) => journal?.finish(event)),
             },
         });
     }
@@ -1281,7 +1227,7 @@ async function bootTakraw() {
         });
         view.setSchools(setup.schools);
         paused = false;
-        bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
+        audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
         clubSession.team = setup.home;
         clubSession.match =
             nextMode === 'match'
@@ -1438,7 +1384,7 @@ async function bootTakraw() {
             setNetwork({ state: 'idle', code: '', message: '', count: 0 });
         }
         hudTime = -Infinity;
-        unlockAudio();
+        audio.unlock();
     }
 
     /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */
@@ -1478,7 +1424,7 @@ async function bootTakraw() {
             publishClub();
             return;
         }
-        unlockAudio();
+        audio.unlock();
         observeMatchResult();
         stopSession();
         try {
@@ -1533,7 +1479,7 @@ async function bootTakraw() {
             );
             return;
         }
-        unlockAudio();
+        audio.unlock();
         stopSession({ preserveResume: resuming });
         const token = run;
         connection.abort = new AbortController();
@@ -1642,7 +1588,7 @@ async function bootTakraw() {
         if (mode) metrics.track('match', mode, 'quit');
         observeMatchResult();
         stopSession();
-        bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
+        audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
         clubSession.team = null;
         clubSession.match = null;
         clubSession.reward = null;
@@ -1678,7 +1624,7 @@ async function bootTakraw() {
                 pump?.wake();
             }
         }
-        bgm?.setLevel(bgmLevel(), TAKRAW_RUNTIME.bgm.levelRampMs);
+        audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
     }
 
     const runtime = Object.freeze({
@@ -1769,8 +1715,6 @@ async function bootTakraw() {
             club?.dispose();
             ui?.dispose();
             device?.dispose();
-            clearTimeout(bgmDuckTimer);
-            bgm = null;
             audio?.dispose();
             stores.dispose();
             view?.dispose();
@@ -1846,7 +1790,7 @@ async function bootTakraw() {
                 if (!actions || !['jump', 'kick'].includes(action)) return;
                 if (down && !controlsAllowed()) return;
                 actions.set(action, `touch:${source}`, Boolean(down));
-                if (down) unlockAudio();
+                if (down) audio.unlock();
                 observeSoon();
             },
             onAxis(x, z) {
@@ -1897,18 +1841,15 @@ async function bootTakraw() {
         view = new TakrawView({ THREE, canvas: ui.canvas, config });
         bootstrapStage = 'controls';
         codec = deterministic.createValueCodec();
-        if (await soundLoad) {
-            audio = new AudioPlayer({
-                ...TAKRAW_RUNTIME.audio,
-                settings: soundSettings,
-                onSaveError: soundSaveFailed,
-            });
-            ui.setSound({ on: !audio.muted, locked: false, message: '' });
-        } else {
-            audio = new AudioPlayer(TAKRAW_RUNTIME.audio);
-            audio.setMuted(true);
-            ui.setSound({ on: false, locked: true, message: RUNTIME.soundLocked() });
-        }
+        const soundReady = await soundLoad;
+        audio = new RuntimeAudio({
+            settings: soundReady ? soundSettings : null,
+            onSaveError: soundSaveFailed,
+            level: () => takrawBgmLevel({ mode, paused }),
+            recordError,
+        });
+        if (soundReady) ui.setSound({ on: !audio.muted, locked: false, message: '' });
+        else ui.setSound({ on: false, locked: true, message: RUNTIME.soundLocked() });
         view.setQuality(ui.settings.quality);
         actions = new ActionState();
         ui.canvas.tabIndex = 0;
@@ -1932,7 +1873,7 @@ async function bootTakraw() {
             pointerButtons: { 0: 'kick', 2: 'cameraOrbit' },
             touchAction: 'none',
             onPointer(event) {
-                if (event.type === 'down') unlockAudio();
+                if (event.type === 'down') audio.unlock();
                 if (event.type === 'down' && replayActive) {
                     endHighlight();
                     return;
@@ -1948,8 +1889,8 @@ async function bootTakraw() {
             event.preventDefault();
             resetCamera();
         });
-        listen(document, 'pointerdown', () => unlockAudio(), { capture: true });
-        listen(document, 'keydown', () => unlockAudio(), { capture: true });
+        listen(document, 'pointerdown', () => audio.unlock(), { capture: true });
+        listen(document, 'keydown', () => audio.unlock(), { capture: true });
         listen(document, 'keydown', observeSoon);
         listen(document, 'keyup', observeSoon);
         listen(window, 'blur', releaseControls);

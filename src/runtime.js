@@ -473,7 +473,8 @@ async function bootTakraw() {
                     ballPosition: () => view.ballPosition(),
                     read: () => ({
                         mode: match.mode,
-                        seed: match.watchSeed,
+                        // 지금 경기의 시드. 관전은 관전 시드와 같고, 확인용 AI 대전(scene=match)은 고정한 시드다.
+                        seed: game.state.seed,
                         tick: game.state.tick,
                         score: [...game.state.score],
                     }),

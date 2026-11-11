@@ -1028,7 +1028,7 @@ async function bootTakraw() {
     const online = nextMode === 'online';
     let firstCheckpointReadback = true;
     const adapter = {
-      save: () => codec.encode(game.save()),
+      saveInto: out => codec.encodeInto(game.save(), out),
       load(bytes) {
         const data = codec.decode(bytes);
         if (!game.validate(data)) throw new Error('Invalid Takraw snapshot');

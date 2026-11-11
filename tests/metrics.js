@@ -36,7 +36,7 @@ export function replaySession(page) {
       const game = new TakrawGame({ RAPIER, config: TAKRAW_CONFIG });
       try {
         const played = playReplay({ replay: segment, adapter: {
-          save: () => codec.encode(game.save()), load: bytes => game.load(codec.decode(bytes)),
+          saveInto: out => codec.encodeInto(game.save(), out), load: bytes => game.load(codec.decode(bytes)),
           validateSnapshot: () => true, step: context => game.step(context) } });
         return { epoch: segment.membershipEpoch, ticks: segment.tick, inputChangeBytes: segment.inputChanges.length,
           same: played.tick === segment.tick && played.hash === segment.hash };

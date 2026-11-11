@@ -5,38 +5,34 @@
 export function createDebugScenes({ config, openWatch, pulse, render, renderFrom, ballPosition, read, openClub, showClub, openMatch, readReplay }) {
   const QUANTUM = 1000 / config.simulation.tickRate;
   const scenes = {
-    /** 시드 하나의 AI 대 AI 경기를 가상 시계로 틱 단위로 진행한다. */
-    watch({ seed }) {
+    /** 시드 하나의 AI 대 AI 경기를 debug-tools 가상 시계로 틱 단위로 진행한다. */
+    watch({ seed }, { freezeClock }) {
       if (!openWatch(seed)) throw new Error(`watch needs an integer seed in range: ${seed}`);
-      // 표시·연출이 읽는 시계도 틱에서 나오게 해, 같은 주소가 항상 같은 장면을 만든다.
-      const realNow = performance.now.bind(performance);
-      // 열기 직전 실제 시각에서 이어 가야 이미 발행된 표시 시계가 거꾸로 가지 않는다.
-      let clock = realNow();
-      performance.now = () => clock;
+      // 표시·연출이 읽는 시계도 틱에서 나오게 해, 같은 주소가 항상 같은 장면을 만든다. 시계는 호스트가 되돌린다.
+      const clock = freezeClock();
       return {
         step() {
           const before = read().tick;
           // 첫 pulse는 루프의 시간 기준만 잡을 수 있어 한 번 더 부른다.
           for (let attempt = 0; attempt < 3 && read().tick === before; attempt++) {
-            clock += QUANTUM;
-            pulse(clock);
+            clock.advance(QUANTUM);
+            pulse(clock.now());
           }
           if (read().tick !== before + 1) throw new Error(`step advanced ${read().tick - before} ticks`);
         },
-        render: () => render(clock),
+        render: () => render(clock.now()),
         state: read,
-        dispose() { performance.now = realNow; },
       };
     },
     /**
      * watch와 같은 재생을 고정 카메라로 그리고 화면 HUD를 숨긴다(아이콘·공유 이미지용 장면 캡처).
      * camera는 `x,y,z,tx,ty,tz,fov`(카메라 위치, 바라보는 점, 세로 시야각 도)이며 바라보는 점은 공 위치 기준의 상대 좌표다.
      */
-    spike({ seed, camera }) {
+    spike({ seed, camera }, context) {
       const values = String(camera).split(',').map(Number);
       if (values.length !== 7 || !values.every(Number.isFinite)) throw new Error(`spike needs camera=x,y,z,tx,ty,tz,fov: ${camera}`);
       const [x, y, z, tx, ty, tz, fov] = values;
-      const watch = scenes.watch({ seed });
+      const watch = scenes.watch({ seed }, context);
       const style = document.createElement('style');
       style.textContent = '#app > :not(#court-canvas){display:none!important}';
       document.head.append(style);
@@ -49,7 +45,7 @@ export function createDebugScenes({ config, openWatch, pulse, render, renderFrom
           renderFrom({ position: { x, y, z }, target: { x: ball.x + tx, y: ball.y + ty, z: ball.z + tz }, fov });
         },
         state: () => ({ ...read(), ball: ballPosition() }),
-        dispose() { style.remove(); watch.dispose(); },
+        dispose() { style.remove(); },
       };
     },
     /**

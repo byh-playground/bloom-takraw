@@ -2335,13 +2335,10 @@ class TakrawPhysics {
         return this._recordAirPlan(p, plan, aim.contact, geometry, path, limit);
     }
 
-    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
-    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference) {
-        const s = this.settings,
-            kick = s.airKick,
-            root = p.root,
-            settings = kick.motion;
-        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
+    /** 공격 평면의 축: 팀 방향(toward)과 접촉점의 옆 치우침(lateral, 상한 있음). */
+    _airPlanAxis(p, contact) {
+        const kick = this.settings.airKick,
+            root = p.root;
         const lateral = this._clamp(
             (contact.impact.z - root.translation().z) /
                 Math.max(
@@ -2351,7 +2348,12 @@ class TakrawPhysics {
             -kick.lateral.max,
             kick.lateral.max,
         );
-        const axis = this._unit(this._v(p.toward, 0, lateral));
+        return this._unit(this._v(p.toward, 0, lateral));
+    }
+
+    /** 두 발 앞꿈치에서 접촉점까지의 거리(찰 발 고르기용). */
+    _airFootDistances(p, contact) {
+        const kick = this.settings.airKick;
         const distances = {};
         for (const side of ['L', 'R']) {
             const sole = this._point(
@@ -2360,9 +2362,12 @@ class TakrawPhysics {
             );
             distances[side] = this._length(this._sub(contact.impact, sole));
         }
-        if (!continuingGroundKick) p.kick.side = this._airSide(distances);
-        const preheld = continuingGroundKick,
-            mirror = p.kick.side === 'L' ? -1 : 1;
+        return distances;
+    }
+
+    /** 동작 클립과 시작 위상을 고르고, 시작 위상을 접촉 위상 앞(phaseMargin)으로 당긴 자세를 다시 읽는다. */
+    _selectAirMotion(p, axis, preheld, preference) {
+        const settings = this.settings.airKick.motion;
         const query = this._motionQuery(p, axis, preheld);
         const selection = this.motionMatcher.select(query, preference);
         let pose = this.motionMatcher.sample(selection.id, selection.phase);
@@ -2371,6 +2376,11 @@ class TakrawPhysics {
             Math.max(0, pose.contactPhase - settings.phaseMargin),
         );
         pose = this.motionMatcher.sample(selection.id, selection.phase);
+        return { query, selection, pose };
+    }
+
+    /** 동작 클립 몸 회전축(찰 발 쪽으로 거울)과 시작 각도, 시작 각도를 되돌리는 회전. */
+    _airPlanRotation(pose, mirror, axis) {
         const rotationAxis = this._unit(
             this._motionVector(
                 {
@@ -2386,6 +2396,23 @@ class TakrawPhysics {
             ...this._mul(rotationAxis, -Math.sin(initialAngle / 2)),
             w: Math.cos(initialAngle / 2),
         };
+        return { rotationAxis, initialAngle, unrotate };
+    }
+
+    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
+    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference) {
+        const s = this.settings,
+            kick = s.airKick,
+            root = p.root,
+            settings = kick.motion;
+        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
+        const axis = this._airPlanAxis(p, contact);
+        const distances = this._airFootDistances(p, contact);
+        if (!continuingGroundKick) p.kick.side = this._airSide(distances);
+        const preheld = continuingGroundKick,
+            mirror = p.kick.side === 'L' ? -1 : 1;
+        const { query, selection, pose } = this._selectAirMotion(p, axis, preheld, preference);
+        const { rotationAxis, initialAngle, unrotate } = this._airPlanRotation(pose, mirror, axis);
         const ankle = this._point(p.byName['foot' + p.kick.side].body, this._v(0, 0.065, -0.085));
         p.kick.airPlan = {
             phase: preheld ? 'align' : 'lift',

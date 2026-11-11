@@ -1,8 +1,6 @@
 import { takrawOpponents } from './config/schools.js';
 import * as THREE from 'three';
 import RAPIER from 'rapier';
-import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
-import { createRoomSession } from '@bloom-gamekit/rollback';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { createSave, memoryAdapter } from '@bloom-gamekit/save';
 import { registerPwa } from '@bloom-gamekit/pwa';
@@ -13,16 +11,16 @@ import { createRuntimeDiagnostics } from './runtime/diagnostics.js';
 import { createRuntimeStores } from './runtime/stores.js';
 import { RuntimeAudio, takrawBgmLevel } from './runtime/audio.js';
 import { RuntimeInput } from './runtime/input.js';
-import { PresentationFeed } from './runtime/presentation-feed.js';
-import { MatchEventJournal } from './runtime/match-events.js';
-import { HighlightController } from './runtime/highlight-controller.js';
 import { MatchRewards } from './runtime/rewards.js';
 import { MatchRecord } from './runtime/match-record.js';
+import { NetworkLink } from './runtime/network.js';
+import { MatchSession } from './runtime/match-session.js';
+import { RenderLoop } from './runtime/render-loop.js';
+import { BootStatus } from './runtime/boot-status.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
-import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
 import { takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';
 import { takrawUnitStream } from './simulation/random.js';
@@ -31,13 +29,14 @@ import { TakrawIntro } from './presentation/intro.js';
 import { TAKRAW_LAUNCH } from './launch.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
-import { NetworkLink } from './runtime/network.js';
-import { takrawHudModel } from './runtime/hud-model.js';
-import { takrawMatchSetup, takrawSessionProfile } from './runtime/match-setup.js';
 
+/**
+ * 런타임 조립 지점. 모듈을 만들고 서로의 콜백·조회 함수를 잇고, 화면(UI) 콜백·window.__takraw·확인용 장면·PWA를 연결한다.
+ * 이 함수가 직접 소유하는 상태는 disposed, club 참조(확인용 장면이 바꿔 끼운다), 부팅 중 만든 자원(game·view·codec·audio·input·intro·pwa)뿐이다.
+ * 경기 상태는 MatchSession, 연결은 NetworkLink, 그리기 주기는 RenderLoop, 부팅 단계는 BootStatus가 소유한다(docs/architecture.md).
+ */
 async function bootTakraw() {
     const config = TAKRAW_CONFIG;
-    const stepMs = 1000 / config.simulation.tickRate;
     const dependencyState = Object.fromEntries(
         [
             'three',
@@ -56,10 +55,6 @@ async function bootTakraw() {
     const diagnostics = createRuntimeDiagnostics({ version: TAKRAW_VERSION });
     const recordError = diagnostics.recordError;
     const listeners = [];
-    const pendingCommands = [];
-    let identitySent = false; // 온라인에서 내 팀 이름·학교를 이 세션에서 이미 알렸는지
-    const stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
-    let campaignSchoolId = null;
 
     let ui;
     let club;
@@ -68,14 +63,8 @@ async function bootTakraw() {
     let input = null;
     let audio;
     let codec;
-    let session = null;
-    let loop = null;
-    let pump = null;
-    let feed = null;
-    let events = null;
-    let latestView = null;
     let intro = null;
-    let mode = null;
+    let disposed = false;
     const demo = TAKRAW_LAUNCH.showcaseDemo;
     if (demo) document.body.dataset.showcase = '';
     const isolated = TAKRAW_LAUNCH.isolated;
@@ -91,59 +80,11 @@ async function bootTakraw() {
         recordError,
         onChange() {
             publishClub();
-            hudTime = -Infinity;
+            match.invalidateHud();
         },
     });
     const record = new MatchRecord({ metrics, recordError });
-    let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
-    let watchPoint = { tick: null, restarting: false };
-    const highlight = new HighlightController({
-        tickRate: config.simulation.tickRate,
-        showReplay: (reason) => ui.showReplay(reason),
-        snapCamera: () => view.snapCamera(),
-        onPlaybackChange(active) {
-            releaseControls();
-            loop?.resetTiming();
-            if (active) pump?.stop();
-            else if (!paused) {
-                pump?.start();
-                pump?.wake();
-            }
-        },
-    });
-    let debugMatchSeed = null; // 확인용 장면(scene=match)이 고정한 AI 대전 시드
-    let bootstrapStage = 'interface';
-    let disposed = false;
-    let failed = false;
-    let paused = false;
-    let releasing = false;
-    let observationPending = false;
-    let run = 0;
-    let animation = 0;
-    let renderTime = -Infinity;
-    let hudTime = -Infinity;
-
-    function isReady() {
-        return bootstrapStage === 'ready';
-    }
-
-    function canStart(nextMode) {
-        if (!isReady() || disposed || failed) return false;
-        if (nextMode === 'match' || nextMode === 'training') return club?.status === 'ready';
-        return nextMode === 'local' || nextMode === 'online' || nextMode === 'watch';
-    }
-
-    // 상태 줄을 비울 때(경기 시작·처음 화면 복귀)도 PWA 오류 알림은 남긴다.
-    let appNotice = null;
-    function showBootStatus(message = '', isError = false) {
-        if (!message && !isError && appNotice)
-            ui.setBootStatus({ phase: bootstrapStage, ...appNotice });
-        else ui.setBootStatus({ phase: bootstrapStage, message, isError });
-    }
-    function showAppNotice(notice) {
-        appNotice = notice;
-        showBootStatus();
-    }
+    const boot = new BootStatus({ render: (status) => ui.setBootStatus(status) });
 
     // 설치·오프라인 시작(sw.js). 새로고침하면 항상 최신 버전이라 업데이트 알림은 없다. 격리 장면(?debug, ?showcaseDemo=1)과 iframe 안은 등록하지 않는다. 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
     let pwa = null;
@@ -158,7 +99,7 @@ async function bootTakraw() {
     }
     function pwaFailed(error) {
         recordError(error, 'pwa');
-        showAppNotice({
+        boot.notice({
             message: RUNTIME.pwaFailed({ detail: error?.message || error }),
             isError: true,
             reload: false,
@@ -188,15 +129,34 @@ async function bootTakraw() {
         isDisposed: () => disposed,
         onChange: (snapshot) => ui?.setNetwork(snapshot),
         onRosterChange() {
-            loop?.resetTiming();
-            pump?.rebase();
-            releaseControls();
+            match.resyncAfterRoster();
         },
         onFirstConnected() {
             ui.showGame('online');
             ui.canvas.focus({ preventScroll: true });
         },
-        onHandshakeTimeout: () => stopSession(),
+        onHandshakeTimeout: () => match.stop(),
+    });
+
+    const match = new MatchSession({
+        config,
+        metrics,
+        net,
+        rewards,
+        record,
+        recordError,
+        trackFailure,
+        getClub: () => club,
+        isReady: () => boot.ready,
+        isDisposed: () => disposed,
+        publishClub,
+        clearStatus: () => boot.show('', false),
+    });
+
+    const renderLoop = new RenderLoop({
+        hz: TAKRAW_RUNTIME.clock.renderHz,
+        blocked: () => match.failed,
+        onFrame: (now) => match.frame(now),
     });
 
     /**
@@ -206,7 +166,7 @@ async function bootTakraw() {
      *   unsupported/<browser·version>/block: 이 환경이나 버전 조합으로는 온라인을 할 수 없음
      */
     function trackFailure(category, target, action, props = {}) {
-        metrics.track(category, target, action, { mode: mode || 'menu', ...props });
+        metrics.track(category, target, action, { mode: match.mode || 'menu', ...props });
     }
 
     function listen(target, type, callback, options) {
@@ -215,9 +175,10 @@ async function bootTakraw() {
     }
 
     function diagnosticReport() {
+        const latestView = match.latestView;
         return diagnostics.report({
             stateLines: [
-                `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
+                `mode=${match.mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${match.session?.tick ?? latestView?.state.tick ?? 0}`,
             ],
             networkHistory: net.history(),
         });
@@ -241,25 +202,10 @@ async function bootTakraw() {
         ui.setClub({ ...club.getView(), pendingReward: rewards.pending() });
     }
 
-    function observeMatchResult() {
-        rewards.observe({ mode, state: latestView?.state });
-    }
-
-    function observeMetricsMatch() {
-        if (disposed) return;
-        record.observe({
-            session,
-            state: latestView?.state,
-            mode,
-            schoolId: () => rewards.schoolId,
-            localTeam,
-        });
-    }
-
     async function clubAction(action, payload = {}) {
         if (!club || disposed) return null;
         if (action === 'refresh') return club.refresh();
-        if (mode || ui.inGame) throw new Error('팀 변경은 처음 화면에서 할 수 있어요.');
+        if (match.mode || ui.inGame) throw new Error('팀 변경은 처음 화면에서 할 수 있어요.');
         if (action === 'rename') return club.rename(payload.name);
         if (action === 'assign') return club.assign(payload.role, payload.playerId);
         if (action === 'train') return club.train(payload.playerId);
@@ -271,544 +217,9 @@ async function bootTakraw() {
         throw new Error('팀 관리 동작을 확인해 주세요.');
     }
 
-    function localTeam() {
-        if (!session || mode !== 'online') return 0;
-        return game.teamById?.[session.localPlayerId] ?? 0;
-    }
-
-    function controlsAllowed() {
-        return Boolean(
-            isReady() &&
-            session?.ready &&
-            !paused &&
-            !highlight.active &&
-            !session.failure &&
-            (mode !== 'online' || session.players.length === 2),
-        );
-    }
-
-    function clearDeviceState() {
-        input?.clear();
-    }
-
-    function releaseControls() {
-        if (releasing) return;
-        releasing = true;
-        try {
-            clearDeviceState();
-            loop?.releaseInput();
-        } finally {
-            releasing = false;
-        }
-    }
-
-    function observeSoon() {
-        if (!loop || observationPending || disposed) return;
-        observationPending = true;
-        queueMicrotask(() => {
-            observationPending = false;
-            if (!loop || disposed) return;
-            try {
-                loop.observeInput(performance.now());
-                pump?.wake();
-            } catch (error) {
-                simulationFailed(error);
-            }
-        });
-    }
-
     function resetCamera() {
         view?.resetCamera();
-        observeSoon();
-    }
-
-    function getInput() {
-        const commands = pendingCommands
-            .splice(0)
-            .map((code) => ({ payload: Uint8Array.of(code) }));
-        if (mode === 'online' && !identitySent && session?.ready && session.players.length === 2) {
-            // 두 사람이 모이면 내 팀 이름·학교를 한 번 알린다(표시 전용)
-            identitySent = true;
-            metrics.track('match', 'online', 'start');
-            const mine = club.getView();
-            commands.push({
-                payload: takrawEncodeIdentity(
-                    mine.campaign.home,
-                    mine.teamName || RUNTIME.myTeam(),
-                ),
-            });
-        }
-        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2), 2P 점프(11), 2P 발차기(12)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
-        const { input: bytes, edges } = input.sample({
-            allowed: controlsAllowed(),
-            local2p: mode === 'local',
-            // Both local players share the same screen; online peers each see their
-            // own team from behind. Only world-space input crosses the network.
-            movement: (right, back) => view.screenMovement(right, back, localTeam()),
-        });
-        if (edges.jump) commands.push({ payload: Uint8Array.of(1) });
-        if (edges.kick) commands.push({ payload: Uint8Array.of(2) });
-        if (edges.p2Jump) commands.push({ payload: Uint8Array.of(11) });
-        if (edges.p2Kick) commands.push({ payload: Uint8Array.of(12) });
-        return { input: bytes, commands };
-    }
-
-    /** 보간 표시를 처음부터 다시 시작한다(경기 시작·처음 화면 복귀). 득점 연출·응원과 마지막 접촉도 함께 지운다. */
-    function resetPresentation() {
-        feed.reset();
-        view.scoreMotion.reset();
-        view.resetCheer();
-        events.forgetContact();
-    }
-
-    function maintainNetwork(now = performance.now(), force = false) {
-        if (mode !== 'online' || !session) return;
-        net.maintain(session, now, force);
-    }
-
-    function selectedHud() {
-        return takrawHudModel({
-            view: latestView,
-            mode,
-            team: localTeam(),
-            watchSeed,
-            tick: game.state.tick,
-            matchReward: rewards.hudReward(),
-            campaignSchoolId: rewards.schoolId || null,
-            connection: net.snapshot.message,
-            maxLead: config.visual.attackGuide.maxLead,
-        });
-    }
-
-    /** 재생 장면을 그린다. 그릴 장면이 없으면(끝남·첫 장면 대기) false라 멈춘 실제 경기를 그대로 그린다. */
-    function renderHighlight(now) {
-        const replay = highlight.frame(now, paused);
-        if (!replay) return false;
-        events?.update(now);
-        view.render(
-            replay.poses,
-            { ...latestView, state: { ...latestView.state, ...replay.state } },
-            now,
-            { team: localTeam(), mode, replay: { orbit: TAKRAW_RUNTIME.highlight.camera } },
-        );
-        return true;
-    }
-
-    function renderScene(now = performance.now()) {
-        if (!view || !feed?.ready || !latestView) return;
-        if (highlight.active && !highlight.running) highlight.end();
-        if (highlight.active && renderHighlight(now)) {
-            stats.frames += 1;
-            return;
-        }
-        feed.publish(latestView, false, now);
-        events.confirm(session);
-        events.update(now);
-        if (mode === 'online') view.setSchools(takrawIdentitySchools(latestView.teamSchools));
-        view.render(feed.frame(now), latestView, now, { team: localTeam(), mode });
-        stats.frames += 1;
-        const hudInterval =
-            mode === 'training'
-                ? Math.min(TAKRAW_RUNTIME.hud.interval, 1000 / 30)
-                : TAKRAW_RUNTIME.hud.interval;
-        if (now - hudTime >= hudInterval) {
-            hudTime = now;
-            if (mode) ui.update(selectedHud());
-        }
-    }
-
-    function frame() {
-        if (disposed) return;
-        animation = requestAnimationFrame(frame);
-        if (failed) return;
-        // 표본 수신과 표시에는 같은 단조 시계를 쓴다. RAF timestamp는 직전 입력보다 오래될 수 있다.
-        const now = performance.now();
-        if (now - renderTime + 0.5 < 1000 / TAKRAW_RUNTIME.clock.renderHz) return;
-        renderTime = now;
-        try {
-            loop?.observeInput(now);
-            if (loop) loop.render();
-            else renderScene(now);
-        } catch (error) {
-            simulationFailed(error);
-        }
-    }
-
-    function simulationFailed(error, kind = 'simulation') {
-        if (failed) return error;
-        failed = true;
-        const value = recordError(error, 'simulation', 'fatal');
-        trackFailure('fault', kind, 'fail');
-        pump?.stop();
-        loop?.stop();
-        releaseControls();
-        if (mode === 'online') {
-            net.set({ state: 'error', message: RUNTIME.netStopped() });
-        }
-        ui.showFatal(RUNTIME.runFailed());
-        return value;
-    }
-
-    function stopSession({ preserveResume = false } = {}) {
-        net.reset({ preserveResume });
-        run += 1;
-        releaseControls();
-        pump?.stop();
-        loop?.stop();
-        pump = null;
-        loop = null;
-        session?.close();
-        session = null;
-        net.closeRoom();
-        events?.close();
-        highlight.stop();
-        pendingCommands.length = 0;
-        paused = false;
-        failed = false;
-        mode = null;
-    }
-
-    function onSessionEvent(event, token) {
-        if (token !== run || disposed) return;
-        if (event.type === 'rollback') {
-            events.beginRollback(event.from);
-            feed.invalidate('rollback');
-        } else if (event.type === 'reconciled') {
-            events.endRollback();
-            latestView = game.getView();
-            feed.invalidate('rollback');
-        } else if (event.type === 'membership-committed' || event.type === 'recovered') {
-            events.replace();
-            latestView = game.getView();
-            feed.invalidate('reset');
-            if (event.type === 'membership-committed') record.membershipCommitted();
-            loop?.resetTiming();
-            pump?.rebase();
-        }
-        if (
-            [
-                'membership-committed',
-                'peer-disconnected',
-                'recovered',
-                'fatal',
-                'desync-unrecoverable',
-            ].includes(event.type)
-        ) {
-            net.event(`session:${event.type}`, event.reason || `tick=${event.tick ?? '?'}`);
-        }
-        // fatal은 단계가 던진 원래 예외를 곧바로 다시 던지므로 그 예외가 onError로 올라온다. 여기서 감싸 먼저 실패 처리하면 원래 예외가 버려진다.
-        // desync-unrecoverable은 던져진 예외가 없어 세션이 알려 준 사실로 직접 만든 오류다.
-        if (event.type === 'desync-unrecoverable')
-            simulationFailed(new Error(event.reason || event.type), 'desync');
-    }
-
-    function openSession(nextMode, capability, token) {
-        mode = nextMode;
-        const recorded = record.begin(nextMode);
-        // 온라인 경기 시작은 두 사람이 모였을 때(identitySent) 남긴다.
-        if (nextMode !== 'online') metrics.track('match', nextMode, 'start');
-        watchPoint = { tick: null, restarting: false };
-        const setup = takrawMatchSetup({
-            mode: nextMode,
-            home: () => club.getView().campaign.home,
-            homeTeam: () => club.matchTeam(),
-            campaignSchoolId,
-            watchSeed,
-            roomCode: capability?.room,
-            debugSeed: debugMatchSeed,
-            randomSeed: () => crypto.getRandomValues(new Uint32Array(1))[0],
-        });
-        view.setSchools(setup.schools);
-        paused = false;
-        audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
-        if (nextMode === 'match') rewards.begin({ schoolId: campaignSchoolId });
-        else rewards.clear();
-        game.setTeams(setup.home, setup.away);
-        game.setTemperaments(setup.temperaments);
-        game.reset(nextMode, undefined, setup.seed);
-        latestView = game.getView();
-        resetPresentation();
-        events.replace();
-        const online = nextMode === 'online';
-        let firstCheckpointReadback = true;
-        const adapter = {
-            saveInto: (out) => codec.encodeInto(game.save(), out),
-            load(bytes) {
-                const data = codec.decode(bytes);
-                if (!game.validate(data)) throw new Error('Invalid Takraw snapshot');
-                game.load(data);
-                highlight.reset();
-                if (online && firstCheckpointReadback) {
-                    firstCheckpointReadback = false;
-                    const replay = codec.encode(game.save());
-                    const identical =
-                        bytes.length === replay.length &&
-                        bytes.every((value, index) => value === replay[index]);
-                    const actual = identical ? data : codec.decode(replay);
-                    const physicalSame =
-                        data.physics.snapshot.length === actual.physics.snapshot.length &&
-                        data.physics.snapshot.every(
-                            (value, index) => value === actual.physics.snapshot[index],
-                        );
-                    net.event(
-                        identical ? 'checkpoint-verified' : 'checkpoint-mismatch',
-                        `physics=${physicalSame ? 'equal' : 'different'} bytes=${bytes.length}/${replay.length}`,
-                    );
-                }
-                latestView = game.getView();
-                feed.invalidate('reset');
-            },
-            validateSnapshot(bytes) {
-                try {
-                    return game.validate(codec.decode(bytes));
-                } catch {
-                    return false;
-                }
-            },
-            applyMembership(change) {
-                game.applyMembership(change);
-                highlight.reset();
-                latestView = game.getView();
-            },
-            step(context) {
-                const begin = performance.now();
-                highlight.anchorIfNeeded(game, codec, mode);
-                game.step(context);
-                latestView = game.getView();
-                events.emit(context, latestView);
-                highlight.record(context, latestView);
-                const elapsed = performance.now() - begin;
-                stats.steps += 1;
-                stats.simulationMs += elapsed;
-                stats.maxSimulationMs = Math.max(stats.maxSimulationMs, elapsed);
-            },
-        };
-        const profile = takrawSessionProfile({ online, tickRate: config.simulation.tickRate });
-        identitySent = false;
-        session = createRoomSession({
-            mode: online ? 'online' : 'local',
-            ...(online ? { room: capability } : { localPlayerId: 'local', localFastPath: true }),
-            simulationVersion: TAKRAW_VERSION,
-            seed: TAKRAW_RUNTIME.network.sessionSeed,
-            inputSize: config.input.size,
-            adapter,
-            profile,
-            recordReplay: recorded,
-            membership: {
-                maxPlayers: 2,
-                transitionTimeoutMs: TAKRAW_RUNTIME.network.transitionTimeout,
-                reconnectGraceMs: TAKRAW_RUNTIME.network.reconnectGrace,
-                maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
-            },
-            onEvent: (event) => onSessionEvent(event, token),
-        });
-        loop = createLoop({
-            session,
-            rates: {
-                baseHz: TAKRAW_RUNTIME.clock.baseHz,
-                inputHz: TAKRAW_RUNTIME.clock.inputHz,
-                renderHz: TAKRAW_RUNTIME.clock.renderHz,
-            },
-            getInput,
-            canObserveInput: () => Boolean(session?.ready && !session.failure),
-            canAdvance: () =>
-                Boolean(
-                    session?.ready &&
-                    !session.failure &&
-                    (online ? session.players.length === 2 : !paused && !highlight.active),
-                ),
-            onAdvance() {
-                feed.publish(latestView);
-                events.confirm(session);
-                observeMatchResult();
-                observeMetricsMatch();
-                observeWatchLoop(token);
-                highlight.tryBegin(mode);
-            },
-            onInputRelease: clearDeviceState,
-            onError: (error) => simulationFailed(error),
-            onBacklogDrop() {
-                stats.backlogDrops += 1;
-            },
-            render: () => renderScene(performance.now()),
-        });
-        let maintenanceDeadline = null;
-        pump = createDeadlineScheduler({
-            getDeadlineMs: () => {
-                // 입장 대기는 simulation debt를 따라잡는 시간이 아니다. 방 정비만 60Hz로 유지한다.
-                if (session && (!session.ready || (online && session.players.length < 2))) {
-                    return maintenanceDeadline;
-                }
-                return loop?.nextDeadlineMs ?? null;
-            },
-            pulse(now) {
-                if (!loop || token !== run) return;
-                maintenanceDeadline = now + 1000 / TAKRAW_RUNTIME.clock.inputHz;
-                loop.pollInput(now);
-                loop.pulse(now, { render: false, input: false });
-                // Network commands belong to the existing pump, not to rendering.
-                maintainNetwork(now);
-            },
-        });
-        feed.publish(latestView, true);
-        loop.observeInput(performance.now());
-        pump.start();
-        showBootStatus('', false);
-        if (online) net.sessionOpened(session);
-        else {
-            ui.showGame(nextMode);
-            ui.canvas.focus({ preventScroll: true });
-            net.set({ state: 'idle', code: '', message: '', count: 0 });
-        }
-        hudTime = -Infinity;
-        audio.unlock();
-    }
-
-    /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */
-    function observeWatchLoop(token) {
-        if (mode !== 'watch' || watchPoint.restarting) return;
-        const { score, tick } = game.state;
-        if (score[0] + score[1] < 1) return;
-        watchPoint.tick ??= tick;
-        if (
-            tick - watchPoint.tick <
-            (TAKRAW_RUNTIME.watch.loopHoldMs / 1000) * config.simulation.tickRate
-        )
-            return;
-        watchPoint.restarting = true;
-        setTimeout(() => {
-            if (token === run && mode === 'watch') startWatch(watchSeed);
-        }, 0);
-    }
-
-    /** 시드 하나가 AI 대 AI 경기 하나다. 팀·성향은 기본값이라 저장소를 읽거나 쓰지 않는다. */
-    function startWatch(seed) {
-        const value = Number(seed);
-        if (
-            !Number.isInteger(value) ||
-            value < 0 ||
-            value > TAKRAW_RUNTIME.watch.maxSeed ||
-            !isReady()
-        )
-            return false;
-        watchSeed = value;
-        startLocal('watch');
-        return true;
-    }
-
-    function startLocal(nextMode) {
-        if (!canStart(nextMode)) {
-            publishClub();
-            return;
-        }
-        audio.unlock();
-        observeMatchResult();
-        stopSession();
-        try {
-            openSession(nextMode, null, run);
-        } catch (error) {
-            simulationFailed(error);
-        }
-    }
-
-    async function connect(action, code, resuming = false) {
-        if (!isReady() || disposed) return;
-        if (action === 'close') {
-            quit();
-            return;
-        }
-        if (action === 'resume') {
-            const saved = net.savedRoom();
-            if (saved) return connect(saved.role, saved.room, true);
-            net.set({ state: 'error', canResume: false, message: RUNTIME.netNoResume() });
-            return;
-        }
-        if (action !== 'host' && action !== 'join') return;
-        metrics.track('online', resuming ? 'resume' : action, 'click');
-        const roomCode = String(
-            code ||
-                (action === 'host'
-                    ? String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, '0')
-                    : ''),
-        ).trim();
-        if (action === 'join' && !/^\d{4}$/.test(roomCode)) {
-            net.set({ state: 'error', message: RUNTIME.netEnterCode(), count: 0 });
-            return;
-        }
-        if (!net.preflight()) return;
-        audio.unlock();
-        stopSession({ preserveResume: resuming });
-        const token = run;
-        let capability;
-        try {
-            capability = await net.openRoom({ action, roomCode, resuming });
-            if (!capability) return;
-            openSession('online', capability, token);
-        } catch (error) {
-            capability?.close();
-            if (token !== run || disposed) return;
-            net.failConnect(error, action, () => stopSession({ preserveResume: true }));
-        }
-    }
-
-    function restart() {
-        if (!mode) return;
-        metrics.track('match', mode, 'restart');
-        if (mode === 'training') {
-            releaseControls();
-            pendingCommands.push(4);
-            observeSoon();
-            ui.canvas.focus({ preventScroll: true });
-            return;
-        }
-        if (mode === 'online') {
-            if (!session?.ready || session.players.length !== 2) return;
-            if (localTeam() !== 0) return;
-            pendingCommands.push(4);
-            observeSoon();
-        } else startLocal(mode);
-    }
-
-    function quit() {
-        if (!isReady() || disposed) return;
-        if (mode) metrics.track('match', mode, 'quit');
-        observeMatchResult();
-        stopSession();
-        audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
-        rewards.clear();
-        campaignSchoolId = null;
-        game.setTeams(null, null);
-        game.setTemperaments();
-        game.reset('match');
-        latestView = game.getView();
-        resetPresentation();
-        feed.publish(latestView, true);
-        showBootStatus('', false);
-        ui.showHome();
-        publishClub();
-        net.set({
-            state: 'idle',
-            code: '',
-            message: '',
-            count: 0,
-            phase: RUNTIME.phaseIdle(),
-            hint: '',
-            canResume: false,
-        });
-    }
-
-    function setPaused(value) {
-        paused = Boolean(value);
-        releaseControls();
-        if (mode !== 'online') {
-            loop?.resetTiming();
-            if (paused) pump?.stop();
-            else {
-                pump?.start();
-                pump?.wake();
-            }
-        }
-        audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
+        match.observeSoon();
     }
 
     const runtime = Object.freeze({
@@ -816,15 +227,15 @@ async function bootTakraw() {
             return game;
         },
         get session() {
-            return session;
+            return match.session;
         },
         get view() {
             return view;
         },
         get ready() {
-            return isReady();
+            return boot.ready;
         },
-        watch: startWatch,
+        watch: (seed) => match.startWatch(seed),
         /** 소개영상 화면(?showcaseDemo=1)에서만: 대본이 장마다 게임 화면을 띄운다. draw는 intro.drawCard 선수의 뽑기 연출, none은 닫기. */
         showcase(scene, intro) {
             if (!demo || !ui) return false;
@@ -832,15 +243,17 @@ async function bootTakraw() {
             return scene === 'none' && ui.showcaseDraw(null);
         },
         diagnostics() {
+            const session = match.session,
+                latestView = match.latestView;
             return {
                 product: TAKRAW_PRODUCT_NAME.en,
                 version: TAKRAW_VERSION,
                 status: config.status,
-                ready: isReady(),
-                bootstrapStage,
-                mode,
-                paused,
-                failed,
+                ready: boot.ready,
+                bootstrapStage: boot.stage,
+                mode: match.mode,
+                paused: match.paused,
+                failed: match.failed,
                 environment: {
                     secureContext: window.isSecureContext,
                     webCrypto: Boolean(globalThis.crypto?.subtle),
@@ -853,28 +266,26 @@ async function bootTakraw() {
                     players: game?.physics.players.length || 0,
                     entities: latestView?.entities.length || 0,
                 },
-                input: Array.from(input?.lastInput ?? new Uint8Array(config.input.size)),
+                input: Array.from(match.lastInput ?? new Uint8Array(config.input.size)),
                 network: net.diagnostics(session),
                 session: session?.metrics || null,
                 audio: audio?.snapshot() || null,
                 club: club?.diagnostics() || null,
                 rewards: rewards.diagnostics(),
-                simulation: {
-                    ...stats,
-                    averageMs: stats.steps ? stats.simulationMs / stats.steps : 0,
-                },
-                lastContact: events?.lastContact ?? null,
-                highlight: highlight.diagnostics(),
+                simulation: match.simulationDiagnostics(),
+                lastContact: match.lastContact,
+                highlight: match.highlightDiagnostics(),
                 errors: diagnostics.errors(),
             };
         },
+        /** 정리 순서: 세션·연결 → 그리기 주기 → 리스너 → 보상 → 소개 → PWA → 클럽 → 화면 → 입력 → 오디오 → 저장소 → 뷰 → 리플레이 → 물리. */
         dispose() {
             if (disposed) return;
-            stopSession({ preserveResume: true });
+            match.stop({ preserveResume: true });
             net.dispose();
             disposed = true;
-            bootstrapStage = 'disposed';
-            cancelAnimationFrame(animation);
+            boot.dispose();
+            renderLoop.dispose();
             for (const remove of listeners.splice(0)) remove();
             rewards.dispose();
             intro?.dispose();
@@ -885,7 +296,7 @@ async function bootTakraw() {
             audio?.dispose();
             stores.dispose();
             view?.dispose();
-            highlight.dispose();
+            match.dispose();
             game?.physics.dispose();
         },
     });
@@ -893,24 +304,24 @@ async function bootTakraw() {
 
     ui = new TakrawUI(
         {
-            canStart,
+            canStart: (nextMode) => match.canStart(nextMode),
             onStart(nextMode) {
                 metrics.track('menu', nextMode, 'click');
-                campaignSchoolId = null;
+                match.clearCampaign();
                 if (nextMode === 'watch') {
-                    startWatch(watchSeed);
+                    match.startWatch(match.watchSeed);
                     return;
                 }
                 if (nextMode === 'online') {
                     net.set({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
-                } else startLocal(nextMode);
+                } else match.startLocal(nextMode);
             },
-            onRestart: restart,
+            onRestart: () => match.restart(),
             diagnosticText: diagnosticReport,
             onWatch: (seed) => {
                 metrics.track('menu', 'watch_seed', 'click');
-                campaignSchoolId = null;
-                startWatch(seed);
+                match.clearCampaign();
+                match.startWatch(seed);
             },
             onCampaign(schoolId) {
                 metrics.track('menu', 'campaign', 'click', { schoolId });
@@ -918,9 +329,8 @@ async function bootTakraw() {
                     index = home
                         ? takrawOpponents(home).findIndex((school) => school.id === schoolId)
                         : -1;
-                if (index < 0 || index > cleared.length || !canStart('match')) return;
-                campaignSchoolId = schoolId;
-                startLocal('match');
+                if (index < 0 || index > cleared.length || !match.canStart('match')) return;
+                match.startCampaign(schoolId);
             },
             onClubAction(action, payload) {
                 if (action !== 'refresh') metrics.track('club', action, 'click');
@@ -929,40 +339,32 @@ async function bootTakraw() {
             onRewardRetry: () => rewards.retry(),
             onTrainingLesson(lesson) {
                 const option = TAKRAW_TRAINING_LESSONS.find((item) => item.id === lesson);
-                if (mode !== 'training' || !controlsAllowed() || !option) return;
-                releaseControls();
-                pendingCommands.push(option.command);
-                observeSoon();
-                ui.canvas.focus({ preventScroll: true });
+                if (option) match.trainingCommand(option.command);
             },
             onTrainingTempo(tempo) {
                 const option = TAKRAW_TRAINING_TEMPOS.find((item) => item.id === tempo);
-                if (mode !== 'training' || !controlsAllowed() || !option) return;
-                releaseControls();
-                pendingCommands.push(option.command);
-                observeSoon();
-                ui.canvas.focus({ preventScroll: true });
+                if (option) match.trainingCommand(option.command);
             },
             onCameraReset: resetCamera,
             onInstall: installPwa,
-            onPause: setPaused,
-            onReplaySkip: () => highlight.end(),
-            onQuit: quit,
+            onPause: (value) => match.setPaused(value),
+            onReplaySkip: () => match.skipReplay(),
+            onQuit: () => match.quit(),
             onSetting(key, value) {
                 if (key === 'sound') audio?.setMuted(!value);
                 if (key === 'quality') view?.setQuality(value);
             },
-            onNetwork: connect,
+            onNetwork: (action, code, resuming) => match.connect(action, code, resuming),
             onTouch(action, source, down) {
                 if (!input || !['jump', 'kick'].includes(action)) return;
-                if (down && !controlsAllowed()) return;
+                if (down && !match.controlsAllowed()) return;
                 input.setTouch(action, source, down);
                 if (down) audio.unlock();
-                observeSoon();
+                match.observeSoon();
             },
             onAxis(x, z) {
-                input?.setAxis(x, z, controlsAllowed());
-                observeSoon();
+                input?.setAxis(x, z, match.controlsAllowed());
+                match.observeSoon();
             },
         },
         net.snapshot,
@@ -987,52 +389,45 @@ async function bootTakraw() {
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) window.location.reload();
     });
-    showBootStatus(RUNTIME.bootCourt());
+    boot.show(RUNTIME.bootCourt());
 
     try {
         await clubLoad;
-        bootstrapStage = 'physics';
-        showBootStatus(RUNTIME.bootPlayers());
+        boot.advance('physics');
+        boot.show(RUNTIME.bootPlayers());
         if (!RAPIER || typeof RAPIER.init !== 'function') throw new Error('Rapier entry contract');
         await RAPIER.init();
         game = new TakrawGame({ RAPIER, config, deterministic });
-        bootstrapStage = 'graphics';
+        boot.advance('graphics');
         view = new TakrawView({ THREE, canvas: ui.canvas, config });
-        bootstrapStage = 'controls';
+        boot.advance('controls');
         codec = deterministic.createValueCodec();
         const soundReady = await soundLoad;
         audio = new RuntimeAudio({
             settings: soundReady ? soundSettings : null,
             onSaveError: soundSaveFailed,
-            level: () => takrawBgmLevel({ mode, paused }),
+            level: () => takrawBgmLevel({ mode: match.mode, paused: match.paused }),
             recordError,
         });
         if (soundReady) ui.setSound({ on: !audio.muted, locked: false, message: '' });
         else ui.setSound({ on: false, locked: true, message: RUNTIME.soundLocked() });
-        feed = new PresentationFeed({ stepMs });
-        events = new MatchEventJournal({
-            config,
-            view,
-            ui,
-            audio,
-            perspective: () => ({ mode, team: localTeam() }),
-        });
         view.setQuality(ui.settings.quality);
         input = new RuntimeInput({
             canvas: ui.canvas,
             config,
             onPointer(event) {
                 if (event.type === 'down') audio.unlock();
-                if (event.type === 'down' && highlight.active) {
-                    highlight.end();
+                if (event.type === 'down' && match.replayActive) {
+                    match.skipReplay();
                     return;
                 }
-                input.orbit(event, controlsAllowed(), view);
-                observeSoon();
+                input.orbit(event, match.controlsAllowed(), view);
+                match.observeSoon();
             },
         });
+        match.attach({ ui, game, view, codec, audio, input });
         listen(document, 'keydown', (event) => {
-            if (event.code !== 'KeyC' || event.repeat || !controlsAllowed()) return;
+            if (event.code !== 'KeyC' || event.repeat || !match.controlsAllowed()) return;
             if (event.target?.closest?.('input,textarea,select,button,[contenteditable="true"]'))
                 return;
             event.preventDefault();
@@ -1040,30 +435,23 @@ async function bootTakraw() {
         });
         listen(document, 'pointerdown', () => audio.unlock(), { capture: true });
         listen(document, 'keydown', () => audio.unlock(), { capture: true });
-        listen(document, 'keydown', observeSoon);
-        listen(document, 'keyup', observeSoon);
-        listen(window, 'blur', releaseControls);
+        listen(document, 'keydown', () => match.observeSoon());
+        listen(document, 'keyup', () => match.observeSoon());
+        listen(window, 'blur', () => match.releaseControls());
         listen(document, 'visibilitychange', () => {
-            if (document.hidden) releaseControls();
-            else {
-                loop?.resetTiming();
-                pump?.rebase();
-                pump?.wake();
-            }
+            if (document.hidden) match.releaseControls();
+            else match.resyncClock();
         });
         listen(window, 'resize', () => view.resize());
-        game.reset('match');
-        latestView = game.getView();
-        resetPresentation();
-        feed.publish(latestView, true);
-        bootstrapStage = 'ready';
-        showBootStatus('', false);
+        match.showIdleCourt();
+        boot.advance('ready');
+        boot.show('', false);
         ui.showHome();
-        animation = requestAnimationFrame(frame);
+        renderLoop.start();
         if (!isolated && !embedded) startPwa();
         const query = new URLSearchParams(location.search),
             watchParam = query.get(TAKRAW_RUNTIME.watch.param);
-        if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
+        if (watchParam !== null && /^\d+$/.test(watchParam)) match.startWatch(watchParam);
         if (TAKRAW_LAUNCH.debug) {
             // 확인용 주소(`?debug=1&scene=…`)일 때만 불러온다. 실시간 구동을 멈추고 가상 시계로 틱을 직접 진행한다.
             const [{ installDebugHost }, { createDebugScenes }] = await Promise.all([
@@ -1074,18 +462,18 @@ async function bootTakraw() {
                 scenes: createDebugScenes({
                     config,
                     openWatch(seed) {
-                        if (!startWatch(seed)) return false;
-                        cancelAnimationFrame(animation);
-                        pump.stop();
+                        if (!match.startWatch(seed)) return false;
+                        renderLoop.stop();
+                        match.freezeRealtime();
                         return true;
                     },
-                    pulse: (now) => loop.pulse(now, { render: false, input: false }),
-                    render: (now) => renderScene(now),
+                    pulse: (now) => match.pulse(now),
+                    render: (now) => match.render(now),
                     renderFrom: (camera) => view.renderFrom(camera),
                     ballPosition: () => view.ballPosition(),
                     read: () => ({
-                        mode,
-                        seed: watchSeed,
+                        mode: match.mode,
+                        seed: match.watchSeed,
                         tick: game.state.tick,
                         score: [...game.state.score],
                     }),
@@ -1113,17 +501,11 @@ async function bootTakraw() {
                         return club;
                     },
                     showClub() {
-                        cancelAnimationFrame(animation);
+                        renderLoop.stop();
                         ui.navigate('club');
                     },
-                    openMatch(seed, every) {
-                        debugMatchSeed = seed;
-                        // every: 모든 득점을 리플레이한다(화면 확인용). 판정 기준만 낮추고 재생 방식은 그대로다.
-                        if (every) highlight.replayEveryScore();
-                        startLocal('match');
-                        return mode === 'match';
-                    },
-                    readReplay: () => highlight.replayState(),
+                    openMatch: (seed, every) => match.openDebugMatch(seed, every),
+                    readReplay: () => match.replayState(),
                 }),
             });
         }
@@ -1135,11 +517,11 @@ async function bootTakraw() {
                 launcher: '.home-description',
             });
             listen(window, 'bloom-showcase-opened', () => {
-                resume = Boolean(mode) && !paused;
-                if (resume) setPaused(true);
+                resume = Boolean(match.mode) && !match.paused;
+                if (resume) match.setPaused(true);
             });
             listen(window, 'bloom-showcase-closed', () => {
-                if (resume) setPaused(false);
+                if (resume) match.setPaused(false);
                 resume = false;
             });
         }
@@ -1153,16 +535,16 @@ async function bootTakraw() {
                 phase: RUNTIME.phaseResume(),
                 message: RUNTIME.netResumeUnreadable(),
             });
-        else if (saved) void connect(saved.role, saved.room, true);
+        else if (saved) void match.connect(saved.role, saved.room, true);
         return runtime;
     } catch (error) {
         recordError(error, 'bootstrap');
-        pump?.stop();
+        match.stopPump();
         const message =
-            bootstrapStage === 'graphics' && /webgl/i.test(String(error?.message || error))
+            boot.stage === 'graphics' && /webgl/i.test(String(error?.message || error))
                 ? RUNTIME.bootWebgl()
                 : RUNTIME.bootFailed();
-        bootstrapStage = 'failed';
+        boot.advance('failed');
         ui.showFatal(message);
         throw error;
     }

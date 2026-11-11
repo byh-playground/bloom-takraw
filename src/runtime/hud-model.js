@@ -5,6 +5,7 @@ import { takrawHumanPlayerId } from '../simulation/roster.js';
 import { takrawTrainingCoach } from '../presentation/training-coach.js';
 import { LOCALE } from '../i18n/locale.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
+import { TAKRAW_RUNTIME } from '../config/runtime.js';
 import { roleName } from '../i18n/messages/match.js';
 
 // physics.js가 내는 선수 상태(standing·moving·airborne·kicking·overhead·falling·recovering)의 문구. moving은 접지 여부로 정한다.
@@ -75,4 +76,29 @@ function takrawHudModel({
     };
 }
 
-export { takrawHudModel };
+/**
+ * HUD를 다시 그릴 때인지 정하는 시계. 훈련은 코치 표시가 따라오도록 최소 30Hz, 나머지는 hud.interval 간격이다.
+ * invalidate()는 다음 프레임에 바로 그리게 한다(경기 시작·보상 저장 결과).
+ */
+class HudClock {
+    constructor() {
+        this.at = -Infinity;
+    }
+
+    invalidate() {
+        this.at = -Infinity;
+    }
+
+    /** 그릴 때면 시각을 기록하고 true. */
+    due(now, mode) {
+        const interval =
+            mode === 'training'
+                ? Math.min(TAKRAW_RUNTIME.hud.interval, 1000 / 30)
+                : TAKRAW_RUNTIME.hud.interval;
+        if (now - this.at < interval) return false;
+        this.at = now;
+        return true;
+    }
+}
+
+export { takrawHudModel, HudClock };

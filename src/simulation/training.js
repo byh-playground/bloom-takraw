@@ -136,4 +136,207 @@ const TAKRAW_TRAINING_TEMPOS = Object.freeze(
 /** 레슨 id의 정의. 모르는 id면 null. */
 const takrawTrainingLesson = (id) => TAKRAW_TRAINING_LESSONS.find((item) => item.id === id) ?? null;
 
-export { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, takrawTrainingLesson };
+/**
+ * 연습 규칙의 상태 없는 소유자(timing.js의 TakrawTimingJudge와 같은 방식).
+ * 기록은 호출자의 경기 상태(state.training)에 두어 스냅샷·롤백에 함께 저장되고,
+ * 그 기록을 만들고 바꾸는 곳은 이 클래스의 메서드뿐이다. 언제 부르는지(훅 위치)는 game.js가 정한다.
+ */
+class TakrawTrainingDrill {
+    /** 기록의 레슨 정의. */
+    lesson(record) {
+        return takrawTrainingLesson(record.lesson);
+    }
+
+    /** 이번 시도에서 점프할 때 기억한 준비(낮은/높은 점프·지연). 없거나 지난 시도의 것이면 null. */
+    recordedJump(record) {
+        return record && record.jumpAt !== null && record.jumpTiming?.attempt === record.attempt
+            ? record.jumpTiming
+            : null;
+    }
+
+    /** 새 연습 기록. 모르는 레슨·토스는 첫 정의(상황에 맞춰 차기·높은 토스)다. */
+    createRecord(lesson, tempo) {
+        return {
+            lesson: TAKRAW_TRAINING_LESSONS.some((item) => item.id === lesson)
+                ? lesson
+                : TAKRAW_TRAINING_LESSONS[0].id,
+            attempt: 0,
+            successes: 0,
+            tempo: TAKRAW_TRAINING_TEMPOS.some((item) => item.id === tempo)
+                ? tempo
+                : TAKRAW_TRAINING_TEMPOS[0].id,
+            setAt: null,
+            jumpAt: null,
+            kickAt: null,
+            jumpOffset: null,
+            kickOffset: null,
+            entry: null,
+            motionId: null,
+            contact: null,
+            result: null,
+            previousResult: null,
+            setApex: 0,
+        };
+    }
+
+    /** 다음 공을 준비한다(지난 결과는 previousResult로 남는다). */
+    clearAttempt(record) {
+        record.previousResult = record.result;
+        Object.assign(record, {
+            setAt: null,
+            jumpAt: null,
+            kickAt: null,
+            jumpOffset: null,
+            kickOffset: null,
+            entry: null,
+            motionId: null,
+            contact: null,
+            result: null,
+            setApex: 0,
+        });
+    }
+
+    /** 랠리(공 공급)를 시작할 때 시도 번호를 올린다. */
+    startAttempt(record) {
+        record.attempt++;
+    }
+
+    /** 세터의 토스가 공격수에게 올라간 시각(속공은 공급 시각). */
+    observeSet(record, time) {
+        record.setAt = time;
+    }
+
+    /**
+     * 사람 선수의 점프·발차기 입력 순간을 시도마다 처음 한 번씩 기록한다.
+     * kickError는 점프 기록을 쓴 뒤에 계산해야 같은 값이므로 함수로 받는다.
+     */
+    recordInput(record, { input, guide, time, jumpError, kickError }) {
+        if (input.jumpPressed && record.jumpAt === null) {
+            // Remember the displayed low/high preparation for this jump. The ball's
+            // prediction can change later, but an airborne player cannot redo it.
+            record.jumpTiming = guide
+                ? {
+                      attempt: record.attempt,
+                      shortJump: guide.shortJump,
+                      contactLead: guide.contactLead,
+                      jumpHold: guide.jumpHold,
+                      kickDelay: guide.kickDelay,
+                  }
+                : null;
+            record.jumpAt = time;
+            record.jumpOffset = jumpError;
+        }
+        if ((input.kickPressed || input.kick) && record.kickAt === null) {
+            record.kickAt = time;
+            record.kickOffset = kickError();
+        }
+    }
+
+    /** 사람 선수의 접촉. 첫 접촉을 남기고, 몸이 먼저 닿았으면 뒤의 첫 발 접촉으로 바꾼다. */
+    observeContact(record, event, player, { netHeight, time }) {
+        const foot = /^foot/.test(event.part || '');
+        if (record.contact && !(foot && !record.contact.foot)) return;
+        record.contact = {
+            part: event.part,
+            foot,
+            downward:
+                foot &&
+                !!event.footVelocity &&
+                event.footVelocity.y < -1 &&
+                event.position.y > netHeight,
+            height: event.position.y,
+            entry: player.kick.airPlan?.entry || null,
+            motionId: player.kick.airPlan?.motion?.id || null,
+            time,
+            outgoing: null,
+            crossed: false,
+            counted: false,
+        };
+    }
+
+    /** 물리 substep마다: 토스 꼭짓점, 공중 발차기 진입·동작, 접촉 직후 공의 나가는 속도. */
+    observeStep(record, { ball, player }) {
+        if (record.setAt !== null && !record.contact)
+            record.setApex = Math.max(record.setApex, ball.translation().y);
+        if (player.kick.mode === 'air' && player.kick.airPlan) {
+            record.entry = player.kick.airPlan.entry;
+            record.motionId = player.kick.airPlan.motion?.id || null;
+        }
+        if (record.contact && !record.contact.outgoing) {
+            const v = ball.linvel();
+            record.contact.outgoing = { x: v.x, y: v.y, z: v.z };
+        }
+    }
+
+    /** 접촉한 공이 상대 코트로 네트를 넘은 순간, 네트 위·코트 폭 안으로 넘었는지. */
+    observeCrossing(record, crossed) {
+        record.contact.crossed = crossed;
+    }
+
+    /**
+     * 연습 한 번의 결과. code가 결과 종류이고 values는 문구의 갈래(언어와 무관한 값)다. 제목·설명은 화면이 code·values로 만든다
+     * (src/i18n/messages/match.js resultTitle·resultDetail).
+     */
+    finish(record, { reason, pointWinner }) {
+        const t = record,
+            hit = t.contact;
+        const lesson = this.lesson(t);
+        const matches = !!hit?.motionId && (lesson.anyMotion || hit.motionId === t.lesson);
+        const downward =
+            hit?.foot && hit.downward && hit.outgoing?.y < -0.2 && hit.outgoing.x > 0.5;
+        let result;
+        if (downward && matches && hit.crossed && pointWinner === 0) {
+            result = {
+                code: 'success',
+                values: { motionId: hit.motionId, quick: t.tempo === 'quick' },
+                tone: 'success',
+            };
+            if (!hit.counted) {
+                t.successes++;
+                hit.counted = true;
+            }
+        } else if (t.setAt === null) {
+            result = { code: 'set', values: {}, tone: 'neutral' };
+        } else if (hit?.foot && !matches) {
+            result = {
+                code: 'motion',
+                values: { other: !!hit.motionId, downward: lesson.prehold },
+                tone: 'retry',
+            };
+        } else if (downward && hit.crossed) {
+            result = { code: 'out', values: { reason }, tone: 'retry' };
+        } else if (downward) {
+            result = { code: 'net', values: {}, tone: 'retry' };
+        } else if (hit?.foot) {
+            result = { code: 'angle', values: {}, tone: 'retry' };
+        } else if (hit) {
+            result = { code: 'body', values: { shin: /^lowerLeg/.test(hit.part) }, tone: 'retry' };
+        } else if (t.jumpAt === null) {
+            result = { code: 'jump', values: {}, tone: 'retry' };
+        } else if (t.kickAt === null) {
+            result = { code: 'kick', values: { downward: lesson.prehold }, tone: 'retry' };
+        } else {
+            result = {
+                code: 'miss',
+                values: { prehold: lesson.prehold && t.kickAt >= t.jumpAt },
+                tone: 'retry',
+            };
+        }
+        t.result = {
+            ...result,
+            reason,
+            entry: hit?.entry || t.entry,
+            motionId: hit?.motionId || t.motionId,
+            contact: hit?.part || null,
+            jumpOffset: t.jumpOffset,
+            kickOffset: t.kickOffset,
+        };
+    }
+}
+
+export {
+    TAKRAW_TRAINING_LESSONS,
+    TAKRAW_TRAINING_TEMPOS,
+    TakrawTrainingDrill,
+    takrawTrainingLesson,
+};

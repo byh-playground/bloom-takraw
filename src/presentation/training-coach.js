@@ -4,7 +4,7 @@ import { takrawMessage as message } from '../simulation/game.js';
  * 연습 안내의 순수 함수: 시뮬레이션이 낸 사실(game.getTrainingFacts, getView().training)에서
  * 단계(stage)·문구(cue·detail)·색(tone)·진행 막대(progress)를 만든다. 상태를 바꾸지 않는다.
  * maxLead는 표시 설정(config.visual.attackGuide.maxLead)이고 runtime의 HUD 조립이 넘긴다.
- * 결과는 ui.updateTraining이 읽는 모양이다. cue·detail은 message(id, values)이고 문장은 src/i18n/messages/match.js가 만든다.
+ * 결과는 presentation/training-panel.js의 update가 읽는 모양이다. cue·detail은 message(id, values)이고 문장은 src/i18n/messages/match.js가 만든다.
  */
 function takrawTrainingCoach(facts, { maxLead }) {
     if (!facts) return null;

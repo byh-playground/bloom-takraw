@@ -1,34 +1,16 @@
-import {
-    TAKRAW_ELEMENTS,
-    TAKRAW_SCHOOLS,
-    takrawOpponents,
-    takrawSchool,
-} from '../config/schools.js';
-import { takrawMatchStatus } from './match-status.js';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
-import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
+import { TAKRAW_ELEMENTS, takrawOpponents, takrawSchool } from '../config/schools.js';
+import { TAKRAW_VERSION } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, takrawTrainingFactor } from '../club/club.js';
-import {
-    TAKRAW_TRAINING_LESSONS,
-    TAKRAW_TRAINING_TEMPOS,
-    takrawTrainingLesson,
-} from '../simulation/training.js';
 import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { createNavigation } from '@bloom-gamekit/navigation';
 import { takrawRoute } from './routes.js';
 import { LOCALE, LOCALE_NAMES } from '../i18n/locale.js';
 import { UI, clubText } from '../i18n/messages/ui.js';
-import { matchText, touchControlText } from '../i18n/messages/match.js';
-
-/** 모델이 넘긴 TextPair({ ko, en })를 이 페이지 언어의 문자열로. */
-const say = (pair) => LOCALE.text(pair);
-/** innerHTML 템플릿에 넣는 모든 문자열(문구·사용자 팀 이름·선수 이름)은 이 함수를 거친다. */
-function escape(value) {
-    return String(value ?? '').replace(
-        /[&<>"']/g,
-        (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
-    );
-}
+import { touchControlText } from '../i18n/messages/match.js';
+import { say, escape, createTextSetter } from './markup.js';
+import { TakrawTouchControls } from './touch-controls.js';
+import { TakrawMatchHud } from './match-hud.js';
+import { TakrawTrainingPanel } from './training-panel.js';
 
 /** 처음 화면의 안쪽 단계와 그 부모 화면. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
 const HOME_PARENT = { start: '', multi: 'start' };
@@ -54,12 +36,11 @@ class TakrawUI {
         this.dialog = '';
         this.network = network;
         this.controller = new AbortController();
-        this.touch = { pointer: null, active: new Map() };
         this.previousFocus = null;
         this.homeShown = false;
         this.homeView = 'main';
         this.copyTimer = null;
-        this.cache = new Map();
+        this.text = createTextSetter();
         this.club = {
             status: 'loading',
             message: { id: 'loading', values: {} },
@@ -88,7 +69,6 @@ class TakrawUI {
         this.nodes = {};
         for (const id of [
             'home-panel',
-            'match-hud',
             'modal-layer',
             'dialog-panel',
             'dialog-title',
@@ -104,13 +84,6 @@ class TakrawUI {
             'home-back',
             'dialog-back',
             'draw-stage',
-            'touch-controls',
-            'move-pad',
-            'move-thumb',
-            'local-guide',
-            'watch-form',
-            'training-actions',
-            'end-actions',
             'connection-indicator',
         ])
             this.nodes[id] = document.getElementById(id);
@@ -118,8 +91,6 @@ class TakrawUI {
         this.showcase = 'showcase' in document.body.dataset; // 소개영상 iframe 안의 게임(?showcaseDemo=1)
         this.showcaseScene = ''; // 소개영상 대본이 띄운 게임 화면(draw)
         this.text('version-label', TAKRAW_VERSION);
-        for (const id of ['sets-0', 'sets-1'])
-            document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
         // 주소와 브라우저 이력은 gamekit navigation이 소유한다. 이력 복원(뒤로·앞으로·주소 입력)에만 화면을 맞추고,
         // 내부 이동은 navigate가 주소를 바꾼 뒤 직접 화면을 맞춘다.
         this.routes = createNavigation({ normalize: takrawRoute });
@@ -156,39 +127,20 @@ class TakrawUI {
                 fn(event);
             });
         };
+        const controlText = (value) => (this.coarse.matches ? touchControlText(value) : value);
+        this.hud = new TakrawMatchHud({
+            listen: (...args) => this.listen(...args),
+            click,
+            callbacks: this.callbacks,
+            controlText,
+            homeSchool: () => this.club.campaign?.home,
+        });
+        this.training = new TakrawTrainingPanel({
+            listen: (...args) => this.listen(...args),
+            callbacks: this.callbacks,
+            controlText,
+        });
         click('start-match', () => this.start('match'));
-        const watchSeed = () => document.getElementById('watch-seed');
-        this.listen(document.getElementById('watch-form'), 'submit', (event) => {
-            event.preventDefault();
-            this.callbacks.onWatch?.(watchSeed().value);
-        });
-        for (const button of document.querySelectorAll('[data-watch-step]'))
-            this.listen(button, 'click', () => {
-                watchSeed().value = Math.max(
-                    0,
-                    Number(watchSeed().value || 0) + Number(button.dataset.watchStep),
-                );
-                this.callbacks.onWatch?.(watchSeed().value);
-            });
-        const featured = document.getElementById('watch-featured');
-        const featuredLabel = (item) =>
-            item.closest !== undefined ? UI.featuredClosest(item) : UI.featuredDigs(item);
-        featured.replaceChildren(
-            new Option(UI.featured(), ''),
-            ...TAKRAW_RUNTIME.watch.featured.map(
-                (item) => new Option(featuredLabel(item), item.seed),
-            ),
-        );
-        this.listen(featured, 'change', () => {
-            if (featured.value) {
-                watchSeed().value = featured.value;
-                this.callbacks.onWatch?.(featured.value);
-            }
-        });
-        click('watch-random', () => {
-            watchSeed().value = Math.floor(Math.random() * (TAKRAW_RUNTIME.watch.randomMax + 1));
-            this.callbacks.onWatch?.(watchSeed().value);
-        });
         click('start-watch', () => this.start('watch'));
         click('open-campaign', () => this.navigate('campaign'));
         click('start-training', () => this.start('training'));
@@ -212,28 +164,6 @@ class TakrawUI {
         click('fatal-reload', () => window.location.reload());
         click('rematch-button', () => this.callbacks.onRestart?.());
         click('training-reset', () => this.callbacks.onRestart?.());
-        const lessonSelect = document.getElementById('training-lesson');
-        lessonSelect.replaceChildren();
-        for (const lesson of TAKRAW_TRAINING_LESSONS) {
-            const option = document.createElement('option');
-            option.value = lesson.id;
-            option.textContent = say(lesson.title);
-            lessonSelect.appendChild(option);
-        }
-        this.listen(lessonSelect, 'change', () =>
-            this.callbacks.onTrainingLesson?.(lessonSelect.value),
-        );
-        const tempoSelect = document.getElementById('training-tempo');
-        tempoSelect.replaceChildren();
-        for (const tempo of TAKRAW_TRAINING_TEMPOS) {
-            const option = document.createElement('option');
-            option.value = tempo.id;
-            option.textContent = say(tempo.title);
-            tempoSelect.appendChild(option);
-        }
-        this.listen(tempoSelect, 'change', () =>
-            this.callbacks.onTrainingTempo?.(tempoSelect.value),
-        );
         click('result-home', () => this.quit());
         click('dismiss-rotate', () =>
             document.getElementById('rotate-note').classList.add('dismissed'),
@@ -242,11 +172,11 @@ class TakrawUI {
             event.preventDefault();
             this.quit();
         });
-        this.listen(window, 'blur', () => this.releaseTouch());
-        this.listen(window, 'resize', () => this.releaseTouch());
+        this.listen(window, 'blur', () => this.touch.release());
+        this.listen(window, 'resize', () => this.touch.release());
         this.listen(this.coarse, 'change', () => this.syncInputMode());
         this.listen(document, 'visibilitychange', () => {
-            if (document.hidden) this.releaseTouch();
+            if (document.hidden) this.touch.release();
         });
         this.listen(this.nodes['modal-layer'], 'pointerdown', (event) => {
             if (event.target === this.nodes['modal-layer']) this.closeDialog();
@@ -272,7 +202,7 @@ class TakrawUI {
         this.listen(document, 'keydown', (event) => {
             // 리플레이 중에는 Esc·Space·Enter가 건너뛰기다. 일시 정지 창은 리플레이가 끝난 뒤 연다.
             if (
-                this.replaying &&
+                this.hud.replaying &&
                 !this.dialog &&
                 !event.repeat &&
                 ['Escape', 'Space', 'Enter', 'NumpadEnter'].includes(event.code)
@@ -295,69 +225,14 @@ class TakrawUI {
             }
             if (this.dialog && event.code === 'Tab') this.trapFocus(event);
         });
-        for (const button of document.querySelectorAll('[data-touch]')) {
-            this.listen(button, 'pointerdown', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (!this.inGame || this.dialog) return;
-                if (this.replaying) {
-                    this.callbacks.onReplaySkip?.();
-                    return;
-                }
-                button.setPointerCapture(event.pointerId);
-                const source = `touch:${event.pointerId}`;
-                this.touch.active.set(event.pointerId, {
-                    button,
-                    action: button.dataset.touch,
-                    source,
-                });
-                button.classList.add('is-down');
-                this.callbacks.onTouch?.(button.dataset.touch, source, true);
-            });
-            const up = (event) => {
-                const state = this.touch.active.get(event.pointerId);
-                if (!state) return;
-                event.preventDefault();
-                this.callbacks.onTouch?.(state.action, state.source, false);
-                this.touch.active.delete(event.pointerId);
-                state.button.classList.toggle(
-                    'is-down',
-                    [...this.touch.active.values()].some((item) => item.button === state.button),
-                );
-            };
-            for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
-                this.listen(button, type, up);
-            this.listen(button, 'contextmenu', (event) => event.preventDefault());
-        }
-        const pad = this.nodes['move-pad'];
-        this.listen(pad, 'pointerdown', (event) => {
-            if (this.replaying && this.inGame && !this.dialog) {
-                event.preventDefault();
-                this.callbacks.onReplaySkip?.();
-                return;
-            }
-            if (!this.inGame || this.dialog || this.touch.pointer !== null) return;
-            event.preventDefault();
-            event.stopPropagation();
-            this.touch.pointer = event.pointerId;
-            pad.setPointerCapture(event.pointerId);
-            this.moveTouch(event);
+        this.touch = new TakrawTouchControls({
+            listen: (...args) => this.listen(...args),
+            coarse: this.coarse,
+            callbacks: this.callbacks,
+            inGame: () => this.inGame,
+            dialogOpen: () => !!this.dialog,
+            replaying: () => this.hud.replaying,
         });
-        this.listen(pad, 'pointermove', (event) => {
-            if (event.pointerId === this.touch.pointer) {
-                event.preventDefault();
-                this.moveTouch(event);
-            }
-        });
-        const up = (event) => {
-            if (event.pointerId !== this.touch.pointer) return;
-            this.touch.pointer = null;
-            this.nodes['move-thumb'].style.transform = '';
-            this.callbacks.onAxis?.(0, 0);
-        };
-        for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
-            this.listen(pad, type, up);
-        this.listen(pad, 'contextmenu', (event) => event.preventDefault());
     }
 
     /** 메인 화면의 계층(처음 → 게임 시작 → 멀티플레이) 중 보일 단계를 고른다. 한 번에 한 단계만 보이고, 뒤로 버튼은 헤더의 고정 자리에서 한 단계 위로 간다. */
@@ -389,51 +264,9 @@ class TakrawUI {
         }
     }
 
-    moveTouch(event) {
-        const rect = this.nodes['move-pad'].getBoundingClientRect();
-        const thumb = this.nodes['move-thumb'].getBoundingClientRect();
-        const radius = Math.max(
-            1,
-            (Math.min(rect.width, rect.height) - Math.max(thumb.width, thumb.height)) / 2,
-        );
-        let x = (event.clientX - rect.left - rect.width / 2) / radius,
-            z = (event.clientY - rect.top - rect.height / 2) / radius;
-        const length = Math.hypot(x, z);
-        if (length > 1) {
-            x /= length;
-            z /= length;
-        }
-        this.nodes['move-thumb'].style.transform = `translate(${x * radius}px,${z * radius}px)`;
-        // A circular dead zone preserves direction when the thumb leaves centre.
-        const strength = Math.max(0, (Math.min(length, 1) - 0.12) / 0.88);
-        const scale = length > 0 ? strength / Math.min(length, 1) : 0;
-        this.callbacks.onAxis?.(x * scale, z * scale);
-    }
-
-    releaseTouch() {
-        const active = [...this.touch.active.entries()],
-            pointer = this.touch.pointer;
-        this.touch.active.clear();
-        this.touch.pointer = null;
-        this.nodes['move-thumb'].style.transform = '';
-        this.callbacks.onAxis?.(0, 0);
-        for (const [id, state] of active) {
-            state.button.classList.remove('is-down');
-            this.callbacks.onTouch?.(state.action, state.source, false);
-            if (state.button.hasPointerCapture(id)) state.button.releasePointerCapture(id);
-        }
-        if (pointer !== null && this.nodes['move-pad'].hasPointerCapture(pointer))
-            this.nodes['move-pad'].releasePointerCapture(pointer);
-    }
-
     syncInputMode() {
-        this.releaseTouch();
-        this.nodes['touch-controls'].hidden =
-            !this.inGame || !this.coarse.matches || (this.mode === 'watch' && !this.showcase);
-    }
-
-    controlText(value) {
-        return this.coarse.matches ? touchControlText(value) : value;
+        this.touch.release();
+        this.touch.sync(this.inGame, this.mode, this.showcase);
     }
 
     /**
@@ -467,16 +300,15 @@ class TakrawUI {
                 ? this.dialog
                 : '';
         this.homeShown = true;
-        this.releaseTouch();
+        this.touch.release();
         this.inGame = false;
         this.hideDialog(false);
         document.body.classList.add('is-home');
         document.body.dataset.mode = 'home';
         this.nodes['home-panel'].hidden = false;
-        this.nodes['match-hud'].hidden = true;
-        this.nodes['touch-controls'].hidden = true;
+        this.hud.hide();
+        this.touch.sync(false, this.mode, this.showcase);
         this.nodes['connection-indicator'].hidden = true;
-        this.nodes['watch-form'].hidden = true;
         // 소개영상 호스트는 부팅 직후 이 주소를 읽어 소개를 연다. 호스트가 붙기 전에 지우지 않는다.
         if (this.routes.snapshot().screen !== 'showcase')
             this.setRoute(initialDialog || this.homeRoute(), true);
@@ -491,26 +323,8 @@ class TakrawUI {
         document.body.classList.remove('is-home');
         document.body.dataset.mode = mode;
         this.nodes['home-panel'].hidden = true;
-        this.nodes['match-hud'].hidden = false;
-        this.nodes['touch-controls'].hidden =
-            !this.coarse.matches || (mode === 'watch' && !this.showcase);
-        this.nodes['watch-form'].hidden = mode !== 'watch';
-        this.nodes['training-actions'].hidden = mode !== 'training';
-        this.nodes['local-guide'].hidden = mode !== 'local';
-        this.nodes['end-actions'].hidden = true;
-        document.querySelector('.scoreboard').classList.toggle('is-training', mode === 'training');
-        this.text('team-label-0', mode === 'local' ? UI.local1P() : UI.us()); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
-        this.text('team-label-1', mode === 'local' ? UI.local2P() : UI.them());
-        this.text(
-            'match-type',
-            {
-                training: UI.modeTraining,
-                match: UI.modeMatch,
-                local: UI.modeLocal,
-                online: UI.modeOnline,
-                watch: UI.modeWatch,
-            }[mode](),
-        );
+        this.hud.show(mode);
+        this.touch.sync(true, mode, this.showcase);
         this.setRoute('play');
         this.canvas.focus({ preventScroll: true });
     }
@@ -570,7 +384,7 @@ class TakrawUI {
         if (this.dialog === route) return;
         if (!this.dialog) {
             this.previousFocus = document.activeElement;
-            this.releaseTouch();
+            this.touch.release();
             if (this.inGame) this.callbacks.onPause?.(true);
         }
         this.dialog = route;
@@ -1709,301 +1523,37 @@ class TakrawUI {
         };
     }
 
-    text(id, value) {
-        const string = value == null ? '' : String(value);
-        if (this.cache.get(id) === string) return;
-        this.cache.set(id, string);
-        const node = document.getElementById(id);
-        if (node) node.textContent = string;
-    }
-
-    /**
-     * 접촉 타이밍 등급을 표시한다. 반환된 토큰으로 hideTiming하면 그 표시만 지운다.
-     * 짧은 간격의 접촉이 겹쳐도 먼저 끝난 표시가 나중 표시를 지우지 않는다.
-     */
+    /** 접촉 타이밍 등급 표시. 반환된 토큰으로 hideTiming하면 그 표시만 지운다(match-hud.js). */
     showTiming(timing) {
-        const labels = { perfect: UI.timingPerfect, good: UI.timingGood };
-        const label = (
-            labels[timing.grade] || (timing.error < 0 ? UI.timingEarly : UI.timingLate)
-        )();
-        const milliseconds = Math.round(timing.error * 1000);
-        const badge = document.getElementById('timing-badge');
-        this.text('timing-grade', label);
-        this.text('timing-offset', `${milliseconds > 0 ? '+' : ''}${milliseconds}ms`);
-        badge.dataset.grade = timing.grade;
-        badge.hidden = false;
-        badge.style.animation = 'none';
-        void badge.offsetWidth;
-        badge.style.animation = '';
-        this.timingToken = { grade: timing.grade };
-        return this.timingToken;
-    }
-
-    /** 득점 리플레이 표시. reason('spike'|'rally')이면 보이고 null이면 숨긴다. 재생 중에는 화면 어디를 눌러도 건너뛴다. */
-    showReplay(reason) {
-        this.replaying = !!reason;
-        const overlay = document.getElementById('replay-overlay');
-        overlay.hidden = !reason;
-        if (reason) document.body.dataset.replay = reason;
-        else delete document.body.dataset.replay;
-        if (reason) {
-            this.text('replay-reason', reason === 'spike' ? UI.replaySpike() : UI.replayRally());
-            this.hideHitPop(this.hitPopToken);
-            this.hideTiming(this.timingToken);
-        }
-    }
-
-    /** 큰 글자 팝업("SPIKE!" 등). 반환된 토큰으로 hideHitPop하면 그 표시만 지운다. */
-    showHitPop(text, team) {
-        const pop = document.getElementById('hit-pop');
-        this.text('hit-pop', text);
-        pop.dataset.team = String(team === 1 ? 1 : 0);
-        pop.hidden = false;
-        pop.style.animation = 'none';
-        void pop.offsetWidth;
-        pop.style.animation = '';
-        this.hitPopToken = { text };
-        return this.hitPopToken;
-    }
-
-    hideHitPop(token) {
-        if (!token || this.hitPopToken !== token) return;
-        this.hitPopToken = null;
-        document.getElementById('hit-pop').hidden = true;
+        return this.hud.showTiming(timing);
     }
 
     hideTiming(token) {
-        if (!token || this.timingToken !== token) return;
-        this.timingToken = null;
-        document.getElementById('timing-badge').hidden = true;
+        this.hud.hideTiming(token);
     }
 
+    showHitPop(text, team) {
+        return this.hud.showHitPop(text, team);
+    }
+
+    hideHitPop(token) {
+        this.hud.hideHitPop(token);
+    }
+
+    showReplay(reason) {
+        this.hud.showReplay(reason);
+    }
+
+    /** runtime이 HUD 간격마다 부른다. 점수판·안내(match-hud), 터치 버튼(touch-controls), 연습 패널(training-panel). */
     update(hud) {
         if (!hud) return;
-        this.text('score-0', hud.score?.[0] ?? 0);
-        this.text('score-1', hud.score?.[1] ?? 0);
-        document.getElementById('set-number').hidden =
-            TAKRAW_CONFIG.rules.sets === 1 && this.mode !== 'training'; // 훈련은 이 칸을 안내 문구로 쓴다.
-        this.text(
-            'set-number',
-            this.mode === 'training' ? UI.trainingSetLabel() : UI.setNumber({ set: hud.set ?? 1 }),
-        );
-        for (let team = 0; team < 2; team++) {
-            const count = hud.sets?.[team] ?? 0,
-                node = document.getElementById(`sets-${team}`);
-            for (let i = 0; i < node.children.length; i++)
-                node.children[i].classList.toggle('won', i < count);
-            node.setAttribute('aria-label', UI.setsWon({ count }));
-        }
-        const phases = {
-            ready: UI.phaseReady,
-            rally: UI.phaseRally,
-            point: UI.phasePoint,
-            finished: UI.phaseFinished,
-        };
-        this.text(
-            'rally-status',
-            this.mode === 'training' ? UI.modeTraining() : (phases[hud.phase] || UI.phaseIdle)(),
-        );
-        const touch = document.querySelector('#touch-indicator b'),
-            touches = String(hud.touches ?? 0);
-        if (touch.textContent !== touches) touch.textContent = touches;
-        this.text(
-            'touch-team',
-            hud.possession === 0 || hud.possession === 1
-                ? UI.touchTeam({ own: hud.possession === hud.localTeam })
-                : UI.touch(),
-        );
-        // 팀 안내(teamPlay)는 이미 내 팀 시점이고, 마지막 소식(lastMessage)은 team 값을 내 팀 기준으로 바꿔 읽는다.
-        const teamPlay = hud.teamPlay,
-            notice = matchText(teamPlay?.title) || matchText(hud.lastMessage, hud.localTeam ?? 0);
-        this.text('rally-notice', notice);
-        this.text('rally-detail', this.controlText(matchText(teamPlay?.detail)));
-        const callout = document.getElementById('rally-callout'),
-            tone = teamPlay?.tone || 'neutral';
-        callout.hidden = !notice;
-        if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
-        this.text('selected-name', hud.selectedName || UI.attacker());
-        if (hud.teamNames && this.mode !== 'local') {
-            this.text('team-label-0', hud.teamNames[0] ?? UI.us());
-            this.text('team-label-1', hud.teamNames[1] ?? UI.them());
-        }
-        this.updateTeamColors(hud);
-        this.text('selected-state', hud.selectedState || UI.stateReady());
-        const status = takrawMatchStatus(hud, TAKRAW_CONFIG.rules),
-            banner = document.getElementById('match-banner');
-        const teamName = (team) => document.getElementById(`team-label-${team}`).textContent;
-        banner.textContent = status.matchPointTeams.length
-            ? status.matchPointTeams.length === 2
-                ? UI.bothMatchPoint()
-                : UI.matchPoint({ team: teamName(status.matchPointTeams[0]) })
-            : status.deuce
-              ? UI.deuce({ a: hud.score[0], b: hud.score[1] })
-              : '';
-        banner.hidden = this.mode === 'training' || !banner.textContent;
-        document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld);
-        document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
-        // 소개영상은 입력을 받지 않고, 영상 속 공격수가 누르는 동안 터치 버튼을 눌린 모양으로 보여 준다.
-        if (this.showcase)
-            for (const button of document.querySelectorAll('[data-touch]'))
-                button.classList.toggle(
-                    'is-down',
-                    button.dataset.touch === 'jump' ? !!hud.jumpHeld : !!hud.kickHeld,
-                );
-        const meter = document.getElementById('toss-meter');
-        meter.hidden = !hud.tossReady;
-        meter.querySelector('i').style.width = `${Math.round(100 * (hud.tossCharge || 0))}%`;
-        const kickButton = document.querySelector('.touch-kick'),
-            label = hud.tossReady ? [UI.tossThrow(), UI.tossHint()] : [UI.kick(), UI.kickHint()];
-        if (kickButton.dataset.label !== label[0]) {
-            kickButton.dataset.label = label[0];
-            kickButton.firstChild.textContent = label[0];
-            kickButton.querySelector('small').textContent = label[1];
-        }
-        if (this.mode === 'training' && hud.training) this.updateTraining(hud.training);
-        if (hud.watch) {
-            const input = document.getElementById('watch-seed');
-            if (document.activeElement !== input && input.value !== String(hud.watch.seed))
-                input.value = hud.watch.seed;
-            this.text('watch-tick', UI.watchTick({ tick: hud.watch.tick }));
-            const featured = document.getElementById('watch-featured');
-            if (featured.value !== String(hud.watch.seed))
-                featured.value = [...featured.options].some(
-                    (option) => option.value === String(hud.watch.seed),
-                )
-                    ? String(hud.watch.seed)
-                    : '';
-        }
-        const ended = hud.phase === 'finished';
-        this.nodes['end-actions'].hidden = !ended;
-        this.nodes['end-actions'].dataset.result =
-            hud.matchWinner === (hud.localTeam || 0) ? 'win' : 'loss';
-        if (ended) {
-            const winnerSchool =
-                hud.matchWinner === 0
-                    ? takrawSchool(this.club.campaign?.home) || TAKRAW_SCHOOLS[0]
-                    : TAKRAW_SCHOOLS.find((value) => say(value.name) === hud.teamNames?.[1]) ||
-                      TAKRAW_SCHOOLS[1];
-            const accent = hud.teamColors?.[hud.matchWinner] ?? winnerSchool.uniform.primary;
-            this.nodes['end-actions'].style.setProperty(
-                '--result-accent',
-                `#${accent.toString(16).padStart(6, '0')}`,
-            );
-        }
-        const school = TAKRAW_SCHOOLS.find((value) => value.id === hud.campaignSchoolId),
-            schoolResult = document.getElementById('school-result');
-        schoolResult.hidden = !ended || !school;
-        if (school && ended) {
-            const clear =
-                hud.matchReward?.status === 'saved'
-                    ? UI.schoolClear()
-                    : hud.matchReward?.status === 'error'
-                      ? UI.schoolRetrySave()
-                      : UI.schoolSaving();
-            schoolResult.textContent =
-                hud.matchWinner === 0
-                    ? UI.schoolBeaten({ school: say(school.name), clear })
-                    : UI.schoolLost({ school: say(school.name) });
-        }
-        this.text('match-reward', hud.matchReward?.message || '');
-        document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
-        const guest = this.mode === 'online' && hud.localTeam !== 0;
-        document.getElementById('rematch-button').disabled = guest;
-        document.getElementById('rematch-hint').hidden = !(ended && guest);
-        if (ended)
-            this.text(
-                'match-result',
-                this.mode === 'local'
-                    ? UI.localWin({ side: hud.matchWinner === 0 ? '1P' : '2P' })
-                    : ['online', 'watch'].includes(this.mode)
-                      ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() })
-                      : hud.matchWinner === 0
-                        ? UI.youWin()
-                        : UI.youLose(),
-            );
-    }
-
-    /** 온라인·관전 점수판: 팀 이름 옆에 그 학교 유니폼 색 점을 찍고, 내 쪽에는 '나' 표시(.me-badge)를 켠다. */
-    updateTeamColors(hud) {
-        const colored = ['online', 'watch'].includes(this.mode) && Array.isArray(hud.teamColors);
-        document.querySelectorAll('.score-team').forEach((node, team) => {
-            const color = colored ? `#${hud.teamColors[team].toString(16).padStart(6, '0')}` : '';
-            if (node.dataset.dot !== color) {
-                node.dataset.dot = color;
-                if (color) node.style.setProperty('--team-dot', color);
-                else node.style.removeProperty('--team-dot');
-            }
-            const me = this.mode === 'online' && hud.localTeam === team ? 'true' : '';
-            if ((node.dataset.me || '') !== me) {
-                if (me) node.dataset.me = me;
-                else delete node.dataset.me;
-            }
-        });
-    }
-
-    updateTraining(training) {
-        // 점프 전에 발을 먼저 올리는 레슨은 발차기 단계에서 남은 시간 대신 점프 안내를 보인다.
-        const prehold = takrawTrainingLesson(training.lesson).prehold;
-        const lessonSelect = document.getElementById('training-lesson');
-        if (lessonSelect.value !== training.lesson) lessonSelect.value = training.lesson;
-        const tempoSelect = document.getElementById('training-tempo');
-        if (tempoSelect.value !== training.tempo) tempoSelect.value = training.tempo;
-        this.text('training-sequence', this.controlText(say(training.sequence)));
-        this.text('training-motion', this.controlText(matchText(training.motionStatus)));
-        this.text(
-            'training-count',
-            UI.trainingCount({ count: Math.max(1, training.attempt || 0) }),
-        );
-        const stages = {
-            ready: UI.stageReady,
-            set: UI.stageSet,
-            position: UI.stagePosition,
-            brake: UI.stageBrake,
-            jump: UI.stageJump,
-            kick: UI.stageKick,
-            contact: UI.stageContact,
-            result: UI.stageResult,
-        };
-        this.text(
-            'training-stage',
-            stages[training.stage]?.() ||
-                (training.title ? say(training.title) : UI.modeTraining()),
-        );
-        this.text('training-cue', this.controlText(matchText(training.cue)));
-        this.text('training-detail', this.controlText(matchText(training.detail)));
-        this.text('training-successes', UI.trainingSuccesses({ count: training.successes || 0 }));
-        const coach = document.getElementById('training-coach');
-        const tone = training.tone || 'neutral';
-        if (coach.dataset.tone !== tone) coach.dataset.tone = tone;
-        const progress = Math.round(Math.max(0, Math.min(1, Number(training.progress) || 0)) * 100);
-        const timing = document.getElementById('training-timing');
-        if (timing.getAttribute('aria-valuenow') !== String(progress)) {
-            timing.setAttribute('aria-valuenow', String(progress));
-            timing.style.setProperty('--timing', `${progress}%`);
-        }
-        let label = UI.timingDefault();
-        if (training.stage === 'ready' || training.stage === 'set') label = UI.timingSetting();
-        else if (training.stage === 'result') label = UI.timingNext();
-        else if (training.stage === 'contact') label = UI.timingContact();
-        else if (training.stage === 'brake') label = UI.timingBrake();
-        else if (training.stage === 'jump')
-            label = training.shortJump ? UI.timingJumpTap() : UI.timingJumpHold();
-        else if (training.stage === 'kick' && training.tone === 'retry')
-            label = UI.timingKickRetry();
-        else if (training.stage === 'kick' && !prehold)
-            label =
-                Number.isFinite(training.kickIn) && training.kickIn > 0
-                    ? UI.timingKickIn({ value: training.kickIn })
-                    : UI.timingKickHold();
-        else if (Number.isFinite(training.jumpIn) && training.jumpIn > 0)
-            label = UI.timingJumpIn({ value: training.jumpIn });
-        else if (training.stage === 'kick') label = UI.timingJumpWithKick();
-        this.text('training-timing-label', this.controlText(label));
-        timing.setAttribute('aria-valuetext', this.controlText(label));
+        this.hud.update(hud, this.mode);
+        this.touch.update(hud, this.showcase);
+        if (this.mode === 'training' && hud.training) this.training.update(hud.training);
     }
 
     dispose() {
-        this.releaseTouch();
+        this.touch.release();
         window.clearTimeout(this.drawTimer);
         if (this.copyTimer) window.clearTimeout(this.copyTimer);
         this.controller.abort();

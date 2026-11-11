@@ -65,6 +65,19 @@ const PLAYER_STATE_LABELS = Object.freeze({
     recovering: RUNTIME.stateGettingUp,
 });
 
+/**
+ * 연결 실패 원인별 화면 문구(error)와 연결 카드 단계 이름(phase). 키가 connectionCause가 돌려주는 원인이고,
+ * 문구·단계·지표(trackConnectionFailure)가 이 분류 하나를 쓴다.
+ */
+const CONNECTION_CAUSES = Object.freeze({
+    secure: { error: RUNTIME.errSecure, phase: RUNTIME.phaseBrowser },
+    sync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
+    version: { error: RUNTIME.errVersion, phase: RUNTIME.phaseVersionFailed },
+    relay: { error: RUNTIME.errRelay, phase: RUNTIME.phaseRelayFailed },
+    peer: { error: RUNTIME.errPeer, phase: RUNTIME.phasePeerFailed },
+    other: { error: RUNTIME.errOther, phase: RUNTIME.phaseFailed },
+});
+
 /** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
 const localizedTeam = (team) =>
     team && {
@@ -374,27 +387,15 @@ async function bootTakraw() {
 
     function readableConnectionError(error) {
         const raw = connectionText(error);
-        const values = { detail: raw, version: TAKRAW_VERSION };
-        return {
-            secure: () => RUNTIME.errSecure(),
-            sync: () => RUNTIME.errSync(values),
-            version: () => RUNTIME.errVersion(values),
-            relay: () => RUNTIME.errRelay(values),
-            peer: () => RUNTIME.errPeer(values),
-            other: () => RUNTIME.errOther(values),
-        }[connectionCause(raw)]();
+        return CONNECTION_CAUSES[connectionCause(raw)].error({
+            detail: raw,
+            version: TAKRAW_VERSION,
+        });
     }
 
     /** 연결 오류 카드의 단계 이름. 원인을 알면 그 원인을 말한다. */
     function failurePhase(cause) {
-        return {
-            secure: () => RUNTIME.phaseBrowser(),
-            relay: () => RUNTIME.phaseRelayFailed(),
-            peer: () => RUNTIME.phasePeerFailed(),
-            sync: () => RUNTIME.phaseSyncFailed(),
-            version: () => RUNTIME.phaseVersionFailed(),
-            other: () => RUNTIME.phaseFailed(),
-        }[cause]();
+        return CONNECTION_CAUSES[cause].phase();
     }
 
     /**

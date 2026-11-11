@@ -7,12 +7,7 @@ import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { createSave, memoryAdapter } from '@bloom-gamekit/save';
 import { registerPwa } from '@bloom-gamekit/pwa';
-import {
-    createMetrics,
-    HttpAdapter,
-    MemoryAdapter,
-    SessionReplayRecorder,
-} from '@bloom-gamekit/metrics';
+import { createMetrics, HttpAdapter, MemoryAdapter } from '@bloom-gamekit/metrics';
 
 import {
     TAKRAW_VERSION,
@@ -28,8 +23,10 @@ import { RuntimeInput } from './runtime/input.js';
 import { PresentationFeed } from './runtime/presentation-feed.js';
 import { MatchEventJournal } from './runtime/match-events.js';
 import { HighlightController } from './runtime/highlight-controller.js';
+import { MatchRewards } from './runtime/rewards.js';
+import { MatchRecord } from './runtime/match-record.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
-import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
+import { TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
@@ -74,9 +71,7 @@ async function bootTakraw() {
     const pendingCommands = [];
     let identitySent = false; // 온라인에서 내 팀 이름·학교를 이 세션에서 이미 알렸는지
     const stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
-    const clubSession = { team: null, match: null, reward: null };
     let campaignSchoolId = null;
-    const rewards = { jobs: [], running: false, timer: null };
 
     let ui;
     let club;
@@ -104,7 +99,15 @@ async function bootTakraw() {
         locale: LOCALE.locale,
         adapter: isolated ? new MemoryAdapter() : new HttpAdapter(TAKRAW_RUNTIME.metrics.endpoint),
     });
-    let metricsMatch = null; // 기록 중인 세션의 경기 관측: { ordinal, finishedAt, recorded }
+    const rewards = new MatchRewards({
+        getClub: () => club,
+        recordError,
+        onChange() {
+            publishClub();
+            hudTime = -Infinity;
+        },
+    });
+    const record = new MatchRecord({ metrics, recordError });
     let watchSeed = TAKRAW_RUNTIME.watch.showcaseSeed;
     let watchPoint = { tick: null, restarting: false };
     const highlight = new HighlightController({
@@ -321,156 +324,22 @@ async function bootTakraw() {
 
     function publishClub() {
         if (disposed || !club || !ui) return;
-        const pending =
-            rewards.jobs.find((job) => job.status === 'error') || rewards.jobs[0] || null;
-        ui.setClub({
-            ...club.getView(),
-            pendingReward: pending ? { status: pending.status, message: pending.message } : null,
-        });
-    }
-
-    function matchId() {
-        const bytes = new Uint8Array(16);
-        globalThis.crypto.getRandomValues(bytes);
-        return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+        ui.setClub({ ...club.getView(), pendingReward: rewards.pending() });
     }
 
     function observeMatchResult() {
-        const match = clubSession.match,
-            state = latestView?.state;
-        if (
-            disposed ||
-            mode !== 'match' ||
-            !match ||
-            match.finished ||
-            state?.phase !== 'finished' ||
-            ![0, 1].includes(state.matchWinner)
-        )
-            return;
-        match.finished = true;
-        const won = state.matchWinner === 0,
-            reward = TAKRAW_CLUB_RULES.rewards[won ? 'win' : 'loss'];
-        const job = {
-            id: match.id,
-            won,
-            mode: 'match',
-            schoolId: match.schoolId,
-            status: 'queued',
-            message: RUNTIME.rewardSaving(),
-            ...reward,
-        };
-        rewards.jobs.push(job);
-        clubSession.reward = job;
-        // 완료 관측은 한 번만 한다. 영속 I/O는 시뮬레이션 콜백 밖에서 실행한다.
-        scheduleRewards();
+        rewards.observe({ mode, state: latestView?.state });
     }
 
-    // 끝난 경기 하나를 지표로 남긴다. 온라인은 예측한 끝을 남기지 않도록 그 tick이 확정된 뒤에 남긴다.
-    // 두 사람이 같은 matchId(방 세션·roster 세대·그 세대에서 끝난 순번)를 보내 서버에 한 행만 남는다.
     function observeMetricsMatch() {
-        const state = latestView?.state,
-            track = metricsMatch;
-        if (disposed || !session || !track) return;
-        if (state?.phase !== 'finished' || ![0, 1].includes(state.matchWinner)) {
-            track.finishedAt = null;
-            track.recorded = false;
-            return;
-        }
-        if (track.recorded) return;
-        track.finishedAt ??= session.tick;
-        if (session.resimulating || session.confirmedTick + 1 < track.finishedAt) return;
-        track.recorded = true;
-        const online = mode === 'online';
-        const recorder = new SessionReplayRecorder({
-            session,
-            mode,
-            ...(online
-                ? { matchId: `${session.sessionId}:${session.epoch}:${track.ordinal}` }
-                : {}),
-        });
-        track.ordinal += 1;
-        try {
-            metrics.recordMatch(recorder, {
-                winner: state.matchWinner,
-                sets: [...state.sets],
-                score: [...state.score],
-                ticks: state.tick,
-                seed: state.seed,
-                ...(mode === 'match' ? { schoolId: clubSession.match?.schoolId ?? null } : {}),
-                ...(online ? { localTeam: localTeam() } : {}),
-            });
-        } catch (error) {
-            recordError(error, 'metrics-match');
-        }
-    }
-
-    function scheduleRewards(retry = false) {
         if (disposed) return;
-        if (retry)
-            for (const job of rewards.jobs) if (job.status === 'error') job.status = 'queued';
-        if (
-            rewards.running ||
-            rewards.timer !== null ||
-            !rewards.jobs.some((job) => job.status === 'queued')
-        )
-            return;
-        rewards.timer = window.setTimeout(() => {
-            rewards.timer = null;
-            saveRewards();
-        }, 0);
-    }
-
-    async function saveRewards() {
-        if (disposed || rewards.running) return;
-        rewards.running = true;
-        try {
-            let job;
-            while (!disposed && (job = rewards.jobs.find((value) => value.status === 'queued'))) {
-                job.status = 'saving';
-                job.message = RUNTIME.rewardSaving();
-                publishClub();
-                hudTime = -Infinity;
-                try {
-                    await club.rewardMatch({
-                        id: job.id,
-                        won: job.won,
-                        mode: job.mode,
-                        schoolId: job.schoolId,
-                    });
-                    const actual = club.getView().lastReward;
-                    job.status = 'saved';
-                    if (actual?.id === job.id) {
-                        job.credits = actual.credits;
-                        job.trainingPoints = actual.trainingPoints;
-                        job.message = RUNTIME.rewardSaved({
-                            credits: job.credits,
-                            points: job.trainingPoints,
-                        });
-                    } else job.message = RUNTIME.rewardAlready();
-                    rewards.jobs.splice(rewards.jobs.indexOf(job), 1);
-                } catch (error) {
-                    job.status = 'error';
-                    job.message = RUNTIME.rewardFailed();
-                    recordError(error, 'club-reward');
-                }
-                if (clubSession.match?.id === job.id) clubSession.reward = job;
-            }
-        } finally {
-            rewards.running = false;
-            publishClub();
-            hudTime = -Infinity;
-            scheduleRewards();
-        }
-    }
-
-    async function retryReward() {
-        if (disposed || !club) return;
-        try {
-            await club.refresh();
-            scheduleRewards(true);
-        } catch (error) {
-            recordError(error, 'club-refresh');
-        }
+        record.observe({
+            session,
+            state: latestView?.state,
+            mode,
+            schoolId: () => rewards.schoolId,
+            localTeam,
+        });
     }
 
     async function clubAction(action, payload = {}) {
@@ -687,9 +556,8 @@ async function bootTakraw() {
             team: localTeam(),
             watchSeed,
             tick: game.state.tick,
-            matchReward:
-                clubSession.match?.id === clubSession.reward?.id ? clubSession.reward : null,
-            campaignSchoolId: clubSession.match?.schoolId || null,
+            matchReward: rewards.hudReward(),
+            campaignSchoolId: rewards.schoolId || null,
             connection: network.message,
             maxLead: config.visual.attackGuide.maxLead,
         });
@@ -808,7 +676,7 @@ async function bootTakraw() {
             events.replace();
             latestView = game.getView();
             feed.invalidate('reset');
-            if (event.type === 'membership-committed' && metricsMatch) metricsMatch.ordinal = 0;
+            if (event.type === 'membership-committed') record.membershipCommitted();
             loop?.resetTiming();
             pump?.rebase();
         }
@@ -831,8 +699,7 @@ async function bootTakraw() {
 
     function openSession(nextMode, capability, token) {
         mode = nextMode;
-        const recorded = TAKRAW_RUNTIME.metrics.modes.includes(nextMode);
-        metricsMatch = recorded ? { ordinal: 0, finishedAt: null, recorded: false } : null;
+        const recorded = record.begin(nextMode);
         // 온라인 경기 시작은 두 사람이 모였을 때(identitySent) 남긴다.
         if (nextMode !== 'online') metrics.track('match', nextMode, 'start');
         watchPoint = { tick: null, restarting: false };
@@ -849,13 +716,9 @@ async function bootTakraw() {
         view.setSchools(setup.schools);
         paused = false;
         audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
-        clubSession.team = setup.home;
-        clubSession.match =
-            nextMode === 'match'
-                ? { id: matchId(), finished: false, schoolId: campaignSchoolId }
-                : null;
-        clubSession.reward = null;
-        game.setTeams(clubSession.team, setup.away);
+        if (nextMode === 'match') rewards.begin({ schoolId: campaignSchoolId });
+        else rewards.clear();
+        game.setTeams(setup.home, setup.away);
         game.setTemperaments(setup.temperaments);
         game.reset(nextMode, undefined, setup.seed);
         latestView = game.getView();
@@ -1204,9 +1067,7 @@ async function bootTakraw() {
         observeMatchResult();
         stopSession();
         audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
-        clubSession.team = null;
-        clubSession.match = null;
-        clubSession.reward = null;
+        rewards.clear();
         campaignSchoolId = null;
         game.setTeams(null, null);
         game.setTemperaments();
@@ -1296,11 +1157,7 @@ async function bootTakraw() {
                 session: session?.metrics || null,
                 audio: audio?.snapshot() || null,
                 club: club?.diagnostics() || null,
-                rewards: {
-                    pending: rewards.jobs.length,
-                    saving: rewards.running,
-                    failed: rewards.jobs.filter((job) => job.status === 'error').length,
-                },
+                rewards: rewards.diagnostics(),
                 simulation: {
                     ...stats,
                     averageMs: stats.steps ? stats.simulationMs / stats.steps : 0,
@@ -1317,8 +1174,7 @@ async function bootTakraw() {
             bootstrapStage = 'disposed';
             cancelAnimationFrame(animation);
             for (const remove of listeners.splice(0)) remove();
-            if (rewards.timer !== null) window.clearTimeout(rewards.timer);
-            rewards.timer = null;
+            rewards.dispose();
             intro?.dispose();
             pwa?.dispose();
             club?.dispose();
@@ -1368,7 +1224,7 @@ async function bootTakraw() {
                 if (action !== 'refresh') metrics.track('club', action, 'click');
                 return clubAction(action, payload);
             },
-            onRewardRetry: retryReward,
+            onRewardRetry: () => rewards.retry(),
             onTrainingLesson(lesson) {
                 const option = TAKRAW_TRAINING_LESSONS.find((item) => item.id === lesson);
                 if (mode !== 'training' || !controlsAllowed() || !option) return;

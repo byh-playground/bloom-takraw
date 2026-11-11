@@ -17,7 +17,7 @@ npm run build:itch
 3. zip 안의 `index.html`만 import map 주소를 `./vendor/…`로 바꾼다. 소스 코드는 고치지 않는다.
 4. 외부 압축 도구 없이 node만으로 zip을 만든다. 압축 루트에 `index.html`이 바로 있다. itch 한도(파일 1,000개, 압축 전 500MB, 경로 240자)를 넘으면 멈춘다.
 
-v0.15.2 기준 결과는 파일 86개, 압축 전 8.4MB, zip 3.1MB다.
+v0.16.0 기준 결과는 파일 69개(vendor 18개 포함), 압축 전 8.65MB, zip 3.13MB다.
 
 ## itch 안에서 달라지는 것
 

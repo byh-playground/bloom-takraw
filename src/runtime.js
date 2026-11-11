@@ -1,7 +1,6 @@
 import { takrawOpponents } from './config/schools.js';
 import * as THREE from 'three';
 import RAPIER from 'rapier';
-import { ActionState, createDOMInput } from '@bloom-gamekit/input';
 import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation';
 import { createRoomSession } from '@bloom-gamekit/rollback';
@@ -27,6 +26,7 @@ import {
 import { createRuntimeDiagnostics } from './runtime/diagnostics.js';
 import { createRuntimeStores } from './runtime/stores.js';
 import { RuntimeAudio, takrawBgmLevel } from './runtime/audio.js';
+import { RuntimeInput } from './runtime/input.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
@@ -75,27 +75,10 @@ async function bootTakraw() {
     const diagnostics = createRuntimeDiagnostics({ version: TAKRAW_VERSION });
     const recordError = diagnostics.recordError;
     const listeners = [];
-    const actionNames = [
-        'left',
-        'right',
-        'forward',
-        'back',
-        'jump',
-        'kick',
-        'p2Left',
-        'p2Right',
-        'p2Forward',
-        'p2Back',
-        'p2Jump',
-        'p2Kick',
-    ];
-    const samples = Object.fromEntries(actionNames.map((name) => [name, {}]));
     const poseCache = new Map();
     const poseEntities = [];
     const pendingCommands = [];
     let identitySent = false; // 온라인에서 내 팀 이름·학교를 이 세션에서 이미 알렸는지
-    const axis = { x: 0, z: 0 };
-    const cameraDrag = { pointer: null, x: 0, y: 0 };
     const stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
     const clubSession = { team: null, match: null, reward: null };
     let campaignSchoolId = null;
@@ -105,8 +88,7 @@ async function bootTakraw() {
     let club;
     let game;
     let view;
-    let actions;
-    let device;
+    let input = null;
     let audio;
     let codec;
     let session = null;
@@ -159,7 +141,6 @@ async function bootTakraw() {
     let presentationRevision = 0;
     let presentationSequence = 0;
     let resetMode = 'reset';
-    let lastInput = new Uint8Array(config.input.size);
     let lastContact = null;
     let network = Object.freeze({
         state: 'idle',
@@ -534,14 +515,7 @@ async function bootTakraw() {
     }
 
     function clearDeviceState() {
-        axis.x = 0;
-        axis.z = 0;
-        cameraDrag.pointer = null;
-        ui?.canvas.classList.remove('is-orbiting');
-        actions?.releaseAll();
-        device?.releaseAll();
-        actions?.consume();
-        lastInput = new Uint8Array(config.input.size);
+        input?.clear();
     }
 
     function releaseControls() {
@@ -570,46 +544,12 @@ async function bootTakraw() {
         });
     }
 
-    function encodeAxis(value) {
-        return Math.round(Math.max(-1, Math.min(1, value)) * config.input.axisScale) & 255;
-    }
-
-    function writeMovement(input, offset, right, back) {
-        // Both local players share the same screen; online peers each see their
-        // own team from behind. Only world-space input crosses the network.
-        const movement = view.screenMovement(right, back, localTeam());
-        input[offset] = encodeAxis(movement.x);
-        input[offset + 1] = encodeAxis(movement.z);
-    }
-
-    function moveCamera(event) {
-        const rotating =
-            controlsAllowed() &&
-            event.active &&
-            event.pointerType === 'mouse' &&
-            (event.buttons & 2) !== 0 &&
-            !['up', 'cancel'].includes(event.type);
-        if (!rotating) {
-            cameraDrag.pointer = null;
-            ui.canvas.classList.remove('is-orbiting');
-            return;
-        }
-        if (cameraDrag.pointer === event.pointerId) {
-            view.orbitBy(event.x - cameraDrag.x, event.y - cameraDrag.y);
-        } else ui.canvas.focus({ preventScroll: true });
-        cameraDrag.pointer = event.pointerId;
-        cameraDrag.x = event.x;
-        cameraDrag.y = event.y;
-        ui.canvas.classList.add('is-orbiting');
-    }
-
     function resetCamera() {
         view?.resetCamera();
         observeSoon();
     }
 
     function getInput() {
-        const input = new Uint8Array(config.input.size);
         const commands = pendingCommands
             .splice(0)
             .map((code) => ({ payload: Uint8Array.of(code) }));
@@ -625,32 +565,19 @@ async function bootTakraw() {
                 ),
             });
         }
-        for (const name of actionNames) actions.sampleInto(name, samples[name]);
-        if (controlsAllowed()) {
-            writeMovement(
-                input,
-                0,
-                Number(samples.right.held) - Number(samples.left.held) + axis.x,
-                Number(samples.back.held) - Number(samples.forward.held) + axis.z,
-            );
-            input[2] = (samples.jump.held ? 1 : 0) | (samples.kick.held ? 2 : 0);
-            if (samples.jump.pressed) commands.push({ payload: Uint8Array.of(1) });
-            if (samples.kick.pressed) commands.push({ payload: Uint8Array.of(2) });
-            if (mode === 'local') {
-                writeMovement(
-                    input,
-                    3,
-                    Number(samples.p2Right.held) - Number(samples.p2Left.held),
-                    Number(samples.p2Back.held) - Number(samples.p2Forward.held),
-                );
-                input[5] = (samples.p2Jump.held ? 1 : 0) | (samples.p2Kick.held ? 2 : 0);
-                if (samples.p2Jump.pressed) commands.push({ payload: Uint8Array.of(11) });
-                if (samples.p2Kick.pressed) commands.push({ payload: Uint8Array.of(12) });
-            }
-        }
-        actions.consume();
-        lastInput = input.slice();
-        return { input, commands };
+        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2), 2P 점프(11), 2P 발차기(12)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
+        const { input: bytes, edges } = input.sample({
+            allowed: controlsAllowed(),
+            local2p: mode === 'local',
+            // Both local players share the same screen; online peers each see their
+            // own team from behind. Only world-space input crosses the network.
+            movement: (right, back) => view.screenMovement(right, back, localTeam()),
+        });
+        if (edges.jump) commands.push({ payload: Uint8Array.of(1) });
+        if (edges.kick) commands.push({ payload: Uint8Array.of(2) });
+        if (edges.p2Jump) commands.push({ payload: Uint8Array.of(11) });
+        if (edges.p2Kick) commands.push({ payload: Uint8Array.of(12) });
+        return { input: bytes, commands };
     }
 
     function createPresentation() {
@@ -1669,7 +1596,7 @@ async function bootTakraw() {
                     players: game?.physics.players.length || 0,
                     entities: latestView?.entities.length || 0,
                 },
-                input: Array.from(lastInput),
+                input: Array.from(input?.lastInput ?? new Uint8Array(config.input.size)),
                 network: {
                     ...network,
                     session: session?.status || null,
@@ -1714,7 +1641,7 @@ async function bootTakraw() {
             pwa?.dispose();
             club?.dispose();
             ui?.dispose();
-            device?.dispose();
+            input?.dispose();
             audio?.dispose();
             stores.dispose();
             view?.dispose();
@@ -1787,15 +1714,14 @@ async function bootTakraw() {
             },
             onNetwork: connect,
             onTouch(action, source, down) {
-                if (!actions || !['jump', 'kick'].includes(action)) return;
+                if (!input || !['jump', 'kick'].includes(action)) return;
                 if (down && !controlsAllowed()) return;
-                actions.set(action, `touch:${source}`, Boolean(down));
+                input.setTouch(action, source, down);
                 if (down) audio.unlock();
                 observeSoon();
             },
             onAxis(x, z) {
-                axis.x = controlsAllowed() ? Math.max(-1, Math.min(1, x)) : 0;
-                axis.z = controlsAllowed() ? Math.max(-1, Math.min(1, z)) : 0;
+                input?.setAxis(x, z, controlsAllowed());
                 observeSoon();
             },
         },
@@ -1851,34 +1777,16 @@ async function bootTakraw() {
         if (soundReady) ui.setSound({ on: !audio.muted, locked: false, message: '' });
         else ui.setSound({ on: false, locked: true, message: RUNTIME.soundLocked() });
         view.setQuality(ui.settings.quality);
-        actions = new ActionState();
-        ui.canvas.tabIndex = 0;
-        device = createDOMInput({
-            target: ui.canvas,
-            state: actions,
-            keys: {
-                KeyA: 'left',
-                KeyD: 'right',
-                KeyW: 'forward',
-                KeyS: 'back',
-                Space: 'jump',
-                ArrowLeft: 'p2Left',
-                ArrowRight: 'p2Right',
-                ArrowUp: 'p2Forward',
-                ArrowDown: 'p2Back',
-                Enter: 'p2Jump',
-                Numpad0: 'p2Jump',
-                ShiftRight: 'p2Kick',
-            },
-            pointerButtons: { 0: 'kick', 2: 'cameraOrbit' },
-            touchAction: 'none',
+        input = new RuntimeInput({
+            canvas: ui.canvas,
+            config,
             onPointer(event) {
                 if (event.type === 'down') audio.unlock();
                 if (event.type === 'down' && replayActive) {
                     endHighlight();
                     return;
                 }
-                moveCamera(event);
+                input.orbit(event, controlsAllowed(), view);
                 observeSoon();
             },
         });

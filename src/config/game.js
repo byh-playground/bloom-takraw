@@ -33,6 +33,12 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
     );
 }
 
+/**
+ * 접촉 타이밍 등급 이름. 판정(simulation/timing.js)·킥 소리(config/runtime.js)·접촉 효과(visual.impact)·HUD 등급 표시가 이 이름을 쓴다.
+ * perfect·good은 창(timing.windows) 이름이기도 하고, 모든 창 밖이면 normal이다. CSS(.timing-badge[data-grade])도 같은 글자를 쓴다.
+ */
+const TAKRAW_TIMING_GRADES = Object.freeze({ perfect: 'perfect', good: 'good', normal: 'normal' });
+
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
@@ -54,7 +60,10 @@ const TAKRAW_CONFIG = Object.freeze({
     // 헤드리스 실측에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
     // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.
     // maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
-    timing: { windows: { perfect: 0.02, good: 0.04 }, maxAge: 1.2 },
+    timing: {
+        windows: { [TAKRAW_TIMING_GRADES.perfect]: 0.02, [TAKRAW_TIMING_GRADES.good]: 0.04 },
+        maxAge: 1.2,
+    },
     // base: 기본 능력치, max: 효과 비율 1이 되는 능력치(이 위는 overflow × log2(v/max)만큼 더 늘어남), maxEffect: 효과 값의 상한(수비는 1 - 효과라 1 미만이어야 한다).
     athletes: {
         base: 50,
@@ -205,7 +214,7 @@ const TAKRAW_CONFIG = Object.freeze({
         // fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구.
         // spike는 payload.spike가 참일 때 등급보다 먼저 고른다.
         impact: {
-            normal: {
+            [TAKRAW_TIMING_GRADES.normal]: {
                 life: 0.25,
                 ringScale: 2.1,
                 dots: 6,
@@ -220,7 +229,7 @@ const TAKRAW_CONFIG = Object.freeze({
                 squash: 0.12,
                 pop: null,
             },
-            good: {
+            [TAKRAW_TIMING_GRADES.good]: {
                 life: 0.32,
                 ringScale: 2.8,
                 dots: 8,
@@ -235,7 +244,7 @@ const TAKRAW_CONFIG = Object.freeze({
                 squash: 0.17,
                 pop: null,
             },
-            perfect: {
+            [TAKRAW_TIMING_GRADES.perfect]: {
                 life: 0.45,
                 ringScale: 3.6,
                 dots: 10,
@@ -722,5 +731,6 @@ export {
     TAKRAW_DIAGNOSTIC_NAME,
     TAKRAW_ID,
     TAKRAW_CONFIG,
+    TAKRAW_TIMING_GRADES,
     takrawAthleteEffects,
 };

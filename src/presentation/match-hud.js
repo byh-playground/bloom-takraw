@@ -1,6 +1,6 @@
 import { TAKRAW_SCHOOLS, takrawSchool } from '../config/schools.js';
 import { TAKRAW_RUNTIME } from '../config/runtime.js';
-import { TAKRAW_CONFIG } from '../config/game.js';
+import { TAKRAW_CONFIG, TAKRAW_TIMING_GRADES } from '../config/game.js';
 import { takrawMatchStatus } from './match-status.js';
 import { say, createTextSetter } from './markup.js';
 import { UI } from '../i18n/messages/ui.js';
@@ -89,7 +89,10 @@ class TakrawMatchHud {
      * 짧은 간격의 접촉이 겹쳐도 먼저 끝난 표시가 나중 표시를 지우지 않는다.
      */
     showTiming(timing) {
-        const labels = { perfect: UI.timingPerfect, good: UI.timingGood };
+        const labels = {
+            [TAKRAW_TIMING_GRADES.perfect]: UI.timingPerfect,
+            [TAKRAW_TIMING_GRADES.good]: UI.timingGood,
+        };
         const label = (
             labels[timing.grade] || (timing.error < 0 ? UI.timingEarly : UI.timingLate)
         )();

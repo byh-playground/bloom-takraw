@@ -1,4 +1,4 @@
-import { TAKRAW_ID } from './game.js';
+import { TAKRAW_ID, TAKRAW_TIMING_GRADES } from './game.js';
 
 // 발차기 한 번은 네 층이다. 낮은 쿵(thump)은 무게를, 중음 몸통(body, 삼각파)은 작은 스피커에서도 들리는 울림을,
 // 슬랩(slap)과 클릭(click)은 발이 공에 닿는 순간의 "탁"을 맡는다. 공 속도가 세질수록 모든 층이 커지고 길어지고 밝아진다.
@@ -35,15 +35,15 @@ const KICK_LEVELS = {
     },
 };
 
-// 타이밍 등급이 높을수록 같은 단계 위에 높은 음을 더한다. timing: 접촉 타이밍 판정의 등급 이름(없으면 등급 없는 기본 소리).
+// 타이밍 등급이 높을수록 같은 단계 위에 높은 음을 더한다. timing: 접촉 타이밍 판정의 등급 이름(TAKRAW_TIMING_GRADES, 없으면 등급 없는 기본 소리).
 const KICK_GRADES = {
     '': { timing: undefined, layers: [] },
     Good: {
-        timing: 'good',
+        timing: TAKRAW_TIMING_GRADES.good,
         layers: [{ kind: 'tone', hz: 880, end: 880, ms: 70, gain: 0.22, type: 'sine', delay: 20 }],
     },
     Perfect: {
-        timing: 'perfect',
+        timing: TAKRAW_TIMING_GRADES.perfect,
         layers: [
             { kind: 'tone', hz: 988, end: 1319, ms: 90, gain: 0.28, type: 'sine', delay: 15 },
             { kind: 'tone', hz: 1760, end: 1760, ms: 140, gain: 0.18, type: 'sine', delay: 70 },

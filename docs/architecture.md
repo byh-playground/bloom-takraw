@@ -8,7 +8,7 @@
 | simloop             | createLoop, createDeadlineScheduler                                | 60TPS 정책·진행/관찰 조건                                             |
 | rollback            | createRoomSession, profiles                                        | saveInto/load/step/validateSnapshot 및 membership 어댑터              |
 | transport           | createNostrDynamicRoom                                             | 방 UI·재접속 정책·방 복귀 어댑터                                      |
-| deterministic       | createValueCodec, SeededPRNG, statelessRandom                      | 게임/물리 상태의 값 구조, 접촉 효과 입자 방향의 시드 난수             |
+| deterministic       | createValueCodec, SeededPRNG, statelessRandom, hashBytes           | 게임/물리 상태의 값 구조, 시드 난수의 키 묶기(`simulation/random.js`) |
 | interpolation       | PresentationRuntime, RenderObject                                  | 신체 pose와 생명주기 바인딩                                           |
 | presentation-events | PresentationEventQueue                                             | 확정 경기 이벤트와 표현 정책, 접촉 효과의 start·update·reconcile·stop |
 | object-pool         | ObjectPool                                                         | 접촉 효과 노드 재사용                                                 |
@@ -20,7 +20,7 @@
 | i18n                | createLocale                                                       | 화면 언어 선택, 문구 표(`src/i18n/`)                                  |
 | metrics             | createMetrics, HttpAdapter, MemoryAdapter, SessionReplayRecorder   | 지표 이벤트 표(README 「게임 지표」)·경기 기록                        |
 
-별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm run check`가 lock과 일치(링크·SHA 형식·사용 여부)를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 처음 화면을 열 때(v0.16.0, 서비스 워커 제외) 외부 요청은 GameKit 15개와 Three.js 2개·Rapier 1개이고, 로컬 JS 35개와 CSS 1개 요청이 추가됩니다.
+별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm run check`가 lock과 일치(링크·SHA 형식·사용 여부)를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 처음 화면을 열 때(v0.17.0, 서비스 워커 제외) 외부 요청은 GameKit 15개와 Three.js 2개·Rapier 1개이고, 로컬 JS 36개와 CSS 1개 요청이 추가됩니다.
 
 ## 저장(v0.13.10~)
 
@@ -47,7 +47,7 @@
 ## 설치·오프라인(PWA, v0.14.0~)
 
 - `node scripts/pwa.mjs`가 gamekit `pwa-build.mjs`(`scripts/vendor/gamekit/`, `gamekit.lock.json`의 `tools`에 dist commit·SHA-256 고정)로 `manifest.webmanifest`·`pwa/*.png`·`sw.js`와 `index.html`의 `<!-- bloom-pwa:start/end -->` 사이 태그를 만든다. 생성 결과는 커밋한다. `npm run check`가 `--check`로 원본(`assets/pwa/*.svg`, 이름·색 같은 설정)과 어긋난 결과를 막는다. sw.js는 게임 파일 목록을 갖지 않는 고정 코드라(gamekit v0.41.0~) `src/`·`styles/`만 고친 배포는 다시 생성할 필요가 없다.
-- 아이콘·공유 이미지 원본은 게임 실제 렌더를 넣은 SVG다. 장면은 `?debug=1&scene=spike&seed=1&tick=589&camera=…`(가위차기 직전, 공 바로 아래 발)이며 카메라 값은 `scripts/pwa.mjs` 주석에 있다. 제목 글자는 path로 바꿔 넣어 PC 글꼴에 기대지 않는다.
+- 아이콘·공유 이미지 원본은 게임 실제 렌더를 넣은 SVG다. 장면은 `?debug=1&scene=spike&seed=1185&tick=426&camera=…`(가위차기 직전, 공 바로 아래 발, v0.17.0 난수 기준)이며 카메라 값은 `scripts/pwa.mjs` 주석에 있다. 제목 글자는 path로 바꿔 넣어 PC 글꼴에 기대지 않는다.
 - 미리 받는 파일(precache)은 없다. 같은 origin 파일은 매번 서버에 재확인하고(`no-cache`) 받은 응답을 오프라인 사본으로 둔다. 그래서 새로고침하면 항상 최신 버전이고, 오프라인 시작은 서비스 워커가 제어한 상태로 한 번 연 뒤(두 번째 방문)부터다. 고정 gamekit 주소는 cache-first다. Three.js·Rapier(npm CDN)는 서비스 워커가 캐시하지 않는다. 그래서 오프라인 시작은 브라우저 HTTP 캐시에 두 파일이 남아 있을 때만 된다(HTTP 캐시를 지우면 "게임 모듈을 불러오지 못했어요"로 멈춘다).
 - `registerPwa`는 부팅을 마친 뒤 부르고, 격리 장면(`?debug`, `?showcaseDemo=1`)과 다른 페이지의 iframe 안(itch.io 임베드, v0.15.2~)에서는 부르지 않는다. 새로고침이 곧 업데이트라 새 버전 알림은 없다. 등록 실패(`onError`)는 처음 화면 상태 줄에 오류로 띄운다. 이 알림은 경기 시작·처음 화면 복귀로 상태 줄을 비울 때도 남는다. 설치(`onInstallable`)는 설정 창의 "앱으로 설치" 줄이다.
 - 확인용 장면 `spike`(`?debug=1&scene=spike&seed=N&tick=T&camera=x,y,z,tx,ty,tz,fov`)는 `watch`와 같은 재생을 고정 카메라로 다시 그리고 HUD를 숨긴다. 카메라 위치는 월드 좌표, 바라보는 점은 공 기준 상대 좌표다. 경기 카메라를 향한 안내(공 테두리·높이선·받기/공격 안내·선택 표시)는 그 그림에서만 뺀다. `watch`는 debug-tools가 주는 `freezeClock()`으로 `performance.now`를 가상 시계로 바꾸고 틱마다 `advance`하며, 시계 복원은 호스트가 한다.
@@ -84,7 +84,7 @@
 
 시뮬레이션은 사람 선수의 공중 발 접촉마다 `timing: { grade, error }`를 접촉 이벤트에 싣습니다. 등급 창은 `config.timing`, 효과 값은 `config.visual.impact`, 소리는 `config/runtime.js`의 `kick`·`kickGood`·`kickPerfect`·`kickSpike`가 소유합니다. 스파이크 여부(`spike`)는 접촉 이벤트에 `game.js`가 한 번 판정해 싣고, 연출·소리·지표가 같은 값을 씁니다. 화면 흔들림은 px 단위로 가장 센 접촉 하나만 쓰며 `visual.shakeCap`을 넘지 않습니다. 스파이크는 친 팀 학교의 속성(`schools.js` `TAKRAW_ELEMENTS`)별 입자를 더하며, 설정은 `config.visual.impactElements`(속성별 입자 모양·개수·색·링 색·궤적 색, 합 40개 이하·수명 1.2초 이하)가 소유하고 뷰가 학교를 정할 때 `setElements`로 팀별 속성을 전달합니다. 속성 연출은 팀 색 점·속도선을 대신하고, 속성 연출 동안(`ballLife`) view가 공을 입자 위에 평면 원(밝은 공 색+어두운 테두리, 월드 크기 고정·깊이 검사)으로 다시 그리고 입자는 공 중심에서 `ballMargin` 밖에서 시작해 공이 가려지지 않으며, 입자는 채도 높은 중간 밝기 색과 어두운 테두리(`edge`, `rim` 배율)로 밝은 배경에서 윤곽이 보이게 하며 입자 배치는 tick·sequence 시드로 정하며, 모션 줄이기에서는 입자가 40%입니다. 표시 계층은 이 이벤트를 받아 모양만 정하며 시뮬레이션 시간과 공의 움직임을 바꾸지 않습니다.
 
-runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(handle, ageMs)`·`reconcile`·`stop`에 `TakrawImpactEffects`를 연결합니다. 효과 모양은 저널이 주는 경과 시간의 함수이고 입자 방향은 접촉 이벤트의 `tick`·`sequence`에서 만든 시드 난수입니다. 따라서 롤백 재확정에서 효과가 처음부터 다시 시작하지 않고, 두 피어가 같은 모양을 그립니다. 등급 표시(`#timing-badge`)는 같은 이벤트 수명에 묶여 있고 `ui.showTiming`이 돌려준 토큰으로만 지워집니다.
+runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(handle, ageMs)`·`reconcile`·`stop`에 `TakrawImpactEffects`를 연결합니다. 효과 모양은 저널이 주는 경과 시간의 함수이고 입자 방향은 접촉 이벤트의 `tick`·`sequence`에서 만든 시드 난수(`simulation/random.js`의 `takrawEventUnits`)입니다. 따라서 롤백 재확정에서 효과가 처음부터 다시 시작하지 않고, 두 피어가 같은 모양을 그립니다. 등급 표시(`#timing-badge`)는 같은 이벤트 수명에 묶여 있고 `ui.showTiming`이 돌려준 토큰으로만 지워집니다.
 
 ## 학교 외형
 
@@ -96,13 +96,13 @@ runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(hand
 - 진입점은 둘이다. 주소 `?watch=<시드>`는 부팅 직후 바로 관전을 시작하고, 홈의 "AI 관전" 버튼은 마지막 시드(처음엔 소개영상 시드)로 시작한다. 관전 중 입력칸(`#watch-form`)에서 추천 경기(`TAKRAW_RUNTIME.watch.featured`) 선택, 시드 직접 입력, ◀ ▶ 이웃 시드, 랜덤, "처음부터 보기"를 쓴다. 콘솔에서는 `__takraw.watch(seed)`.
 - 관전은 그 시드의 **첫 1점**만 보여준다. 득점 뒤 `loopHoldMs`(2.5초) 동안 결과를 보여주고 같은 시드를 처음부터 다시 연다. 다음 서브로 넘어가지 않는다. 소개영상도 같은 반복이다.
 - 두 학교(화면의 속성·유니폼)는 `takrawWatchSchools(seed)`가 시드로만 정한다. 같은 시드는 같은 화면이다.
-- 소개영상 시드는 `TAKRAW_RUNTIME.watch.showcaseSeed`(SSOT)다. 이 시드는 터치 수 10, 득점 틱 772(팀 1)이고 사람 입력이 있어도 같은 랠리를 재현한다.
-- 아슬아슬한 받아내기 후보는 시드를 일괄 시뮬레이션해 스파이크 직후 상대 터치의 낙하 여유 시간(공이 지면에 닿기까지 남은 시간)이 짧은 랠리로 골랐다.
+- 소개영상 시드는 `TAKRAW_RUNTIME.watch.showcaseSeed`(SSOT)다. 이 시드(v0.17.0~ 1252)는 터치 수 11, 받아내기 3번, 득점 틱 844(팀 0, 스파이크 결정타)이고 사람 입력이 있어도 같은 랠리를 재현한다.
+- 아슬아슬한 받아내기 후보는 시드를 일괄 시뮬레이션해 스파이크 직후 상대 터치의 낙하 여유 시간(공이 지면에 닿기까지 남은 시간)이 짧은 랠리로 골랐다. 나머지 추천 경기는 관전이 첫 점만 보여 주므로 첫 점 랠리로 고른다: 스파이크 결정타로 끝나고 두 팀 모두 스파이크했고 받아내기 3번 이상인 랠리 중 터치 + 2×받아내기가 큰 순서(v0.17.0, 시드 0~3000).
 
 ## 소개영상(도움말 대체)
 
 - 기존 도움말 대화상자는 없앴다. 헤더의 `?`와 홈의 "▶ 소개 보기"가 게임킷 `installShowcase`(`@bloom-gamekit/scenario`)를 연다. 주소 `#/showcase`로도 열린다.
-- 호스트가 같은 주소의 격리 iframe(`?showcaseDemo=1`)을 만들고, 그 안의 게임이 관전 모드로 시드 36 랠리를 실제로 시뮬레이션한다. 영상이 아니라 실제 게임 화면이다.
+- 호스트가 같은 주소의 격리 iframe(`?showcaseDemo=1`)을 만들고, 그 안의 게임이 관전 모드로 소개영상 시드(1252) 랠리를 실제로 시뮬레이션한다. 영상이 아니라 실제 게임 화면이다.
 - `?showcaseDemo=1`은 격리 장면이라 모든 저장(팀·소리 설정·방 복귀)이 메모리 어댑터로 간다(위 `저장` 절). 메뉴·입력을 숨긴다(`body[data-showcase]`).
 - 문구는 장마다 한 줄이고 조작 장치 이름을 쓰지 않는다. 설명은 화면이 한다: 소개영상 안(`body[data-showcase]`)에서만 영상 속 공격수가 점프·발차기를 누르는 동안 그 기기의 눌림 표시(PC 표시등 `.drive-feedback`, 모바일 터치 버튼 `is-down`)가 켜지고, 자막 영역에 가리지 않게 위로 올린다. 모바일 터치 버튼은 코트를 덜 가리도록 오른쪽 끝에 발차기 위·점프 아래로 세로로 쌓는다. 일반 경기의 조작 표시는 바뀌지 않는다.
 - 랠리 문구는 시간이 아니라 경기 틱에 맞춘다. `src/config/intro.js`가 문구와 틱의 SSOT, `intro-script.js`가 "틱까지 기다리기 → 문구 바꾸기" 항목을 만든다(호스트는 `custom`이 false를 돌려주면 재시도). 득점 뒤 시스템 소개(동료 영입·편성과 훈련·도장깨기)는 관전이 랠리를 다시 열어 틱이 되돌아가므로, 바로 앞 장이 뜬 뒤 `afterMs`가 지나면 바뀐다. 호스트는 예정보다 6초 넘게 밀린 항목을 버리므로, 느린 기기에서 득점 틱 기다림이 버려지면 다음 `afterMs`는 그 장이 뜬 뒤(첫 시도)부터 잰다.
@@ -113,16 +113,28 @@ runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(hand
 
 ## reset 결정성(같은 시드는 언제나 같은 경기)
 
-- 문제: `game.reset()`이 몸과 공을 제자리로 옮기기만 해서 Rapier 월드 내부 상태(접촉 캐시·광역 단계 구조)와 물리 시계가 이전 경기에서 넘어왔다. 같은 시드·같은 입력이라도 reset 횟수에 따라 틱 1부터 결과가 달랐다(시드 36의 첫 받아내기가 새 게임에서는 틱 436, 사용한 게임에서는 437). 저장 상태도 달랐다(`physics.time` 0 대 13.3초, 월드 직렬화 101,741 대 127,290바이트).
+- 문제: `game.reset()`이 몸과 공을 제자리로 옮기기만 해서 Rapier 월드 내부 상태(접촉 캐시·광역 단계 구조)와 물리 시계가 이전 경기에서 넘어왔다. 같은 시드·같은 입력이라도 reset 횟수에 따라 틱 1부터 결과가 달랐다(v0.16 이전 난수 기준: 시드 36의 첫 받아내기가 새 게임에서는 틱 436, 사용한 게임에서는 437). 저장 상태도 달랐다(`physics.time` 0 대 13.3초, 월드 직렬화 101,741 대 127,290바이트).
 - 락스텝 영향: 스냅샷 저장·복원(롤백·합류) 경로는 처음부터 결정적이다. 어긋나는 경우는 한 피어가 이미 다른 경기를 한 `game` 인스턴스로 온라인 경기를 시작하고 상대는 새 페이지인 경우처럼, 두 피어의 reset 이력이 다를 때다.
 - 수정: reset(첫 생성 직후 제외)이 `TakrawPhysics.rebuild()`로 물리 월드를 새로 만든다. 선수 프로필은 유지하고 시계·토스 계획·`rallyStart`는 새 인스턴스와 같게 돌린다. 비용은 reset 한 번에 약 8ms다.
 - 불변식: 몇 번째 reset이든 새 인스턴스와 같은 경기를 하고, 초기 `save()`가 바이트까지 같다.
 
 ## 시작 틱 독립성(호스트가 넘기는 tick에 경기가 묶이지 않는다)
 
-- 문제: AI 갱신 주기를 `frame.tick % N`으로 정해, 호스트가 step을 부르는 첫 tick에 따라 갱신 위상이 달라졌다. 게임킷 세션은 틱 0부터, 시뮬레이션 도구와 테스트는 틱 1부터 돌려 같은 시드가 다른 경기가 됐다(시드 1013: 틱 1 시작은 틱 831에 팀 0 득점·스파이크 5번, 틱 0 시작인 브라우저는 틱 404에 팀 1 득점·스파이크 0번). 시드 탐색 결과가 브라우저 장면과 달랐던 원인이다.
+- 문제: AI 갱신 주기를 `frame.tick % N`으로 정해, 호스트가 step을 부르는 첫 tick에 따라 갱신 위상이 달라졌다. 게임킷 세션은 틱 0부터, 시뮬레이션 도구와 테스트는 틱 1부터 돌려 같은 시드가 다른 경기가 됐다(v0.16 이전 난수 기준 시드 1013: 틱 1 시작은 틱 831에 팀 0 득점·스파이크 5번, 틱 0 시작인 브라우저는 틱 404에 팀 1 득점·스파이크 0번). 시드 탐색 결과가 브라우저 장면과 달랐던 원인이다.
 - 수정: 주기를 경기 안 스텝 수(`metrics.logicSteps`, reset에서 0, save/load 포함)로 정한다. 첫 스텝이 1이라 기존 노드 결과(시드 탐색·소개영상 대본)는 그대로다.
 - 불변식: 같은 시드는 첫 tick이 몇이든 같은 경기다. 게임 규칙에서 `frame.tick`은 이벤트 표시와 재시작 시드에만 쓰고 확률·주기 판단에 쓰지 않는다.
+
+## 시드 난수(v0.17.0~, D-313)
+
+- 생성기는 gamekit `deterministic`의 `statelessRandom`·`SeededPRNG` 하나다. 게임은 직접 만든 섞기·해시를 두지 않는다. `simulation/random.js`는 uint32를 [0, 1)로 바꾸고 키를 묶는 이름 세 개만 둔다.
+    - `takrawSeededUnit`: 상태 없는 시드 난수 `(seed, ...keys) => [0, 1)`. 키마다 `statelessRandom(앞 값, 키)`를 이어 적용한다. AI 성향(`ai-brain.js Temperament`), AI 서브 모으는 시간, 토스 흩어짐, 다시 시작 시드가 쓴다.
+    - `takrawEventUnits`: 확정 경기 이벤트의 `tick`·`sequence`에서 만든 `SeededPRNG` 난수열. 접촉·착지·색종이 효과가 쓴다.
+    - `takrawUnitStream`: `SeededPRNG` 하나의 [0, 1) 난수열. 확인용 `club` 장면이 시드로 클럽을 만들 때 쓴다.
+- 키는 0 이상 uint32 정수다(아니면 gamekit이 `RangeError`). 정수 연산만 쓰므로 부동소수 연산 순서에 기대지 않는다.
+- 온라인 경기 시드는 방 코드 문자열의 UTF-8 바이트를 gamekit `hashBytes`(FNV-1a)로 만든다. 문자열을 바이트로 바꾸는 일은 표준 `TextEncoder`라 gamekit에 따로 두지 않는다.
+- 시뮬레이션은 import map이 없는 득점 리플레이 워커에서도 돌아서 `@bloom-gamekit/*`를 직접 import하지 않는다. `TakrawGame`은 RAPIER처럼 `deterministic` 모듈을 생성자 인자로 받는다(`new TakrawGame({ RAPIER, config, deterministic })`).
+- 재현하지 않는 난수는 대상이 아니다: 뽑기·내 학교(`club.js`, `crypto.getRandomValues`), 혼자 하는 경기의 시드·4자리 방 번호·경기 기록 id(`runtime.js`, `crypto`), 소리 변주(`Math.random`, 표시 전용), 관전 "랜덤" 버튼(`ui.js`, `Math.random`).
+- v0.17.0에서 생성기가 바뀌어 같은 시드의 경기 전개가 달라졌다(확률·범위는 그대로). 명경기·소개영상 틱 표·아이콘 장면을 새 난수로 다시 골랐다.
 
 ## 경기장 꾸밈은 보는 사람의 상대 학교 기준
 

@@ -189,7 +189,7 @@ class TakrawPhysics {
     /**
      * 월드를 새로 만들어 새 인스턴스와 완전히 같은 처음 상태로 돌린다. 선수 프로필은 유지한다.
      * 몸을 제자리로 옮기는 resetPlayers/resetBall만으로는 Rapier 내부 상태(접촉 캐시·광역 단계 구조)가 이전 경기에서 넘어와,
-     * 같은 시드라도 reset 횟수에 따라 결과가 달라졌다(시드 36의 첫 슈퍼세이브가 틱 436→437).
+     * 같은 시드라도 reset 횟수에 따라 결과가 달라졌다(v0.16 이전 난수 기준 시드 36의 첫 슈퍼세이브가 틱 436→437).
      */
     rebuild() {
         const profiles = this.players.map((player) => player.athlete);

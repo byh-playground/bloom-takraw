@@ -321,8 +321,21 @@ class TakrawGame {
         this.revision++;
     }
 
+    /** 선수 한 명의 입력 기본값. 매 틱 step이 채우는 실제 입력과 같은 키를 가져 스냅샷 형식이 하나다. */
     emptyInput() {
-        return { x: 0, z: 0, jump: false, kick: false, jumpPressed: false, kickPressed: false };
+        return {
+            x: 0,
+            z: 0,
+            jump: false,
+            kick: false,
+            jumpPressed: false,
+            kickPressed: false,
+            receive: null,
+            intent: null,
+            tossTarget: null,
+            motionPreference: 'auto',
+            rally: 0,
+        };
     }
 
     setTrainingLesson(lesson) {
@@ -539,16 +552,7 @@ class TakrawGame {
             this.state.lastTouch < 0 &&
             !humans[this.state.serving]
         ) {
-            if (serveToss.stage === 'hold')
-                this.inputs[aiServerId] = {
-                    x: 0,
-                    z: 0,
-                    jump: false,
-                    kick: false,
-                    jumpPressed: false,
-                    kickPressed: false,
-                    receive: null,
-                };
+            if (serveToss.stage === 'hold') this.inputs[aiServerId] = this.emptyInput();
             else if (!this.isJumpServe(this.state.serving) && this.physics.ball.linvel().y > 0)
                 Object.assign(this.inputs[aiServerId], {
                     jump: false,
@@ -2686,8 +2690,7 @@ class TakrawGame {
             Array.from(data.inputs).every(
                 (input) =>
                     input &&
-                    (!Object.hasOwn(input, 'receive') ||
-                        input.receive === null ||
+                    (input.receive === null ||
                         (receivePlan(input.receive) &&
                             typeof input.receive.allowSlide === 'boolean')),
             ) &&

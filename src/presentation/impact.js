@@ -386,7 +386,6 @@ class TakrawImpactEffects {
     /** 속성 입자의 위치·크기를 경과 시간 t(초)로 정한다. 시작 전과 끝난 뒤에는 보이지 않는다. */
     applyParticles(node, t) {
         if (!node.particleCount) return;
-        const life = this.elementConfig.life;
         node.elementMaterials.forEach((material) => {
             material.opacity = 1;
         });

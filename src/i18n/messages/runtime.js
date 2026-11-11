@@ -1,9 +1,10 @@
 import { LOCALE } from '../locale.js';
+import { SHARED } from './shared.js';
 
 /** runtime.js가 화면에 넘기는 상태 문구(연결·보상·소리 저장·부팅). 페이지 언어는 읽을 때 정해지므로 만든 문자열을 그대로 상태에 둔다. */
 const RUNTIME = LOCALE.messages({
     // 선수 상태(HUD 선택 선수)
-    stateReady: { ko: '준비', en: 'Ready' },
+    stateReady: SHARED.stateReady,
     stateAir: { ko: '공중', en: 'In the air' },
     stateFall: { ko: '낙하', en: 'Falling' },
     stateKick: { ko: '발차기', en: 'Kick' },

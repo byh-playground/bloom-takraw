@@ -1,4 +1,5 @@
 import { LOCALE } from '../locale.js';
+import { SHARED } from './shared.js';
 import { TAKRAW_GAME_NAME, TAKRAW_PRODUCT_NAME } from '../../config/game.js';
 
 /** 화면(presentation/ui.js)의 문구. 이름·학교·속성 같은 모델 데이터는 TextPair 그대로 두고 LOCALE.text로 푼다(docs/i18n.md). */
@@ -12,11 +13,11 @@ const UI = LOCALE.messages({
     local2P: { ko: '2P · 코랄', en: '2P · Coral' },
     us: { ko: '우리 팀', en: 'Your team' },
     them: { ko: '상대 팀', en: 'Opponent' },
-    modeTraining: { ko: '스파이크 연습', en: 'Spike practice' },
+    modeTraining: SHARED.modeTraining,
     modeMatch: { ko: 'AI 대전', en: 'vs AI' },
-    modeLocal: { ko: '로컬 2인', en: 'Local 2P' },
+    modeLocal: SHARED.modeLocal,
     modeOnline: { ko: '온라인 1대1', en: 'Online 1-on-1' },
-    modeWatch: { ko: 'AI 관전', en: 'Watch AI' },
+    modeWatch: SHARED.modeWatch,
     trainingSetLabel: { ko: '높은 토스 · 네 가지 발차기', en: 'High set · four kicks' },
     setNumber: { ko: ({ set }) => `${set}세트`, en: ({ set }) => `Set ${set}` },
     setsWon: {
@@ -33,18 +34,18 @@ const UI = LOCALE.messages({
         en: ({ own }) => (own ? 'Your touches' : 'Their touches'),
     },
     touch: { ko: '터치', en: 'Touches' },
-    attacker: { ko: '공격수', en: 'Attacker' },
-    stateReady: { ko: '준비', en: 'Ready' },
+    attacker: SHARED.attacker,
+    stateReady: SHARED.stateReady,
     bothMatchPoint: { ko: '양 팀 매치 포인트', en: 'Match point for both' },
     matchPoint: {
         ko: ({ team }) => `${team} 매치 포인트`,
         en: ({ team }) => `Match point · ${team}`,
     },
     deuce: { ko: ({ a, b }) => `${a} : ${b} · 듀스`, en: ({ a, b }) => `${a} : ${b} · Deuce` },
-    tossThrow: { ko: '공 던지기', en: 'Toss' },
+    tossThrow: SHARED.toss,
     tossHint: { ko: '꾹 · 높게', en: 'Hold · higher' },
-    kick: { ko: '발차기', en: 'Kick' },
-    kickHint: { ko: '누르고 유지', en: 'Press and hold' },
+    kick: SHARED.kick,
+    kickHint: SHARED.kickHint,
     watchTick: { ko: ({ tick }) => `틱 ${tick}`, en: ({ tick }) => `Tick ${tick}` },
     schoolClear: { ko: 'CLEAR', en: 'CLEAR' },
     schoolRetrySave: { ko: '저장 재시도 필요', en: 'Save needs a retry' },
@@ -67,7 +68,7 @@ const UI = LOCALE.messages({
     timingLate: { ko: '늦음', en: 'Late' },
     replaySpike: { ko: '스파이크 결정타', en: 'Winning spike' },
     replayRally: { ko: '긴 랠리', en: 'Long rally' },
-    featured: { ko: '추천 경기', en: 'Featured matches' },
+    featured: SHARED.featured,
     featuredClosest: {
         ko: ({ seed, closest }) => `${seed} · 가장 아슬아슬한 받아내기 · ${closest}초`,
         en: ({ seed, closest }) => `${seed} · Closest dig · ${closest}s`,
@@ -124,7 +125,7 @@ const UI = LOCALE.messages({
     clubKicker: { ko: '선수단 · 편성 · 훈련', en: 'Roster · Lineup · Training' },
     clubTitle: { ko: '내 팀 관리', en: 'My team' },
     settingsKicker: { ko: '내게 맞는 플레이', en: 'Play your way' },
-    settingsTitle: { ko: '설정', en: 'Settings' },
+    settingsTitle: SHARED.settings,
     pauseKickerOnline: { ko: '경기는 계속 진행돼요', en: 'The match keeps going' },
     pauseKicker: { ko: '잠깐 숨 고르기', en: 'Catch your breath' },
     pauseTitleOnline: { ko: '경기 메뉴', en: 'Match menu' },
@@ -132,7 +133,7 @@ const UI = LOCALE.messages({
     networkKicker: { ko: '둘이서, 하나의 코트', en: 'Two players, one court' },
     networkTitle: { ko: '친구와 온라인 1대1', en: 'Online 1-on-1 with a friend' },
     campaignKicker: { ko: '하나씩 도전하는 우리 팀', en: 'One school at a time' },
-    campaignTitle: { ko: '도장깨기', en: 'School Challenge' },
+    campaignTitle: SHARED.campaign,
 
     // 도장깨기
     uniform: { ko: ({ school }) => `${school} 유니폼`, en: ({ school }) => `${school} uniform` },
@@ -341,7 +342,7 @@ const UI = LOCALE.messages({
         en: 'Delete the saved team and start over? This can’t be undone.',
     },
     resetClubDelete: { ko: '기록 지우기', en: 'Delete the save' },
-    rewardRetry: { ko: '보상 저장 재시도', en: 'Retry saving reward' },
+    rewardRetry: SHARED.rewardRetry,
     saveFailed: {
         ko: '변경을 저장하지 못했어요. 다시 확인해 주세요.',
         en: 'The change couldn’t be saved. Please check and try again.',
@@ -436,7 +437,7 @@ const UI = LOCALE.messages({
     },
     diagnostics: { ko: '연결 진단', en: 'Connection diagnostics' },
     networkLog: { ko: '최근 연결 이벤트', en: 'Recent connection events' },
-    copyDiagnostics: { ko: '진단 복사', en: 'Copy diagnostics' },
+    copyDiagnostics: SHARED.copyDiagnostics,
     resumeRoom: { ko: '이전 경기 다시 연결', en: 'Reconnect to the last match' },
     closeNetwork: { ko: '연결 닫기', en: 'Close connection' },
     enterRoomCode: { ko: '방 코드를 입력하세요.', en: 'Enter a room code.' },

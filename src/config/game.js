@@ -38,6 +38,7 @@ const TAKRAW_CONFIG = Object.freeze({
     simulation: { tickRate: 60, substeps: 2, aiRate: 15, fixedSeed: 7 },
     // 매 틱 입력 바이트열: [x, z, 버튼] × 2명(1P·2P). x·z는 -1..1을 axisScale배 한 부호 있는 바이트(runtime.js가 쓰고 game.js decode가 읽는다).
     input: { size: 6, axisScale: 127 },
+    // 코트·네트 치수의 단일 출처. 물리(네트 충돌체)·판정·AI·화면이 모두 이 값을 읽는다.
     court: { halfLength: 6.7, halfWidth: 3.05, netHeight: 1.52 },
     // Team 0 coordinates; team 1 mirrors X/Z: receive, central set, front attack.
     formation: {

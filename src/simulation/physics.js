@@ -12,7 +12,8 @@ class TakrawPhysics {
         this.R = RAPIER;
         this.config = config;
         this.motionMatcher = new TakrawMotionMatcher();
-        // config.physics가 덮어쓰는 것은 groundToss·dominantFoot뿐이다. 나머지 설정은 여기 값이 원본이다.
+        // 네트 높이·코트 폭은 config.court, 주발(dominantFoot)과 groundToss의 receiveApex·attackApex는 config.physics가 원본이다.
+        // 나머지 설정은 여기 값이 원본이다.
         this.settings = {
             gravity: 9.81,
             ballRadius: 0.095,
@@ -35,18 +36,14 @@ class TakrawPhysics {
             receptionMaxDuration: 0.66,
             solverIterations: 8,
             ccdSubsteps: 3,
-            netHeight: 1.52,
             netBottom: 0.78,
-            courtHalfWidth: 3.05,
         };
         this.settings.groundToss = Object.assign(
             {
                 contactHeight: 0.75,
                 minPlanTime: 0.08,
                 maxPlanTime: 0.45,
-                receiveApex: 3.2,
                 attackHeight: 3.3,
-                attackApex: 4.2,
                 serveApex: 3.8,
                 serveHeight: 0.4,
                 attackAssist: true,
@@ -62,7 +59,7 @@ class TakrawPhysics {
                 orientationInertia: 0.014,
                 maxTorque: 32,
             },
-            config.physics?.groundToss || {},
+            config.physics.groundToss,
         );
         this.settings.receive = {
             horizon: 1.4,
@@ -133,10 +130,7 @@ class TakrawPhysics {
         };
         // 주발(오른발): 기본으로 이 발로 차고, 반대 발은 공이 주발 쪽에서 충분히 멀 때만 쓴다.
         // side: 주발('R'|'L'), groundOffset: 지상에서 공이 몸 중심에서 반대쪽으로 이만큼(m) 넘어가야 반대 발, airMargin: 공중에서 반대 발 발바닥이 공에 이만큼(m) 더 가까워야 반대 발.
-        this.settings.dominantFoot = Object.assign(
-            { side: 'R', groundOffset: 0.25, airMargin: 0.05 },
-            config.physics?.dominantFoot || {},
-        );
+        this.settings.dominantFoot = { ...config.physics.dominantFoot };
         this.settings.airReady = {
             hipPitch: 1.0,
             kneeBend: 1.8,
@@ -533,7 +527,8 @@ class TakrawPhysics {
 
     _buildCourt() {
         const R = this.R,
-            s = this.settings;
+            s = this.settings,
+            court = this.config.court;
         const floor = this.world.createCollider(
             R.ColliderDesc.cuboid(30, 0.12, 25)
                 .setTranslation(0, -0.12, 0)
@@ -545,15 +540,15 @@ class TakrawPhysics {
         this.floorHandle = floor.handle;
         this.colliderMeta.set(floor.handle, { kind: 'floor' });
         const net = this.world.createCollider(
-            R.ColliderDesc.cuboid(0.025, (s.netHeight - s.netBottom) / 2, s.courtHalfWidth)
-                .setTranslation(0, (s.netHeight + s.netBottom) / 2, 0)
+            R.ColliderDesc.cuboid(0.025, (court.netHeight - s.netBottom) / 2, court.halfWidth)
+                .setTranslation(0, (court.netHeight + s.netBottom) / 2, 0)
                 .setFriction(0.5)
                 .setRestitution(0.16)
                 .setCollisionGroups(this._groups(1))
                 .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS),
         );
         this.colliderMeta.set(net.handle, { kind: 'net' });
-        for (const z of [-s.courtHalfWidth - 0.12, s.courtHalfWidth + 0.12]) {
+        for (const z of [-court.halfWidth - 0.12, court.halfWidth + 0.12]) {
             const post = this.world.createCollider(
                 R.ColliderDesc.capsule(0.74, 0.045)
                     .setTranslation(0, 0.79, z)
@@ -2049,7 +2044,7 @@ class TakrawPhysics {
         // smash. The net clearance constraint below limits how steep it can be.
         const down = Math.max(kick.speed * kick.downward, -incoming.y + shot.downwardGain);
         const distance = Math.max(0, -impact.x * p.toward);
-        const clearance = s.netHeight + s.ballRadius + shot.netClearance;
+        const clearance = this.config.court.netHeight + s.ballRadius + shot.netClearance;
         // Solve the time available before this downward shot falls to net height.
         // Only the foot's target face/speed changes: the ball remains solver-owned.
         const drop = Math.max(0, impact.y - clearance);
@@ -3132,7 +3127,7 @@ class TakrawPhysics {
         const speed = this._clamp(this._length(incoming) * s.speedRatio, s.minSpeed, s.maxSpeed);
         const forward = Math.max(0.5, speed),
             flight = Math.max(0.03, -x / forward);
-        const clearance = this.settings.netHeight + this.settings.ballRadius + s.netClearance;
+        const clearance = this.config.court.netHeight + this.settings.ballRadius + s.netClearance;
         const up = (clearance - position.y) / flight + 0.5 * this.settings.gravity * flight;
         return { x: p.toward * forward, y: Math.max(0.5, up), z: incoming.z * 0.3 };
     }

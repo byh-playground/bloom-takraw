@@ -339,6 +339,7 @@ class TakrawUI {
             if (screen === 'pause' && !this.inGame) {
                 this.setRoute('', true);
                 this.hideDialog(false);
+                this.home.setView('main', false);
                 return;
             }
             const wasOpen = this.dialog === screen,
@@ -352,8 +353,9 @@ class TakrawUI {
             return;
         }
         this.hideDialog(true);
-        if (screen === 'main') this.home.setView('main', false);
-        // 처음 화면은 해시 없는 주소로, play(알 수 없는 주소 포함)는 지금 상태의 주소로 교정한다.
+        // 경기 중이 아닌데 읽힌 play(알 수 없는 주소 포함)도 주소가 처음 화면으로 교정되므로 화면도 처음 화면으로 맞춘다.
+        if (!this.inGame) this.home.setView('main', false);
+        // 처음 화면은 해시 없는 주소로, play는 지금 상태의 주소로 교정한다.
         this.setRoute(this.inGame ? 'play' : '', true);
     }
 

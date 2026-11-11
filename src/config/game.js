@@ -27,6 +27,8 @@ const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
     simulation: { tickRate: 60, substeps: 2, aiRate: 15 },
+    // 매 틱 입력 바이트열: [x, z, 버튼] × 2명(1P·2P). x·z는 -1..1을 axisScale배 한 부호 있는 바이트(runtime.js가 쓰고 game.js decode가 읽는다).
+    input: { size: 6, axisScale: 127 },
     network: { namespace: 'bloom-takraw', seed: 7 },
     court: { halfLength: 6.7, halfWidth: 3.05, netHeight: 1.52 },
     // Team 0 coordinates; team 1 mirrors X/Z: receive, central set, front attack.

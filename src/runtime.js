@@ -187,7 +187,7 @@ async function bootTakraw() {
     let presentationRevision = 0;
     let presentationSequence = 0;
     let resetMode = 'reset';
-    let lastInput = new Uint8Array(TAKRAW_RUNTIME.input.size);
+    let lastInput = new Uint8Array(config.input.size);
     let lastContact = null;
     let network = Object.freeze({
         state: 'idle',
@@ -700,7 +700,7 @@ async function bootTakraw() {
         actions?.releaseAll();
         device?.releaseAll();
         actions?.consume();
-        lastInput = new Uint8Array(TAKRAW_RUNTIME.input.size);
+        lastInput = new Uint8Array(config.input.size);
     }
 
     function releaseControls() {
@@ -730,7 +730,7 @@ async function bootTakraw() {
     }
 
     function encodeAxis(value) {
-        return Math.round(Math.max(-1, Math.min(1, value)) * TAKRAW_RUNTIME.input.axisScale) & 255;
+        return Math.round(Math.max(-1, Math.min(1, value)) * config.input.axisScale) & 255;
     }
 
     function writeMovement(input, offset, right, back) {
@@ -768,7 +768,7 @@ async function bootTakraw() {
     }
 
     function getInput() {
-        const input = new Uint8Array(TAKRAW_RUNTIME.input.size);
+        const input = new Uint8Array(config.input.size);
         const commands = pendingCommands
             .splice(0)
             .map((code) => ({ payload: Uint8Array.of(code) }));
@@ -1549,7 +1549,7 @@ async function bootTakraw() {
             ...(online ? { room: capability } : { localPlayerId: 'local', localFastPath: true }),
             simulationVersion: TAKRAW_VERSION,
             seed: config.network.seed,
-            inputSize: TAKRAW_RUNTIME.input.size,
+            inputSize: config.input.size,
             adapter,
             profile,
             recordReplay: recorded,

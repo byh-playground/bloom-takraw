@@ -139,6 +139,9 @@ const TAKRAW_TRAINING_TEMPOS = Object.freeze(
  */
 const message = (id, values = {}) => ({ id, values });
 
+/** 부호 있는 바이트(int8)의 최댓값. 이보다 큰 바이트는 음수(b - 256)다. */
+const INT8_MAX = 127;
+
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
     /** deterministic은 gamekit `@bloom-gamekit/deterministic` 모듈이다. 리플레이 워커에는 import map이 없어 RAPIER처럼 받는다. */
@@ -380,7 +383,7 @@ class TakrawGame {
 
     decode(input, commands, secondary = false) {
         const offset = secondary ? 3 : 0;
-        const signed = (b) => (b > 127 ? b - 256 : b) / 127;
+        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
         const code = secondary ? 10 : 0;
         const has = (n) => commands.some((command) => command.payload?.[0] === n + code);
         return {

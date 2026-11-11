@@ -83,7 +83,6 @@ const POINT_LAYERS = [
 ];
 
 const TAKRAW_RUNTIME = Object.freeze({
-    input: { size: 6, axisScale: 127 },
     // 관전: 같은 시드는 같은 AI 대 AI 경기를 만든다. showcaseSeed는 소개영상의 명경기다.
     watch: {
         param: 'watch',

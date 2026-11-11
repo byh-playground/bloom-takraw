@@ -1274,9 +1274,13 @@ class TakrawPhysics {
             contact.any &&
             !p.grounded &&
             !p.jump.active &&
-            (up.y < 0.7 || pos.y < 0.78);
+            (up.y < s.drive.fallen.up || pos.y < s.drive.fallen.height);
         p.recoveryTime = fallen ? p.recoveryTime + dt : 0;
-        const airborne = !receiving && !p.grounded && !fallen && (p.jump.active || p.airTime > 0.1);
+        const airborne =
+            !receiving &&
+            !p.grounded &&
+            !fallen &&
+            (p.jump.active || p.airTime > s.drive.airborneDelay);
         const kicking =
             !!input.kick &&
             !(p.receive && p.receive.mode !== 'cushion' && p.receive.phase === 'recover');
@@ -1292,7 +1296,9 @@ class TakrawPhysics {
         if (airTarget) p.jump.airKickStarted = true;
         const preparing = !!airTarget && p.kick.airPlan.phase !== 'follow';
         const floppy =
-            airborne && vel.y < -0.25 && (!kicking || p.kick.airPlan?.phase === 'follow');
+            airborne &&
+            vel.y < -s.drive.fallSpeed &&
+            (!kicking || p.kick.airPlan?.phase === 'follow');
         const ready =
             airborne && p.jump.active && vel.y > 0 && !kicking && !fallen && !p.jump.airKickStarted;
         p.state = fallen
@@ -1305,12 +1311,20 @@ class TakrawPhysics {
                   ? 'kicking'
                   : airborne
                     ? 'airborne'
-                    : moving > 0.1
+                    : moving > s.drive.moveInput
                       ? 'moving'
                       : 'standing';
         const recovery = fallen ? 1 + p.effects.recovery : 1;
         let muscle =
-            (floppy ? 0.045 : airborne ? (ready ? s.airReady.strength : 0.32) : fallen ? 0.85 : 1) *
+            (floppy
+                ? s.drive.muscle.falling
+                : airborne
+                  ? ready
+                      ? s.airReady.strength
+                      : s.drive.muscle.airborne
+                  : fallen
+                    ? s.drive.muscle.fallen
+                    : 1) *
             muscleResponse *
             recovery;
         return {
@@ -1375,7 +1389,7 @@ class TakrawPhysics {
         // controller, as do ground kicks and recovery.
         if (p.role !== 'attacker' || airborne || fallen || mode === 'ground')
             p.locomotionActive = false;
-        else if (moving > 0.08) p.locomotionActive = true;
+        else if (moving > p.settings.drive.gaitInput) p.locomotionActive = true;
         if (p.grounded || fallen || receiving)
             this._driveGroundStance(p, body, intent, action, targetMap, dt);
         else this._driveAirStance(p, body, intent, action, targetMap, dt);

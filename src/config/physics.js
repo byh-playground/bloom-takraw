@@ -151,6 +151,17 @@ const TAKRAW_PHYSICS = Object.freeze({
         },
         // 서 있음: 몸 위쪽 축의 y가 up보다 크고 골반이 height보다 높다.
         grounded: { up: 0.7, height: 0.68 },
+        // 넘어짐: 받기 중이 아니고, 무엇이든 닿았지만 서 있지 않고, 점프 중이 아니며 몸 위쪽 축의 y가 up보다 작거나 골반이 height보다 낮다.
+        fallen: { up: 0.7, height: 0.78 },
+        // 공중: 점프 중이거나 바닥을 떠난 지 이 시간이 지났다.
+        airborneDelay: 0.1,
+        // 공중에서 이 속도보다 빨리 내려오면(발차기 중이 아니거나 맞힌 뒤) 힘을 빼고 떨어진다.
+        fallSpeed: 0.25,
+        // 이동 입력 크기 기준: moveInput을 넘으면 'moving' 상태·발 들기, gaitInput을 넘으면 걸음 진행·공격수 이동 제동 대상.
+        moveInput: 0.1,
+        gaitInput: 0.08,
+        // 상태별 관절 모터 세기 배율(공중 준비 자세는 airReady.strength).
+        muscle: { falling: 0.045, airborne: 0.32, fallen: 0.85 },
     },
     // Scale units per second: full extension takes 250 ms, return 500 ms.
     legStretch: { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 },

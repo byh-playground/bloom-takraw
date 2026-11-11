@@ -134,6 +134,24 @@ const TAKRAW_PHYSICS = Object.freeze({
         strength: 0.72,
         bodyStrength: 0.25,
     },
+    // 선수 몸 제어(_drivePlayer 단계)의 판정 기준과 조정값. 초·m·m/s.
+    drive: {
+        // 발이 떨어진 시간(freeTime)과 공중 시간(airTime)이 둘 다 이보다 길어야 다음 착지를 착지 이벤트로 낸다.
+        landing: { freeTime: 0.12, airTime: 0.12 },
+        // 받기 충격 반응: 반응 시간의 hold 비율이 남을 때까지 최대 세기, 최대 세기에서 근육·균형 제어가 이만큼 빠진다.
+        reaction: { hold: 0.45, muscleLoss: 0.94, balanceLoss: 0.98 },
+        // supportDelay: 점프 직후 발이 닿아도 지지로 보지 않는 시간. endTime 뒤 무엇이든 닿고 상승 속도가 endRiseSpeed보다
+        // 느리면 점프가 끝난다. coyoteTime: 발이 떨어진 뒤에도 점프·지상 발차기 유지를 받는 시간. cooldown: 다음 점프까지.
+        jump: {
+            supportDelay: 0.17,
+            endTime: 0.22,
+            endRiseSpeed: 1.3,
+            coyoteTime: 0.065,
+            cooldown: 0.23,
+        },
+        // 서 있음: 몸 위쪽 축의 y가 up보다 크고 골반이 height보다 높다.
+        grounded: { up: 0.7, height: 0.68 },
+    },
     // Scale units per second: full extension takes 250 ms, return 500 ms.
     legStretch: { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 },
 });

@@ -1174,7 +1174,8 @@ class TakrawPhysics {
 
     /** 이번 substep의 몸 상태(뿌리 자세·바닥 접촉·받기 충격 반응)를 읽고 접지·점프 타이머를 갱신한다. */
     _senseBody(p, dt) {
-        const root = p.root,
+        const drive = p.settings.drive,
+            root = p.root,
             pos = root.translation(),
             vel = root.linvel();
         // Force/torque actuation below does not change poses until world.step.
@@ -1183,21 +1184,23 @@ class TakrawPhysics {
         const contact = this._groundInfo(p),
             up = this._rotate(rootRotation, this._v(0, 1, 0));
         p.freeTime = contact.any ? 0 : p.freeTime + dt;
-        if (p.freeTime > 0.12 && p.airTime > 0.12) p.landArmed = true;
+        if (p.freeTime > drive.landing.freeTime && p.airTime > drive.landing.airTime)
+            p.landArmed = true;
         p.reaction.remaining = Math.max(0, p.reaction.remaining - dt);
         const reactionWeight =
             p.reaction.duration > 0
                 ? p.reaction.severity *
-                  Math.min(1, p.reaction.remaining / (p.reaction.duration * 0.45))
+                  Math.min(1, p.reaction.remaining / (p.reaction.duration * drive.reaction.hold))
                 : 0;
-        const muscleResponse = 1 - reactionWeight * 0.94;
-        const balanceResponse = 1 - reactionWeight * 0.98;
+        const muscleResponse = 1 - reactionWeight * drive.reaction.muscleLoss;
+        const balanceResponse = 1 - reactionWeight * drive.reaction.balanceLoss;
         p.jump.cooldown = Math.max(0, p.jump.cooldown - dt);
         p.jump.time += dt;
-        const supported = contact.feet && !(p.jump.active && p.jump.time < 0.17);
+        const supported = contact.feet && !(p.jump.active && p.jump.time < drive.jump.supportDelay);
         p.supportAge = supported ? 0 : p.supportAge + dt;
-        p.grounded = supported && up.y > 0.7 && pos.y > 0.68;
-        if (contact.any && p.jump.time > 0.22 && vel.y < 1.3) p.jump.active = false;
+        p.grounded = supported && up.y > drive.grounded.up && pos.y > drive.grounded.height;
+        if (contact.any && p.jump.time > drive.jump.endTime && vel.y < drive.jump.endRiseSpeed)
+            p.jump.active = false;
         return { pos, vel, rootRotation, contact, up, muscleResponse, balanceResponse };
     }
 
@@ -1211,7 +1214,8 @@ class TakrawPhysics {
         const continuingGroundKick =
             !!input.kick &&
             p.kick.held &&
-            (p.kick.mode === 'ground' || (!p.jump.active && p.supportAge < 0.065));
+            (p.kick.mode === 'ground' ||
+                (!p.jump.active && p.supportAge < p.settings.drive.jump.coyoteTime));
         return { move, moving, jumpPressed, continuingGroundKick };
     }
 
@@ -1221,7 +1225,7 @@ class TakrawPhysics {
         const { jumpPressed } = intent;
         if (
             jumpPressed &&
-            (p.grounded || (p.supportAge < 0.065 && !p.jump.active)) &&
+            (p.grounded || (p.supportAge < s.drive.jump.coyoteTime && !p.jump.active)) &&
             p.jump.cooldown <= 0
         ) {
             // The impulse accelerates the entire articulated body. A moving pelvis
@@ -1231,7 +1235,7 @@ class TakrawPhysics {
                 part.body.applyImpulse({ x: 0, y: part.mass * delta, z: 0 }, true);
             p.jump.active = true;
             p.jump.time = 0;
-            p.jump.cooldown = 0.23;
+            p.jump.cooldown = s.drive.jump.cooldown;
             p.jump.airKickStarted = false;
             p.grounded = false;
             p.supportAge = 1;
@@ -3144,7 +3148,7 @@ class TakrawPhysics {
             const player = ma.kind === 'player' ? ma : mb.kind === 'player' ? mb : null;
             if (started && player && (ma.kind === 'floor' || mb.kind === 'floor')) {
                 const p = this.players[player.playerId];
-                if (p.landArmed && p.airTime > 0.12) {
+                if (p.landArmed && p.airTime > this.settings.drive.landing.airTime) {
                     const position = { ...p.byName[player.part].body.translation(), y: 0 };
                     this.world.contactPair(
                         this.world.getCollider(a),

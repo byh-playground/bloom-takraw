@@ -7,10 +7,13 @@ import { RUNTIME } from '../i18n/messages/runtime.js';
 /**
  * 연결 실패 원인별 화면 문구(error)와 연결 카드 단계 이름(phase). 키가 connectionCause가 돌려주는 원인이고,
  * 문구·단계·지표(trackConnectionFailure)가 이 분류 하나를 쓴다.
+ * desync·game은 연결 사정이 아니라 게임 쪽 실패다(세션 failure.type desync-unrecoverable·fatal).
  */
 const CONNECTION_CAUSES = Object.freeze({
     secure: { error: RUNTIME.errSecure, phase: RUNTIME.phaseBrowser },
     sync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
+    desync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
+    game: { error: RUNTIME.errGame, phase: RUNTIME.phaseGameFailed },
     version: { error: RUNTIME.errVersion, phase: RUNTIME.phaseVersionFailed },
     relay: { error: RUNTIME.errRelay, phase: RUNTIME.phaseRelayFailed },
     peer: { error: RUNTIME.errPeer, phase: RUNTIME.phasePeerFailed },
@@ -19,21 +22,28 @@ const CONNECTION_CAUSES = Object.freeze({
 
 /**
  * gamekit가 코드를 주는 실패의 원인. 코드는 transport 방 오류의 Error.code(version-mismatch)와
- * rollback 세션 failure.reason(join-rejected의 incompatible-session)이다. 코드가 없는 실패는 connectionCause가 메시지로 분류한다.
+ * rollback 세션 failure의 type(desync-unrecoverable·fatal·version-mismatch·handshake-mismatch)·reason(join-rejected의 incompatible-session)이다.
+ * 코드가 없는 실패는 connectionCause가 메시지로 분류한다.
  */
 const CONNECTION_CAUSE_BY_CODE = Object.freeze({
     'version-mismatch': 'version',
+    'handshake-mismatch': 'version',
     'incompatible-session': 'version',
+    'desync-unrecoverable': 'desync',
+    fatal: 'game',
 });
 
 /**
  * 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다.
- * code는 gamekit가 준 실패 코드다. 코드가 없거나 모르는 코드면 메시지(raw)를 정규식으로 분류한다.
+ * codes는 gamekit가 준 실패 코드들이다(세션 failure는 [type, reason], 방 오류는 [Error.code]). 아는 코드가 하나라도 있으면
+ * 그 코드로 정하고, 없으면 메시지(raw)를 정규식으로 분류한다.
  * 코드를 주지 않는 실패(릴레이·WebRTC·브라우저 보안 오류와 자유 형식 reason)는 아직 정규식으로 분류한다.
  */
-function connectionCause(raw, code) {
-    const coded = CONNECTION_CAUSE_BY_CODE[code];
-    if (coded) return coded;
+function connectionCause(raw, codes = []) {
+    for (const code of codes) {
+        const coded = CONNECTION_CAUSE_BY_CODE[code];
+        if (coded) return coded;
+    }
     if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw))
         return 'secure';
     if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return 'sync';
@@ -50,9 +60,9 @@ function connectionText(error) {
         .slice(0, 180);
 }
 
-function readableConnectionError(error, code = error?.code) {
+function readableConnectionError(error, codes = [error?.code]) {
     const raw = connectionText(error);
-    return CONNECTION_CAUSES[connectionCause(raw, code)].error({
+    return CONNECTION_CAUSES[connectionCause(raw, codes)].error({
         detail: raw,
         version: TAKRAW_VERSION,
     });
@@ -242,7 +252,7 @@ class NetworkLink {
     failConnect(error, action, stopSession) {
         this.event('connect-error', String(error?.message || error));
         this.recordError(error, 'network');
-        const cause = connectionCause(connectionText(error), error?.code);
+        const cause = connectionCause(connectionText(error), [error?.code]);
         this.trackConnectionFailure(cause, 'connect');
         const diagnostics = this.snapshot.diagnostics;
         stopSession();
@@ -285,9 +295,10 @@ class NetworkLink {
         const linkCount = room?.transports?.size || 0;
         if (failed) {
             state = 'error';
+            const codes = [failed.type, failed.reason];
             const cause = connectionCause(
                 connectionText(failed.reason || failed.type || 'session sync failed'),
-                failed.reason,
+                codes,
             );
             phase = failurePhase(cause);
             if (connection.observedFailure !== failed) {
@@ -298,7 +309,7 @@ class NetworkLink {
             }
             message = readableConnectionError(
                 failed.reason || failed.type || 'session sync failed',
-                failed.reason,
+                codes,
             );
         } else if (
             count === 2 &&
@@ -498,8 +509,12 @@ class NetworkLink {
         this.set({ hint: RUNTIME.netResumeSaveFailed() });
     }
 
-    /** 연결 오류를 원인별로 분류해 보낸다. phase: connect(방 만들기·입장) | session(온라인 세션 중) */
+    /**
+     * 연결 오류를 원인별로 분류해 보낸다. phase: connect(방 만들기·입장) | session(온라인 세션 중)
+     * desync·game은 같은 실패를 MatchSession.simulationFailed가 이미 fault:desync·fault:simulation으로 보냈으므로 다시 보내지 않는다.
+     */
     trackConnectionFailure(cause, phase) {
+        if (cause === 'desync' || cause === 'game') return;
         if (cause === 'sync') this.trackFailure('fault', 'sync', 'fail', { phase });
         else if (cause === 'version')
             this.trackFailure('unsupported', 'version', 'block', { phase });

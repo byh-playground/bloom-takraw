@@ -85,7 +85,7 @@
 - **입력 바이트 배치**(`TAKRAW_CONFIG.input`: 크기·축 배율)는 시뮬레이션이 읽는 게임 설정입니다. 인코딩(`runtime.js`)과 디코딩(`game.js decode`)이 같은 값을 읽습니다.
 - **이름과 식별자**는 `config/game.js`에서 뜻별로 나뉩니다. `TAKRAW_GAME_NAME`(종목), `TAKRAW_PRODUCT_NAME`(제품), `TAKRAW_DIAGNOSTIC_NAME`(진단 머리글), `TAKRAW_ID`(저장·방·지표 식별자, 바꾸면 기존 저장이 끊김). 제품 버전은 `package.json`과 `TAKRAW_VERSION` 두 곳이며 `npm run check`가 일치를 검사합니다.
 - **시드**는 뜻별로 나뉩니다. 시드를 받지 않은 경기·연습은 `TAKRAW_CONFIG.simulation.fixedSeed`, 접촉·착지 효과는 `TAKRAW_CONFIG.visual.effectSeed`, 롤백 세션 초기 시드와 방 이름공간은 `TAKRAW_RUNTIME.network`입니다(`TAKRAW_CONFIG`에는 network 섹션이 없습니다).
-- **코트·네트 치수**는 `TAKRAW_CONFIG.court`가 단일 출처이고 물리의 네트 충돌체도 이를 읽습니다. 주발(`dominantFoot`)과 `groundToss.attackApex`는 `TAKRAW_CONFIG.physics`가 원본입니다.
+- **코트·네트 치수**는 `TAKRAW_CONFIG.court`가 단일 출처이고 물리의 네트 충돌체도 이를 읽습니다. 물리 설정(중력·공·이동·점프·토스·받기·공중 발차기·블로킹·주발 등)은 `config/physics.js`의 `TAKRAW_PHYSICS` 한 곳이 원본이고 `TAKRAW_CONFIG.physics`가 이를 가리킵니다. `TakrawPhysics`는 생성자에서 `takrawPhysicsSettings(config)`로 인스턴스마다 복사본(`structuredClone`)을 만들고 파생값(`airKick.velocityGain = 2√(positionGain·trackingMass)`)만 더합니다. 물리 어댑터는 `TAKRAW_CONFIG`를 직접 import하지 않고 넘겨받은 config만 읽습니다.
 - **킥 소리 단계·등급 이름**은 `config/runtime.js`의 소리 정의 표에서 파생해 `presentation/sound.js`가 읽습니다(`TAKRAW_KICK_SOUND`).
 - **같은 뜻의 화면 문구**는 `i18n/messages/shared.js` 한 곳에 두고 PAGE·UI·RUNTIME 표가 가리킵니다.
 - **연결 실패 분류**(`connectionCause`)는 gamekit가 코드를 주는 실패(`version-mismatch`·`incompatible-session`)를 코드로, 나머지를 메시지 정규식으로 나눕니다. 원인별 문구·단계 이름은 `CONNECTION_CAUSES` 한 표입니다.

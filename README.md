@@ -32,7 +32,7 @@ src/
   launch.js                  페이지를 연 맥락(격리 장면·소개영상·iframe)의 단일 출처
   runtime.js                 게임과 GameKit의 수명주기 연결
   debug-scenes.js            주소(?debug=1&scene=…)로 여는 확인용 장면
-  config/{game,runtime,schools,intro}.js  게임 정의, 실행 정책, 학교 외형, 소개영상 대본
+  config/{game,physics,runtime,schools,intro}.js  게임 정의, 물리 설정, 실행 정책, 학교 외형, 소개영상 대본
   club/{club,generator,names}.js  선수·편성·보상·뽑기·IndexedDB 저장, 생성 선수, 이름 표
   motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
   simulation/{game,physics,timing,ai-brain,ai-formation,identity,roster,joint-limits,random}.js

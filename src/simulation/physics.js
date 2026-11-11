@@ -1,156 +1,29 @@
-import { TAKRAW_CONFIG, takrawAthleteEffects } from '../config/game.js';
+import { takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
 import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
+
+/**
+ * 인스턴스 설정(DEV-005): config.physics(config/physics.js)를 복사하고 파생값만 더한다.
+ * 네트 높이·코트 폭은 config.court를 직접 읽는다.
+ */
+function takrawPhysicsSettings(config) {
+    const settings = structuredClone(config.physics);
+    const airKick = settings.airKick;
+    airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
+    return settings;
+}
 
 /**
  * Articulated, force-driven players. Rendering never writes back into this world.
  * The only pose teleports are the public rally reset methods below.
  */
 class TakrawPhysics {
-    constructor(RAPIER, config = {}) {
+    constructor(RAPIER, config) {
         this.R = RAPIER;
         this.config = config;
         this.motionMatcher = new TakrawMotionMatcher();
-        // 네트 높이·코트 폭은 config.court, 주발(dominantFoot)과 groundToss의 receiveApex·attackApex는 config.physics가 원본이다.
-        // 나머지 설정은 여기 값이 원본이다.
-        this.settings = {
-            gravity: 9.81,
-            ballRadius: 0.095,
-            ballMass: 0.18,
-            ballRestitution: 0.57,
-            ballDamping: 0.035,
-            movementSpeed: 3.15,
-            movementAcceleration: 8.5,
-            movementMaxAcceleration: 12,
-            airControl: 0.9,
-            jumpSpeed: 5.4,
-            jumpHoldAcceleration: 7.5,
-            jumpHoldTime: 0.16,
-            groundKickForce: 380,
-            groundKickSpeed: 7.5,
-            footPositionGain: 200,
-            footVelocityGain: 23,
-            receptionMinSpeed: 7.5,
-            receptionFullSpeed: 14,
-            receptionMaxDuration: 0.66,
-            solverIterations: 8,
-            ccdSubsteps: 3,
-            netBottom: 0.78,
-        };
-        this.settings.groundToss = Object.assign(
-            {
-                contactHeight: 0.75,
-                minPlanTime: 0.08,
-                maxPlanTime: 0.45,
-                attackHeight: 3.3,
-                serveApex: 3.8,
-                serveHeight: 0.4,
-                attackAssist: true,
-                forefoot: 0.08,
-                strokeTime: 0.12,
-                strokeFraction: 0.6,
-                followThrough: 0.08,
-                positionGain: 1200,
-                velocityGain: 50,
-                accelerationMass: 4.0,
-                orientationStiffness: 1000,
-                orientationDamping: 2.0,
-                orientationInertia: 0.014,
-                maxTorque: 32,
-            },
-            config.physics.groundToss,
-        );
-        this.settings.receive = {
-            horizon: 1.4,
-            preparation: 0.12,
-            commitment: 0.45,
-            cushionReach: 0.95,
-            lungeReach: 0.95,
-            slideReach: 0.95,
-            slideContactFractions: [0.75, 0.5],
-            moveThreshold: 0.25,
-            directionThreshold: 0.5,
-            clearance: 0.16,
-            driveMass: 4,
-            lunge: { height: 0.84, lean: 0.28, follow: 0.18 },
-            slide: { height: 0.52, lean: 0.7, speed: 1.35, launchScale: 0.5, follow: 0.3 },
-        };
-        this.settings.airKick = {
-            force: 1600,
-            speed: 8,
-            leadTime: 0.1,
-            preparation: 0.24,
-            clearance: 0.16,
-            reach: 0.795,
-            forefoot: 0.04,
-            downward: 0.4,
-            effectiveFootMass: 0.78,
-            positionGain: 2400,
-            trackingMass: 4,
-            preparationStrength: 0.72,
-            kneePlaneStiffness: 40,
-            kneePlaneDamping: 4,
-            kneePlaneInertia: 0.04,
-            kneePlaneMaxTorque: 12,
-            orientationStiffness: 1000,
-            orientationDamping: 2,
-            orientationInertia: 0.014,
-            maxTorque: 96,
-        };
-        this.settings.airKick.rotation = {
-            speed: 7,
-            torque: 210,
-            damping: 38,
-            planeStiffness: 90,
-            planeDamping: 14,
-        };
-        this.settings.airKick.contact = {
-            horizon: 0.7,
-            strokeTime: 0.14,
-            maxSpeed: 14,
-            netClearance: 0.18,
-            downwardGain: 2,
-            preparationTime: 0.08,
-            driveMass: 8,
-        };
-        // 블로킹: 공중에서 발차기를 누른 선수의 다리·발이 네트 앞에서 내려꽂히는 공을 맞히면, 발이 휘두르는 방향과 상관없이 네트를 넘겨 되받아친다.
-        this.settings.block = {
-            enabled: true,
-            parts: ['foot', 'lowerLeg', 'upperLeg', 'pelvis', 'torso', 'head'],
-            zone: 1.8,
-            minHeight: 0.9,
-            minIncoming: 3.5,
-            speedRatio: 0.45,
-            minSpeed: 3.5,
-            maxSpeed: 8,
-            netClearance: 0.22,
-            separation: 0.2,
-            netGap: 0.15,
-        };
-        // 주발(오른발): 기본으로 이 발로 차고, 반대 발은 공이 주발 쪽에서 충분히 멀 때만 쓴다.
-        // side: 주발('R'|'L'), groundOffset: 지상에서 공이 몸 중심에서 반대쪽으로 이만큼(m) 넘어가야 반대 발, airMargin: 공중에서 반대 발 발바닥이 공에 이만큼(m) 더 가까워야 반대 발.
-        this.settings.dominantFoot = { ...config.physics.dominantFoot };
-        this.settings.airReady = {
-            hipPitch: 1.0,
-            kneeBend: 1.8,
-            strength: 0.72,
-            bodyStrength: 0.25,
-        };
-        this.settings.airKick.motion = {
-            // The authored path supplies the swing shape; its contact endpoint is
-            // retargeted inside the actual (possibly stretched) limb workspace.
-            adaptation: 1,
-            transition: 0.08,
-            phaseMargin: 0.04,
-            rootGain: 6,
-            angularSpeed: 2,
-            poseStrength: 0.72,
-        };
-        // Scale units per second: full extension takes 250 ms, return 500 ms.
-        this.settings.legStretch = { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 };
-        const airKick = this.settings.airKick;
-        airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
+        this.settings = takrawPhysicsSettings(config);
         this.serializer = new RAPIER.SerializationPipeline();
         this._createWorld(Array(6).fill(null));
     }
@@ -265,7 +138,7 @@ class TakrawPhysics {
     }
 
     _athleteProfile(profile, id) {
-        const definition = this.config.athletes || TAKRAW_CONFIG.athletes;
+        const definition = this.config.athletes;
         const role = TAKRAW_ROLES[takrawSlotOf(id)];
         // 기본 선수는 이름이 없다(null). 화면이 역할 이름으로 보여 준다.
         const value =
@@ -298,7 +171,7 @@ class TakrawPhysics {
         if (!Array.isArray(profiles) || profiles.length !== 6)
             throw new Error('여섯 명의 선수 프로필이 필요합니다.');
         const values = profiles.map((profile, id) => this._athleteProfile(profile, id));
-        const definition = this.config.athletes || TAKRAW_CONFIG.athletes;
+        const definition = this.config.athletes;
         for (const [id, athlete] of values.entries()) {
             const p = this.players[id],
                 effect = takrawAthleteEffects(athlete.stats, definition),
@@ -334,7 +207,7 @@ class TakrawPhysics {
             return null;
         const root = p.root.translation(),
             bodyVelocity = this._bodyVelocity(p);
-        const offset = Math.min(this.config.ai?.toss?.incomingOffset ?? 0.8, receive.cushionReach);
+        const offset = Math.min(this.config.ai.toss.incomingOffset, receive.cushionReach);
         const candidate = (height, sliding) => {
             const discriminant = velocity.y * velocity.y + 2 * s.gravity * (ball.y - height);
             if (discriminant < 0) return null;
@@ -359,7 +232,7 @@ class TakrawPhysics {
                         -0.6,
                     ) * p.toward,
                 z: this._clamp(
-                    point.z + p.toward * (this.config.ai?.toss?.attack?.lateral ?? 0.1),
+                    point.z + p.toward * this.config.ai.toss.attack.lateral,
                     -this.config.court.halfWidth + 0.15,
                     this.config.court.halfWidth - 0.15,
                 ),
@@ -566,7 +439,7 @@ class TakrawPhysics {
             slot = takrawSlotOf(id),
             toward = team === 0 ? 1 : -1;
         const role = TAKRAW_ROLES[slot];
-        const formation = (this.config.formation || TAKRAW_CONFIG.formation)[role];
+        const formation = this.config.formation[role];
         const home = { x: formation.x * toward, z: formation.z * toward };
         const p = {
             id,

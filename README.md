@@ -2,12 +2,11 @@
 
 블룸 세계관의 3D 온라인 발 배구 게임입니다. 개발 저장소는 `C:\projects\bloom-takraw`, 원격은 [byh-playground/bloom-takraw](https://github.com/byh-playground/bloom-takraw)입니다. 기존 rally-frontier 임시 검증 사본은 삭제됐습니다.
 
-이름: 게임 이름은 `src/config/game.js`의 `TAKRAW_GAME_NAME`(발 배구)이 단일 출처이고 `npm run check`가 `index.html`·README·AGENTS·`package.json`과의 일치를 검사합니다. 저장소·패키지 이름 `bloom-takraw`, `TAKRAW_*`·`Takraw*` 식별자, `window.__takraw`, 저장 키, `docs/verification/v0.12.7`의 당시 산출물 기록은 바꾸지 않았습니다(이름이 아니라 식별자·이력이라서).
+이름: 게임 이름은 `src/config/game.js`의 `TAKRAW_GAME_NAME`(발 배구)이 단일 출처이고 `npm run check`가 `index.html`·README·AGENTS·`package.json`과의 일치를 검사합니다. 저장소·패키지 이름 `bloom-takraw`, `TAKRAW_*`·`Takraw*` 식별자, `window.__takraw`, 저장 키는 바꾸지 않았습니다(이름이 아니라 식별자라서).
 
 - [공개 게임](https://byh-playground.github.io/bloom-takraw/)은 `main /`의 원본을 상시 배포합니다.
 - `main`은 개발·배포 기준입니다. PR이 main에 머지되면 공개 게임에도 반영되며 별도 release 브랜치를 갱신하지 않습니다.
 - 개발 기준은 [bloom-reference 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/development.html), [AI 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/ai-development.html), [프로젝트 관리 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html)입니다. 정책 전문을 이 저장소에 복제하지 않습니다.
-- [최신 모바일·연습 검증](docs/verification/mobile-training.md)과 [과거 기록](docs/verification/README.md)을 구별합니다. 검증 기록만으로 Stable 승격이나 배포 완료를 뜻하지 않습니다.
 
 ## 실행
 
@@ -104,8 +103,6 @@ npm test                      # 서버·브라우저 시작부터 종료까지 �
 `npm test`는 클럽 이름 변경·저장·새로고침 복구 → AI 경기 시작·퇴장 → 훈련 → 친구 초대·실제 WebRTC 입장 → 연결 단절·재접속 → 양쪽 새로고침 → 명시적 퇴장을 확인합니다. 물리·전송을 mock으로 대체하지 않습니다. 모바일 흐름은 터치 이동·점프·킥 동시 조작, 입력 해제, 화면 회전, 작은 화면 배치, 연습의 아군 토스 반복을 추가로 확인합니다. Windows Chromium 에뮬레이션이며 실물 휴대폰 검증과 구별합니다. 관찰에는 기존 런타임 진단과 같은 확정 경계의 해시를 사용하며 게임 상태를 강제로 종료 상태로 바꾸지 않습니다. 두 흐름 모두 지표 요청을 가로채(운영 서버로 보내지 않음) 행동 이벤트를 확인하고, 진행 중인 경기 기록(온라인은 재접속 구간 포함)을 새 게임에서 다시 계산해 같은 hash인지 봅니다. 경기 끝 기록은 한 판이 길어 이 흐름에 넣지 않습니다.
 
 실행 구성은 `playwright.config.js`입니다. Playwright 전체 제한 170초와 시작/정리를 포함한 외부 상한 180초를 사용하며 초과는 실패입니다. 긴 전체 경기 종료 관찰을 이 기본 흐름의 성공으로 주장하지 않습니다. 결과·스크린샷은 `artifacts/e2e/`에 저장합니다. 성능/부하 측정은 이 버그 검사와 분리합니다. 정책 원문은 [검증 정책 §13](https://github.com/byh-playground/bloom-reference/blob/main/rules/project-management.html#verification)을 따릅니다.
-
-기존 단위·내부 비교·장시간 관찰 검사와 수동 CDP 실행기는 정리했습니다. 과거 실행 결과는 `docs/verification/`와 Git 이력에 남아 있으며 현행 검사 명령으로 안내하지 않습니다.
 
 ## 원본 실행·배포
 

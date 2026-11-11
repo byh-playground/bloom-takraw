@@ -7,6 +7,7 @@ import { takrawSeededUnit } from './random.js';
 import {
     TAKRAW_ROLES,
     TAKRAW_TEAM_PLAYER_IDS,
+    TAKRAW_TRAINING_SETTER_ID,
     takrawHumanPlayerId,
     takrawHumanPlayerIds,
     takrawIsAttacker,
@@ -759,7 +760,7 @@ class TakrawGame {
         this.rallyStart = this.state.time;
         this.state.timing = this.timingJudge.emptyRecords();
         if (this.mode === 'training') {
-            const setter = this.physics.players[1],
+            const setter = this.physics.players[TAKRAW_TRAINING_SETTER_ID],
                 p = setter.root.translation(),
                 feed = this.config.training.feed;
             this.state.training.attempt++;
@@ -1052,7 +1053,11 @@ class TakrawGame {
         pass.pending = false;
         if (this.state.play?.from === pass.from && this.state.play.kind === 'toss')
             this.state.play.outcome = 'set';
-        if (this.state.training && pass.from === 1 && pass.to === this.state.selected[0])
+        if (
+            this.state.training &&
+            pass.from === TAKRAW_TRAINING_SETTER_ID &&
+            pass.to === this.state.selected[0]
+        )
             this.state.training.setAt = this.state.time;
         this.aiDirty = true;
         this.state.lastMessage = message(
@@ -2353,7 +2358,7 @@ class TakrawGame {
                 (player) =>
                     player.team === team &&
                     (!human || this.state.selected[team] !== player.id) &&
-                    (this.mode !== 'training' || player.id === 1) &&
+                    (this.mode !== 'training' || player.id === TAKRAW_TRAINING_SETTER_ID) &&
                     !this.humanServes(team),
             );
             for (const id of TAKRAW_TEAM_PLAYER_IDS[team]) this.ai[id].active = false;
@@ -2404,7 +2409,7 @@ class TakrawGame {
             if (this.state.training)
                 active =
                     this.state.training.setAt === null && !this.state.training.contact
-                        ? this.physics.players[1]
+                        ? this.physics.players[TAKRAW_TRAINING_SETTER_ID]
                         : null;
             const groundBase = this.config.ai.toss.ground;
             const braking = this.config.ai.receive.braking;

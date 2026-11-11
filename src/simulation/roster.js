@@ -17,6 +17,8 @@ const TAKRAW_TEAM_PLAYER_IDS = Object.freeze(
         Object.freeze(TAKRAW_ROLES.map((role, slot) => takrawPlayerId(team, slot))),
     ),
 );
+/** 스파이크 연습에서 토스를 올려 주는 선수: 사람 팀(0)의 세터. */
+const TAKRAW_TRAINING_SETTER_ID = takrawPlayerId(0, TAKRAW_ROLES.indexOf('setter'));
 /** 공격수인 선수인가. */
 const takrawIsAttacker = (playerId) => takrawSlotOf(playerId) === TAKRAW_ATTACKER_SLOT;
 /** 사람이 조종하는 선수(팀의 공격수) id. */
@@ -28,6 +30,7 @@ export {
     TAKRAW_ROLES,
     TAKRAW_TEAM_SIZE,
     TAKRAW_TEAM_PLAYER_IDS,
+    TAKRAW_TRAINING_SETTER_ID,
     takrawPlayerId,
     takrawTeamOf,
     takrawSlotOf,

@@ -57,18 +57,20 @@ const TAKRAW_RUNTIME = Object.freeze({
     // 관전: 같은 시드는 같은 AI 대 AI 경기를 만든다. showcaseSeed는 소개영상의 명경기다.
     watch: {
         param: 'watch',
-        showcaseSeed: 36,
+        showcaseSeed: 1252,
         maxSeed: 0xffffffff,
         randomMax: 9999,
         // 관전은 첫 득점까지의 한 판만 보여준다. 득점 뒤 이만큼 결과를 보여주고 같은 시드를 처음부터 다시 시작한다.
         loopHoldMs: 2500,
-        // 일괄 탐색으로 고른 명경기. closest = 스파이크를 받아낼 때 공이 지면에 닿기까지 남은 가장 짧은 시간(초),
+        // 일괄 탐색(시드 0~3000, v0.17.0 난수)으로 고른 명경기. 관전은 첫 점만 보여 주므로 첫 점 랠리로 고른다:
+        // 스파이크 결정타로 끝나고 두 팀 모두 스파이크했고 받아내기 3번 이상인 랠리 중 터치 + 2×받아내기가 큰 순서.
+        // closest = 스파이크를 받아낼 때 공이 지면에 닿기까지 남은 가장 짧은 시간(초, 소개영상 시드),
         // digs·touches = 첫 점 랠리의 받아내기 횟수·터치 수. 문구는 화면(ui.js)이 언어별로 만든다.
         featured: [
-            { seed: 36, closest: 0.05 },
-            { seed: 27, digs: 5, touches: 11 },
-            { seed: 1013, digs: 4, touches: 12 },
-            { seed: 19, digs: 4, touches: 13 },
+            { seed: 1252, closest: 0.05 },
+            { seed: 365, digs: 7, touches: 19 },
+            { seed: 2132, digs: 6, touches: 21 },
+            { seed: 1164, digs: 7, touches: 18 },
         ],
     },
     // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailTicks에서 경기를 멈추고 그 장면을 다시 그린다.

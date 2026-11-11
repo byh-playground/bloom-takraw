@@ -2789,7 +2789,29 @@ class TakrawPhysics {
         const h = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 1 / 60) : 1 / 120;
         this.world.integrationParameters.dt = h;
         for (const p of this.players) this._drivePlayer(p, inputs[p.id] || {}, h);
-        const before = {
+        const before = this._captureBefore();
+        this.world.step(this.queue);
+        this.time += h;
+        const events = [],
+            contactStarts = [...this.ballContacts.values()].filter(
+                (contact) => contact.kind === 'player' && !contact.confirmed,
+            );
+        const confirmedTouches = new Set();
+        // A start event may precede a CCD impulse. Pending contacts stay in the
+        // active map until separation; transient start/stop pairs also survive in
+        // this step's candidates so the force queue can still confirm their hit.
+        const candidates = new Map(this.ballContacts),
+            impulses = new Set();
+        this._drainCollisions(events, contactStarts, candidates, before);
+        this._collectBallImpulses(candidates, impulses);
+        this._confirmTouches(impulses, candidates, contactStarts, confirmedTouches);
+        this._emitTouches(events, contactStarts, confirmedTouches, before);
+        return events;
+    }
+
+    /** world.step 직전의 공·선수 상태. 접촉 반응(_receiveImpact)·착지 속도·블로킹이 충돌 전 값을 읽는다. */
+    _captureBefore() {
+        return {
             ballPosition: { ...this.ball.translation() },
             ballVelocity: { ...this.ball.linvel() },
             lastBallTouch: this.lastBallTouch,
@@ -2806,23 +2828,18 @@ class TakrawPhysics {
                 ),
             })),
         };
-        this.world.step(this.queue);
-        this.time += h;
-        const events = [],
-            contactStarts = [...this.ballContacts.values()].filter(
-                (contact) => contact.kind === 'player' && !contact.confirmed,
-            );
-        const confirmedTouches = new Set();
-        // A start event may precede a CCD impulse. Pending contacts stay in the
-        // active map until separation; transient start/stop pairs also survive in
-        // this step's candidates so the force queue can still confirm their hit.
-        const candidates = new Map(this.ballContacts),
-            impulses = new Set();
-        const episodeConfirmed = (playerId) =>
-            [...this.ballContacts.values()].some(
-                (contact) =>
-                    contact.kind === 'player' && contact.playerId === playerId && contact.confirmed,
-            );
+    }
+
+    /** 이 선수의 지금 공 접촉이 이미 터치로 확정됐는지. */
+    _episodeConfirmed(playerId) {
+        return [...this.ballContacts.values()].some(
+            (contact) =>
+                contact.kind === 'player' && contact.playerId === playerId && contact.confirmed,
+        );
+    }
+
+    /** 충돌 시작·끝 이벤트로 공 접촉 목록, 착지 이벤트, 네트 접촉 이벤트를 갱신한다. */
+    _drainCollisions(events, contactStarts, candidates, before) {
         this.queue.drainCollisionEvents((a, b, started) => {
             const ma = this.colliderMeta.get(a),
                 mb = this.colliderMeta.get(b);
@@ -2833,7 +2850,8 @@ class TakrawPhysics {
                 if (started) {
                     const contact = {
                         ...other,
-                        confirmed: other.kind === 'player' && episodeConfirmed(other.playerId),
+                        confirmed:
+                            other.kind === 'player' && this._episodeConfirmed(other.playerId),
                     };
                     this.ballContacts.set(otherHandle, contact);
                     candidates.set(otherHandle, contact);
@@ -2874,19 +2892,16 @@ class TakrawPhysics {
                 else this.netContacts.delete(key);
             }
         });
-        const confirmImpulse = (handle) => {
-            const other = this.colliderMeta.get(handle);
-            if (other?.kind !== 'player') return;
-            impulses.add(handle);
-            if (!candidates.has(handle))
-                candidates.set(handle, { ...other, confirmed: episodeConfirmed(other.playerId) });
-        };
+    }
+
+    /** 공을 실제로 민 선수 충돌체를 impulses에 모은다: 접촉 힘 이벤트, 그다음 후보 접촉의 솔버 충격량. */
+    _collectBallImpulses(candidates, impulses) {
         this.queue.drainContactForceEvents((force) => {
             if (!(force.totalForceMagnitude() > 0)) return;
             const a = force.collider1(),
                 b = force.collider2();
-            if (a === this.ballColliderHandle) confirmImpulse(b);
-            else if (b === this.ballColliderHandle) confirmImpulse(a);
+            if (a === this.ballColliderHandle) this._confirmImpulse(b, candidates, impulses);
+            else if (b === this.ballColliderHandle) this._confirmImpulse(a, candidates, impulses);
         });
         const ballCollider = this.world.getCollider(this.ballColliderHandle);
         for (const [handle, other] of candidates) {
@@ -2895,12 +2910,24 @@ class TakrawPhysics {
                 if (manifold.numSolverContacts() === 0) return;
                 for (let i = 0; i < manifold.numContacts(); i++) {
                     if (manifold.contactImpulse(i) > 0) {
-                        confirmImpulse(handle);
+                        this._confirmImpulse(handle, candidates, impulses);
                         break;
                     }
                 }
             });
         }
+    }
+
+    _confirmImpulse(handle, candidates, impulses) {
+        const other = this.colliderMeta.get(handle);
+        if (other?.kind !== 'player') return;
+        impulses.add(handle);
+        if (!candidates.has(handle))
+            candidates.set(handle, { ...other, confirmed: this._episodeConfirmed(other.playerId) });
+    }
+
+    /** 충격량이 있는 접촉을 터치로 확정한다. 공중 발차기의 실제 발 접촉은 준비를 마친다(strike → follow). */
+    _confirmTouches(impulses, candidates, contactStarts, confirmedTouches) {
         for (const handle of impulses) {
             const contact = candidates.get(handle),
                 p = this.players[contact.playerId];
@@ -2924,6 +2951,10 @@ class TakrawPhysics {
             confirmedTouches.add(contact);
             if (!contactStarts.includes(contact)) contactStarts.push(contact);
         }
+    }
+
+    /** 바닥 접촉과 확정된 선수 터치를 이벤트로 낸다. 터치는 받기 반응·리시브 접촉 시각·블로킹 되받아치기를 함께 반영한다. */
+    _emitTouches(events, contactStarts, confirmedTouches, before) {
         const sent = new Set();
         for (const other of contactStarts) {
             const position = { ...this.ball.translation() };
@@ -2941,27 +2972,7 @@ class TakrawPhysics {
                     p.receive.phase = 'contact';
                 }
                 const block = this._blockReturn(p, other.part, position, before);
-                if (block) {
-                    // 발이 계속 내려가며 공을 다시 밀지 못하도록 되받아치는 방향으로 공을 접촉면 밖으로 살짝 옮긴다.
-                    const length = this._length(block),
-                        settings = this.settings.block;
-                    // 네트 쪽으로 옮길 때는 네트 앞 netGap 안으로 들어가지 않게 한다.
-                    const room =
-                        block.x * p.toward > 0
-                            ? Math.max(0, -position.x * p.toward - settings.netGap) /
-                              (block.x * p.toward)
-                            : Infinity;
-                    const gap = Math.min(settings.separation / length, room);
-                    this.ball.setLinvel(block, true);
-                    this.ball.setTranslation(
-                        {
-                            x: position.x + block.x * gap,
-                            y: position.y + block.y * gap,
-                            z: position.z + block.z * gap,
-                        },
-                        true,
-                    );
-                }
+                if (block) this._deflectBlockedBall(p, block, position);
                 events.push({
                     type: 'touch',
                     playerId: p.id,
@@ -2978,7 +2989,27 @@ class TakrawPhysics {
                 this.lastBallTouch = { playerId: p.id, team: p.team, time: this.time };
             }
         }
-        return events;
+    }
+
+    /** 블로킹 되받아치기 속도를 공에 주고, 발이 계속 내려가며 공을 다시 밀지 못하도록 공을 접촉면 밖으로 살짝 옮긴다. */
+    _deflectBlockedBall(p, block, position) {
+        const length = this._length(block),
+            settings = this.settings.block;
+        // 네트 쪽으로 옮길 때는 네트 앞 netGap 안으로 들어가지 않게 한다.
+        const room =
+            block.x * p.toward > 0
+                ? Math.max(0, -position.x * p.toward - settings.netGap) / (block.x * p.toward)
+                : Infinity;
+        const gap = Math.min(settings.separation / length, room);
+        this.ball.setLinvel(block, true);
+        this.ball.setTranslation(
+            {
+                x: position.x + block.x * gap,
+                y: position.y + block.y * gap,
+                z: position.z + block.z * gap,
+            },
+            true,
+        );
     }
 
     // 블로킹 되받아치기 속도. 조건: 공중 + 발차기 누름 + 다리/발 접촉 + 공이 우리 코트 쪽 네트 앞 zone m 안,

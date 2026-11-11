@@ -17,7 +17,7 @@ import { NetworkLink } from './runtime/network.js';
 import { MatchSession } from './runtime/match-session.js';
 import { RenderLoop } from './runtime/render-loop.js';
 import { BootStatus } from './runtime/boot-status.js';
-import { TAKRAW_RUNTIME } from './config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from './config/runtime.js';
 import { TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
@@ -308,11 +308,12 @@ async function bootTakraw() {
             onStart(nextMode) {
                 metrics.track('menu', nextMode, 'click');
                 match.clearCampaign();
-                if (nextMode === 'watch') {
+                const policy = TAKRAW_MODE_POLICY[nextMode];
+                if (policy.watchSeed) {
                     match.startWatch(match.watchSeed);
                     return;
                 }
-                if (nextMode === 'online') {
+                if (policy.room) {
                     net.set({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
                 } else match.startLocal(nextMode);
             },

@@ -1,5 +1,7 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { takrawHumanPlayerIds, takrawSlotOf, takrawTeamOf } from '../simulation/roster.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
+import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 import { LOCALE } from '../i18n/locale.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
@@ -694,7 +696,7 @@ class TakrawView {
 
     updateReceiveGuides(viewData, context) {
         const s = this.config.visual.receiveGuide;
-        const local = (context.mode ?? viewData.state?.mode) === 'local';
+        const local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput);
         for (let team = 0; team < 2; team++) {
             const marker = this.receiveGuides[team],
                 guide = viewData.receiveGuides?.[team];
@@ -827,7 +829,7 @@ class TakrawView {
 
     updateAttackGuides(viewData, context) {
         const s = this.config.visual.attackGuide;
-        const local = (context.mode ?? viewData.state?.mode) === 'local';
+        const local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput);
         for (let team = 0; team < 2; team++) {
             const marker = this.attackGuides[team],
                 guide = viewData.attackGuides?.[team];
@@ -1157,14 +1159,15 @@ class TakrawView {
         const s = this.config.visual.camera,
             rig = this.cameraRig;
         const mode = context.mode ?? viewData.state?.mode;
-        const team = mode === 'local' ? 0 : context.team === 1 ? 1 : 0;
+        const pair = Boolean(TAKRAW_MODES[mode]?.secondaryInput);
+        const team = pair ? 0 : context.team === 1 ? 1 : 0;
         this.setViewTeam(team);
         const toward = team === 0 ? 1 : -1;
         const selected = viewData.state?.selected || takrawHumanPlayerIds();
         const player = this.meshes.get(`p${selected[team]}:pelvis`);
         if (!player) return;
         const ball = this.meshes.get('ball');
-        const localPair = mode === 'local' ? this.meshes.get(`p${selected[1]}:pelvis`) : null;
+        const localPair = pair ? this.meshes.get(`p${selected[1]}:pelvis`) : null;
         if (localPair) {
             rig.target.copy(player.position).add(localPair.position).multiplyScalar(0.5);
         } else {
@@ -1221,7 +1224,7 @@ class TakrawView {
             const vertical = (Math.abs(projectedHeight) + radius) / (tangent * verticalMargin);
             distance = Math.max(distance, depthOffset + Math.max(horizontal, vertical));
         };
-        for (const id of mode === 'local' ? selected : [selected[team]]) {
+        for (const id of pair ? selected : [selected[team]]) {
             const body = this.meshes.get(`p${id}:pelvis`);
             if (body) {
                 rig.target.set(body.position.x, 0.04, body.position.z);
@@ -1302,7 +1305,9 @@ class TakrawView {
                 presentationFrame,
                 nowMs,
                 apply,
-                context.mode === 'match' && !context.replay && !this.reducedMotion(),
+                Boolean(TAKRAW_MODE_POLICY[context.mode]?.scoreMotion) &&
+                    !context.replay &&
+                    !this.reducedMotion(),
             );
         else for (const entity of viewData.entities) apply(entity, entity.id);
         if (this.width !== this.canvas.clientWidth || this.height !== this.canvas.clientHeight)
@@ -1330,7 +1335,8 @@ class TakrawView {
             marker.ring.position.x = body.position.x;
             marker.ring.position.z = body.position.z;
             const human =
-                viewData.state?.mode === 'local' || takrawTeamOf(i) === this.cameraRig.team;
+                TAKRAW_MODES[viewData.state?.mode]?.secondaryInput ||
+                takrawTeamOf(i) === this.cameraRig.team;
             marker.ring.visible = human && selected[takrawTeamOf(i)] === i;
             marker.arrow.visible = marker.ring.visible;
             if (head)

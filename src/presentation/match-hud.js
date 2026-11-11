@@ -1,5 +1,6 @@
 import { TAKRAW_SCHOOLS, takrawSchool } from '../config/schools.js';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { TAKRAW_CONFIG, TAKRAW_TIMING_GRADES } from '../config/game.js';
 import { takrawMatchStatus } from './match-status.js';
 import { say, createTextSetter } from './markup.js';
@@ -59,14 +60,18 @@ class TakrawMatchHud {
 
     /** 경기를 열 때 모드별 HUD 칸을 고르고 팀 이름 칸을 모드 기본값으로 둔다. */
     show(mode) {
+        const policy = TAKRAW_MODE_POLICY[mode],
+            flags = TAKRAW_MODES[mode];
         this.node.hidden = false;
-        document.getElementById('watch-form').hidden = mode !== 'watch';
-        document.getElementById('training-actions').hidden = mode !== 'training';
-        document.getElementById('local-guide').hidden = mode !== 'local';
+        document.getElementById('watch-form').hidden = !policy?.watchSeed;
+        document.getElementById('training-actions').hidden = !flags?.drill;
+        document.getElementById('local-guide').hidden = !flags?.secondaryInput;
         this.endActions.hidden = true;
-        document.querySelector('.scoreboard').classList.toggle('is-training', mode === 'training');
-        this.text('team-label-0', mode === 'local' ? UI.local1P() : UI.us()); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
-        this.text('team-label-1', mode === 'local' ? UI.local2P() : UI.them());
+        document
+            .querySelector('.scoreboard')
+            .classList.toggle('is-training', Boolean(flags?.drill));
+        this.text('team-label-0', flags?.secondaryInput ? UI.local1P() : UI.us()); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
+        this.text('team-label-1', flags?.secondaryInput ? UI.local2P() : UI.them());
         this.text(
             'match-type',
             {
@@ -149,13 +154,15 @@ class TakrawMatchHud {
     }
 
     update(hud, mode) {
+        const policy = TAKRAW_MODE_POLICY[mode],
+            flags = TAKRAW_MODES[mode];
         this.text('score-0', hud.score?.[0] ?? 0);
         this.text('score-1', hud.score?.[1] ?? 0);
         document.getElementById('set-number').hidden =
-            TAKRAW_CONFIG.rules.sets === 1 && mode !== 'training'; // 훈련은 이 칸을 안내 문구로 쓴다.
+            TAKRAW_CONFIG.rules.sets === 1 && !flags?.drill; // 훈련은 이 칸을 안내 문구로 쓴다.
         this.text(
             'set-number',
-            mode === 'training' ? UI.trainingSetLabel() : UI.setNumber({ set: hud.set ?? 1 }),
+            flags?.drill ? UI.trainingSetLabel() : UI.setNumber({ set: hud.set ?? 1 }),
         );
         for (let team = 0; team < 2; team++) {
             const count = hud.sets?.[team] ?? 0,
@@ -172,7 +179,7 @@ class TakrawMatchHud {
         };
         this.text(
             'rally-status',
-            mode === 'training' ? UI.modeTraining() : (phases[hud.phase] || UI.phaseIdle)(),
+            flags?.drill ? UI.modeTraining() : (phases[hud.phase] || UI.phaseIdle)(),
         );
         const touch = document.querySelector('#touch-indicator b'),
             touches = String(hud.touches ?? 0);
@@ -193,7 +200,7 @@ class TakrawMatchHud {
         callout.hidden = !notice;
         if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
         this.text('selected-name', hud.selectedName || UI.attacker());
-        if (hud.teamNames && mode !== 'local') {
+        if (hud.teamNames && !flags?.secondaryInput) {
             this.text('team-label-0', hud.teamNames[0] ?? UI.us());
             this.text('team-label-1', hud.teamNames[1] ?? UI.them());
         }
@@ -209,7 +216,7 @@ class TakrawMatchHud {
             : status.deuce
               ? UI.deuce({ a: hud.score[0], b: hud.score[1] })
               : '';
-        banner.hidden = mode === 'training' || !banner.textContent;
+        banner.hidden = !(flags?.scoring ?? true) || !banner.textContent;
         document.getElementById('jump-light').classList.toggle('held', !!hud.jumpHeld);
         document.getElementById('kick-light').classList.toggle('held', !!hud.kickHeld);
         const meter = document.getElementById('toss-meter');
@@ -260,15 +267,15 @@ class TakrawMatchHud {
         }
         this.text('match-reward', hud.matchReward?.message || '');
         document.getElementById('reward-retry').hidden = hud.matchReward?.status !== 'error';
-        const guest = mode === 'online' && hud.localTeam !== 0;
+        const guest = policy?.restart === 'hostCommand' && hud.localTeam !== 0;
         document.getElementById('rematch-button').disabled = guest;
         document.getElementById('rematch-hint').hidden = !(ended && guest);
         if (ended)
             this.text(
                 'match-result',
-                mode === 'local'
+                flags?.secondaryInput
                     ? UI.localWin({ side: hud.matchWinner === 0 ? '1P' : '2P' })
-                    : ['online', 'watch'].includes(mode)
+                    : policy?.namedTeams
                       ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() })
                       : hud.matchWinner === 0
                         ? UI.youWin()
@@ -278,7 +285,8 @@ class TakrawMatchHud {
 
     /** 온라인·관전 점수판: 팀 이름 옆에 그 학교 유니폼 색 점을 찍고, 내 쪽에는 '나' 표시(.me-badge)를 켠다. */
     updateTeamColors(hud, mode) {
-        const colored = ['online', 'watch'].includes(mode) && Array.isArray(hud.teamColors);
+        const policy = TAKRAW_MODE_POLICY[mode];
+        const colored = Boolean(policy?.namedTeams) && Array.isArray(hud.teamColors);
         document.querySelectorAll('.score-team').forEach((node, team) => {
             const color = colored ? `#${hud.teamColors[team].toString(16).padStart(6, '0')}` : '';
             if (node.dataset.dot !== color) {
@@ -286,7 +294,7 @@ class TakrawMatchHud {
                 if (color) node.style.setProperty('--team-dot', color);
                 else node.style.removeProperty('--team-dot');
             }
-            const me = mode === 'online' && hud.localTeam === team ? 'true' : '';
+            const me = policy?.room && hud.localTeam === team ? 'true' : '';
             if ((node.dataset.me || '') !== me) {
                 if (me) node.dataset.me = me;
                 else delete node.dataset.me;

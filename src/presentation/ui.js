@@ -1,4 +1,5 @@
 import { TAKRAW_VERSION } from '../config/game.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { createNavigation } from '@bloom-gamekit/navigation';
 import { takrawRoute } from './routes.js';
@@ -530,7 +531,7 @@ class TakrawUI {
         if (!hud) return;
         this.hud.update(hud, this.mode);
         this.touch.update(hud, this.showcase);
-        if (this.mode === 'training' && hud.training) this.training.update(hud.training);
+        if (TAKRAW_MODES[this.mode]?.drill && hud.training) this.training.update(hud.training);
     }
 
     dispose() {

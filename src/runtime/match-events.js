@@ -1,6 +1,7 @@
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { TAKRAW_CONFIG } from '../config/game.js';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { impactStyleKey } from '../presentation/impact.js';
 import { winningSpikeScore } from '../presentation/score-motion.js';
 import { takrawMatchStatus } from '../presentation/match-status.js';
@@ -66,7 +67,7 @@ class MatchEventJournal {
         };
         const showBadge = (payload) => {
             const { mode, team } = perspective();
-            return payload.timing && (mode === 'local' || payload.team === team)
+            return payload.timing && (TAKRAW_MODES[mode]?.secondaryInput || payload.team === team)
                 ? ui.showTiming(payload.timing)
                 : null;
         };
@@ -123,7 +124,7 @@ class MatchEventJournal {
                         view.startCheer(performance.now());
                         audio.duck('point');
                         if (
-                            perspective().mode === 'match' &&
+                            TAKRAW_MODE_POLICY[perspective().mode]?.scoreMotion &&
                             event.payload.winningSpike &&
                             !view.reducedMotion()
                         )

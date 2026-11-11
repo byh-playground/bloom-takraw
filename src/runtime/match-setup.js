@@ -6,7 +6,8 @@ import {
     takrawSchool,
     takrawWatchSchools,
 } from '../config/schools.js';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { LOCALE } from '../i18n/locale.js';
 import { roleName } from '../i18n/messages/match.js';
 
@@ -33,21 +34,21 @@ function takrawMatchSetup({
     debugSeed,
     randomSeed,
 }) {
-    const watching = mode === 'watch';
-    const homeSchool =
-        mode === 'online' || watching
-            ? TAKRAW_SCHOOLS[0]
-            : takrawSchool(home()) || TAKRAW_SCHOOLS[0];
+    const policy = TAKRAW_MODE_POLICY[mode];
+    const watching = policy.watchSeed;
+    const homeSchool = policy.ownSchool
+        ? takrawSchool(home()) || TAKRAW_SCHOOLS[0]
+        : TAKRAW_SCHOOLS[0];
     const opponents = takrawOpponents(homeSchool.id);
     const opponent =
         opponents.find((school) => school.id === campaignSchoolId) ||
         opponents[opponents.length - 1];
-    const schoolAi = mode === 'match' ? opponent.ai : null;
+    const schoolAi = policy.opponentSchool ? opponent.ai : null;
     return {
         schools: watching
             ? takrawWatchSchools(watchSeed)
-            : [homeSchool, mode === 'match' ? opponent : opponents[0]],
-        home: ['match', 'training'].includes(mode) ? localizedTeam(homeTeam()) : null,
+            : [homeSchool, policy.opponentSchool ? opponent : opponents[0]],
+        home: policy.clubTeam ? localizedTeam(homeTeam()) : null,
         away: schoolAi
             ? {
                   name: LOCALE.text(opponent.name),
@@ -62,9 +63,9 @@ function takrawMatchSetup({
         temperaments: [null, schoolAi?.temperament || null],
         seed: watching
             ? watchSeed
-            : mode === 'online'
+            : policy.room
               ? hashBytes(new TextEncoder().encode(roomCode))
-              : mode === 'training'
+              : TAKRAW_MODES[mode].repeatable
                 ? undefined
                 : mode === 'match' && debugSeed !== null
                   ? debugSeed

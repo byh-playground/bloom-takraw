@@ -1,7 +1,8 @@
 import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { createRoomSession } from '@bloom-gamekit/rollback';
 import { TAKRAW_VERSION } from '../config/game.js';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from '../simulation/identity.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
 import { PresentationFeed } from './presentation-feed.js';
@@ -140,14 +141,14 @@ class MatchSession {
 
     canStart(nextMode) {
         if (!this.isReady() || this.isDisposed() || this.failed) return false;
-        if (nextMode === 'match' || nextMode === 'training')
-            return this.getClub()?.status === 'ready';
-        return nextMode === 'local' || nextMode === 'online' || nextMode === 'watch';
+        const policy = TAKRAW_MODE_POLICY[nextMode];
+        if (!policy) return false;
+        return policy.clubTeam ? this.getClub()?.status === 'ready' : true;
     }
 
     localTeam() {
         const session = this.session;
-        if (!session || this.mode !== 'online') return 0;
+        if (!session || !TAKRAW_MODE_POLICY[this.mode]?.room) return 0;
         return this.game.teamById?.[session.localPlayerId] ?? 0;
     }
 
@@ -159,7 +160,7 @@ class MatchSession {
             !this.paused &&
             !this.highlight.active &&
             !session.failure &&
-            (this.mode !== 'online' || session.players.length === 2),
+            (!TAKRAW_MODES[this.mode]?.waitsForPeers || session.players.length === 2),
         );
     }
 
@@ -213,14 +214,14 @@ class MatchSession {
             .map((code) => ({ payload: Uint8Array.of(code) }));
         const session = this.session;
         if (
-            this.mode === 'online' &&
+            TAKRAW_MODE_POLICY[this.mode]?.announcesTeam &&
             !this.identitySent &&
             session?.ready &&
             session.players.length === 2
         ) {
             // 두 사람이 모이면 내 팀 이름·학교를 한 번 알린다(표시 전용)
             this.identitySent = true;
-            this.metrics.track('match', 'online', 'start');
+            this.metrics.track('match', this.mode, 'start');
             const mine = this.getClub().getView();
             commands.push({
                 payload: takrawEncodeIdentity(
@@ -232,7 +233,7 @@ class MatchSession {
         // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2), 2P 점프(11), 2P 발차기(12)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
         const { input: bytes, edges } = this.input.sample({
             allowed: this.controlsAllowed(),
-            local2p: this.mode === 'local',
+            local2p: Boolean(TAKRAW_MODES[this.mode]?.secondaryInput),
             // Both local players share the same screen; online peers each see their
             // own team from behind. Only world-space input crosses the network.
             movement: (right, back) => this.view.screenMovement(right, back, this.localTeam()),
@@ -253,7 +254,7 @@ class MatchSession {
     }
 
     maintainNetwork(now = performance.now(), force = false) {
-        if (this.mode !== 'online' || !this.session) return;
+        if (!TAKRAW_MODE_POLICY[this.mode]?.room || !this.session) return;
         this.net.maintain(this.session, now, force);
     }
 
@@ -323,7 +324,8 @@ class MatchSession {
         feed.publish(latestView, false, now);
         this.events.confirm(this.session);
         this.events.update(now);
-        if (this.mode === 'online') view.setSchools(takrawIdentitySchools(latestView.teamSchools));
+        if (TAKRAW_MODE_POLICY[this.mode]?.announcesTeam)
+            view.setSchools(takrawIdentitySchools(latestView.teamSchools));
         view.render(feed.frame(now), latestView, now, { team: this.localTeam(), mode: this.mode });
         this.stats.frames += 1;
         if (this.hud.due(now, this.mode) && this.mode) this.ui.update(this.hudModel());
@@ -363,7 +365,7 @@ class MatchSession {
         this.pump?.stop();
         this.loop?.stop();
         this.releaseControls();
-        if (this.mode === 'online') {
+        if (TAKRAW_MODE_POLICY[this.mode]?.room) {
             this.net.set({ state: 'error', message: RUNTIME.netStopped() });
         }
         this.ui.showFatal(RUNTIME.runFailed());
@@ -489,9 +491,11 @@ class MatchSession {
     open(nextMode, capability, token) {
         const { game, view, config } = this;
         this.mode = nextMode;
+        const policy = TAKRAW_MODE_POLICY[nextMode],
+            flags = TAKRAW_MODES[nextMode];
         const recorded = this.record.begin(nextMode);
-        // 온라인 경기 시작은 두 사람이 모였을 때(identitySent) 남긴다.
-        if (nextMode !== 'online') this.metrics.track('match', nextMode, 'start');
+        // 상대를 기다리는 경기(온라인)의 시작은 두 사람이 모였을 때(identitySent) 남긴다.
+        if (!flags.waitsForPeers) this.metrics.track('match', nextMode, 'start');
         this.watch.point = { tick: null, restarting: false };
         const setup = takrawMatchSetup({
             mode: nextMode,
@@ -506,7 +510,7 @@ class MatchSession {
         view.setSchools(setup.schools);
         this.paused = false;
         this.audio?.setBackground(TAKRAW_RUNTIME.bgm.levelRampMs);
-        if (nextMode === 'match') this.rewards.begin({ schoolId: this.campaignSchoolId });
+        if (policy.rewards) this.rewards.begin({ schoolId: this.campaignSchoolId });
         else this.rewards.clear();
         game.setTeams(setup.home, setup.away);
         game.setTemperaments(setup.temperaments);
@@ -514,7 +518,7 @@ class MatchSession {
         this.refreshView();
         this.resetPresentation();
         this.events.replace();
-        const online = nextMode === 'online';
+        const online = policy.room;
         const adapter = this.sessionAdapter(online);
         const profile = takrawSessionProfile({ online, tickRate: config.simulation.tickRate });
         this.identitySent = false;
@@ -549,9 +553,8 @@ class MatchSession {
                 Boolean(
                     this.session?.ready &&
                     !this.session.failure &&
-                    (online
-                        ? this.session.players.length === 2
-                        : !this.paused && !this.highlight.active),
+                    (!flags.waitsForPeers || this.session.players.length === 2) &&
+                    (!policy.holdsSimulation || (!this.paused && !this.highlight.active)),
                 ),
             onAdvance: () => {
                 this.feed.publish(this.latestView);
@@ -574,7 +577,10 @@ class MatchSession {
             getDeadlineMs: () => {
                 // 입장 대기는 simulation debt를 따라잡는 시간이 아니다. 방 정비만 60Hz로 유지한다.
                 const current = this.session;
-                if (current && (!current.ready || (online && current.players.length < 2))) {
+                if (
+                    current &&
+                    (!current.ready || (flags.waitsForPeers && current.players.length < 2))
+                ) {
                     return maintenanceDeadline;
                 }
                 return this.loop?.nextDeadlineMs ?? null;
@@ -605,7 +611,12 @@ class MatchSession {
     /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */
     observeWatchLoop(token) {
         const point = this.watch.point;
-        if (this.mode !== 'watch' || !this.watch.repeat || point.restarting) return;
+        if (
+            !TAKRAW_MODE_POLICY[this.mode]?.loopsFirstPoint ||
+            !this.watch.repeat ||
+            point.restarting
+        )
+            return;
         const { score, tick } = this.game.state;
         if (score[0] + score[1] < 1) return;
         point.tick ??= tick;
@@ -616,7 +627,8 @@ class MatchSession {
             return;
         point.restarting = true;
         setTimeout(() => {
-            if (token === this.run && this.mode === 'watch') this.startWatch(this.watch.seed);
+            if (token === this.run && TAKRAW_MODE_POLICY[this.mode]?.loopsFirstPoint)
+                this.startWatch(this.watch.seed);
         }, 0);
     }
 
@@ -716,7 +728,7 @@ class MatchSession {
 
     /** 훈련 명령(과제·속도) 하나를 다음 입력에 싣는다. 조작할 수 없을 때는 무시한다. */
     trainingCommand(command) {
-        if (this.mode !== 'training' || !this.controlsAllowed()) return;
+        if (!TAKRAW_MODES[this.mode]?.drill || !this.controlsAllowed()) return;
         this.releaseControls();
         this.pendingCommands.push(command);
         this.observeSoon();
@@ -727,14 +739,15 @@ class MatchSession {
         const mode = this.mode;
         if (!mode) return;
         this.metrics.track('match', mode, 'restart');
-        if (mode === 'training') {
+        const restart = TAKRAW_MODE_POLICY[mode].restart;
+        if (restart === 'command') {
             this.releaseControls();
             this.pendingCommands.push(4);
             this.observeSoon();
             this.ui.canvas.focus({ preventScroll: true });
             return;
         }
-        if (mode === 'online') {
+        if (restart === 'hostCommand') {
             const session = this.session;
             if (!session?.ready || session.players.length !== 2) return;
             if (this.localTeam() !== 0) return;
@@ -775,7 +788,7 @@ class MatchSession {
     setPaused(value) {
         this.paused = Boolean(value);
         this.releaseControls();
-        if (this.mode !== 'online') {
+        if (TAKRAW_MODE_POLICY[this.mode]?.holdsSimulation ?? true) {
             this.loop?.resetTiming();
             if (this.paused) this.pump?.stop();
             else {

@@ -5,7 +5,8 @@ import { TAKRAW_HUMAN_ROLE, takrawHumanPlayerId } from '../simulation/roster.js'
 import { takrawTrainingCoach } from '../presentation/training-coach.js';
 import { LOCALE } from '../i18n/locale.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { roleName } from '../i18n/messages/match.js';
 
 // physics.js가 내는 선수 상태(standing·moving·airborne·kicking·overhead·falling·recovering)의 문구. moving은 접지 여부로 정한다.
@@ -36,6 +37,7 @@ function takrawHudModel({
 }) {
     const selectedId = view.state.selected?.[team] ?? takrawHumanPlayerId(team);
     const player = view.players.find((candidate) => candidate.id === selectedId);
+    const policy = TAKRAW_MODE_POLICY[mode];
     const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
         attacker = roleName(TAKRAW_HUMAN_ROLE, LOCALE.locale);
     return {
@@ -43,16 +45,14 @@ function takrawHudModel({
         // 시뮬레이션은 연습 사실만 내고, 단계·문구·진행 막대는 coach가 표시 설정으로 만든다.
         training: takrawTrainingCoach(view.training, { maxLead }),
         teamPlay: view.teamPlay?.[team] || null,
-        teamNames:
-            mode === 'watch'
-                ? takrawWatchSchools(watchSeed).map((school) => LOCALE.text(school.name))
-                : view.teamNames,
-        teamColors:
-            mode === 'online'
-                ? takrawIdentitySchools(view.teamSchools).map((school) => school.uniform.primary)
-                : mode === 'watch'
-                  ? takrawWatchSchools(watchSeed).map((school) => school.uniform.primary)
-                  : null,
+        teamNames: policy?.watchSeed
+            ? takrawWatchSchools(watchSeed).map((school) => LOCALE.text(school.name))
+            : view.teamNames,
+        teamColors: policy?.announcesTeam
+            ? takrawIdentitySchools(view.teamSchools).map((school) => school.uniform.primary)
+            : policy?.watchSeed
+              ? takrawWatchSchools(watchSeed).map((school) => school.uniform.primary)
+              : null,
         matchReward,
         campaignSchoolId,
         localTeam: team,
@@ -71,8 +71,8 @@ function takrawHudModel({
         jumpHeld: Boolean(player?.jumpHeld),
         tossReady: Boolean(player?.tossReady),
         tossCharge: Number(player?.tossCharge) || 0,
-        connection: mode === 'online' ? connection : '',
-        watch: mode === 'watch' ? { seed: watchSeed, tick } : null,
+        connection: policy?.room ? connection : '',
+        watch: policy?.watchSeed ? { seed: watchSeed, tick } : null,
     };
 }
 
@@ -91,10 +91,9 @@ class HudClock {
 
     /** 그릴 때면 시각을 기록하고 true. */
     due(now, mode) {
-        const interval =
-            mode === 'training'
-                ? Math.min(TAKRAW_RUNTIME.hud.interval, 1000 / 30)
-                : TAKRAW_RUNTIME.hud.interval;
+        const interval = TAKRAW_MODES[mode]?.drill
+            ? Math.min(TAKRAW_RUNTIME.hud.interval, 1000 / 30)
+            : TAKRAW_RUNTIME.hud.interval;
         if (now - this.at < interval) return false;
         this.at = now;
         return true;

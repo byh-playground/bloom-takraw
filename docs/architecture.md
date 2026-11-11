@@ -173,7 +173,41 @@
 | `aiTeams`        | [true, true]  | [true, true] | [true, true] | [true, true]   | [true, false] | decideAI의 팀 AI 정지                                                                                                                                                                                                                |
 
 - **연습 안내의 표현**은 presentation이 소유합니다. game.js의 `getTrainingFacts`(= `getView().training`)는 판단 재료(점프·발차기까지 남은 시간, 공중 계획 단계, 안내 플래그, 접촉 요약, 레슨 속성, 결과)만 내고, 단계·문구·색·진행 막대는 `presentation/training-coach.js`의 순수 함수 `takrawTrainingCoach(facts, { maxLead })`가 만듭니다. runtime의 HUD 조립(`runtime/hud-model.js`의 `takrawHudModel`)이 coach를 부르고 `presentation/training-panel.js`의 `update`가 그 결과를 그립니다. 공격 안내의 예측 범위(`getAttackGuides`)는 연습 오차 기록에 들어가는 시뮬레이션 판단이라 아직 `config.visual.attackGuide.maxLead`를 읽습니다.
-- runtime·ui의 모드 분기(화면 전환·HUD·지표·리플레이 대상)는 이 프로필 대상이 아닙니다.
+- runtime·presentation도 모드 이름을 비교하지 않습니다(v0.17.2~). 시뮬레이션 규칙과 같은 지식은 위 프로필을 읽고, runtime·화면에만 있는 뜻은 아래 「모드 정책」 표가 소유합니다.
+
+### 모드 정책(runtime·presentation)
+
+`config/runtime.js`의 `TAKRAW_MODE_POLICY`입니다. 예전 `TAKRAW_RUNTIME.highlight.modes`(리플레이 대상)·`metrics.modes`(경기 기록 대상) 목록은 `replay`·`recorded` 플래그로 옮겼습니다. 모드가 없는 처음 화면은 표에 없으므로 `TAKRAW_MODE_POLICY[mode]?.플래그`로 읽습니다. 플래그 하나는 한 가지 뜻이고, 맡는 모드가 같아도 뜻이 다르면 따로 둡니다(예: `opponentSchool`·`rewards`·`scoreMotion`은 모두 `match`만이지만 셋은 다른 판단입니다).
+
+| 플래그            | match    | local    | online        | watch    | training  | 읽는 곳                                                                                                                                                                                                                       |
+| ----------------- | -------- | -------- | ------------- | -------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clubTeam`        | true     | false    | false         | false    | true      | `MatchSession.canStart`(팀 저장 준비), `takrawMatchSetup`의 홈 팀 편성                                                                                                                                                        |
+| `ownSchool`       | true     | true     | false         | false    | true      | `takrawMatchSetup`의 내 학교(아니면 기본 학교)                                                                                                                                                                                |
+| `opponentSchool`  | true     | false    | false         | false    | false     | `takrawMatchSetup`의 학교 AI·상대 학교, `MatchRecord`의 `schoolId`                                                                                                                                                            |
+| `watchSeed`       | false    | false    | false         | true     | false     | 시작 버튼(`runtime.js` `onStart`), `takrawMatchSetup`의 학교·시드, HUD 팀 이름·색과 `watch` 칸, 점수판 시드 입력칸                                                                                                            |
+| `loopsFirstPoint` | false    | false    | false         | true     | false     | `MatchSession.observeWatchLoop`                                                                                                                                                                                               |
+| `room`            | false    | false    | true          | false    | false     | `localTeam`, `maintainNetwork`, 실행 오류 때 연결 카드, `open`의 세션 종류·어댑터·프로필·연결 카드, `takrawMatchSetup`의 방 코드 시드, HUD `connection`, `MatchRecord`의 `matchId`·`localTeam`, 시작 버튼, 점수판 「나」 표시 |
+| `announcesTeam`   | false    | false    | true          | false    | false     | `getInput`의 팀 알림, `render`의 학교 칠하기, HUD 팀 색(알려 온 학교)                                                                                                                                                         |
+| `namedTeams`      | false    | false    | true          | true     | false     | 점수판 팀 색 점, 경기 끝 「○○ 승리」 문구                                                                                                                                                                                     |
+| `holdsSimulation` | true     | true     | false         | true     | true      | `setPaused`, `open`의 `canAdvance`(일시 정지·리플레이 동안 멈춤), 일시 정지 창 제목·다시 시작 버튼                                                                                                                            |
+| `restart`         | 'reopen' | 'reopen' | 'hostCommand' | 'reopen' | 'command' | `MatchSession.restart`, 경기 끝 다시 하기 버튼(방장만)                                                                                                                                                                        |
+| `rewards`         | true     | false    | false         | false    | false     | `open`의 `rewards.begin`, `MatchRewards.observe`                                                                                                                                                                              |
+| `replay`          | true     | true     | false         | false    | false     | `HighlightController.anchorIfNeeded`·`tryBegin`                                                                                                                                                                               |
+| `recorded`        | true     | true     | true          | false    | false     | `MatchRecord.begin`                                                                                                                                                                                                           |
+| `scoreMotion`     | true     | false    | false         | false    | false     | 득점 이벤트의 점수 모션 시작(`match-events.js`), `view.js`의 점수 모션 적용                                                                                                                                                   |
+
+runtime·presentation이 읽는 시뮬레이션 프로필 플래그는 다음과 같습니다. 같은 지식이라 새 정책을 만들지 않았습니다.
+
+| 프로필 플래그    | 읽는 곳(runtime·presentation)                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `drill`          | `trainingCommand`, `HudClock`(최소 30Hz), 연습 패널 갱신(`ui.js`), 점수판 연습 칸·세트 칸·랠리 상태(`match-hud.js`)                  |
+| `secondaryInput` | 2P 입력 읽기(`local2p`), 등급 배지(두 팀), 점수판 1P/2P 이름·안내·결과, 카메라(두 선수 함께 담기), 받기·공격 안내와 선택 고리(두 팀) |
+| `waitsForPeers`  | `controlsAllowed`, `open`의 `canAdvance`·pump 마감(두 사람이 모일 때까지), 시작 지표(두 사람이 모였을 때 남긴다)                     |
+| `repeatable`     | `takrawMatchSetup`의 시드(고정 시드라 넘기지 않는다)                                                                                 |
+| `scoring`        | 점수판 매치 포인트·듀스 띠                                                                                                           |
+| `humanInput`     | 터치 버튼(사람 입력이 없는 모드는 소개영상에서만 보인다)                                                                             |
+
+모드 이름 비교로 남긴 곳은 정체 확인 두 군데입니다: `openDebugMatch`가 경기가 실제로 `match`로 열렸는지 돌려주는 값, `takrawMatchSetup`의 확인용 시드(`debugSeed`, `openDebugMatch`만 넣는다). 점수판의 경기 종류 이름표(모드 → 문구)는 모드별 데이터라 그대로입니다.
 
 ## 접촉 타이밍 효과의 경계
 

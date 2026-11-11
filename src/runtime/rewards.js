@@ -1,5 +1,6 @@
 import { TAKRAW_CLUB_RULES } from '../club/club.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
+import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 
 function matchId() {
     const bytes = new Uint8Array(16);
@@ -47,7 +48,7 @@ class MatchRewards {
         const match = this.match;
         if (
             this.disposed ||
-            mode !== 'match' ||
+            !TAKRAW_MODE_POLICY[mode]?.rewards ||
             !match ||
             match.finished ||
             state?.phase !== 'finished' ||

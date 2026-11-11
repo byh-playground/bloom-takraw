@@ -1,4 +1,5 @@
 import { UI } from '../i18n/messages/ui.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 
 /**
  * 모바일 터치 조작(이동 패드·점프·발차기 버튼). 눌린 포인터는 이 객체만 가진다.
@@ -121,7 +122,11 @@ class TakrawTouchControls {
 
     /** 경기 중 터치 기기에서만 보인다. 관전은 소개영상 화면에서만 보인다(영상 속 눌림 표시). */
     sync(inGame, mode, showcase) {
-        this.node.hidden = !inGame || !this.coarse.matches || (mode === 'watch' && !showcase);
+        const flags = TAKRAW_MODES[mode];
+        this.node.hidden =
+            !inGame ||
+            !this.coarse.matches ||
+            (flags && !flags.humanInput.includes(true) && !showcase);
     }
 
     /** HUD 갱신: 소개영상의 눌림 표시와 토스 중 발차기 버튼 이름. */

@@ -14,6 +14,8 @@ import {
     takrawTrainingLesson,
 } from '../simulation/training.js';
 import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
+import { createNavigation } from '@bloom-gamekit/navigation';
+import { takrawRoute } from './routes.js';
 import { LOCALE, LOCALE_NAMES } from '../i18n/locale.js';
 import { UI, clubText } from '../i18n/messages/ui.js';
 import { matchText, touchControlText } from '../i18n/messages/match.js';
@@ -28,7 +30,7 @@ function escape(value) {
     );
 }
 
-/** 처음 화면의 안쪽 단계와 그 부모 주소. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
+/** 처음 화면의 안쪽 단계와 그 부모 화면. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
 const HOME_PARENT = { start: '', multi: 'start' };
 
 /** 뽑기 연출에서 카드팩이 흔들리는 시간(ms). 건너뛰기·움직임 줄이기는 이 구간을 건너뛴다. */
@@ -118,9 +120,15 @@ class TakrawUI {
         this.text('version-label', TAKRAW_VERSION);
         for (const id of ['sets-0', 'sets-1'])
             document.getElementById(id).hidden = TAKRAW_CONFIG.rules.sets === 1;
+        // 주소와 브라우저 이력은 gamekit navigation이 소유한다. 이력 복원(뒤로·앞으로·주소 입력)에만 화면을 맞추고,
+        // 내부 이동은 navigate가 주소를 바꾼 뒤 직접 화면을 맞춘다.
+        this.routes = createNavigation({ normalize: takrawRoute });
+        this.routes.subscribe((route, { source }) => {
+            if (source === 'history') this.applyRoute(route);
+        });
         this.bind();
         this.syncInputMode();
-        this.applyRoute();
+        this.applyRoute(this.routes.snapshot());
     }
 
     listen(node, type, listener, options = {}) {
@@ -234,7 +242,6 @@ class TakrawUI {
             event.preventDefault();
             this.quit();
         });
-        this.listen(window, 'hashchange', () => this.applyRoute());
         this.listen(window, 'blur', () => this.releaseTouch());
         this.listen(window, 'resize', () => this.releaseTouch());
         this.listen(this.coarse, 'change', () => this.syncInputMode());
@@ -471,7 +478,7 @@ class TakrawUI {
         this.nodes['connection-indicator'].hidden = true;
         this.nodes['watch-form'].hidden = true;
         // 소개영상 호스트는 부팅 직후 이 주소를 읽어 소개를 연다. 호스트가 붙기 전에 지우지 않는다.
-        if (this.currentRoute() !== 'showcase')
+        if (this.routes.snapshot().screen !== 'showcase')
             this.setRoute(initialDialog || this.homeRoute(), true);
         if (initialDialog) this.openDialog(initialDialog);
     }
@@ -508,60 +515,55 @@ class TakrawUI {
         this.canvas.focus({ preventScroll: true });
     }
 
-    setRoute(route, replace = false) {
-        const next = `#/${route}`;
-        if (window.location.hash !== next)
-            window.history[replace ? 'replaceState' : 'pushState'](null, '', next);
+    /** 화면 주소를 바꾼다. 화면 이동은 이력 추가(push), 교정은 replace. 처음 화면('' 또는 'main')은 해시 없는 주소다. */
+    setRoute(screen, replace = false, item = null) {
+        this.routes[replace ? 'replace' : 'navigate']({ screen: screen || 'main', item });
     }
 
-    navigate(route) {
-        this.setRoute(route);
-        this.applyRoute();
+    navigate(screen, item = null) {
+        this.setRoute(screen, false, item);
+        this.applyRoute(this.routes.snapshot());
     }
 
-    currentRoute() {
-        return window.location.hash.replace(/^#\/?/, '').split('?')[0];
-    }
-
-    applyRoute() {
-        const route = this.currentRoute();
-        if (route === 'showcase') return; // 소개영상 호스트가 이 주소를 소유한다.
-        if (HOME_PARENT[route] !== undefined) {
+    /** 주소({ screen, item }, routes.js가 정규화)에 화면을 맞춘다. 이력 복원과 내부 이동이 함께 쓴다. */
+    applyRoute(route) {
+        const { screen, item } = route;
+        if (screen === 'showcase') return; // 소개영상 호스트가 이 주소를 소유한다.
+        if (HOME_PARENT[screen] !== undefined) {
             if (this.inGame) {
                 this.setRoute('play', true);
                 return;
             }
             this.hideDialog(true);
-            this.setHomeView(route, false);
+            this.setHomeView(screen, false);
             return;
         }
-        const [page, param] = route.split('/');
-        if (['settings', 'pause', 'network', 'club', 'campaign'].includes(page)) {
-            if (page === 'pause' && !this.inGame) {
+        if (['settings', 'pause', 'network', 'club', 'campaign'].includes(screen)) {
+            if (screen === 'pause' && !this.inGame) {
                 this.setRoute('', true);
                 this.hideDialog(false);
                 return;
             }
-            const wasOpen = this.dialog === page,
+            const wasOpen = this.dialog === screen,
                 previous = this.clubSelection.detail;
-            if (page === 'club') this.clubSelection.detail = param || null;
-            this.openDialog(page);
-            if (wasOpen && page === 'club') {
+            if (screen === 'club') this.clubSelection.detail = item || null;
+            this.openDialog(screen);
+            if (wasOpen && screen === 'club') {
                 // 상세에서 돌아오면 상세를 연 ⓘ(선발 칸이든 선수 카드든)로 포커스를 돌려준다.
-                const opener = param ? null : this.clubSelection.opener || `info-${previous}`;
-                if (!param) this.clubSelection.opener = null;
-                this.renderClub(param ? 'detail-heading' : opener, true);
+                const opener = item ? null : this.clubSelection.opener || `info-${previous}`;
+                if (!item) this.clubSelection.opener = null;
+                this.renderClub(item ? 'detail-heading' : opener, true);
             }
-        } else {
-            if (!route && this.inGame) {
-                this.quit();
-                return;
-            }
-            this.hideDialog(true);
-            if (!route && !this.inGame) this.setHomeView('main', false);
-            if ((route && route !== 'play') || (route === 'play' && !this.inGame))
-                this.setRoute(this.inGame ? 'play' : '', true);
+            return;
         }
+        if (screen === 'main' && this.inGame) {
+            this.quit();
+            return;
+        }
+        this.hideDialog(true);
+        if (screen === 'main') this.setHomeView('main', false);
+        // 처음 화면은 해시 없는 주소로, play(알 수 없는 주소 포함)는 지금 상태의 주소로 교정한다.
+        this.setRoute(this.inGame ? 'play' : '', true);
     }
 
     openDialog(route) {
@@ -1155,7 +1157,7 @@ class TakrawUI {
         if (action === 'info') {
             selection.pick = null;
             selection.opener = button.dataset.clubFocus;
-            this.navigate(`club/${value}`);
+            this.navigate('club', value);
         }
         if (action === 'tab') {
             if (!['roster', 'draw'].includes(value)) return;
@@ -2005,6 +2007,7 @@ class TakrawUI {
         window.clearTimeout(this.drawTimer);
         if (this.copyTimer) window.clearTimeout(this.copyTimer);
         this.controller.abort();
+        this.routes.dispose();
     }
 }
 

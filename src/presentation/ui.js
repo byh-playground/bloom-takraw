@@ -8,7 +8,11 @@ import { takrawMatchStatus } from './match-status.js';
 import { TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_VERSION, TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_CLUB_RULES, takrawTrainingFactor } from '../club/club.js';
-import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from '../simulation/game.js';
+import {
+    TAKRAW_TRAINING_LESSONS,
+    TAKRAW_TRAINING_TEMPOS,
+    takrawTrainingLesson,
+} from '../simulation/training.js';
 import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { LOCALE, LOCALE_NAMES } from '../i18n/locale.js';
 import { UI, clubText } from '../i18n/messages/ui.js';
@@ -1936,7 +1940,8 @@ class TakrawUI {
     }
 
     updateTraining(training) {
-        const downward = training.lesson === 'downward';
+        // 점프 전에 발을 먼저 올리는 레슨은 발차기 단계에서 남은 시간 대신 점프 안내를 보인다.
+        const prehold = takrawTrainingLesson(training.lesson).prehold;
         const lessonSelect = document.getElementById('training-lesson');
         if (lessonSelect.value !== training.lesson) lessonSelect.value = training.lesson;
         const tempoSelect = document.getElementById('training-tempo');
@@ -1983,7 +1988,7 @@ class TakrawUI {
             label = training.shortJump ? UI.timingJumpTap() : UI.timingJumpHold();
         else if (training.stage === 'kick' && training.tone === 'retry')
             label = UI.timingKickRetry();
-        else if (training.stage === 'kick' && !downward)
+        else if (training.stage === 'kick' && !prehold)
             label =
                 Number.isFinite(training.kickIn) && training.kickIn > 0
                     ? UI.timingKickIn({ value: training.kickIn })

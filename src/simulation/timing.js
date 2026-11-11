@@ -24,13 +24,12 @@ class TakrawTimingJudge {
     }
 
     /**
-     * 발차기 입력 순간의 오차. 내려찍기는 점프 전에 발을 올리므로 안내 시간 기준이고,
+     * 발차기 입력 순간의 오차. 점프 전에 발을 먼저 올리는 레슨(prehold, 내려찍기)은 안내 시간 기준이고,
      * 나머지는 점프 시작 후 경과 시간과 이상적인 발차기 지연의 차이다.
      * kickDelay는 공중일 때만 필요하므로 호출자가 지연 계산으로 넘긴다.
      */
-    kickError({ lesson, guide, jumpActive, jumpTime, kickDelay, preholdLead }) {
-        if (lesson === 'downward')
-            return guide ? guide.contactLead + preholdLead - guide.time : null;
+    kickError({ prehold, guide, jumpActive, jumpTime, kickDelay, preholdLead }) {
+        if (prehold) return guide ? guide.contactLead + preholdLead - guide.time : null;
         return jumpActive ? jumpTime - kickDelay() : null;
     }
 

@@ -38,7 +38,8 @@ import {
 } from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
-import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
+import { TakrawGame } from './simulation/game.js';
+import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
 import { takrawHumanPlayerId, takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';

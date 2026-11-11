@@ -3,19 +3,12 @@ import * as THREE from 'three';
 import RAPIER from 'rapier';
 import { createLoop, createDeadlineScheduler } from '@bloom-gamekit/simloop';
 import { createRoomSession } from '@bloom-gamekit/rollback';
-import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { createSave, memoryAdapter } from '@bloom-gamekit/save';
 import { registerPwa } from '@bloom-gamekit/pwa';
 import { createMetrics, HttpAdapter, MemoryAdapter } from '@bloom-gamekit/metrics';
 
-import {
-    TAKRAW_VERSION,
-    TAKRAW_PRODUCT_NAME,
-    TAKRAW_DIAGNOSTIC_NAME,
-    TAKRAW_ID,
-    TAKRAW_CONFIG,
-} from './config/game.js';
+import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_ID, TAKRAW_CONFIG } from './config/game.js';
 import { createRuntimeDiagnostics } from './runtime/diagnostics.js';
 import { createRuntimeStores } from './runtime/stores.js';
 import { RuntimeAudio, takrawBgmLevel } from './runtime/audio.js';
@@ -38,12 +31,7 @@ import { TakrawIntro } from './presentation/intro.js';
 import { TAKRAW_LAUNCH } from './launch.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
-import {
-    connectionCause,
-    connectionText,
-    failurePhase,
-    readableConnectionError,
-} from './runtime/network.js';
+import { NetworkLink } from './runtime/network.js';
 import { takrawHudModel } from './runtime/hud-model.js';
 import { takrawMatchSetup, takrawSessionProfile } from './runtime/match-setup.js';
 
@@ -81,7 +69,6 @@ async function bootTakraw() {
     let audio;
     let codec;
     let session = null;
-    let room = null;
     let loop = null;
     let pump = null;
     let feed = null;
@@ -135,26 +122,6 @@ async function bootTakraw() {
     let animation = 0;
     let renderTime = -Infinity;
     let hudTime = -Infinity;
-    let network = Object.freeze({
-        state: 'idle',
-        code: '',
-        message: '',
-        count: 0,
-        phase: RUNTIME.phaseIdle(),
-        hint: '',
-        diagnostics: '',
-    });
-    const connection = {
-        abort: null,
-        history: [],
-        handshake: { startedAtMs: 0 },
-        observedFailure: null,
-        warning: { message: '', atMs: 0 },
-        retry: { pending: new Map(), nextCheckAtMs: 0 },
-        rosterSize: 0,
-        gameShown: false,
-        maintenance: { nextAtMs: 0 },
-    };
 
     function isReady() {
         return bootstrapStage === 'ready';
@@ -209,69 +176,28 @@ async function bootTakraw() {
     const stores = createRuntimeStores({ isolated });
     const { resume: resumeAdapter, activeRoom, soundSettings, openClubSave } = stores;
 
-    /** 방 복귀 정보를 쓰지 못하면 연결 창의 안내 줄에 알린다. 경기는 그대로 이어지고 새로고침 뒤 복귀만 안 된다. */
-    function resumeSaveFailed(error) {
-        recordError(error, 'resume-save');
-        networkEvent('resume-save-failed', `${error?.kind || ''} ${error?.message || error}`);
-        setNetwork({ hint: RUNTIME.netResumeSaveFailed() });
-    }
-
-    /** 새 방은 transport의 reset처럼 이전 복귀 정보(읽지 못한 기록 포함)를 버리고 이 방을 쓴다. */
-    function rememberRoom(value) {
-        return activeRoom
-            .reset()
-            .then(() =>
-                activeRoom.update((draft) => {
-                    draft.room = value;
-                }),
-            )
-            .catch(resumeSaveFailed);
-    }
-
-    function forgetRoom() {
-        room?.forgetResume();
-        if (!activeRoom.data?.room) return;
-        activeRoom
-            .update((draft) => {
-                draft.room = null;
-            })
-            .catch(resumeSaveFailed);
-    }
-
-    function maintainConnections() {
-        const now = performance.now();
-        if (!room || !session || session.failure || now < connection.retry.nextCheckAtMs) return;
-        connection.retry.nextCheckAtMs = now + 1000;
-        for (const id of session.players) {
-            if (
-                id === session.localPlayerId ||
-                room.transports.has(id) ||
-                connection.retry.pending.has(id)
-            )
-                continue;
-            const token = run,
-                capability = room;
-            connection.retry.pending.set(id, true);
-            networkEvent('reconnect-start');
-            capability
-                .reconnect(id)
-                .catch((error) => {
-                    if (token === run) networkEvent('reconnect-retry', error.message);
-                })
-                .finally(() => {
-                    if (token === run) connection.retry.pending.delete(id);
-                });
-        }
-    }
-
-    function networkEvent(name, detail = '') {
-        const entry = `${new Date().toLocaleTimeString(LOCALE.locale, { hour12: false })} · ${String(name).slice(0, 80)}${detail ? ` · ${String(detail).slice(0, 180)}` : ''}`;
-        connection.history.push(entry);
-        if (connection.history.length > 28) connection.history.shift();
-        setNetwork({
-            diagnostics: `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}`,
-        });
-    }
+    /**
+     * 온라인 연결(표시 snapshot·연결 수명주기·방). 세션이 멈출 때 reset()·closeRoom()으로 함께 정리한다.
+     * ui는 아직 없을 수 있어(부팅 순서) 통지는 ui?로 받는다.
+     */
+    const net = new NetworkLink({
+        activeRoom,
+        resumeAdapter,
+        recordError,
+        trackFailure,
+        isDisposed: () => disposed,
+        onChange: (snapshot) => ui?.setNetwork(snapshot),
+        onRosterChange() {
+            loop?.resetTiming();
+            pump?.rebase();
+            releaseControls();
+        },
+        onFirstConnected() {
+            ui.showGame('online');
+            ui.canvas.focus({ preventScroll: true });
+        },
+        onHandshakeTimeout: () => stopSession(),
+    });
 
     /**
      * 놀이를 멈춘 실패를 성격별 분류로 지표에 보낸다(README "게임 지표"). 오류 메시지·스택은 보내지 않는다.
@@ -281,13 +207,6 @@ async function bootTakraw() {
      */
     function trackFailure(category, target, action, props = {}) {
         metrics.track(category, target, action, { mode: mode || 'menu', ...props });
-    }
-
-    /** 연결 오류를 원인별로 분류해 보낸다. phase: connect(방 만들기·입장) | session(온라인 세션 중) */
-    function trackConnectionFailure(cause, phase) {
-        if (cause === 'sync') trackFailure('fault', 'sync', 'fail', { phase });
-        else if (cause === 'version') trackFailure('unsupported', 'version', 'block', { phase });
-        else trackFailure('network', cause, 'fail', { phase });
     }
 
     function listen(target, type, callback, options) {
@@ -300,7 +219,7 @@ async function bootTakraw() {
             stateLines: [
                 `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
             ],
-            networkHistory: connection.history,
+            networkHistory: net.history(),
         });
     }
 
@@ -315,11 +234,6 @@ async function bootTakraw() {
         ui.setSound({
             message: known ? known() : RUNTIME.soundFailed({ detail: error?.message || error }),
         });
-    }
-
-    function setNetwork(value) {
-        network = Object.freeze({ ...network, ...value });
-        ui?.setNetwork(network);
     }
 
     function publishClub() {
@@ -449,104 +363,7 @@ async function bootTakraw() {
 
     function maintainNetwork(now = performance.now(), force = false) {
         if (mode !== 'online' || !session) return;
-        if (!force && now < connection.maintenance.nextAtMs) return;
-        connection.maintenance.nextAtMs = now + TAKRAW_RUNTIME.hud.interval;
-        maintainConnections();
-        const count = session.players.length;
-        const failed = session.failure;
-        let state;
-        let message;
-        let phase;
-        const linkCount = room?.transports?.size || 0;
-        if (failed) {
-            state = 'error';
-            const cause = connectionCause(
-                connectionText(failed.reason || failed.type || 'session sync failed'),
-                failed.reason,
-            );
-            phase = failurePhase(cause);
-            if (connection.observedFailure !== failed) {
-                connection.observedFailure = failed;
-                networkEvent('session-failed', `${failed.type || 'failed'} ${failed.reason || ''}`);
-                recordError(new Error(JSON.stringify(failed)), 'session');
-                trackConnectionFailure(cause, 'session');
-            }
-            message = readableConnectionError(
-                failed.reason || failed.type || 'session sync failed',
-                failed.reason,
-            );
-        } else if (
-            count === 2 &&
-            (linkCount < 1 || ['interrupted', 'disconnected'].includes(session.status))
-        ) {
-            state = 'connecting';
-            phase = RUNTIME.phaseReconnecting();
-            message = RUNTIME.netReconnecting();
-        } else if (!session.ready) {
-            state = 'connecting';
-            phase = linkCount ? RUNTIME.phaseSyncing() : RUNTIME.phaseWaitingPeer();
-            message = linkCount ? RUNTIME.netSyncing() : RUNTIME.netPreparing();
-        } else if (count < 2) {
-            state = 'listening';
-            phase = RUNTIME.phaseWaitingFriend();
-            message = RUNTIME.netShareCode();
-        } else {
-            state = 'connected';
-            phase = RUNTIME.phaseConnected();
-            message = RUNTIME.netConnected();
-            connection.warning.message = '';
-        }
-        if (state === 'connecting' && linkCount && !connection.handshake.startedAtMs)
-            connection.handshake.startedAtMs = performance.now();
-        if (state !== 'connecting' || !linkCount) connection.handshake.startedAtMs = 0;
-        if (
-            state === 'connecting' &&
-            linkCount &&
-            connection.handshake.startedAtMs &&
-            performance.now() - connection.handshake.startedAtMs >
-                TAKRAW_RUNTIME.network.handshakeTimeout
-        ) {
-            const error = new Error('온라인 세션 참가/동기화 시간 초과');
-            networkEvent('session-timeout', error.message);
-            recordError(error, 'session-timeout');
-            trackFailure('network', 'timeout', 'fail', { phase: 'handshake' });
-            stopSession();
-            setNetwork({
-                state: 'error',
-                phase: RUNTIME.phaseTimeout(),
-                count: 0,
-                code: '',
-                message: RUNTIME.netTimeout(),
-                hint: RUNTIME.netVersionHint({ version: TAKRAW_VERSION }),
-            });
-            return;
-        }
-        if (count !== connection.rosterSize) {
-            connection.rosterSize = count;
-            loop?.resetTiming();
-            pump?.rebase();
-            releaseControls();
-        }
-        const hint =
-            state === 'connected'
-                ? ''
-                : connection.warning.message && performance.now() - connection.warning.atMs < 20000
-                  ? connection.warning.message
-                  : '';
-        if (
-            network.state !== state ||
-            network.count !== count ||
-            network.message !== message ||
-            network.phase !== phase ||
-            network.hint !== hint
-        ) {
-            setNetwork({ state, code: room?.room || network.code, count, message, phase, hint });
-        }
-        if (state === 'connected' && !connection.gameShown) {
-            connection.gameShown = true;
-            ui.showGame('online');
-            ui.canvas.focus({ preventScroll: true });
-        }
+        net.maintain(session, now, force);
     }
 
     function selectedHud() {
@@ -558,7 +375,7 @@ async function bootTakraw() {
             tick: game.state.tick,
             matchReward: rewards.hudReward(),
             campaignSchoolId: rewards.schoolId || null,
-            connection: network.message,
+            connection: net.snapshot.message,
             maxLead: config.visual.attackGuide.maxLead,
         });
     }
@@ -626,20 +443,15 @@ async function bootTakraw() {
         loop?.stop();
         releaseControls();
         if (mode === 'online') {
-            setNetwork({ state: 'error', message: RUNTIME.netStopped() });
+            net.set({ state: 'error', message: RUNTIME.netStopped() });
         }
         ui.showFatal(RUNTIME.runFailed());
         return value;
     }
 
     function stopSession({ preserveResume = false } = {}) {
-        if (!preserveResume) forgetRoom();
+        net.reset({ preserveResume });
         run += 1;
-        connection.retry.pending.clear();
-        connection.retry.nextCheckAtMs = 0;
-        connection.maintenance.nextAtMs = 0;
-        connection.abort?.abort();
-        connection.abort = null;
         releaseControls();
         pump?.stop();
         loop?.stop();
@@ -647,20 +459,13 @@ async function bootTakraw() {
         loop = null;
         session?.close();
         session = null;
-        room?.close();
-        room = null;
+        net.closeRoom();
         events?.close();
         highlight.stop();
         pendingCommands.length = 0;
         paused = false;
         failed = false;
         mode = null;
-        connection.rosterSize = 0;
-        connection.gameShown = false;
-        connection.handshake.startedAtMs = 0;
-        connection.observedFailure = null;
-        connection.warning.message = '';
-        connection.warning.atMs = 0;
     }
 
     function onSessionEvent(event, token) {
@@ -689,7 +494,7 @@ async function bootTakraw() {
                 'desync-unrecoverable',
             ].includes(event.type)
         ) {
-            networkEvent(`session:${event.type}`, event.reason || `tick=${event.tick ?? '?'}`);
+            net.event(`session:${event.type}`, event.reason || `tick=${event.tick ?? '?'}`);
         }
         // fatal은 단계가 던진 원래 예외를 곧바로 다시 던지므로 그 예외가 onError로 올라온다. 여기서 감싸 먼저 실패 처리하면 원래 예외가 버려진다.
         // desync-unrecoverable은 던져진 예외가 없어 세션이 알려 준 사실로 직접 만든 오류다.
@@ -745,7 +550,7 @@ async function bootTakraw() {
                         data.physics.snapshot.every(
                             (value, index) => value === actual.physics.snapshot[index],
                         );
-                    networkEvent(
+                    net.event(
                         identical ? 'checkpoint-verified' : 'checkpoint-mismatch',
                         `physics=${physicalSame ? 'equal' : 'different'} bytes=${bytes.length}/${replay.length}`,
                     );
@@ -849,17 +654,11 @@ async function bootTakraw() {
         loop.observeInput(performance.now());
         pump.start();
         showBootStatus('', false);
-        if (online) {
-            connection.handshake.startedAtMs = 0;
-            networkEvent(
-                'session-open',
-                `role=${room?.role || '?'} players=${session.players.length}`,
-            );
-            maintainNetwork(performance.now(), true);
-        } else {
+        if (online) net.sessionOpened(session);
+        else {
             ui.showGame(nextMode);
             ui.canvas.focus({ preventScroll: true });
-            setNetwork({ state: 'idle', code: '', message: '', count: 0 });
+            net.set({ state: 'idle', code: '', message: '', count: 0 });
         }
         hudTime = -Infinity;
         audio.unlock();
@@ -919,9 +718,9 @@ async function bootTakraw() {
             return;
         }
         if (action === 'resume') {
-            const saved = activeRoom.data?.room;
+            const saved = net.savedRoom();
             if (saved) return connect(saved.role, saved.room, true);
-            setNetwork({ state: 'error', canResume: false, message: RUNTIME.netNoResume() });
+            net.set({ state: 'error', canResume: false, message: RUNTIME.netNoResume() });
             return;
         }
         if (action !== 'host' && action !== 'join') return;
@@ -933,113 +732,22 @@ async function bootTakraw() {
                     : ''),
         ).trim();
         if (action === 'join' && !/^\d{4}$/.test(roomCode)) {
-            setNetwork({ state: 'error', message: RUNTIME.netEnterCode(), count: 0 });
+            net.set({ state: 'error', message: RUNTIME.netEnterCode(), count: 0 });
             return;
         }
-        if (
-            !window.isSecureContext ||
-            !globalThis.crypto?.subtle ||
-            typeof globalThis.WebSocket !== 'function' ||
-            typeof globalThis.RTCPeerConnection !== 'function'
-        ) {
-            setNetwork({
-                state: 'error',
-                phase: RUNTIME.phaseBrowser(),
-                code: '',
-                count: 0,
-                message: RUNTIME.netBrowser(),
-                hint: RUNTIME.netSameVersion(),
-            });
-            trackFailure('unsupported', 'browser', 'block');
-            networkEvent(
-                'preflight-failed',
-                `secure=${window.isSecureContext} crypto=${!!globalThis.crypto?.subtle} rtc=${typeof globalThis.RTCPeerConnection}`,
-            );
-            return;
-        }
+        if (!net.preflight()) return;
         audio.unlock();
         stopSession({ preserveResume: resuming });
         const token = run;
-        connection.abort = new AbortController();
-        networkEvent('connect-start', `role=${action} version=${TAKRAW_VERSION}`);
-        setNetwork({
-            state: 'connecting',
-            canResume: resuming,
-            phase: resuming
-                ? RUNTIME.phaseResuming()
-                : action === 'host'
-                  ? RUNTIME.phaseHosting()
-                  : RUNTIME.phaseJoining(),
-            code: action === 'join' ? roomCode : '',
-            count: 0,
-            hint: '',
-            message: action === 'host' ? RUNTIME.netHosting() : RUNTIME.netJoining(),
-        });
         let capability;
         try {
-            capability = await createNostrDynamicRoom({
-                role: action,
-                room: roomCode,
-                namespace: TAKRAW_RUNTIME.network.namespace,
-                resume: { adapter: resumeAdapter, key: `room:${roomCode}`, reset: !resuming },
-                maxPlayers: 2,
-                timeoutMs: TAKRAW_RUNTIME.network.timeout,
-                peerTimeoutMs: TAKRAW_RUNTIME.network.peerTimeout,
-                relays: TAKRAW_RUNTIME.network.relays,
-                rtcConfig: { iceServers: TAKRAW_RUNTIME.network.iceServers },
-                signal: connection.abort.signal,
-                onStatus(event) {
-                    if (token !== run) return;
-                    const reason = event.reason || event.message || '';
-                    if (event.type === 'signaler' && event.status === 'connected') {
-                        networkEvent('relay-connected', event.relay || '');
-                        setNetwork({ phase: RUNTIME.phaseRelay() });
-                    } else if (event.type === 'signaler' && event.status === 'error') {
-                        // 릴레이 하나의 실패는 다른 릴레이가 이어 가므로 기록만 한다. 모두 실패하면 아래 catch가 오류를 띄운다.
-                        networkEvent('relay-error', `${event.relay || ''} ${reason}`.trim());
-                    } else if (event.type === 'peer-failed' || event.type === 'signal-error') {
-                        connection.warning.message = readableConnectionError(reason || event.type);
-                        connection.warning.atMs = performance.now();
-                        networkEvent(event.type, reason);
-                        setNetwork({ hint: connection.warning.message });
-                    } else if (event.type === 'resume-save-failed') {
-                        resumeSaveFailed(event.error);
-                    } else if (
-                        ['peer-connected', 'room-ready', 'peer-disconnected'].includes(event.type)
-                    ) {
-                        networkEvent(event.type, reason);
-                        if (event.type === 'peer-connected')
-                            setNetwork({ phase: RUNTIME.phasePeer(), hint: '' });
-                    }
-                },
-            });
-            if (token !== run || disposed) {
-                capability.close();
-                return;
-            }
-            room = capability;
-            if (!resuming) rememberRoom({ role: action, room: capability.room });
-            setNetwork({ canResume: true });
-            networkEvent('room-created', `room=${capability.room} role=${action}`);
+            capability = await net.openRoom({ action, roomCode, resuming });
+            if (!capability) return;
             openSession('online', capability, token);
         } catch (error) {
             capability?.close();
             if (token !== run || disposed) return;
-            networkEvent('connect-error', String(error?.message || error));
-            recordError(error, 'network');
-            const cause = connectionCause(connectionText(error), error?.code);
-            trackConnectionFailure(cause, 'connect');
-            const diagnostics = network.diagnostics;
-            stopSession({ preserveResume: true });
-            setNetwork({
-                state: 'error',
-                phase: failurePhase(cause),
-                count: 0,
-                code: '',
-                diagnostics,
-                message: readableConnectionError(error),
-                hint: action === 'join' ? RUNTIME.netJoinHint() : RUNTIME.netHostHint(),
-            });
+            net.failConnect(error, action, () => stopSession({ preserveResume: true }));
         }
     }
 
@@ -1078,7 +786,7 @@ async function bootTakraw() {
         showBootStatus('', false);
         ui.showHome();
         publishClub();
-        setNetwork({
+        net.set({
             state: 'idle',
             code: '',
             message: '',
@@ -1146,14 +854,7 @@ async function bootTakraw() {
                     entities: latestView?.entities.length || 0,
                 },
                 input: Array.from(input?.lastInput ?? new Uint8Array(config.input.size)),
-                network: {
-                    ...network,
-                    session: session?.status || null,
-                    ready: Boolean(session?.ready),
-                    players: session?.players.slice() || [],
-                    roomConnections: room?.transports?.size || 0,
-                    roomMetrics: room?.metrics || null,
-                },
+                network: net.diagnostics(session),
                 session: session?.metrics || null,
                 audio: audio?.snapshot() || null,
                 club: club?.diagnostics() || null,
@@ -1170,6 +871,7 @@ async function bootTakraw() {
         dispose() {
             if (disposed) return;
             stopSession({ preserveResume: true });
+            net.dispose();
             disposed = true;
             bootstrapStage = 'disposed';
             cancelAnimationFrame(animation);
@@ -1200,7 +902,7 @@ async function bootTakraw() {
                     return;
                 }
                 if (nextMode === 'online') {
-                    setNetwork({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
+                    net.set({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
                 } else startLocal(nextMode);
             },
             onRestart: restart,
@@ -1263,7 +965,7 @@ async function bootTakraw() {
                 observeSoon();
             },
         },
-        network,
+        net.snapshot,
     );
     const clubName = LOCALE.text({ ko: '블룸 클럽', en: 'Bloom Club' }); // 새 클럽의 이름. 처음 만든 언어로 저장되고, 이후 사용자가 바꾼다.
     club = new TakrawClub({ onChange: publishClub, openSave: openClubSave, defaultName: clubName });
@@ -1279,14 +981,7 @@ async function bootTakraw() {
             return false;
         },
     );
-    const activeRoomLoad = activeRoom.load().then(
-        (data) => data.room,
-        (error) => {
-            recordError(error, 'resume-load');
-            networkEvent('resume-unavailable', error.message);
-            return error;
-        },
-    );
+    const activeRoomLoad = net.loadResume();
     listen(window, 'pagehide', () => runtime.dispose());
     // BFCache에서는 이미 정리한 물리·저장 연결을 새 부팅으로 복원한다.
     window.addEventListener('pageshow', (event) => {
@@ -1452,7 +1147,7 @@ async function bootTakraw() {
         const saved = await activeRoomLoad;
         if (saved) ui.openDialog('network');
         if (saved instanceof Error)
-            setNetwork({
+            net.set({
                 state: 'error',
                 canResume: false,
                 phase: RUNTIME.phaseResume(),

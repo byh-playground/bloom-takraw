@@ -5,21 +5,22 @@ import { chromium } from 'playwright';
 import { buildPwa } from './vendor/gamekit/pwa-build.mjs';
 
 await buildPwa({
-  chromium,
-  // 설치 이름·공유 문구는 페이지 기본 언어(en)로 쓴다. 게임 이름의 원본은 src/config/game.js TAKRAW_GAME_NAME이고 scripts/check.cjs가 index.html 제목과 맞춘다.
-  name: 'Bloom Takraw',
-  shortName: 'Takraw',
-  description: 'Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play.',
-  lang: 'en',
-  icon: 'assets/pwa/icon.svg',
-  maskableIcon: 'assets/pwa/icon-maskable.svg',
-  share: 'assets/pwa/share.svg',
-  themeColor: '#e8eee3',
-  backgroundColor: '#e8eee3',
-  startUrl: './',
-  scope: './',
-  siteUrl: 'https://byh-playground.github.io/bloom-takraw/',
-  html: 'index.html',
-  out: '.',
-  check: process.argv.includes('--check'),
+    chromium,
+    // 설치 이름·공유 문구는 페이지 기본 언어(en)로 쓴다. 게임 이름의 원본은 src/config/game.js TAKRAW_GAME_NAME이고 scripts/check.cjs가 index.html 제목과 맞춘다.
+    name: 'Bloom Takraw',
+    shortName: 'Takraw',
+    description:
+        'Bloom Takraw: time your instep spike to the AI setter’s high toss. Four kicks with context-aware moves, timing guides, physics-based 3-on-3 matches and 1-on-1 online play.',
+    lang: 'en',
+    icon: 'assets/pwa/icon.svg',
+    maskableIcon: 'assets/pwa/icon-maskable.svg',
+    share: 'assets/pwa/share.svg',
+    themeColor: '#e8eee3',
+    backgroundColor: '#e8eee3',
+    startUrl: './',
+    scope: './',
+    siteUrl: 'https://byh-playground.github.io/bloom-takraw/',
+    html: 'index.html',
+    out: '.',
+    check: process.argv.includes('--check'),
 });

@@ -1,8 +1,9 @@
-import { AiBrain, Temperament, seededUnit } from './ai-brain.js';
+import { AiBrain, Temperament } from './ai-brain.js';
 import { AiFormation } from './ai-formation.js';
 import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
 import { takrawDecodeIdentity } from './identity.js';
+import { takrawSeededUnit } from './random.js';
 
 /**
  * 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다.
@@ -131,8 +132,10 @@ const message = (id, values = {}) => ({ id, values });
 
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
-    constructor({ RAPIER, config }) {
+    /** deterministic은 gamekit `@bloom-gamekit/deterministic` 모듈이다. 리플레이 워커에는 import map이 없어 RAPIER처럼 받는다. */
+    constructor({ RAPIER, config, deterministic }) {
         this.config = config;
+        this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
         this.timingJudge = new TakrawTimingJudge(config.timing);
         this.aiBrain = new AiBrain();
@@ -318,8 +321,21 @@ class TakrawGame {
         this.revision++;
     }
 
+    /** 선수 한 명의 입력 기본값. 매 틱 step이 채우는 실제 입력과 같은 키를 가져 스냅샷 형식이 하나다. */
     emptyInput() {
-        return { x: 0, z: 0, jump: false, kick: false, jumpPressed: false, kickPressed: false };
+        return {
+            x: 0,
+            z: 0,
+            jump: false,
+            kick: false,
+            jumpPressed: false,
+            kickPressed: false,
+            receive: null,
+            intent: null,
+            tossTarget: null,
+            motionPreference: 'auto',
+            rally: 0,
+        };
     }
 
     setTrainingLesson(lesson) {
@@ -416,7 +432,7 @@ class TakrawGame {
                     this.mode,
                     undefined,
                     Math.floor(
-                        seededUnit(this.state.seed, this.state.rally, this.state.tick, 99) *
+                        this.seededUnit(this.state.seed, this.state.rally, this.state.tick, 99) *
                             4294967296,
                     ),
                 );
@@ -536,16 +552,7 @@ class TakrawGame {
             this.state.lastTouch < 0 &&
             !humans[this.state.serving]
         ) {
-            if (serveToss.stage === 'hold')
-                this.inputs[aiServerId] = {
-                    x: 0,
-                    z: 0,
-                    jump: false,
-                    kick: false,
-                    jumpPressed: false,
-                    kickPressed: false,
-                    receive: null,
-                };
+            if (serveToss.stage === 'hold') this.inputs[aiServerId] = this.emptyInput();
             else if (!this.isJumpServe(this.state.serving) && this.physics.ball.linvel().y > 0)
                 Object.assign(this.inputs[aiServerId], {
                     jump: false,
@@ -759,7 +766,7 @@ class TakrawGame {
         } else {
             // 서브는 사람·AI 모두 같은 공 던지기다: 공을 들고(hold) 힘을 모은 만큼 위로 던진다. 사람은 발차기 버튼을 누른 시간, AI는 판마다 다른 값(aimCharge, 0~fullCharge초)이 모으는 시간이다.
             const aiCharge =
-                seededUnit(this.state.seed, this.state.rally, 5) *
+                this.seededUnit(this.state.seed, this.state.rally, 5) *
                 this.config.ai.serve.toss.fullCharge;
             this.state.serveToss = this.humanServes(this.state.serving)
                 ? { stage: 'hold', charge: 0 }
@@ -1494,8 +1501,8 @@ class TakrawGame {
             spread.half[axis][0] + (spread.half[axis][1] - spread.half[axis][0]) * ratio;
         const key = [this.state.seed, this.state.rally, this.state.touches, setter.id];
         return {
-            x: half('x') * (2 * seededUnit(...key, 1) - 1),
-            z: half('z') * (2 * seededUnit(...key, 2) - 1),
+            x: half('x') * (2 * this.seededUnit(...key, 1) - 1),
+            z: half('z') * (2 * this.seededUnit(...key, 2) - 1),
         };
     }
 
@@ -2302,6 +2309,7 @@ class TakrawGame {
             this.state.seed,
             playerId,
             this.state.rally,
+            this.seededUnit,
         ));
     }
 
@@ -2682,8 +2690,7 @@ class TakrawGame {
             Array.from(data.inputs).every(
                 (input) =>
                     input &&
-                    (!Object.hasOwn(input, 'receive') ||
-                        input.receive === null ||
+                    (input.receive === null ||
                         (receivePlan(input.receive) &&
                             typeof input.receive.allowSlide === 'boolean')),
             ) &&

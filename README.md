@@ -34,8 +34,8 @@ src/
   config/{game,runtime,schools,intro}.js  게임 정의, 실행 정책, 학교 외형, 소개영상 대본
   club/{club,generator,names}.js  선수·편성·보상·뽑기·IndexedDB 저장, 생성 선수, 이름 표
   motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
-  simulation/{game,physics,timing,ai-brain,ai-formation,identity,joint-limits}.js
-                             경기 규칙, Rapier 어댑터, 입력 타이밍 판정, AI 선수 행동과 대형, 온라인 팀 표기, 관절 가동 범위
+  simulation/{game,physics,timing,ai-brain,ai-formation,identity,joint-limits,random}.js
+                             경기 규칙, Rapier 어댑터, 입력 타이밍 판정, AI 선수 행동과 대형, 온라인 팀 표기, 관절 가동 범위, 시드 난수 이름
   presentation/              Three.js 표시(view), DOM UI(ui), 접촉·착지·득점 효과, 득점 리플레이(highlight*), 소리, 소개영상 연결
   i18n/                      화면 언어(ko/en) 선택과 문구 표
 styles/app.css               화면 스타일

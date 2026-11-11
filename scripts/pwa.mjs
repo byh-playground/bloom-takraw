@@ -1,6 +1,6 @@
 // 설치·오프라인 시작용 PWA 파일을 만든다. `node scripts/pwa.mjs`로 생성, `node scripts/pwa.mjs --check`로 커밋된 결과가 원본과 같은지 확인한다.
-// 아이콘·공유 이미지 원본(assets/pwa/*.svg)은 게임 실제 렌더(?debug=1&scene=spike&seed=1185&tick=426&camera=…, v0.17.0 난수 기준)를 JPEG로 넣은 SVG다.
-// camera: 아이콘 -2.11,2.59,7.64,-0.45,-0.75,0,20 / maskable -2.11,2.59,7.64,-0.45,-0.75,0,26 / 공유 이미지 -3.31,2.19,8.64,-2.1,-1.0,0,27 (512·1200x630, deviceScaleFactor 2)
+// 아이콘·공유 이미지 원본(assets/pwa/*.svg)은 게임 실제 렌더(?debug=1&scene=spike&seed=22591&tick=581&camera=…, v0.17.0 난수 기준. 옛 시드 1과 같은 학교 조합)를 JPEG로 넣은 SVG다.
+// camera: 아이콘 -2.17,2.61,7.36,-0.45,-0.75,0,20 / maskable -2.17,2.61,7.36,-0.45,-0.75,0,26 / 공유 이미지 -3.37,2.21,8.36,-2.1,-1.0,0,27 (512·1200x630, deviceScaleFactor 2)
 import { chromium } from 'playwright';
 import { buildPwa } from './vendor/gamekit/pwa-build.mjs';
 

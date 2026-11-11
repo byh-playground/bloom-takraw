@@ -21,6 +21,8 @@ npm run dev
 
 설치(PWA): 공개 주소는 설치할 수 있고(설정 창 "앱으로 설치"), 새로고침하면 항상 최신 버전이고, 한 번 연 뒤에는 서비스 워커가 마지막으로 받은 게임 파일과 GameKit을 오프라인 사본으로 둡니다. Three.js·Rapier는 보관하지 않아 브라우저 HTTP 캐시가 비면 오프라인으로 시작하지 못합니다. `assets/pwa/`나 `scripts/pwa.mjs` 설정을 고치면 `node scripts/pwa.mjs`로 생성 파일을 다시 만듭니다(`npm run check`가 어긋남을 막습니다). 자세한 내용은 [구조 문서](docs/architecture.md#설치오프라인pwa-v0140)를 참고하세요.
 
+화면 주소: 처음 화면은 해시 없는 `…/`이고 예전 주소 `#/`로 들어와도 처음 화면이 열립니다. 안쪽 화면은 `#/start`(게임 시작), `#/multi`(멀티플레이), `#/settings`, `#/campaign`(도장깨기), `#/club`(팀 관리), `#/club/<선수 id>`(선수 상세), `#/network`(친구와 1대1), `#/showcase`(소개 보기)이고 경기 중에는 `#/play`입니다. 화면 이동은 브라우저 뒤로가기로 되돌아갑니다. 주소와 이력은 GameKit `navigation`이 맡습니다([구조 문서](docs/architecture.md#ui-소유와-화면-주소)).
+
 ## 구조와 GameKit 참조
 
 ```text
@@ -41,6 +43,10 @@ src/
   simulation/{game,physics,timing,training,modes,ai-brain,ai-formation,identity,roster,joint-limits,random}.js
                              경기 규칙, Rapier 어댑터(단계 메서드로 나뉜 step·선수 제어·스냅샷 복원), 입력 타이밍 판정, 연습 레슨·규칙(TakrawTrainingDrill), 모드 프로필, AI 선수 행동과 대형, 온라인 팀 표기, 선수 id 배치(팀·슬롯·조종 선수), 관절 가동 범위, 시드 난수 이름
   presentation/              Three.js 표시(view), DOM UI(ui), 연습 안내(training-coach), 접촉·착지·득점 효과, 득점 리플레이(highlight*), 소리, 소개영상 연결
+    ui.js                    화면 전환·주소 맞추기·포커스와 runtime이 부르는 공개 메서드(TakrawUI)
+    routes.js                화면 주소 정규화(gamekit navigation에 넘김)
+    {match-hud,touch-controls,training-panel,markup}.js  경기 HUD, 터치 조작, 연습 패널, 문구·이스케이프
+    screens/{home,club,campaign,draw-stage,settings,pause,network}.js  처음 화면 단계와 대화상자 화면별 상태·그리기
   i18n/                      화면 언어(ko/en) 선택과 문구 표
 styles/app.css               화면 스타일
 assets/                      배경 음악, PWA 아이콘·공유 이미지 원본(SVG)

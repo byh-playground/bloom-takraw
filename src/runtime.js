@@ -45,29 +45,17 @@ import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
+import { roleName } from './i18n/messages/match.js';
 
+// physics.js가 내는 선수 상태(standing·moving·airborne·kicking·overhead·falling·recovering)의 문구. moving은 접지 여부로 정한다.
 const PLAYER_STATE_LABELS = Object.freeze({
-    ready: RUNTIME.stateReady,
     standing: RUNTIME.stateReady,
-    grounded: RUNTIME.stateReady,
-    idle: RUNTIME.stateReady,
     airborne: RUNTIME.stateAir,
-    jumping: RUNTIME.stateJump,
     falling: RUNTIME.stateFall,
     kicking: RUNTIME.stateKick,
-    spike: RUNTIME.stateSpike,
     overhead: RUNTIME.stateSpike,
-    down: RUNTIME.stateDown,
-    fallen: RUNTIME.stateDown,
-    ragdoll: RUNTIME.stateDown,
     recovering: RUNTIME.stateGettingUp,
-    recovery: RUNTIME.stateGettingUp,
-    gettingUp: RUNTIME.stateGettingUp,
 });
-
-/** 자리 id의 이 언어 이름. */
-const roleName = (role) =>
-    LOCALE.text(TAKRAW_CLUB_RULES.roles.find((value) => value.id === role).name);
 
 /** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
 const localizedTeam = (team) =>
@@ -630,6 +618,7 @@ async function bootTakraw() {
         if (action === 'assign') return club.assign(payload.role, payload.playerId);
         if (action === 'train') return club.train(payload.playerId);
         if (action === 'sell') return club.sell(payload.playerId);
+        if (action === 'reset') return club.reset();
         if (action === 'campaign-intro') return club.seeCampaignIntro();
         if (action === 'draw') return club.draw();
         if (action === 'resolve') return club.resolveDraw({ release: payload.release ?? null });
@@ -1189,7 +1178,7 @@ async function bootTakraw() {
         const selectedId = latestView.state.selected?.[team] ?? (team === 1 ? 5 : 2);
         const player = latestView.players.find((candidate) => candidate.id === selectedId);
         const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
-            attacker = roleName('attacker');
+            attacker = roleName('attacker', LOCALE.locale);
         return {
             ...latestView.state,
             training: latestView.training,
@@ -1443,7 +1432,7 @@ async function bootTakraw() {
                   name: LOCALE.text(opponent.name),
                   players: schoolAi.players.map((preset) => ({
                       id: `${opponent.id}-${preset.role}`,
-                      name: roleName(preset.role),
+                      name: roleName(preset.role, LOCALE.locale),
                       role: preset.role,
                       stats: { ...preset.stats },
                   })),
@@ -1885,20 +1874,11 @@ async function bootTakraw() {
         get session() {
             return session;
         },
-        get loop() {
-            return loop;
-        },
         get view() {
             return view;
         },
-        get ui() {
-            return ui;
-        },
         get ready() {
             return isReady();
-        },
-        get metrics() {
-            return metrics;
         },
         watch: startWatch,
         /** 소개영상 화면(?showcaseDemo=1)에서만: 대본이 장마다 게임 화면을 띄운다. draw는 intro.drawCard 선수의 뽑기 연출, none은 닫기. */
@@ -2207,17 +2187,27 @@ async function bootTakraw() {
                         tick: game.state.tick,
                         score: [...game.state.score],
                     }),
-                    async openClub(seed) {
+                    async openClub(seed, stored = null) {
                         // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
+                        // stored가 있으면 메모리 저장에 그 레코드가 이미 있는 것으로 시작한다(읽지 못하는 저장의 화면 확인용).
                         let draws = 0;
                         club.dispose();
                         club = new TakrawClub({
                             onChange: publishClub,
-                            openSave: openClubSave,
+                            openSave: stored
+                                ? (options) =>
+                                      createSave({
+                                          ...options,
+                                          adapter: memoryAdapter({ [options.key]: stored }),
+                                      })
+                                : openClubSave,
                             defaultName: clubName,
                             random: () => seededUnit(seed, draws++),
                         });
-                        await club.load();
+                        await club.load().catch((error) => {
+                            if (!stored) throw error;
+                            recordError(error, 'club-load');
+                        });
                         return club;
                     },
                     showClub() {

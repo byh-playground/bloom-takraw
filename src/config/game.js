@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.15.12';
+const TAKRAW_VERSION = '0.16.0';
 // 게임 이름의 단일 출처(TextPair). 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일과의 일치(index.html은 en, README·AGENTS·package.json은 ko)는 scripts/check.cjs가 검사한다.
 const TAKRAW_GAME_NAME = Object.freeze({ ko: '발 배구', en: 'Takraw' });
 const TAKRAW_PRODUCT_NAME = Object.freeze({
@@ -24,7 +24,6 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
 }
 
 const TAKRAW_CONFIG = Object.freeze({
-    product: 'BLOOM TAKRAW',
     version: TAKRAW_VERSION,
     status: 'Candidate',
     simulation: { tickRate: 60, substeps: 2, aiRate: 15 },
@@ -39,7 +38,7 @@ const TAKRAW_CONFIG = Object.freeze({
     // 출시 전 임시 경기 길이: 7점, 6:6부터 기존 듀스 방식으로 9점 상한, 단판.
     rules: { contacts: 3, points: 7, deuce: 6, cap: 9, sets: 1, ready: 1.25, point: 2 },
     // 접촉 타이밍 등급 창(초). 오차 크기가 perfect 이하면 perfect, good 이하면 good, 그 외 normal.
-    // 헤드리스 실측(docs/verification/timing-impact.md)에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
+    // 헤드리스 실측에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
     // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.
     // maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
     timing: { windows: { perfect: 0.02, good: 0.04 }, maxAge: 1.2 },

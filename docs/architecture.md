@@ -2,35 +2,40 @@
 
 `index.html`은 `styles/app.css`와 `src/main.js`를 로드합니다. main은 로딩 표시 후 runtime을 가져오므로 로컬/CDN 모듈 실패도 화면에서 안내합니다. runtime은 GameKit 공개 API를 직접 import하며 세션·입력·표현 수명주기를 연결합니다. 공통 API를 재집계하는 wrapper는 없습니다.
 
-| GameKit 소유 모듈   | 사용하는 공개 API                                                | 게임에서 제공하는 부분                                                |
-| ------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------- |
-| input               | ActionState, createDOMInput                                      | 키/포인터 매핑과 6바이트 입력                                         |
-| simloop             | createLoop, createDeadlineScheduler                              | 60TPS 정책·진행/관찰 조건                                             |
-| rollback            | createRoomSession, profiles                                      | saveInto/load/step/validateSnapshot 및 membership 어댑터              |
-| transport           | createNostrDynamicRoom                                           | 방 UI·재접속 정책·방 복귀 어댑터                                      |
-| deterministic       | createValueCodec, SeededPRNG, statelessRandom                    | 게임/물리 상태의 값 구조, 접촉 효과 입자 방향의 시드 난수             |
-| interpolation       | PresentationRuntime, RenderObject                                | 신체 pose와 생명주기 바인딩                                           |
-| presentation-events | PresentationEventQueue                                           | 확정 경기 이벤트와 표현 정책, 접촉 효과의 start·update·reconcile·stop |
-| object-pool         | ObjectPool                                                       | 접촉 효과 노드 재사용                                                 |
-| audio               | AudioPlayer, audioSettings                                       | 소리 정의·음량·동시 재생 한도·소리 설정 save                          |
-| save                | createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter | 저장 레코드 정의·어댑터 선택                                          |
-| pwa                 | registerPwa (+ Node 도구 `pwa-build.mjs`)                        | 오류·설치 위치(처음 화면 상태 줄·설정 창), 격리 장면 제외             |
+| GameKit 소유 모듈   | 사용하는 공개 API                                                  | 게임에서 제공하는 부분                                                |
+| ------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| input               | ActionState, createDOMInput                                        | 키/포인터 매핑과 6바이트 입력                                         |
+| simloop             | createLoop, createDeadlineScheduler                                | 60TPS 정책·진행/관찰 조건                                             |
+| rollback            | createRoomSession, profiles                                        | saveInto/load/step/validateSnapshot 및 membership 어댑터              |
+| transport           | createNostrDynamicRoom                                             | 방 UI·재접속 정책·방 복귀 어댑터                                      |
+| deterministic       | createValueCodec, SeededPRNG, statelessRandom                      | 게임/물리 상태의 값 구조, 접촉 효과 입자 방향의 시드 난수             |
+| interpolation       | PresentationRuntime, RenderObject                                  | 신체 pose와 생명주기 바인딩                                           |
+| presentation-events | PresentationEventQueue                                             | 확정 경기 이벤트와 표현 정책, 접촉 효과의 start·update·reconcile·stop |
+| object-pool         | ObjectPool                                                         | 접촉 효과 노드 재사용                                                 |
+| audio               | AudioPlayer, audioSettings                                         | 소리 정의·음량·동시 재생 한도·소리 설정 save                          |
+| save                | createSave, indexedDbAdapter, localStorageAdapter, memoryAdapter   | 저장 레코드 정의·어댑터 선택                                          |
+| pwa                 | registerPwa (+ Node 도구 `pwa-build.mjs`)                          | 오류·설치 위치(처음 화면 상태 줄·설정 창), 격리 장면 제외             |
+| scenario            | installShowcase                                                    | 소개영상 대본·관전 장면(`config/intro.js`, `presentation/intro*.js`)  |
+| debug-tools         | DiagnosticRing, redactDiagnostic, copyDiagnostic, installDebugHost | 오류 기록·진단 복사, 확인용 주소 장면(`debug-scenes.js`)과 가상 시계  |
+| i18n                | createLocale                                                       | 화면 언어 선택, 문구 표(`src/i18n/`)                                  |
+| metrics             | createMetrics, HttpAdapter, MemoryAdapter, SessionReplayRecorder   | 지표 이벤트 표(README 「게임 지표」)·경기 기록                        |
 
-별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm test`가 lock과 일치를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 현재 외부 요청은 GameKit 9개와 Three.js·Rapier를 합친 11개이며, 로컬 JS 14개와 CSS 1개 요청이 추가됩니다.
+별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm run check`가 lock과 일치(링크·SHA 형식·사용 여부)를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 처음 화면을 열 때(v0.16.0, 서비스 워커 제외) 외부 요청은 GameKit 15개와 Three.js 2개·Rapier 1개이고, 로컬 JS 35개와 CSS 1개 요청이 추가됩니다.
 
 ## 저장(v0.13.10~)
 
-모든 저장은 gamekit `save`를 거치고, 저장소는 `runtime.js`의 `saveAdapter(store)` 한 곳에서 고른다. 게임 코드는 localStorage·sessionStorage·IndexedDB를 직접 부르지 않는다.
+팀·소리 설정·방 복귀 저장은 gamekit `save`를 거치고, 저장소는 `runtime.js`의 `saveAdapter(store)` 한 곳에서 고른다. 게임 코드는 localStorage·sessionStorage·IndexedDB를 직접 부르지 않는다. 화면 언어 선택만 gamekit `i18n`의 `createLocale`이 저장한다.
 
-| store    | 실제 저장소                                   | 레코드(key)                                                                          |
-| -------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| club     | IndexedDB `bloom-takraw-club`/`club`          | `my-team`                                                                            |
-| settings | localStorage, 접두사 `bloom-takraw:`          | `audio-settings`(`audioSettings(TAKRAW_RUNTIME.audio)`: 음량·음소거·분류별 음량)     |
-| resume   | sessionStorage, 접두사 `bloom-takraw:<버전>:` | `active-room`(마지막 방 `{ role, room }`), `room:<방 코드>`(transport의 방 identity) |
+| store    | 실제 저장소                                   | 레코드(key)                                                                                |
+| -------- | --------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| club     | IndexedDB `bloom-takraw-club`/`club`          | `my-team`                                                                                  |
+| settings | localStorage, 접두사 `bloom-takraw:`          | `audio-settings`(`audioSettings(TAKRAW_RUNTIME.audio)`: 음량·음소거·분류별 음량)           |
+| resume   | sessionStorage, 접두사 `bloom-takraw:<버전>:` | `active-room`(마지막 방 `{ role, room }`), `room:<방 코드>`(transport의 방 identity)       |
+| 언어     | localStorage, 키 `bloom-takraw-locale`        | 고른 언어 코드(`ko`·`en`). `createLocale`이 읽고 쓰며 `save` 레코드가 아니다(docs/i18n.md) |
 
 - 격리 장면(`?debug`, 소개영상 `?showcaseDemo=1`)은 세 store 모두 `memoryAdapter()`라 실제 저장을 읽지도 쓰지도 않는다. 장면 안에서 일부 저장만 건너뛰는 분기는 두지 않는다.
-- 이전 키(`bloom-takraw-audio`, `bloom-takraw:<버전>:active-room` 원시 JSON)는 읽지 않는다. 출시 전이라 옮기지 않는다.
-- 읽지 못한 레코드는 기본값으로 바꾸지 않고 원본을 둔다. 소리 설정은 소리를 끈 채 설정 창 효과음 줄에 알리고 토글을 막는다. 방 복귀 정보는 부팅 때 연결 창을 열어 알리고, 사용자가 새 방을 만들 때 `reset()`으로 버린다(transport의 `reset: true`와 같은 때).
+- 이전 키(`bloom-takraw-audio`, `bloom-takraw:<버전>:active-room` 원시 JSON)와 옛 형식 저장은 읽지 않고 옮기지도 않는다(출시 전이라 마이그레이션을 두지 않는다). 팀 저장(`my-team`)은 `TakrawClub._default()`가 만드는 현재 형식만 검증한다. 이미 저장된 레코드의 모르는 키(예: 삭제한 학습 기능의 `learning`)는 검증하지 않고 읽기만 한다.
+- 읽지 못한 레코드는 기본값으로 바꾸지 않고 원본을 둔다. 소리 설정은 소리를 끈 채 설정 창 효과음 줄에 알리고 토글을 막는다. 방 복귀 정보는 부팅 때 연결 창을 열어 알리고, 사용자가 새 방을 만들 때 `reset()`으로 버린다(transport의 `reset: true`와 같은 때). 읽지 못한 팀 저장은 원본을 두고 쓰기를 잠근 채 홈에 `팀 저장을 읽지 못했어요`를 알리고, 팀 관리 화면 상태 줄의 **기록 지우고 새로 시작**을 누른 뒤 확인(기록 지우기/취소)을 한 번 더 받아야만 `club.reset()`(gamekit `save.reset()`)이 새 팀으로 바꾼다. 읽을 수 있는 저장은 지우지 않는다(`resetInvalid`).
 - 쓰기 실패: 소리 설정(`onSaveError`)은 설정 창 효과음 줄, 방 복귀(`active-room` 쓰기와 transport의 `resume-save-failed`)는 연결 창 안내 줄에 알린다. 실패는 `diagnostics().errors`에도 남는다.
 
 ## 치명 오류 진단 (v0.15.10~)
@@ -51,11 +56,11 @@
 
 `club/club.js`는 선수·편성·보상과 영속 데이터를, `presentation/view.js`는 Three.js 장면·카메라·표시 자원을, `presentation/ui.js`는 DOM·화면 전환·접근성·설정을 소유합니다. `simulation/ai-brain.js`는 AI 선수 한 명의 행동 상태머신(대기·보조·받기·공격·세트·추격)과 선수 성향(Temperament)을 소유하고, `game.js`의 `decideAI`가 매 AI 틱에 이를 호출해 목표 자리를 받습니다(킥·점프 타이밍은 game.js 책임). 상태는 `ai[id].brain` 순수 데이터라 스냅샷·롤백에 포함되고, 성향은 `state.seed`·선수·랠리 번호로만 정해집니다. `presentation/impact.js`의 `TakrawImpactEffects`는 접촉 효과(링·입자·접점 섬광·속도선·진동량·화면 확대·공 눌림·궤적 강조)를, `presentation/field-effects.js`의 `TakrawFieldEffects`는 착지 먼지와 득점 색종이를 소유하며 view가 포함합니다. 게임 고유 Three.js 카메라와 라우팅 정책을 다른 GameKit 모듈로 교체하는 변경은 이번 구조 전환에 포함하지 않습니다.
 
-팀은 출전 3인(`starter`)만으로 시작하고 나머지 선수는 뽑기로 모은다(v0.12.83~). 선수 영입은 뽑기로 바뀌었다(v0.12.82~). `club.draw()`가 `TAKRAW_CLUB_RULES.draw`(1회 300 C, 등급 확률 70/25/5)로 등급을 뽑고, `presetShare` 확률로 프리셋 카드(`TAKRAW_CLUB_PLAYERS`에서 `starter`가 아닌 선수) 또는 생성 선수(`club/generator.js takrawGenerateCard`)를 고른다. 생성 선수의 이름은 `club/names-ko.js`(@faker-js/faker 한국어 로케일에서 추린 두 글자 이름 521개, MIT 출처는 파일 머리말), 능력치는 등급별 `generation` 규칙으로 정한다. 생성 선수는 저장 기록의 선택 필드 `cards`에 카드째 저장해 생성 규칙이 바뀌어도 선수가 변하지 않는다. 결과는 코인 차감과 함께 저장 한 번으로 확정되므로 연출 도중 새로고침해도 되돌릴 수 없다. 선수단이 가득 차면 결과를 `pending`으로 남기고 `resolveDraw`가 환급(등급별 1/2/5 P) 또는 후보와의 교체로 정리하기 전까지 다음 뽑기를 막는다. 뽑기 연출(카드팩 흔들림 → 카드 뒷면 → 탭해서 뒤집기 → 공개)은 팀 관리 화면과 분리된 `#draw-stage` 레이어가 맡고, 건너뛰기·Esc·움직임 줄이기 설정을 지원한다. 팀 관리 화면(v0.12.78~)은 탭만으로 쓴다. 선수 상세는 레이더 하나만 보이고 주소(`#/club/<선수 id>`)로 연결되며, 뒤로 버튼은 대화상자 헤더 왼쪽의 고정 자리(`#dialog-back`)에 있고 Esc·브라우저 뒤로가기도 목록으로 돌아간다. 선택 표현은 고른 카드·자리가 빛나고 추천 역할이 같은 카드·자리가 `추천` 표시와 함께 켜지는 방식이며 나머지를 어둡게 지우지 않는다. 편성은 선수 먼저 또는 자리 먼저 누르는 두 흐름이고, 선택은 `ui.js` 안에만 있다가 교체가 끝날 때 `club.assign`을 한 번 호출한다. 훈련은 포인트 1개로 선수의 훈련 레벨을 올리는 `club.train(playerId)` 하나이고, 레벨은 레코드의 선택 필드 `levels`에 저장한다. 표시·경기 능력치는 `(기본 + 이전 trained) × (1 + 0.033 × 레벨) ** 1.5`(`takrawTrainingFactor`, 한 번에 약 5%에서 점차 완만히)를 반올림한 값이고 상한이 없다. 능력치가 `athletes.max`(100)를 넘으면 경기 효과는 `1 + overflow × log2(v/100)`배로 완만히 늘고(`takrawAthleteEffects`, 200에서 이동 +15%·수비 30%), 효과는 `athletes.maxEffect`를 넘지 않는다.
+팀은 출전 3인(`starter`)만으로 시작하고 나머지 선수는 뽑기로 모은다(v0.12.83~). 선수 영입은 뽑기로 바뀌었다(v0.12.82~). `club.draw()`가 `TAKRAW_CLUB_RULES.draw`(1회 300 C, 등급 확률 70/25/5)로 등급을 뽑고, `presetShare` 확률로 프리셋 카드(`TAKRAW_CLUB_PLAYERS`에서 `starter`가 아닌 선수) 또는 생성 선수(`club/generator.js takrawGenerateCard`)를 고른다. 생성 선수의 이름은 `club/names.js`(@faker-js/faker 한국어 로케일에서 추린 두 글자 이름 521개, MIT 출처는 파일 머리말), 능력치는 등급별 `generation` 규칙으로 정한다. 생성 선수는 저장 기록의 `cards`에 카드째 저장해 생성 규칙이 바뀌어도 선수가 변하지 않는다. 결과는 코인 차감과 함께 저장 한 번으로 확정되므로 연출 도중 새로고침해도 되돌릴 수 없다. 선수단이 가득 차면 결과를 `pending`으로 남기고 `resolveDraw`가 환급(등급별 1/2/5 P) 또는 후보와의 교체로 정리하기 전까지 다음 뽑기를 막는다. 뽑기 연출(카드팩 흔들림 → 카드 뒷면 → 탭해서 뒤집기 → 공개)은 팀 관리 화면과 분리된 `#draw-stage` 레이어가 맡고, 건너뛰기·Esc·움직임 줄이기 설정을 지원한다. 팀 관리 화면(v0.12.78~)은 탭만으로 쓴다. 선수 상세는 레이더 하나만 보이고 주소(`#/club/<선수 id>`)로 연결되며, 뒤로 버튼은 대화상자 헤더 왼쪽의 고정 자리(`#dialog-back`)에 있고 Esc·브라우저 뒤로가기도 목록으로 돌아간다. 선택 표현은 고른 카드·자리가 빛나고 추천 역할이 같은 카드·자리가 `추천` 표시와 함께 켜지는 방식이며 나머지를 어둡게 지우지 않는다. 편성은 선수 먼저 또는 자리 먼저 누르는 두 흐름이고, 선택은 `ui.js` 안에만 있다가 교체가 끝날 때 `club.assign`을 한 번 호출한다. 훈련은 포인트 1개로 선수의 훈련 레벨을 올리는 `club.train(playerId)` 하나이고, 레벨은 레코드의 `levels`에 저장한다. 표시·경기 능력치는 `(기본 + 이전 trained) × (1 + 0.033 × 레벨) ** 1.5`(`takrawTrainingFactor`, 한 번에 약 5%에서 점차 완만히)를 반올림한 값이고 상한이 없다. 능력치가 `athletes.max`(100)를 넘으면 경기 효과는 `1 + overflow × log2(v/100)`배로 완만히 늘고(`takrawAthleteEffects`, 200에서 이동 +15%·수비 30%), 효과는 `athletes.maxEffect`를 넘지 않는다.
 
-도장깨기 첫 진입(v0.13.1): 처음 열면 소개 카드 3장(내 학교와 선발 → 앞으로 만날 학교는 모른다 → 첫 상대)이 나오고, 건너뛰기·도전하기로 마치면 `campaign.introSeen`을 저장해 다시 나오지 않는다(`ui.js campaignIntroContent`, 목록 아래 `소개 다시 보기`로 다시 볼 수 있다). 목록은 깬 학교와 지금 도전할 학교까지만 보이고 그다음은 이름 없는 `???` 한 칸이라 학교가 모두 몇 곳인지 어디에도 드러나지 않는다. 온라인 1대1 팀 표기(v0.13.0): 접속해 두 사람이 모이면 각자 내 팀 이름과 내 학교를 명령 한 번(`simulation/identity.js`, 코드 40: [40, 학교 번호, …UTF-8 이름])으로 알린다. 명령이라 두 피어와 롤백이 같은 값을 얻고, 보낸 사람의 팀 자리(`teamNames`·`teamSchools`)에만 적힌다. 표시 전용이며 능력치는 보내지 않는다. 점수판은 이름 옆에 그 학교 유니폼 색 점과 내 쪽 `나` 표시를 달고, 같은 학교끼리면 두 번째 팀은 다음 학교 색을 쓴다(`takrawIdentitySchools`). AI 관전은 두 학교 이름과 색을 쓴다. 이전의 `청록 팀`·`코랄 팀` 표기는 없앴다. 선수 목록(v0.13.7): 선수 한 명은 한 줄(셔츠 · 이름·등급 · 대표 능력치 둘 · 상태 · ⓘ, 38px)이라 정원 9명이 390×844 화면에 목록 안 스크롤 없이 들어간다(`ui.js clubCard`). 자리를 고르는 중이면 대표 능력치 자리에 그 자리 선수와의 차이가 대신 선다. 추천 자리·성격은 ⓘ 상세에서 본다. 모바일에서는 코인·훈련 포인트를 팀 이름 줄 오른쪽에 두고, AI 대전 보상 안내는 코인을 쓰는 뽑기 탭으로 옮겼다. 높이 640px 같은 낮은 화면은 이전처럼 창 전체가 스크롤된다. 상세에서 돌아오면 상세를 연 ⓘ(선발 칸 또는 선수 카드)로 포커스가 돌아간다(`clubSelection.opener`, v0.13.5). 선수 판매(v0.12.87): 선수 카드에서 후보를 왼쪽으로 밀면 판매 버튼이 드러나고(`TAKRAW_SELL_REVEAL_PX`), 카드 폭의 62%(`TAKRAW_SELL_FULL_RATIO`) 넘게 끝까지 밀면 바로 판다(`ui.js swipe`). 키보드는 후보 카드에서 Delete로 버튼을 드러낸다. 받는 훈련 포인트는 등급 환급(`draw.refund`)에 쌓은 훈련 레벨 × `sell.levelRefund`이고, 출전 선수는 팔 수 없어 선수단은 늘 `sell.minRoster`(3)명 이상 남는다(`club.js sell`). 소개 주소(`#/showcase`)는 게임킷 소개 호스트가 부팅 직후 읽어 여는 주소라, 처음 홈을 보일 때(`showHome`) 지우지 않는다(v0.12.84, 이전에는 `#/`로 덮어써 주소로 들어가도 소개가 열리지 않았다). 메인 화면(v0.12.80~): 게임 UI는 꼭 필요한 곳 외에는 스크롤을 두지 않고, 버튼을 한 번에 늘어놓지 않고 계층으로 압축한다. 첫 화면에는 `게임 시작`과 `팀 관리`만 두고, `게임 시작` 안에 주 모드인 도장깨기(첫 줄, 강조 버튼)·연습 경기(AI와 가볍게 한 판)·스파이크 연습·`멀티플레이`를, `멀티플레이` 안에 친구와 1대1·로컬 2인·AI 관전을 둔다. 안쪽 단계는 `index.html`의 `data-home-view`와 주소(`#/start`, `#/multi`)로 정해지고(`ui.js setHomeView`·`applyRoute`), 한 번에 한 단계만 보인다. 뒤로 버튼은 헤더 왼쪽 위의 고정 자리(`#home-back`)에서 한 단계 위(`HOME_PARENT`)로 가며 Esc·브라우저 뒤로가기도 같은 길을 간다. 도장깨기·온라인 창을 닫으면 열기 전 단계로 돌아온다. 헤더에는 설정만 두고 소개는 패널의 `소개 보기`가 맡는다(처음 화면에서만 열린다). 높이 700px 이하에서는 부제목·조작 안내를, 620px 이하에서는 설명 문구까지 접는다.
+도장깨기 첫 진입(v0.13.1): 처음 열면 소개 카드 3장(내 학교와 선발 → 앞으로 만날 학교는 모른다 → 첫 상대)이 나오고, 건너뛰기·도전하기로 마치면 `campaign.introSeen`을 저장해 다시 나오지 않는다(`ui.js campaignIntroContent`, 목록 아래 `소개 다시 보기`로 다시 볼 수 있다). 목록은 깬 학교와 지금 도전할 학교까지만 보이고 그다음은 이름 없는 `???` 한 칸이라 학교가 모두 몇 곳인지 어디에도 드러나지 않는다. 온라인 1대1 팀 표기(v0.13.0): 접속해 두 사람이 모이면 각자 내 팀 이름과 내 학교를 명령 한 번(`simulation/identity.js`, 코드 40: [40, 학교 번호, …UTF-8 이름])으로 알린다. 명령이라 두 피어와 롤백이 같은 값을 얻고, 보낸 사람의 팀 자리(`teamNames`·`teamSchools`)에만 적힌다. 표시 전용이며 능력치는 보내지 않는다. 점수판은 이름 옆에 그 학교 유니폼 색 점과 내 쪽 `나` 표시를 달고, 같은 학교끼리면 두 번째 팀은 다음 학교 색을 쓴다(`takrawIdentitySchools`). AI 관전은 두 학교 이름과 색을 쓴다. 선수 목록(v0.13.7): 선수 한 명은 한 줄(셔츠 · 이름·등급 · 대표 능력치 둘 · 상태 · ⓘ, 38px)이라 정원 9명이 390×844 화면에 목록 안 스크롤 없이 들어간다(`ui.js clubCard`). 자리를 고르는 중이면 대표 능력치 자리에 그 자리 선수와의 차이가 대신 선다. 추천 자리·성격은 ⓘ 상세에서 본다. 모바일에서는 코인·훈련 포인트를 팀 이름 줄 오른쪽에 두고, AI 대전 보상 안내는 코인을 쓰는 뽑기 탭으로 옮겼다. 높이 640px 같은 낮은 화면은 이전처럼 창 전체가 스크롤된다. 상세에서 돌아오면 상세를 연 ⓘ(선발 칸 또는 선수 카드)로 포커스가 돌아간다(`clubSelection.opener`, v0.13.5). 선수 판매(v0.12.87): 선수 카드에서 후보를 왼쪽으로 밀면 판매 버튼이 드러나고(`TAKRAW_SELL_REVEAL_PX`), 카드 폭의 62%(`TAKRAW_SELL_FULL_RATIO`) 넘게 끝까지 밀면 바로 판다(`ui.js swipe`). 키보드는 후보 카드에서 Delete로 버튼을 드러낸다. 받는 훈련 포인트는 등급 환급(`draw.refund`)에 쌓은 훈련 레벨 × `sell.levelRefund`이고, 출전 선수는 팔 수 없어 선수단은 늘 `sell.minRoster`(3)명 이상 남는다(`club.js sell`). 소개 주소(`#/showcase`)는 게임킷 소개 호스트가 부팅 직후 읽어 여는 주소라, 처음 홈을 보일 때(`showHome`) 지우지 않는다(v0.12.84, 이전에는 `#/`로 덮어써 주소로 들어가도 소개가 열리지 않았다). 메인 화면(v0.12.80~): 게임 UI는 꼭 필요한 곳 외에는 스크롤을 두지 않고, 버튼을 한 번에 늘어놓지 않고 계층으로 압축한다. 첫 화면에는 `게임 시작`과 `팀 관리`만 두고, `게임 시작` 안에 주 모드인 도장깨기(첫 줄, 강조 버튼)·연습 경기(AI와 가볍게 한 판)·스파이크 연습·`멀티플레이`를, `멀티플레이` 안에 친구와 1대1·로컬 2인·AI 관전을 둔다. 안쪽 단계는 `index.html`의 `data-home-view`와 주소(`#/start`, `#/multi`)로 정해지고(`ui.js setHomeView`·`applyRoute`), 한 번에 한 단계만 보인다. 뒤로 버튼은 헤더 왼쪽 위의 고정 자리(`#home-back`)에서 한 단계 위(`HOME_PARENT`)로 가며 Esc·브라우저 뒤로가기도 같은 길을 간다. 도장깨기·온라인 창을 닫으면 열기 전 단계로 돌아온다. 헤더에는 설정만 두고 소개는 패널의 `소개 보기`가 맡는다(처음 화면에서만 열린다). 높이 700px 이하에서는 부제목·조작 안내를, 620px 이하에서는 설명 문구까지 접는다.
 
-의존 방향은 config/data → motion/club → physics → game → UI, runtime → 각 소유자입니다. runtime의 `BodyPose`는 기존처럼 한 boot 인스턴스의 클로저 상태입니다. 변경 가능한 전역으로 분리하지 않습니다. `window.__takraw` 진단/검사 진입점을 유지합니다.
+의존 방향은 config/data → motion/club → physics → game → UI, runtime → 각 소유자입니다. runtime의 `BodyPose`는 기존처럼 한 boot 인스턴스의 클로저 상태입니다. 변경 가능한 전역으로 분리하지 않습니다. `window.__takraw`(`game`·`session`·`view`·`ready`·`watch`·`showcase`·`diagnostics`·`dispose`)가 진단·시험 진입점입니다.
 
 `scripts/dev-server.cjs`는 원본을 JS/CSS MIME으로 제공합니다. 상대 경로이므로 `/bloom-takraw/` 같은 하위 경로도 지원합니다. 배포 파일 생성·번들링·변환은 없으며 소스 스냅샷을 그대로 사용합니다.
 
@@ -69,7 +74,7 @@
 
 부팅 진행은 `bootstrapStage`가 소유합니다. 준비 여부는 이 단계에서 파생하고 시작 가능 여부는 `canStart(mode)`가 클럽 상태와 실행 오류를 함께 판단합니다. 버튼 표시와 실행 명령이 같은 정책을 사용합니다. UI는 안내 문구가 비었는지로 준비 여부를 추측하지 않습니다. 일시 정지·실행 오류·종료는 서로 다른 개념이므로 하나의 거대 enum으로 합치지 않습니다.
 
-연결 정비는 기존 GameKit deadline pump에서 실행하며 80ms 간격 제한과 1초 재연결 제한을 유지합니다. `renderScene`은 연결 생성·종료·재연결을 실행하지 않습니다. 물리/AI 주기, 게임 상태 저장 형식은 변경하지 않았습니다. 페이지 복귀 시 reload하는 pageshow 리스너는 게임 인스턴스 종료 후 BFCache 복귀를 처리해야 하므로 페이지 수명주기에 남습니다.
+연결 정비는 기존 GameKit deadline pump에서 실행하며 80ms 간격 제한과 1초 재연결 제한을 유지합니다. `renderScene`은 연결 생성·종료·재연결을 실행하지 않습니다. 페이지 복귀 시 reload하는 pageshow 리스너는 게임 인스턴스 종료 후 BFCache 복귀를 처리해야 하므로 페이지 수명주기에 남습니다.
 
 선수 상태명은 HUD 생성 시 한 번 해석한 결과를 UI가 그대로 표시합니다. HTML의 대화상자는 빈 골격이며, 저장된 클럽 화면 사본을 포함하지 않습니다. 클럽 상태는 club owner의 현재 조회 결과로만 표시합니다.
 
@@ -81,19 +86,9 @@
 
 runtime의 `contact` 어댑터는 `presentation-events`의 `start`·`update(handle, ageMs)`·`reconcile`·`stop`에 `TakrawImpactEffects`를 연결합니다. 효과 모양은 저널이 주는 경과 시간의 함수이고 입자 방향은 접촉 이벤트의 `tick`·`sequence`에서 만든 시드 난수입니다. 따라서 롤백 재확정에서 효과가 처음부터 다시 시작하지 않고, 두 피어가 같은 모양을 그립니다. 등급 표시(`#timing-badge`)는 같은 이벤트 수명에 묶여 있고 `ui.showTiming`이 돌려준 토큰으로만 지워집니다.
 
-## 학습 모듈의 경계
-
-`src/learning/core/`는 게임을 모르는 범용 강화학습이다. 정책은 층(`DenseLayer`)을 조합하고 `Quantizable` 믹스인으로 양자화 저장을 얻는다. `Algorithm`(sample·update·actor)은 `Reinforce`, 이를 상속한 `ActorCritic`, 그리고 `Dqn`이 구현한다. 과제는 `Task.rollout(seed, chooseAction)`으로 전이 `{obs, action, reward, nextObs, done}`를 돌려준다.
-
-`src/learning/takraw/`는 게임 전용이다. `TAKRAW_TUNING`이 조정 값의 이름·범위를 정의하고 기본값은 `config`와 `physics.settings`에서 읽는다(SSOT). `ReceiveObservation`이 정책 입력의 유일한 인코더이고, `ReceiveTask`가 스파이크 리시브 장면과 판정을 소유한다. 장면마다 새 게임을 만든다.
-
-경기와의 접점은 `game.setTuning(team, values)`뿐이다. 조정 값은 팀별 `game.tuning`에 두고 `save`·`load`·`validate`가 포함한다. 물리에 영향을 주는 값(`contactHeight`, `strokeTime`, `attackApex`)은 `physics.setTossTuning`이 팀별 설정 사본으로 반영한다. 조정이 없으면 기본 설정 객체를 그대로 쓴다. 정책 추론은 사칙연산만 쓰는 활성 함수(`x / (1 + |x|)`)로 구현해 엔진이 달라도 같은 값을 내도록 했다. 저장 형식은 4비트 양자화한 가중치의 base64이며 변환은 `TeammateLearning.encode`·`decode`(경기 학습은 `MatchLearning`)가 소유한다. 정책을 따로 두는 저장소는 없고, 학습 결과는 클럽 레코드의 `learning.policy`로 팀 저장(gamekit `save`)에 함께 들어간다.
-
-v0.12.13~15에는 유저 기능에 연결되었고 v0.12.16에서 화면과 경기 연결을 제거했다(아래는 연결 당시의 설계이며 복구 방법은 docs/learning-tobe.md). 접점이 하나 더 늘었다: `game.setTuner(team, fn)`. 상대가 스파이크를 칠 때마다 공이 반응한 뒤(`applyTuner`) 착지 예상 지점에 가장 가까운 팀 선수 기준으로 `fn(game, playerId)`를 불러 `setTuning`에 넘긴다. 학습 한 번의 규칙(비용·epoch 수·정책 최대 길이)은 `TAKRAW_CLUB_RULES.learning`이 유일한 정의이고, 학습 결과는 클럽 레코드의 선택 필드 `learning: { runs, policy(base64 양자화) }`에 저장한다. `TeammateLearning`(`src/learning/teammate.js`)이 학습·평가·저장 형식 변환·경기용 조정기를 소유하고, 런타임은 학습을 마친 뒤에만 `club.learn()`을 호출한다. 로컬 AI 대전(`mode === 'match'`)의 우리 팀에만 적용하고 온라인에는 쓰지 않는다. 학습은 받는 첫 접촉만 다뤘으므로 조정은 그 접촉(또는 득점)까지만 유지하고 `releaseTuning`이 기본값으로 되돌린다.
-
 ## 학교 외형
 
-`src/config/schools.js`가 학교 이름·Uniform(주색·보조색·하의·양말)·머리 3종·등번호의 단일 원본이다. 이름과 팔레트는 출시 전 임시안이다. 학교는 속성(풀·불·물·번개·달빛·햇빛·얼음·땅·바람·어둠) 10곳이며 외형만 다르고 난이도는 갖지 않는다. 내 학교는 저장 데이터를 처음 만들 때 한 번 무작위로 정해져 `campaign.home`에 저장되고(이전 저장본은 불러올 때 한 번 정함) 상대 목록에서 빠진다. 도전 단계(`TAKRAW_LADDER`, 9단계)가 AI 난이도와 첫 클리어 포인트를 정하고, `takrawOpponents(home)`가 로스터 순서대로 단계를 붙인다. runtime이 세션을 열 때 두 학교를 정하고 view에 전달한다. simulation은 학교 외형을 알지 않으며 저장과 입력 계약은 그대로다. 홈의 임시 상대 선택은 도장깨기 목록으로 대체할 예정이다. view는 등번호 CanvasTexture와 재질을 캐시하고 종료 시 해제한다. 학교 교체 시 선수 메시와 늘어나는 다리 geometry를 해제한 뒤 현재 pose로 재구성한다.
+`src/config/schools.js`가 학교 이름·Uniform(주색·보조색·하의·양말)·머리 3종·등번호의 단일 원본이다. 이름과 팔레트는 출시 전 임시안이다. 학교는 속성(풀·불·물·번개·달빛·햇빛·얼음·땅·바람·어둠) 10곳이며 외형만 다르고 난이도는 갖지 않는다. 내 학교는 저장 데이터를 처음 만들 때 한 번 무작위로 정해져 `campaign.home`에 저장되고 상대 목록에서 빠진다. 도전 단계(`TAKRAW_LADDER`, 9단계)가 AI 난이도와 첫 클리어 포인트를 정하고, `takrawOpponents(home)`가 로스터 순서대로 단계를 붙인다. runtime이 세션을 열 때 두 학교를 정하고 view에 전달한다. simulation은 학교 외형을 알지 않으며 저장과 입력 계약은 그대로다. view는 등번호 CanvasTexture와 재질을 캐시하고 종료 시 해제한다. 학교 교체 시 선수 메시와 늘어나는 다리 geometry를 해제한 뒤 현재 pose로 재구성한다.
 
 ## AI 관전(시드 재생)
 
@@ -148,6 +143,17 @@ v0.12.13~15에는 유저 기능에 연결되었고 v0.12.16에서 화면과 경�
 - 명장면 득점(스파이크 결정타, 또는 터치 `longRallyTouches` 이상 랠리) 뒤 `tailTicks`가 지나면 경기를 멈추고 그 장면을 자동 재생한다. 화면 탭·건너뛰기 버튼·Space/Enter/Esc로 건너뛴다. 끝나면 득점 뒤 대기부터 이어 가며 멈춘 시간은 따라잡지 않는다. 혼자 하는 AI 대전과 2P(`modes`)만 하고, 온라인은 상대와 시계를 맞춰야 해 멈출 수 없으므로 제외한다. 수치는 `TAKRAW_RUNTIME.highlight`가 소유한다.
 - 원본은 **경기 시작 상태 + 매 틱 입력**이다. 첫 스텝 직전 `game.save()` 바이트를 기준점으로, 실제 경기도 그 바이트에서 `load`해 둔다. 새로 만든 물리 월드와 스냅샷에서 되살린 월드는 계산이 달라지므로 두 경기를 같은 출발점에 두는 것이다(락스텝 합류와 같은 방식). 세션이 상태를 불러오거나 바꾸면 기준점을 다시 잡는다.
 - 재계산은 Web Worker(`highlight-worker.js`)의 그림자 경기(`TakrawHighlightShadow`)가 한다. 메인 스레드는 입력을 넘기고 명장면 판정과 받은 포즈 재생만 한다. 워커에는 import map이 없어 Rapier·코덱 주소를 런타임이 `import.meta.resolve`로 풀어 넘긴다. 워커를 못 쓰면 리플레이 없이 진행한다.
-- 대기 없는 재생: 재생 구간은 끝에서 `leadTouches`번째 터치의 `leadTicks` 앞이거나 득점 `maxSeconds`초 전이다. 그래서 지금까지의 터치와 현재 틱만으로 "앞으로 어떤 재생 구간도 이 틱보다 앞서 시작하지 않는다"는 경계(`safeTick`)를 알고, 그림자 경기는 거기까지만 미리 계산한다(한 입력당 최대 `followSteps`틱). 득점이 나면 구간 시작부터 바로 계산해 4틱씩 보내므로 첫 장면은 수십 ms 안에 온다. 매 틱은 한 번씩만 계산되어 워커의 비용은 실제 경기 한 번만큼이다. 워커가 `stallMs` 동안 장면을 보내지 않으면 재생을 끝낸다.
+- 대기 없는 재생: 재생 구간은 끝에서 `leadTouches`번째 터치의 `leadTicks` 앞이거나 득점 `maxSeconds`초 전이다. 그래서 지금까지의 터치와 현재 틱만으로 "앞으로 어떤 재생 구간도 이 틱보다 앞서 시작하지 않는다"는 경계(`safeTick`)를 알고, 그림자 경기는 거기까지만 미리 계산한다(받은 입력 중 그 경계 이하를 모두). 득점이 나면 구간 시작부터 바로 계산해 4틱씩 보내므로 첫 장면은 수십 ms 안에 온다. 매 틱은 한 번씩만 계산되어 워커의 비용은 실제 경기 한 번만큼이다. 워커가 `stallMs` 동안 장면을 보내지 않으면 재생을 끝낸다.
 - 재생 화면: 틱 사이 포즈를 보간하고, 스파이크 앞뒤(`slowBefore`~`slowAfter`)는 `slowRate` 배속이다. 카메라는 사용자 시점을 바꾸지 않고 재생 동안만 측면 중계 각도(`camera`)로 본다. 득점 슬로(`scoreMotion`)·조작 안내·결과 창은 재생 중 숨긴다. 그림자 경기는 게임 상태·저장 형식에 아무것도 쓰지 않는다.
 - 확인용 장면 `?debug=1&scene=match&seed=N[&every=1]`은 시드를 고정한 AI 대전을 실제 시간으로 연다. `every=1`이면 모든 득점을 리플레이한다(판정 기준만 낮춘다). 워커가 다시 만든 재생 구간의 공 위치는 실제 경기와 비트 단위로 같아야 한다.
+
+## 확인용 주소 장면
+
+`?debug=1&scene=<이름>&…`은 실제 저장을 읽지도 쓰지도 않는 격리 장면이다(위 `저장` 절). 장면 정의는 `src/debug-scenes.js`이고, 사람이 화면을 보며 찍지 않고 같은 주소·뷰포트로 전후를 비교하는 관찰 수단이다.
+
+| scene   | 파라미터                                       | 열리는 것                                                                                                                                     |
+| ------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `watch` | `seed`, `tick`                                 | 시드 하나의 AI 관전을 가상 시계로 `tick`까지 진행한다. `__bloomDebug.state()`로 tick·점수를 읽는다.                                           |
+| `spike` | `seed`, `tick`, `camera=x,y,z,tx,ty,tz,fov`    | `watch`와 같은 재생을 고정 카메라로 그리고 HUD를 숨긴다.                                                                                      |
+| `match` | `seed`, `every=1`(선택)                        | 시드를 고정한 AI 대전을 실제 시간으로 연다. `every=1`이면 모든 득점을 리플레이한다.                                                           |
+| `club`  | `seed`, `credits`·`draws`·`unreadable=1`(선택) | 시드로 만든 새 클럽(메모리 저장)의 팀 관리 화면. `unreadable=1`은 옛 형식 저장이 있어 읽지 못한 저장의 **기록 지우고 새로 시작** 화면을 연다. |

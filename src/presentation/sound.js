@@ -5,18 +5,18 @@ const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
 // 공 속도 / 기준 속도가 below 미만이면 그 단계. config/runtime.js의 KICK_LEVELS 이름과 같아야 한다.
 const KICK_LEVELS = [
-  { name: 'Soft', below: 0.45 },
-  { name: 'Medium', below: 0.8 },
-  { name: 'Hard', below: Infinity },
+    { name: 'Soft', below: 0.45 },
+    { name: 'Medium', below: 0.8 },
+    { name: 'Hard', below: Infinity },
 ];
 const KICK_GRADE_SUFFIX = { perfect: 'Perfect', good: 'Good' };
 
 /** 접촉 하나의 소리 id. 스파이크 > 발이 아닌 몸 > 발(속도 단계 × 타이밍 등급). */
 function takrawKickSoundId(event, reference) {
-  if (event.spike) return 'kickSpike';
-  if (!String(event.part || '').startsWith('foot')) return 'kickBody';
-  const level = KICK_LEVELS.find(item => event.speed / reference < item.below).name;
-  return `kick${level}${KICK_GRADE_SUFFIX[event.timing?.grade] ?? ''}`;
+    if (event.spike) return 'kickSpike';
+    if (!String(event.part || '').startsWith('foot')) return 'kickBody';
+    const level = KICK_LEVELS.find((item) => event.speed / reference < item.below).name;
+    return `kick${level}${KICK_GRADE_SUFFIX[event.timing?.grade] ?? ''}`;
 }
 
 /**
@@ -25,18 +25,42 @@ function takrawKickSoundId(event, reference) {
  * 득점·서브 신호는 음정이 있는 소리라 가운데에서 그대로 낸다(음높이 변주 없음).
  * 깊이감: 보는 사람에게서 먼 코트 끝일수록 음량이 distanceDrop(0..1)만큼까지 작아진다(카메라는 1P가 -x, 2P가 +x 쪽).
  */
-function takrawSoundPayload(event, { reference, halfWidth, halfLength, viewTeam, panSpread, detuneCents, distanceDrop, random, matchPoint }) {
-  const soundId = { touch: takrawKickSoundId(event, reference), land: 'land', net: 'net', serve: 'serve', point: matchPoint ? 'matchPoint' : 'point' }[event.type];
-  if (!soundId) return null;
-  const signal = event.type === 'point' || event.type === 'serve';
-  const side = viewTeam === 1 ? -1 : 1;
-  const far = clamp(side * (event.position?.x ?? 0) / halfLength, -1, 1);
-  const distance = 1 - distanceDrop * (far + 1) / 2;
-  // 발차기 세기는 소리 단계가 나타내므로 음량은 좁게만 움직인다.
-  const strength = signal ? 0.8 : clamp((0.45 + 0.55 * event.speed / reference) * distance, 0.2, 1);
-  const pan = event.type === 'point' ? 0 : clamp(side * (event.position?.z ?? 0) / halfWidth, -1, 1) * panSpread;
-  const detune = signal ? 0 : (random() - 0.5) * 2 * detuneCents;
-  return { soundId, strength, pan, detune };
+function takrawSoundPayload(
+    event,
+    {
+        reference,
+        halfWidth,
+        halfLength,
+        viewTeam,
+        panSpread,
+        detuneCents,
+        distanceDrop,
+        random,
+        matchPoint,
+    },
+) {
+    const soundId = {
+        touch: takrawKickSoundId(event, reference),
+        land: 'land',
+        net: 'net',
+        serve: 'serve',
+        point: matchPoint ? 'matchPoint' : 'point',
+    }[event.type];
+    if (!soundId) return null;
+    const signal = event.type === 'point' || event.type === 'serve';
+    const side = viewTeam === 1 ? -1 : 1;
+    const far = clamp((side * (event.position?.x ?? 0)) / halfLength, -1, 1);
+    const distance = 1 - (distanceDrop * (far + 1)) / 2;
+    // 발차기 세기는 소리 단계가 나타내므로 음량은 좁게만 움직인다.
+    const strength = signal
+        ? 0.8
+        : clamp((0.45 + (0.55 * event.speed) / reference) * distance, 0.2, 1);
+    const pan =
+        event.type === 'point'
+            ? 0
+            : clamp((side * (event.position?.z ?? 0)) / halfWidth, -1, 1) * panSpread;
+    const detune = signal ? 0 : (random() - 0.5) * 2 * detuneCents;
+    return { soundId, strength, pan, detune };
 }
 
-export { takrawKickSoundId, takrawSoundPayload };
+export { takrawSoundPayload };

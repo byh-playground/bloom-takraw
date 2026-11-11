@@ -2,6 +2,22 @@
  * 주소로 여는 확인용 장면(`?debug=1&scene=이름&tick=N&…`). 일반 플레이에서는 로드되지 않는다.
  * 호스트는 파라미터를 해석하지 않으므로 값의 형식은 각 장면이 정하고, 틀리면 그대로 실패한다.
  */
+/** 내 학교(campaign.home)와 levels·cards·gacha·pending이 없던 옛 형식의 팀 저장. 지금 형식이 아니라 읽지 못하는 저장으로 처리된다. */
+const OLD_FORMAT_TEAM_SAVE = Object.freeze({
+    schema: 1,
+    revision: 4,
+    name: '옛 팀',
+    credits: 600,
+    trainingPoints: 6,
+    owned: ['han-gyeol', 'yun-seo', 'i-deun'],
+    trained: {},
+    lineup: { receiver: 'han-gyeol', setter: 'yun-seo', attacker: 'i-deun' },
+    record: { played: 0, won: 0, lost: 0 },
+    rewards: [],
+    lastReward: null,
+    campaign: { cleared: [] },
+});
+
 export function createDebugScenes({
     config,
     openWatch,
@@ -80,10 +96,14 @@ export function createDebugScenes({
         /**
          * 시드로 만든 새 클럽(메모리 저장)을 팀 관리 화면으로 연다. 실제 저장은 건드리지 않는다.
          * credits가 있으면 코인을 그 값으로 두고, draws가 있으면 그 뒤 그 횟수만큼 뽑는다(코인이 모자라면 게임 규칙대로 실패).
+         * unreadable=1이면 옛 형식의 저장이 이미 있는 것으로 시작해 "읽지 못한 저장 → 기록 지우고 새로 시작" 화면을 연다.
          */
-        async club({ seed, credits, draws }) {
+        async club({ seed, credits, draws, unreadable }) {
             if (!/^\d+$/.test(seed ?? '')) throw new Error(`club needs an integer seed: ${seed}`);
-            const club = await openClub(Number(seed));
+            const club = await openClub(
+                Number(seed),
+                unreadable === '1' ? OLD_FORMAT_TEAM_SAVE : null,
+            );
             if (credits !== undefined)
                 await club.debugMutate((record) => {
                     record.credits = Number(credits);
@@ -95,6 +115,7 @@ export function createDebugScenes({
             return {
                 state: () => ({
                     status: view().status,
+                    locked: view().locked,
                     teamName: view().teamName,
                     credits: view().credits,
                     home: view().campaign.home,

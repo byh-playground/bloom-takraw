@@ -1395,14 +1395,20 @@ class TakrawPhysics {
         else this._driveAirStance(p, body, intent, action, targetMap, dt);
     }
 
+    /** 지상 자세: 몸 세우기와 뜨는 힘 → 수평 이동 → 두 다리(차는 다리는 _driveKick이 맡는다). */
     _driveGroundStance(p, body, intent, action, targetMap, dt) {
+        this._groundSupport(p, body, action, dt);
+        this._groundMovement(p, body, intent, action, dt);
+        this._groundLegs(p, body, intent, action, targetMap, dt);
+    }
+
+    /** 몸통을 세우고 서 있는(받기 자세면 낮춘) 높이로 뜨는 힘을 건다. */
+    _groundSupport(p, body, action, dt) {
         const s = p.settings,
             stance = s.drive.stance,
-            gait = s.drive.gait,
             root = p.root;
-        const { pos, vel, rootRotation, up, muscleResponse, balanceResponse } = body;
-        const { move, moving } = intent;
-        const { receive, motion, receiveBlend, fallen, kicking, recovery } = action;
+        const { pos, vel, up, balanceResponse } = body;
+        const { receive, motion, receiveBlend, fallen, recovery } = action;
         this._orientRoot(
             p,
             dt,
@@ -1423,6 +1429,16 @@ class TakrawPhysics {
             p.mass * s.gravity * (fallen ? stance.fallenMaxGravity : stance.maxGravity),
         );
         root.applyImpulse({ x: 0, y: lift * dt * balanceResponse * recovery, z: 0 }, true);
+    }
+
+    /** 목표 이동 속도와 지금 속도(걷는 중이면 몸 전체 질량 중심 속도)의 차이로 수평 힘을 건다. */
+    _groundMovement(p, body, intent, action, dt) {
+        const s = p.settings,
+            stance = s.drive.stance,
+            root = p.root;
+        const { pos, vel, muscleResponse } = body;
+        const { move, moving } = intent;
+        const { receive, fallen } = action;
         const targetV = this._mul(
             move,
             s.movementSpeed *
@@ -1456,6 +1472,15 @@ class TakrawPhysics {
             { x: pos.x, y: stance.pushHeight, z: pos.z },
             true,
         );
+    }
+
+    /** 걸음 위상을 진행하고 두 다리의 발 목표·관절 목표를 정한다. 차는 다리는 건너뛴다. */
+    _groundLegs(p, body, intent, action, targetMap, dt) {
+        const s = p.settings,
+            gait = s.drive.gait;
+        const { pos, rootRotation, muscleResponse } = body;
+        const { move, moving } = intent;
+        const { receive, motion, receiveBlend, fallen, kicking } = action;
         p.gait += dt * (moving > s.drive.gaitInput ? gait.rate : 0);
         const facing = this._yaw(p.desiredYaw);
         for (const [suffix, side] of [
@@ -1477,19 +1502,7 @@ class TakrawPhysics {
                 z: pos.z + spread.z + move.z * Math.sin(phase) * gait.stride + planted.z,
             };
             const pose = this._legTargets(p, suffix, target, 1, pos, rootRotation);
-            if (motion) {
-                const length =
-                    p.byName['upperLeg' + suffix].restLength +
-                    p.byName['lowerLeg' + suffix].restLength;
-                const bend =
-                    Math.min(
-                        2.45,
-                        2 * Math.acos(this._clamp((motion.height - 0.14) / length, 0, 1)),
-                    ) * receiveBlend;
-                pose.hip[0] -= bend * 0.5;
-                pose.knee[0] = Math.max(pose.knee[0], bend);
-                pose.ankle[0] = -(pose.hip[0] + pose.knee[0]) * s.drive.ankleCompensation;
-            }
+            if (motion) this._receiveCrouch(p, suffix, motion, receiveBlend, pose);
             targetMap['hip' + suffix] = pose.hip;
             targetMap['knee' + suffix] = pose.knee;
             targetMap['ankle' + suffix] = pose.ankle;
@@ -1504,6 +1517,19 @@ class TakrawPhysics {
                 gait.velocityGain * muscleResponse,
             );
         }
+    }
+
+    /** 받기 자세에서 받기 높이에 맞춰 무릎을 굽히고 엉덩이·발목을 맞춘다. */
+    _receiveCrouch(p, suffix, motion, receiveBlend, pose) {
+        const s = p.settings;
+        const length =
+            p.byName['upperLeg' + suffix].restLength + p.byName['lowerLeg' + suffix].restLength;
+        const bend =
+            Math.min(2.45, 2 * Math.acos(this._clamp((motion.height - 0.14) / length, 0, 1))) *
+            receiveBlend;
+        pose.hip[0] -= bend * 0.5;
+        pose.knee[0] = Math.max(pose.knee[0], bend);
+        pose.ankle[0] = -(pose.hip[0] + pose.knee[0]) * s.drive.ankleCompensation;
     }
 
     _driveAirStance(p, body, intent, action, targetMap, dt) {

@@ -15,7 +15,7 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = ([min, max], t) => min + (max - min) * t;
 
-/** 정수 값 여러 개를 섞어 [0, 1)을 만드는 결정론 해시. gamekit 모듈이 노드 시험에서 불러와지지 않아 시뮬레이션 쪽에 둔다. */
+/** 정수 값 여러 개를 섞어 [0, 1)을 만드는 결정론 해시. */
 function seededUnit(...values) {
     let h = 0x9e3779b9;
     for (const value of values) {
@@ -263,4 +263,4 @@ class AiBrain {
     }
 }
 
-export { AiBrain, AiState, Temperament, seededUnit, seedFromText };
+export { AiBrain, Temperament, seededUnit, seedFromText };

@@ -90,8 +90,6 @@ const TAKRAW_RUNTIME = Object.freeze({
         slowAfter: 30,
         slowRate: 0.35,
         camera: { yaw: 1.05, pitch: 0.36 },
-        // 그림자 경기가 실제 경기 한 스텝마다 따라갈 수 있는 최대 틱 수. 1보다 커야 터치 사이에 벌어진 거리를 따라잡는다.
-        followSteps: 3,
         // 워커가 이 시간(ms) 동안 다음 장면을 보내지 않으면 리플레이를 끝내고 경기를 이어 간다.
         stallMs: 1000,
     },
@@ -143,7 +141,6 @@ const TAKRAW_RUNTIME = Object.freeze({
         homeLevel: 0.9,
         pausedLevel: 0.35,
         fadeMs: 1500,
-        stopFadeMs: 600,
         levelRampMs: 300,
         duck: {
             touch: { depth: 0.55, holdMs: 90, releaseMs: 260 },

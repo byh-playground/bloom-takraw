@@ -5,11 +5,9 @@ const RUNTIME = LOCALE.messages({
     // 선수 상태(HUD 선택 선수)
     stateReady: { ko: '준비', en: 'Ready' },
     stateAir: { ko: '공중', en: 'In the air' },
-    stateJump: { ko: '점프', en: 'Jump' },
     stateFall: { ko: '낙하', en: 'Falling' },
     stateKick: { ko: '발차기', en: 'Kick' },
     stateSpike: { ko: '스파이크', en: 'Spike' },
-    stateDown: { ko: '자세 회복', en: 'Regaining balance' },
     stateGettingUp: { ko: '일어나는 중', en: 'Getting up' },
     playerOf: {
         ko: ({ name, role }) => `${name} · ${role}`,

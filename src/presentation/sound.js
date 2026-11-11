@@ -63,4 +63,4 @@ function takrawSoundPayload(
     return { soundId, strength, pan, detune };
 }
 
-export { takrawKickSoundId, takrawSoundPayload };
+export { takrawSoundPayload };

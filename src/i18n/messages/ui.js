@@ -34,7 +34,6 @@ const UI = LOCALE.messages({
     },
     touch: { ko: '터치', en: 'Touches' },
     attacker: { ko: '공격수', en: 'Attacker' },
-    playerOf: { ko: ({ name }) => `${name} · 공격수`, en: ({ name }) => `${name} · Attacker` },
     stateReady: { ko: '준비', en: 'Ready' },
     bothMatchPoint: { ko: '양 팀 매치 포인트', en: 'Match point for both' },
     matchPoint: {
@@ -556,4 +555,4 @@ const clubText = (ref) => {
     return id in CLUB ? CLUB[id](ref.values) : '';
 };
 
-export { UI, CLUB, clubText };
+export { UI, clubText };

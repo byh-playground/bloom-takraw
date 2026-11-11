@@ -553,4 +553,4 @@ const touchControlText = (value) =>
         value,
     );
 
-export { MATCH, REASON, matchText, roleName, touchControlText };
+export { matchText, roleName, touchControlText };

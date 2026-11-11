@@ -218,10 +218,7 @@ const clubMessage = (id, values = {}) => Object.freeze({ id, values: Object.free
 
 /** 0 이상 1 미만의 난수 하나(내 학교 추첨용). 경기 시뮬레이션과 무관하다. */
 function takrawRandomUnit() {
-    const crypto = globalThis.crypto;
-    return crypto?.getRandomValues
-        ? crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296
-        : Math.random();
+    return crypto.getRandomValues(new Uint32Array(1))[0] / 4294967296;
 }
 
 class TakrawClub {

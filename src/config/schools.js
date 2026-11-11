@@ -276,7 +276,6 @@ function takrawWatchSchools(seed) {
 export {
     TAKRAW_ELEMENTS,
     TAKRAW_SCHOOLS,
-    TAKRAW_LADDER,
     takrawSchool,
     takrawPickHome,
     takrawOpponents,

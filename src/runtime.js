@@ -45,29 +45,17 @@ import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
+import { roleName } from './i18n/messages/match.js';
 
+// physics.js가 내는 선수 상태(standing·moving·airborne·kicking·overhead·falling·recovering)의 문구. moving은 접지 여부로 정한다.
 const PLAYER_STATE_LABELS = Object.freeze({
-    ready: RUNTIME.stateReady,
     standing: RUNTIME.stateReady,
-    grounded: RUNTIME.stateReady,
-    idle: RUNTIME.stateReady,
     airborne: RUNTIME.stateAir,
-    jumping: RUNTIME.stateJump,
     falling: RUNTIME.stateFall,
     kicking: RUNTIME.stateKick,
-    spike: RUNTIME.stateSpike,
     overhead: RUNTIME.stateSpike,
-    down: RUNTIME.stateDown,
-    fallen: RUNTIME.stateDown,
-    ragdoll: RUNTIME.stateDown,
     recovering: RUNTIME.stateGettingUp,
-    recovery: RUNTIME.stateGettingUp,
-    gettingUp: RUNTIME.stateGettingUp,
 });
-
-/** 자리 id의 이 언어 이름. */
-const roleName = (role) =>
-    LOCALE.text(TAKRAW_CLUB_RULES.roles.find((value) => value.id === role).name);
 
 /** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
 const localizedTeam = (team) =>
@@ -1190,7 +1178,7 @@ async function bootTakraw() {
         const selectedId = latestView.state.selected?.[team] ?? (team === 1 ? 5 : 2);
         const player = latestView.players.find((candidate) => candidate.id === selectedId);
         const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
-            attacker = roleName('attacker');
+            attacker = roleName('attacker', LOCALE.locale);
         return {
             ...latestView.state,
             training: latestView.training,
@@ -1444,7 +1432,7 @@ async function bootTakraw() {
                   name: LOCALE.text(opponent.name),
                   players: schoolAi.players.map((preset) => ({
                       id: `${opponent.id}-${preset.role}`,
-                      name: roleName(preset.role),
+                      name: roleName(preset.role, LOCALE.locale),
                       role: preset.role,
                       stats: { ...preset.stats },
                   })),
@@ -1886,20 +1874,11 @@ async function bootTakraw() {
         get session() {
             return session;
         },
-        get loop() {
-            return loop;
-        },
         get view() {
             return view;
         },
-        get ui() {
-            return ui;
-        },
         get ready() {
             return isReady();
-        },
-        get metrics() {
-            return metrics;
         },
         watch: startWatch,
         /** 소개영상 화면(?showcaseDemo=1)에서만: 대본이 장마다 게임 화면을 띄운다. draw는 intro.drawCard 선수의 뽑기 연출, none은 닫기. */

@@ -7,10 +7,10 @@ import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
  * The only pose teleports are the public rally reset methods below.
  */
 class TakrawPhysics {
-    constructor(RAPIER, config = {}, MotionMatcher = TakrawMotionMatcher) {
+    constructor(RAPIER, config = {}) {
         this.R = RAPIER;
         this.config = config;
-        this.motionMatcher = new MotionMatcher();
+        this.motionMatcher = new TakrawMotionMatcher();
         this.settings = Object.assign(
             {
                 gravity: 9.81,
@@ -64,11 +64,6 @@ class TakrawPhysics {
                 maxTorque: 32,
             },
             config.physics?.groundToss || {},
-        );
-        // 구형 관절의 사람 가동 범위(joint-limits.js)를 Rapier 관절 한계로 건다. 끄면 이전처럼 제한 없는 구형 관절이다.
-        this.settings.jointLimits = Object.assign(
-            { enabled: true },
-            config.physics?.jointLimits || {},
         );
         this.settings.receive = Object.assign(
             {
@@ -180,27 +175,8 @@ class TakrawPhysics {
             },
             config.physics?.airKick?.motion || {},
         );
-        this.settings.legStretch = Object.assign(
-            {
-                // Scale units per second: full extension takes 250 ms, return 500 ms.
-                maxScale: 1.25,
-                extendRate: 1.0,
-                retractRate: 0.5,
-            },
-            config.physics?.legStretch || {},
-        );
-        const stretch = this.settings.legStretch;
-        stretch.maxScale = this._clamp(
-            Number.isFinite(stretch.maxScale) ? stretch.maxScale : 1.25,
-            1,
-            1.25,
-        );
-        for (const [key, fallback] of [
-            ['extendRate', 1.0],
-            ['retractRate', 0.5],
-        ]) {
-            if (!(Number.isFinite(stretch[key]) && stretch[key] > 0)) stretch[key] = fallback;
-        }
+        // Scale units per second: full extension takes 250 ms, return 500 ms.
+        this.settings.legStretch = { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 };
         const airKick = this.settings.airKick;
         airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
         this.serializer = new RAPIER.SerializationPipeline();
@@ -783,12 +759,8 @@ class TakrawPhysics {
             } else
                 for (const axis of [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ])
                     j.configureMotorModel(axis, R.MotorModel.ForceBased);
-            const humanLimits =
-                !hinge && this.settings.jointLimits.enabled
-                    ? (this.settings.jointLimits.table || HUMAN_JOINT_LIMITS)[
-                          name.replace(/[LR]$/, '')
-                      ]
-                    : null;
+            // 구형 관절의 사람 가동 범위(joint-limits.js)를 Rapier 관절 한계로 건다. 표에 없는 관절은 한계가 없다.
+            const humanLimits = hinge ? null : HUMAN_JOINT_LIMITS[name.replace(/[LR]$/, '')];
             if (humanLimits) {
                 const left = name.endsWith('L');
                 for (const [axis, key] of [
@@ -2276,11 +2248,6 @@ class TakrawPhysics {
                 ...this._mul(rotationAxis, -Math.sin(initialAngle / 2)),
                 w: Math.cos(initialAngle / 2),
             };
-            const hip = this._point(root, {
-                x: p.kick.side === 'L' ? -0.12 : 0.12,
-                y: -0.06,
-                z: 0,
-            });
             const ankle = this._point(
                 p.byName['foot' + p.kick.side].body,
                 this._v(0, 0.065, -0.085),

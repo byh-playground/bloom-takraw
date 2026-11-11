@@ -1859,7 +1859,7 @@ class TakrawGame {
 
     /**
      * 연습 한 번의 결과. code가 결과 종류이고 values는 문구의 갈래(언어와 무관한 값)다. 제목·설명은 화면이 code·values로 만든다
-     * (src/i18n/messages/match.js TRAINING_RESULT). tests/quick-attack.spec.js는 code로 성공을 센다.
+     * (src/i18n/messages/match.js resultTitle·resultDetail).
      */
     finishTraining(reason) {
         const t = this.state.training,
@@ -2659,10 +2659,9 @@ class TakrawGame {
             data.teamNames.every(
                 (name) => name === null || (typeof name === 'string' && name.trim()),
             ) &&
-            (data.teamSchools === undefined ||
-                (Array.isArray(data.teamSchools) &&
-                    data.teamSchools.length === 2 &&
-                    data.teamSchools.every((id) => id === null || typeof id === 'string'))) &&
+            Array.isArray(data.teamSchools) &&
+            data.teamSchools.length === 2 &&
+            data.teamSchools.every((id) => id === null || typeof id === 'string') &&
             Array.isArray(data.state.defense) &&
             data.state.defense.length === 2 &&
             Array.from(data.state.defense).every(defense) &&
@@ -2701,7 +2700,7 @@ class TakrawGame {
         this.state = structuredClone(data.state);
         this.teamById = { ...data.teamById };
         this.teamNames = [...data.teamNames];
-        this.teamSchools = data.teamSchools ? [...data.teamSchools] : [null, null];
+        this.teamSchools = [...data.teamSchools];
         this.ai = structuredClone(data.ai);
         this.inputs = structuredClone(data.inputs);
         this.aiDirty = data.aiDirty;

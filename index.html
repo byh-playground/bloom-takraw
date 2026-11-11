@@ -1,8 +1,7 @@
 <!doctype html>
 <html lang="en">
     <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-
+        <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
         <!-- bloom-pwa:start -->
         <link rel="manifest" href="manifest.webmanifest" />
@@ -34,15 +33,7 @@
     </head>
     <body class="is-home" data-mode="home" data-home-view="main">
         <div id="app">
-            <canvas
-                id="court-canvas"
-                data-i18n-aria-label="courtLabel"
-                tabindex="0"
-                data-engine="three.js r180"
-                width="1680"
-                height="949"
-                style="touch-action: none"
-            ></canvas>
+            <canvas id="court-canvas" data-i18n-aria-label="courtLabel" tabindex="0"></canvas>
             <div class="scene-shade" aria-hidden="true"></div>
             <header class="site-header">
                 <button id="home-back" class="home-back" type="button" hidden>
@@ -194,7 +185,7 @@
                 </div>
                 <div id="boot-status" class="boot-status" role="status">
                     <span class="loading-dot"></span><span id="boot-message"></span
-                    ><button id="reload-button" type="button" hidden="">
+                    ><button id="reload-button" type="button" hidden>
                         <span aria-hidden="true">↻</span> <span data-i18n="reload"></span>
                     </button>
                 </div>
@@ -206,7 +197,7 @@
                 </p>
             </main>
 
-            <section id="match-hud" class="match-hud" data-i18n-aria-label="matchStatus" hidden="">
+            <section id="match-hud" class="match-hud" data-i18n-aria-label="matchStatus" hidden>
                 <div class="scoreboard">
                     <div class="score-team team-mint">
                         <div class="team-name">
@@ -253,7 +244,7 @@
                         role="status"
                         aria-live="polite"
                         aria-atomic="true"
-                        hidden=""
+                        hidden
                     >
                         <strong id="rally-notice"></strong><span id="rally-detail"></span>
                     </div>
@@ -293,7 +284,7 @@
                         <i data-i18n="cameraReset"></i
                     ></span>
                 </div>
-                <div id="local-guide" class="local-guide" hidden="">
+                <div id="local-guide" class="local-guide" hidden>
                     2P · <i data-i18n="attacker"></i> <kbd data-i18n="arrowKeys"></kbd>
                     <i data-i18n="move"></i> <kbd>Enter</kbd> <i data-i18n="jump"></i>
                     <kbd data-i18n="rightShift"></kbd> <i data-i18n="kick"></i>
@@ -305,14 +296,14 @@
                         <span data-i18n="skip"></span> <kbd>Space</kbd>
                     </button>
                 </div>
-                <div id="end-actions" class="end-actions" hidden="">
+                <div id="end-actions" class="end-actions" hidden>
                     <strong id="match-result"></strong><span id="school-result" hidden></span
                     ><span id="match-reward" role="status"></span
                     ><button
                         id="reward-retry"
                         type="button"
                         class="secondary-small"
-                        hidden=""
+                        hidden
                         data-i18n="rewardRetry"
                     ></button
                     ><button
@@ -331,7 +322,7 @@
                     ><span
                         id="rematch-hint"
                         class="rematch-hint"
-                        hidden=""
+                        hidden
                         data-i18n="rematchHostOnly"
                     ></span>
                 </div>
@@ -339,7 +330,7 @@
                     id="training-actions"
                     class="training-actions"
                     data-i18n-aria-label="trainingGuide"
-                    hidden=""
+                    hidden
                 >
                     <div class="training-heading">
                         <span data-i18n="trainingLesson"></span><span id="training-count"></span>
@@ -402,7 +393,7 @@
                 <span id="watch-tick" role="status"></span>
             </form>
 
-            <div id="touch-controls" class="touch-controls" hidden="">
+            <div id="touch-controls" class="touch-controls" hidden>
                 <div id="move-pad" class="move-pad" role="group" data-i18n-aria-label="movePad">
                     <span class="move-label" aria-hidden="true" data-i18n="move"></span>
                     <div class="pad-cross" aria-hidden="true"></div>
@@ -420,7 +411,7 @@
 
             <footer class="site-footer">
                 <span><span data-i18n="product"></span> <b id="version-label">—</b></span
-                ><span id="connection-indicator" hidden=""><i></i><span></span></span
+                ><span id="connection-indicator" hidden><i></i><span></span></span
                 ><span class="home-only" data-i18n="tagline"></span>
             </footer>
             <div id="rotate-note" class="rotate-note">
@@ -433,7 +424,7 @@
                 </button>
             </div>
 
-            <div id="modal-layer" class="modal-layer" hidden="">
+            <div id="modal-layer" class="modal-layer" hidden>
                 <section
                     id="dialog-panel"
                     class="dialog-panel"
@@ -481,7 +472,7 @@
                 role="alertdialog"
                 aria-modal="true"
                 aria-labelledby="fatal-message"
-                hidden=""
+                hidden
             >
                 <p id="fatal-message"></p>
                 <div class="fatal-actions">
@@ -499,7 +490,7 @@
                     id="diagnostic-text"
                     class="diagnostic-text"
                     readonly
-                    hidden=""
+                    hidden
                     rows="5"
                     aria-labelledby="copy-diagnostic-button"
                 ></textarea>

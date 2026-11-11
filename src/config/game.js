@@ -24,7 +24,6 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
 }
 
 const TAKRAW_CONFIG = Object.freeze({
-    product: 'BLOOM TAKRAW',
     version: TAKRAW_VERSION,
     status: 'Candidate',
     simulation: { tickRate: 60, substeps: 2, aiRate: 15 },

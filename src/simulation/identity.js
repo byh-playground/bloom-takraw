@@ -4,20 +4,22 @@ import { TAKRAW_SCHOOLS } from '../config/schools.js';
 const TAKRAW_IDENTITY_COMMAND = 40;
 const NAME_LENGTH = 18;
 
+/** 보내고 받는 팀 이름의 단일 정리 규칙: 제어 문자는 공백으로, 연속 공백은 하나로, 앞뒤 공백은 없애고 18자까지만 둔다. */
+function plainName(text) {
+    const printable = Array.from(text, (char) => {
+        const code = char.codePointAt(0);
+        return code <= 0x1f || code === 0x7f ? ' ' : char;
+    }).join('');
+    return [...printable.replace(/\s+/g, ' ').trim()].slice(0, NAME_LENGTH).join('');
+}
+
 /** 명령 payload: [40, 학교 번호, ...UTF-8 팀 이름]. 이름은 18자까지만 담는다. */
 function takrawEncodeIdentity(schoolId, name) {
     const index = Math.max(
         0,
         TAKRAW_SCHOOLS.findIndex((school) => school.id === schoolId),
     );
-    const text = [
-        ...String(name ?? '')
-            .replace(/[\u0000-\u001f\u007f]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim(),
-    ]
-        .slice(0, NAME_LENGTH)
-        .join('');
+    const text = plainName(String(name ?? ''));
     return Uint8Array.of(TAKRAW_IDENTITY_COMMAND, index, ...new TextEncoder().encode(text));
 }
 
@@ -31,15 +33,7 @@ function takrawDecodeIdentity(payload) {
     )
         return null;
     const school = TAKRAW_SCHOOLS[payload[1]];
-    const name = [
-        ...new TextDecoder()
-            .decode(payload.subarray(2))
-            .replace(/[\u0000-\u001f\u007f]/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim(),
-    ]
-        .slice(0, NAME_LENGTH)
-        .join('');
+    const name = plainName(new TextDecoder().decode(payload.subarray(2)));
     return school && name ? { schoolId: school.id, name } : null;
 }
 
@@ -52,9 +46,4 @@ function takrawIdentitySchools(ids) {
     return [first, second];
 }
 
-export {
-    TAKRAW_IDENTITY_COMMAND,
-    takrawEncodeIdentity,
-    takrawDecodeIdentity,
-    takrawIdentitySchools,
-};
+export { takrawEncodeIdentity, takrawDecodeIdentity, takrawIdentitySchools };

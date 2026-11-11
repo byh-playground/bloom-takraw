@@ -70,6 +70,7 @@ class MatchSession {
         this.identitySent = false; // 온라인에서 내 팀 이름·학교를 이 세션에서 이미 알렸는지
         this.watch = {
             seed: TAKRAW_RUNTIME.watch.showcaseSeed,
+            repeat: true, // 첫 1점 뒤 같은 시드를 처음부터 다시 연다. 확인용 장면은 끄고 요청한 tick까지 이어서 진행한다.
             point: { tick: null, restarting: false },
         };
         this.campaignSchoolId = null;
@@ -604,7 +605,7 @@ class MatchSession {
     /** 관전은 그 시드의 첫 1점만 반복한다. 득점 뒤 loopHoldMs가 지나면 같은 시드를 처음부터 다시 연다(루프 콜백 안에서 세션을 부수지 않도록 한 박자 늦춘다). */
     observeWatchLoop(token) {
         const point = this.watch.point;
-        if (this.mode !== 'watch' || point.restarting) return;
+        if (this.mode !== 'watch' || !this.watch.repeat || point.restarting) return;
         const { score, tick } = this.game.state;
         if (score[0] + score[1] < 1) return;
         point.tick ??= tick;
@@ -619,8 +620,11 @@ class MatchSession {
         }, 0);
     }
 
-    /** 시드 하나가 AI 대 AI 경기 하나다. 팀·성향은 기본값이라 저장소를 읽거나 쓰지 않는다. */
-    startWatch(seed) {
+    /**
+     * 시드 하나가 AI 대 AI 경기 하나다. 팀·성향은 기본값이라 저장소를 읽거나 쓰지 않는다.
+     * repeat가 false면 첫 1점 뒤에 다시 열지 않고 경기를 이어 간다(확인용 장면: 요청한 tick의 상태를 그대로 보고한다).
+     */
+    startWatch(seed, { repeat = true } = {}) {
         const value = Number(seed);
         if (
             !Number.isInteger(value) ||
@@ -630,6 +634,7 @@ class MatchSession {
         )
             return false;
         this.watch.seed = value;
+        this.watch.repeat = repeat;
         this.startLocal('watch');
         return true;
     }

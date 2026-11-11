@@ -462,7 +462,8 @@ async function bootTakraw() {
                 scenes: createDebugScenes({
                     config,
                     openWatch(seed) {
-                        if (!match.startWatch(seed)) return false;
+                        // 관전의 첫 1점 반복(다시 열기)을 끈다. 다시 열면 요청한 tick이 아니라 tick 0을 보고하게 된다.
+                        if (!match.startWatch(seed, { repeat: false })) return false;
                         renderLoop.stop();
                         match.freezeRealtime();
                         return true;

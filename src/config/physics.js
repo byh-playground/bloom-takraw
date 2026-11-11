@@ -47,6 +47,10 @@ const TAKRAW_PHYSICS = Object.freeze({
         maxTorque: 32,
         receiveApex: 2.4,
         attackApex: 4.2,
+        // 패스·세트가 접촉점보다 최소 이만큼(m)은 떠오르게 한다.
+        minRise: 0.4,
+        // 따라 차기를 마친 발은 받는 방향 반대로 back(m) 뒤, 높이 height(m)로 거둔다.
+        retract: { back: 0.15, height: 0.12 },
     },
     receive: {
         horizon: 1.4,
@@ -85,6 +89,8 @@ const TAKRAW_PHYSICS = Object.freeze({
         orientationDamping: 2,
         orientationInertia: 0.014,
         maxTorque: 96,
+        // 공격 평면의 옆 기울기: 옆 거리 ÷ max(minDistance, 앞뒤 거리)를 ±max로 자른다.
+        lateral: { minDistance: 0.3, max: 0.65 },
         rotation: {
             speed: 7,
             torque: 210,
@@ -100,6 +106,11 @@ const TAKRAW_PHYSICS = Object.freeze({
             downwardGain: 2,
             preparationTime: 0.08,
             driveMass: 8,
+            // 공을 향한 발의 접근 속도 하한(m/s).
+            minClosingSpeed: 0.1,
+            // 마지막 스트로크 길이(초)의 범위. 다리가 이미 닿는 거리면 terminalMax.
+            terminalMin: 0.04,
+            terminalMax: 0.06,
         },
         motion: {
             // The authored path supplies the swing shape; its contact endpoint is

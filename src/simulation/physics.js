@@ -2242,9 +2242,12 @@ class TakrawPhysics {
         const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
         const lateral = this._clamp(
             (contact.impact.z - root.translation().z) /
-                Math.max(0.3, Math.abs(contact.impact.x - root.translation().x)),
-            -0.65,
-            0.65,
+                Math.max(
+                    kick.lateral.minDistance,
+                    Math.abs(contact.impact.x - root.translation().x),
+                ),
+            -kick.lateral.max,
+            kick.lateral.max,
         );
         const axis = this._unit(this._v(p.toward, 0, lateral));
         const distances = {};
@@ -2371,9 +2374,10 @@ class TakrawPhysics {
     _steerAirAxis(p, plan, hip, contact, dt) {
         const kick = this.settings.airKick;
         const lateral = this._clamp(
-            (contact.impact.z - hip.z) / Math.max(0.3, Math.abs(contact.impact.x - hip.x)),
-            -0.65,
-            0.65,
+            (contact.impact.z - hip.z) /
+                Math.max(kick.lateral.minDistance, Math.abs(contact.impact.x - hip.x)),
+            -kick.lateral.max,
+            kick.lateral.max,
         );
         const heading = Math.atan2(p.toward, lateral),
             previousHeading = Math.atan2(plan.axis.x, plan.axis.z);
@@ -2463,7 +2467,7 @@ class TakrawPhysics {
         const correction = this._limit(error, motion.adaptationLimit);
         const strikeVelocity = contact.velocity;
         const closingSpeed = Math.max(
-            0.1,
+            kick.contact.minClosingSpeed,
             this._dot(this._sub(strikeVelocity, incomingAtImpact), contact.normal),
         );
         return { contactPose, ankleOffset, desiredContact, correction, closingSpeed };
@@ -2502,19 +2506,21 @@ class TakrawPhysics {
             qa > 1e-6 && discriminant >= 0
                 ? Math.max(0, (-qb + Math.sqrt(discriminant)) / (2 * qa))
                 : qc <= 0
-                  ? 0.06
+                  ? kick.contact.terminalMax
                   : 0;
         const reachStart =
             qa > 1e-6 && discriminant >= 0
                 ? Math.max(0, (-qb - Math.sqrt(discriminant)) / (2 * qa))
                 : 0;
         const forceTime = (kick.trackingMass * closingSpeed) / kick.force;
-        const terminalMin = Math.max(0.04, forceTime, reachStart);
-        const terminalMax = Math.min(0.06, reachTime);
+        const terminalMin = Math.max(kick.contact.terminalMin, forceTime, reachStart);
+        const terminalMax = Math.min(kick.contact.terminalMax, reachTime);
         // Reach supplies an upper bound, while finite acceleration supplies a
         // lower bound. An empty interval cannot promise the requested impact;
         // retain the bounded stroke and let the real workspace/force caps apply.
-        const terminal = plan.terminalDuration || this._clamp(terminalMax, 0.04, 0.06);
+        const terminal =
+            plan.terminalDuration ||
+            this._clamp(terminalMax, kick.contact.terminalMin, kick.contact.terminalMax);
         if (plan.strokeContact && !plan.terminalDuration) {
             plan.terminalDuration = terminal;
             plan.terminalFeasible = terminalMin <= terminalMax;
@@ -2838,7 +2844,7 @@ class TakrawPhysics {
         const upSpeed = Math.sqrt(
             2 *
                 s.gravity *
-                Math.max(0.4, (attacking ? toss.attackApex : toss.receiveApex) - impact.y),
+                Math.max(toss.minRise, (attacking ? toss.attackApex : toss.receiveApex) - impact.y),
         );
         const flight =
             (upSpeed +
@@ -2887,9 +2893,9 @@ class TakrawPhysics {
         const root = p.root.translation(),
             direction = p.receive.direction;
         const target = {
-            x: root.x - direction.x * 0.15,
-            y: 0.12,
-            z: root.z - direction.z * 0.15,
+            x: root.x - direction.x * toss.retract.back,
+            y: toss.retract.height,
+            z: root.z - direction.z * toss.retract.back,
         };
         const velocity = this._sub(
             this._bodyVelocity(p),
@@ -3367,7 +3373,7 @@ class TakrawPhysics {
         const toss = this.settings.groundToss,
             g = this.settings.gravity;
         if (!toss.attackAssist) return false;
-        const up = Math.sqrt(2 * g * Math.max(0.4, toss.attackApex - position.y));
+        const up = Math.sqrt(2 * g * Math.max(toss.minRise, toss.attackApex - position.y));
         const flight =
             (up + Math.sqrt(Math.max(0, up * up + 2 * g * (position.y - toss.attackHeight)))) / g;
         this.ball.setLinvel(

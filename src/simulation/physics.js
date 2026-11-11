@@ -3148,6 +3148,18 @@ class TakrawPhysics {
         // Clone and validate incoming controller metadata before changing live
         // bodies. Failed restores must leave the current game usable.
         data = structuredClone(data);
+        this._validateSnapshot(data);
+        const profiles = data.players.map((saved, id) => this._athleteProfile(saved.athlete, id));
+        const restore = this._prepareRestore(data);
+        this._commitRestore(restore, data);
+        this.setAthletes(profiles);
+        // The restored world is equivalent to this exact received snapshot.
+        // Preserve the original on-the-wire identity only until its first mutation.
+        this.restoredSnapshotBytes = restore.receivedSnapshot;
+    }
+
+    /** 스냅샷의 모양(version 3, 선수 6명의 리시브·다리·신체·관절 기록)을 검사한다. 틀리면 아무것도 바꾸지 않고 던진다. */
+    _validateSnapshot(data) {
         const vector = (value) =>
             value && ['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]));
         const receive = (value) =>
@@ -3244,7 +3256,13 @@ class TakrawPhysics {
                 '올바르지 않은 물리 스냅샷 (선수와 리시브 상태가 포함된 version 3 필요)',
             );
         }
-        const profiles = data.players.map((saved, id) => this._athleteProfile(saved.athlete, id));
+    }
+
+    /**
+     * 받은 월드를 새로 복원하고 공·바닥·신체·관절 핸들을 묶어 둔다. 지금 월드는 건드리지 않으며,
+     * 핸들이 맞지 않으면 새 월드만 해제하고 던진다.
+     */
+    _prepareRestore(data) {
         const receivedSnapshot = new Uint8Array(data.snapshot);
         const nextWorld = this.serializer.deserializeAll(receivedSnapshot.slice());
         if (!nextWorld) throw new Error('물리 스냅샷 복원 실패');
@@ -3296,22 +3314,36 @@ class TakrawPhysics {
             nextWorld.free();
             throw error;
         }
+        return {
+            receivedSnapshot,
+            world: nextWorld,
+            queue: nextQueue,
+            ball: nextBall,
+            colliderMeta: nextColliderMeta,
+            ballContacts: nextBallContacts,
+            netContacts: nextNetContacts,
+            players: prepared,
+        };
+    }
+
+    /** 준비한 월드로 바꾸고 선수 제어 상태와 신체·관절 바인딩을 스냅샷 값으로 되돌린다. 여기서부터는 실패하지 않는다. */
+    _commitRestore(restore, data) {
         // All body/joint bindings and controller data are ready before the swap.
         this.world.free();
-        this.world = nextWorld;
+        this.world = restore.world;
         this.queue.free();
-        this.queue = nextQueue;
+        this.queue = restore.queue;
         this.time = data.time;
-        this.ball = nextBall;
+        this.ball = restore.ball;
         this.ballColliderHandle = data.ballColliderHandle;
         this.floorHandle = data.floorHandle;
-        this.colliderMeta = nextColliderMeta;
-        this.ballContacts = nextBallContacts;
-        this.netContacts = nextNetContacts;
+        this.colliderMeta = restore.colliderMeta;
+        this.ballContacts = restore.ballContacts;
+        this.netContacts = restore.netContacts;
         this.lastBallTouch = data.lastBallTouch ? { ...data.lastBallTouch } : null;
         for (const saved of data.players) {
             const p = this.players[saved.id],
-                binding = prepared[saved.id];
+                binding = restore.players[saved.id];
             for (const key of [
                 'state',
                 'grounded',
@@ -3353,10 +3385,6 @@ class TakrawPhysics {
                 j.joint = joint;
             }
         }
-        this.setAthletes(profiles);
-        // The restored world is equivalent to this exact received snapshot.
-        // Preserve the original on-the-wire identity only until its first mutation.
-        this.restoredSnapshotBytes = receivedSnapshot;
     }
 
     dispose() {

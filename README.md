@@ -29,13 +29,14 @@ gamekit.lock.json             GameKit 배포 커밋·파일 URL·SHA-256
 manifest.webmanifest, sw.js, pwa/  설치·오프라인(PWA) 생성 결과. scripts/pwa.mjs가 만들고 npm run check가 어긋남을 막음
 src/
   main.js                    로딩/오류 화면과 부팅
+  launch.js                  페이지를 연 맥락(격리 장면·소개영상·iframe)의 단일 출처
   runtime.js                 게임과 GameKit의 수명주기 연결
   debug-scenes.js            주소(?debug=1&scene=…)로 여는 확인용 장면
   config/{game,runtime,schools,intro}.js  게임 정의, 실행 정책, 학교 외형, 소개영상 대본
   club/{club,generator,names}.js  선수·편성·보상·뽑기·IndexedDB 저장, 생성 선수, 이름 표
   motion/{data,model,matcher}.js  게임 고유 모션 자료와 매칭
-  simulation/{game,physics,timing,ai-brain,ai-formation,identity,joint-limits,random}.js
-                             경기 규칙, Rapier 어댑터, 입력 타이밍 판정, AI 선수 행동과 대형, 온라인 팀 표기, 관절 가동 범위, 시드 난수 이름
+  simulation/{game,physics,timing,ai-brain,ai-formation,identity,roster,joint-limits,random}.js
+                             경기 규칙, Rapier 어댑터, 입력 타이밍 판정, AI 선수 행동과 대형, 온라인 팀 표기, 선수 id 배치(팀·슬롯·조종 선수), 관절 가동 범위, 시드 난수 이름
   presentation/              Three.js 표시(view), DOM UI(ui), 접촉·착지·득점 효과, 득점 리플레이(highlight*), 소리, 소개영상 연결
   i18n/                      화면 언어(ko/en) 선택과 문구 표
 styles/app.css               화면 스타일

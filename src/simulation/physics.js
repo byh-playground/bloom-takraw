@@ -2170,103 +2170,125 @@ class TakrawPhysics {
         };
     }
 
+    /**
+     * 공중 발차기의 발 목표. 계획이 없으면 먼저 세우고(_beginAirPlan), 매 substep 다리 상태 → 접촉 예측 →
+     * 공격 평면 조향 → 타격 전환 → 동작 위상 → 접촉 기하 → 마지막 스트로크 길이 → 발목 궤적 → 다리 길이 제한 →
+     * 계획 기록 순으로 계산한다. 이 묶음은 Rapier에 쓰지 않고, 읽기 순서는 하나의 메서드였을 때와 같다.
+     */
     _airFootTarget(p, dt, continuingGroundKick = false, preference = 'auto') {
+        const ballPos = this.ball.translation(),
+            ballVel = this.ball.linvel();
+        if (!p.kick.airPlan)
+            this._beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference);
+        const plan = p.kick.airPlan;
+        const leg = this._airKickLeg(p);
+        const aim = this._aimAirContact(p, plan, ballPos, ballVel, dt);
+        this._steerAirAxis(p, plan, leg.hip, aim.contact, dt);
+        const surface = this._enterAirStrike(plan, leg, aim);
+        this._advanceAirMotion(p, plan, dt);
+        const geometry = this._airContactGeometry(p, plan, leg, aim, surface);
+        const terminal = this._airTerminalDuration(p, plan, leg, aim, geometry);
+        const path = this._airPrepPath(plan, leg, aim, geometry, terminal, dt);
+        this._airStrokePath(plan, aim, geometry, terminal, path);
+        const limit = this._limitAirReach(p, plan, leg, geometry, path, dt);
+        return this._recordAirPlan(p, plan, aim.contact, geometry, path, limit);
+    }
+
+    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
+    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference) {
         const s = this.settings,
             kick = s.airKick,
             root = p.root,
             settings = kick.motion;
-        const ballPos = this.ball.translation(),
-            ballVel = this.ball.linvel();
-        if (!p.kick.airPlan) {
-            const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
-            const lateral = this._clamp(
-                (contact.impact.z - root.translation().z) /
-                    Math.max(0.3, Math.abs(contact.impact.x - root.translation().x)),
-                -0.65,
-                0.65,
+        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
+        const lateral = this._clamp(
+            (contact.impact.z - root.translation().z) /
+                Math.max(0.3, Math.abs(contact.impact.x - root.translation().x)),
+            -0.65,
+            0.65,
+        );
+        const axis = this._unit(this._v(p.toward, 0, lateral));
+        const distances = {};
+        for (const side of ['L', 'R']) {
+            const sole = this._point(
+                p.byName['foot' + side].body,
+                this._v(0, 0.055, kick.forefoot),
             );
-            const axis = this._unit(this._v(p.toward, 0, lateral));
-            const distances = {};
-            for (const side of ['L', 'R']) {
-                const sole = this._point(
-                    p.byName['foot' + side].body,
-                    this._v(0, 0.055, kick.forefoot),
-                );
-                distances[side] = this._length(this._sub(contact.impact, sole));
-            }
-            if (!continuingGroundKick) p.kick.side = this._airSide(distances);
-            const preheld = continuingGroundKick,
-                mirror = p.kick.side === 'L' ? -1 : 1;
-            const query = this._motionQuery(p, axis, preheld);
-            const selection = this.motionMatcher.select(query, preference);
-            let pose = this.motionMatcher.sample(selection.id, selection.phase);
-            selection.phase = Math.min(
-                selection.phase,
-                Math.max(0, pose.contactPhase - settings.phaseMargin),
-            );
-            pose = this.motionMatcher.sample(selection.id, selection.phase);
-            const rotationAxis = this._unit(
-                this._motionVector(
-                    {
-                        forward: pose.body.axis.forward * mirror,
-                        up: pose.body.axis.up * mirror,
-                        lateral: pose.body.axis.lateral,
-                    },
-                    axis,
-                ),
-            );
-            const initialAngle = pose.body.angle;
-            const unrotate = {
-                ...this._mul(rotationAxis, -Math.sin(initialAngle / 2)),
-                w: Math.cos(initialAngle / 2),
-            };
-            const ankle = this._point(
-                p.byName['foot' + p.kick.side].body,
-                this._v(0, 0.065, -0.085),
-            );
-            p.kick.airPlan = {
-                phase: preheld ? 'align' : 'lift',
-                entry: preheld ? 'downward' : 'swing',
+            distances[side] = this._length(this._sub(contact.impact, sole));
+        }
+        if (!continuingGroundKick) p.kick.side = this._airSide(distances);
+        const preheld = continuingGroundKick,
+            mirror = p.kick.side === 'L' ? -1 : 1;
+        const query = this._motionQuery(p, axis, preheld);
+        const selection = this.motionMatcher.select(query, preference);
+        let pose = this.motionMatcher.sample(selection.id, selection.phase);
+        selection.phase = Math.min(
+            selection.phase,
+            Math.max(0, pose.contactPhase - settings.phaseMargin),
+        );
+        pose = this.motionMatcher.sample(selection.id, selection.phase);
+        const rotationAxis = this._unit(
+            this._motionVector(
+                {
+                    forward: pose.body.axis.forward * mirror,
+                    up: pose.body.axis.up * mirror,
+                    lateral: pose.body.axis.lateral,
+                },
                 axis,
-                remaining: this._clamp(
+            ),
+        );
+        const initialAngle = pose.body.angle;
+        const unrotate = {
+            ...this._mul(rotationAxis, -Math.sin(initialAngle / 2)),
+            w: Math.cos(initialAngle / 2),
+        };
+        const ankle = this._point(p.byName['foot' + p.kick.side].body, this._v(0, 0.065, -0.085));
+        p.kick.airPlan = {
+            phase: preheld ? 'align' : 'lift',
+            entry: preheld ? 'downward' : 'swing',
+            axis,
+            remaining: this._clamp(
+                query.timeToContact,
+                kick.contact.preparationTime,
+                kick.contact.horizon,
+            ),
+            motion: {
+                ...selection,
+                pose,
+                age: 0,
+                preheld,
+                preference,
+                selection: { confidence: selection.confidence, score: selection.score },
+                startPoint: { ...ankle },
+                startVelocity: {
+                    ...p.byName['foot' + p.kick.side].body.velocityAtPoint(ankle),
+                },
+                duration: this._clamp(
                     query.timeToContact,
                     kick.contact.preparationTime,
                     kick.contact.horizon,
                 ),
-                motion: {
-                    ...selection,
-                    pose,
-                    age: 0,
-                    preheld,
-                    preference,
-                    selection: { confidence: selection.confidence, score: selection.score },
-                    startPoint: { ...ankle },
-                    startVelocity: {
-                        ...p.byName['foot' + p.kick.side].body.velocityAtPoint(ankle),
-                    },
-                    duration: this._clamp(
-                        query.timeToContact,
-                        kick.contact.preparationTime,
-                        kick.contact.horizon,
-                    ),
-                    startPhase: selection.phase,
-                    point: { ...ankle },
-                    angularVelocity: 0,
-                    reachError: 0,
-                    adaptation: 0,
-                    adaptationLimit: kick.reach * settings.adaptation,
-                },
-                rotation: {
-                    axis: rotationAxis,
-                    start: this._qmul(unrotate, root.rotation()),
-                    angle: initialAngle,
-                    previous: { ...root.rotation() },
-                    target: initialAngle,
-                },
-            };
-        }
-        const plan = p.kick.airPlan,
-            motion = plan.motion,
+                startPhase: selection.phase,
+                point: { ...ankle },
+                angularVelocity: 0,
+                reachError: 0,
+                adaptation: 0,
+                adaptationLimit: kick.reach * settings.adaptation,
+            },
+            rotation: {
+                axis: rotationAxis,
+                start: this._qmul(unrotate, root.rotation()),
+                angle: initialAngle,
+                previous: { ...root.rotation() },
+                target: initialAngle,
+            },
+        };
+    }
+
+    /** 차는 다리의 엉덩이·발바닥·발목 위치와 속도. */
+    _airKickLeg(p) {
+        const kick = this.settings.airKick,
+            root = p.root,
             foot = p.byName['foot' + p.kick.side].body;
         const mirror = p.kick.side === 'L' ? -1 : 1;
         const hip = this._point(root, { x: p.kick.side === 'L' ? -0.12 : 0.12, y: -0.06, z: 0 });
@@ -2274,6 +2296,13 @@ class TakrawPhysics {
         const sole = this._point(foot, this._v(0, 0.055, kick.forefoot));
         const soleVelocity = foot.velocityAtPoint(sole);
         const currentAnkle = this._point(foot, this._v(0, 0.065, -0.085));
+        return { mirror, hip, hipVelocity, sole, soleVelocity, currentAnkle };
+    }
+
+    /** 남은 준비 시간을 줄이고 이번 substep의 예상 접촉과 접촉 순간 공 속도를 정한다. 스트로크에 들어서면 고정한다. */
+    _aimAirContact(p, plan, ballPos, ballVel, dt) {
+        const s = this.settings,
+            kick = s.airKick;
         plan.remaining = Math.max(0, plan.remaining - dt);
         // A held input has one finite preparation deadline. The foot starts moving
         // immediately; neither an unreachable clearance pose nor a clip phase can
@@ -2296,6 +2325,12 @@ class TakrawPhysics {
             plan.strokeContact = structuredClone(contact);
             plan.strokeIncoming = { ...incomingAtImpact };
         }
+        return { preparingBefore, lead, contact, incomingAtImpact };
+    }
+
+    /** 공격 평면을 예상 접촉 쪽으로 제한된 속도로 돌린다. 맞은 뒤(follow)에는 평면을 고정한다. */
+    _steerAirAxis(p, plan, hip, contact, dt) {
+        const kick = this.settings.airKick;
         const lateral = this._clamp(
             (contact.impact.z - hip.z) / Math.max(0.3, Math.abs(contact.impact.x - hip.x)),
             -0.65,
@@ -2315,7 +2350,14 @@ class TakrawPhysics {
         // A hit freezes the attack plane as well as the face. Otherwise chasing
         // the departing ball can turn a genuine downward contact into a scoop.
         if (plan.phase !== 'follow') plan.axis = this._rotate(this._yaw(headingStep), plan.axis);
-        const axis = plan.axis;
+    }
+
+    /** 준비 중인 발이 시간이 다 됐거나 공 아래 제동 가능한 자리에 오면 타격 단계로 넘긴다. 공 표면 접촉점을 돌려준다. */
+    _enterAirStrike(plan, leg, aim) {
+        const s = this.settings,
+            kick = s.airKick;
+        const { sole, soleVelocity } = leg;
+        const { preparingBefore, contact } = aim;
         const surface = this._add(contact.impact, this._mul(contact.normal, -s.ballRadius));
         const normalGap = this._dot(this._sub(surface, sole), contact.normal);
         const upwardSpeed = Math.max(0, soleVelocity.y - contact.velocity.y);
@@ -2331,7 +2373,14 @@ class TakrawPhysics {
                     this._length(this._sub(surface, sole)) < kick.preparation * 2))
         )
             plan.phase = 'strike';
+        return surface;
+    }
 
+    /** 동작 클립 위상을 진행하되 단계별 상한을 넘지 않게 하고, 몸 회전 각도가 되돌아가지 않게 한다. */
+    _advanceAirMotion(p, plan, dt) {
+        const settings = this.settings.airKick.motion,
+            motion = plan.motion,
+            axis = plan.axis;
         const previousPose = motion.pose;
         const query = this._motionQuery(p, axis, motion.preheld);
         query.timeToContact = Math.max(dt, plan.remaining);
@@ -2350,6 +2399,15 @@ class TakrawPhysics {
                 ? motion.pose.body.totalAngle
                 : Math.max(previousPose.body.angle, motion.pose.body.angle);
         motion.angularVelocity = (motion.pose.body.angle - previousPose.body.angle) / dt;
+    }
+
+    /** 클립의 접촉 자세, 공 표면에 맞출 발목 위치, 클립 대비 보정량, 접근 속도. */
+    _airContactGeometry(p, plan, leg, aim, surface) {
+        const kick = this.settings.airKick,
+            motion = plan.motion,
+            axis = plan.axis;
+        const { mirror, hip } = leg;
+        const { contact, incomingAtImpact } = aim;
         // One held input keeps its clip and phase. Only finite residual warping
         // follows the ball; no per-frame reclassification can flap between kicks.
         const contactPose = this.motionMatcher.sample(motion.id, motion.pose.contactPhase);
@@ -2365,12 +2423,20 @@ class TakrawPhysics {
         const error = this._sub(this._sub(desiredContact, hip), referenceContact);
         const correction = this._limit(error, motion.adaptationLimit);
         const strikeVelocity = contact.velocity;
-        const duration = motion.duration,
-            elapsed = motion.age;
         const closingSpeed = Math.max(
             0.1,
             this._dot(this._sub(strikeVelocity, incomingAtImpact), contact.normal),
         );
+        return { contactPose, ankleOffset, desiredContact, correction, closingSpeed };
+    }
+
+    /** 마지막 스트로크 길이. 다리가 닿는 시간과 유한한 힘으로 낼 수 있는 시간 사이에서 고르고 스트로크에 들어서면 고정한다. */
+    _airTerminalDuration(p, plan, leg, aim, geometry) {
+        const s = this.settings,
+            kick = s.airKick;
+        const { hip } = leg;
+        const { lead, contact, incomingAtImpact } = aim;
+        const { desiredContact, closingSpeed } = geometry;
         // Estimate the time at which the ball-relative preparation point enters
         // the actual hip workspace. Both free bodies share gravity here; pending
         // jump support is included in the predicted hip, as in the contact query.
@@ -2414,6 +2480,20 @@ class TakrawPhysics {
             plan.terminalDuration = terminal;
             plan.terminalFeasible = terminalMin <= terminalMax;
         }
+        return terminal;
+    }
+
+    /** 시작점에서 스트로크 시작점까지의 3차 에르미트 준비 궤적(위치·속도·가속도)과 클립 모양의 호. */
+    _airPrepPath(plan, leg, aim, geometry, terminal, dt) {
+        const s = this.settings,
+            kick = s.airKick,
+            motion = plan.motion,
+            axis = plan.axis;
+        const { mirror } = leg;
+        const { contact, incomingAtImpact } = aim;
+        const { contactPose, ankleOffset, closingSpeed } = geometry;
+        const duration = motion.duration,
+            elapsed = motion.age;
         const prepDuration = Math.max(dt, duration - terminal);
         const prepBall = this._sub(contact.impact, this._mul(incomingAtImpact, terminal));
         prepBall.y -= 0.5 * s.gravity * terminal * terminal;
@@ -2490,42 +2570,64 @@ class TakrawPhysics {
             acceleration,
             this._mul(motion.arc, (16 * (2 - 12 * u + 12 * u2)) / (prepDuration * prepDuration)),
         );
-        if (elapsed >= prepDuration && elapsed < duration) {
+        return { prepDuration, rawAnkle, desiredVelocity, acceleration };
+    }
+
+    /** 스트로크 구간이면 공을 따라가며 접근 속도를 쌓는 궤적으로, 접촉 뒤면 타격 속도로 밀고 나가는 궤적으로 바꾼다. */
+    _airStrokePath(plan, aim, geometry, terminal, path) {
+        const s = this.settings,
+            kick = s.airKick,
+            motion = plan.motion;
+        const { contact, incomingAtImpact } = aim;
+        const { ankleOffset, desiredContact, closingSpeed } = geometry;
+        const strikeVelocity = contact.velocity;
+        const duration = motion.duration,
+            elapsed = motion.age;
+        if (elapsed >= path.prepDuration && elapsed < duration) {
             const remaining = duration - elapsed;
             const relativeGap =
                 closingSpeed * remaining - (0.5 * closingSpeed * remaining * remaining) / terminal;
             const movingBall = this._sub(contact.impact, this._mul(incomingAtImpact, remaining));
             movingBall.y -= 0.5 * s.gravity * remaining * remaining;
-            rawAnkle = this._add(
+            path.rawAnkle = this._add(
                 this._sub(movingBall, this._mul(contact.normal, s.ballRadius + relativeGap)),
                 ankleOffset,
             );
-            desiredVelocity = this._add(
+            path.desiredVelocity = this._add(
                 this._add(incomingAtImpact, this._v(0, s.gravity * remaining, 0)),
                 this._mul(contact.normal, closingSpeed * (1 - remaining / terminal)),
             );
-            acceleration = this._add(
+            path.acceleration = this._add(
                 this._v(0, -s.gravity, 0),
                 this._mul(contact.normal, closingSpeed / terminal),
             );
         } else if (elapsed >= duration) {
             const follow = Math.min(elapsed - duration, kick.contact.strokeTime);
             const fraction = follow / kick.contact.strokeTime;
-            rawAnkle = this._add(
+            path.rawAnkle = this._add(
                 desiredContact,
                 this._mul(strikeVelocity, follow * (1 - 0.5 * fraction)),
             );
-            desiredVelocity = this._mul(strikeVelocity, 1 - fraction);
-            acceleration =
+            path.desiredVelocity = this._mul(strikeVelocity, 1 - fraction);
+            path.acceleration =
                 fraction < 1 ? this._mul(strikeVelocity, -1 / kick.contact.strokeTime) : this._v();
         }
+    }
+
+    /**
+     * 발목 목표를 다리 길이 범위 안으로 넣고, 다음 substep에 범위를 벗어날 속도면 속도를 투영한다.
+     * 범위가 궤적을 바꾸거나 스트로크 전이면 가속도 피드포워드를 끈다.
+     */
+    _limitAirReach(p, plan, leg, geometry, path, dt) {
+        const { hip, hipVelocity, currentAnkle } = leg;
+        const { desiredContact } = geometry;
         // The fixed contact orientation defines the ankle offset. Its terminal
         // angular velocity is zero, so the contact and ankle share one tangent.
         // Actual foot spin remains feedback for the separate torque controller.
         const reach = this._legReach(p, p.kick.side);
         const minReach = this._legMinReach(p, p.kick.side);
         const contactDistance = this._length(this._sub(desiredContact, hip));
-        const relativeAnkle = this._sub(rawAnkle, hip),
+        const relativeAnkle = this._sub(path.rawAnkle, hip),
             distance = this._length(relativeAnkle);
         // The visible leg supports the preparation path as well as its contact.
         // Requesting only the endpoint would retract it during a wider wind-up.
@@ -2535,11 +2637,11 @@ class TakrawPhysics {
         const current = this._sub(currentAnkle, hip);
         const nextAnkle = this._add(
             current,
-            this._mul(this._sub(desiredVelocity, hipVelocity), dt),
+            this._mul(this._sub(path.desiredVelocity, hipVelocity), dt),
         );
         const nextDistance = this._length(nextAnkle);
         if (nextDistance > reach || nextDistance < minReach) {
-            desiredVelocity = this._add(
+            path.desiredVelocity = this._add(
                 hipVelocity,
                 this._mul(
                     this._sub(
@@ -2563,8 +2665,17 @@ class TakrawPhysics {
             distance < minReach ||
             nextDistance < minReach
         )
-            acceleration = null;
-        motion.point = { ...rawAnkle };
+            path.acceleration = null;
+        return { ankle, reach, contactDistance };
+    }
+
+    /** 이번 substep 결과를 동작·계획에 기록하고, 맞기 전이면 발등 밀기 제어를 붙여 발 목표를 돌려준다. */
+    _recordAirPlan(p, plan, contact, geometry, path, limit) {
+        const kick = this.settings.airKick,
+            motion = plan.motion;
+        const { correction, closingSpeed } = geometry;
+        const { ankle, reach, contactDistance } = limit;
+        motion.point = { ...path.rawAnkle };
         motion.reachError = Math.max(0, contactDistance - reach);
         motion.adaptation = this._length(correction);
         motion.correction = correction;
@@ -2588,8 +2699,8 @@ class TakrawPhysics {
                 : null;
         return {
             target: ankle,
-            velocity: desiredVelocity,
-            acceleration,
+            velocity: path.desiredVelocity,
+            acceleration: path.acceleration,
             contactDrive,
             ankle,
             normal: contact.normal,
@@ -2597,241 +2708,287 @@ class TakrawPhysics {
         };
     }
 
+    /**
+     * 지상 토스(받기·세트)의 발 목표. 계획이 없거나 아직 추적 중이면 계획을 세우고(_beginReceivePlan),
+     * 맞은 뒤 따라 차기가 끝났으면 발을 거두고, 아니면 받기 종류에 맞는 궤적을 고른다.
+     */
     _receiveFootTarget(p, input, ballPos, ballVel, dt) {
-        const s = this.settings,
-            toss = this.settings.groundToss;
+        const toss = this.settings.groundToss;
         // An early held input can prepare the real foot while the ball is still
         // outside the stroke horizon. Commit the stroke only once its actual
         // predicted arrival enters that horizon. Once committed, retain the
         // stroke instead of replanning around the outgoing ball.
-        if (!p.kick.receivePlan || p.kick.receivePlan.tracking) {
-            const height =
-                p.receive?.mode === 'slide' && p.receive.phase !== 'recover'
-                    ? p.receive.point.y
-                    : toss.contactHeight;
-            const disc = ballVel.y * ballVel.y + 2 * s.gravity * (ballPos.y - height);
-            const arrival = (ballVel.y + Math.sqrt(Math.max(0, disc))) / s.gravity;
-            const duration = this._clamp(arrival, toss.minPlanTime, toss.maxPlanTime);
-            const tracking = arrival > toss.maxPlanTime;
-            const prediction = tracking ? arrival : duration;
-            const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * prediction, z: ballVel.z };
-            const impact = this._add(ballPos, this._mul(ballVel, prediction));
-            impact.y -= 0.5 * s.gravity * prediction * prediction;
-            const attacking = takrawIsAttacker(input.tossTarget.playerId);
-            const goalHeight = attacking ? toss.attackHeight : height;
-            const upSpeed = Math.sqrt(
-                2 *
-                    s.gravity *
-                    Math.max(0.4, (attacking ? toss.attackApex : toss.receiveApex) - impact.y),
-            );
-            const flight =
-                (upSpeed +
-                    Math.sqrt(
-                        Math.max(0, upSpeed * upSpeed + 2 * s.gravity * (impact.y - goalHeight)),
-                    )) /
-                s.gravity;
-            const wanted = {
-                x: (input.tossTarget.x - impact.x) / flight,
-                y: upSpeed,
-                z: (input.tossTarget.z - impact.z) / flight,
-            };
-            // Precontact foot targets only; no ball impulse or velocity assignment.
-            // The estimated collision normal and speed guide the articulated foot;
-            // its finite reach, force, orientation and actual collision decide the pass.
-            const delta = this._sub(wanted, incoming),
-                normal = this._unit(delta, this._v(0, 1, 0));
-            const vn = this._dot(incoming, normal);
-            const contactFoot = p.byName['foot' + p.kick.side];
-            const mass = contactFoot.body.mass(),
-                extent = contactFoot.halfExtents;
-            const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
-            const contactMass = 1 / (1 / mass + (toss.forefoot * toss.forefoot) / pitchInertia);
-            const transfer = contactMass / (contactMass + s.ballMass);
-            const normalSpeed = vn + this._length(delta) / ((1 + s.ballRestitution) * transfer);
-            const velocity = this._add(
-                this._sub(incoming, this._mul(normal, vn)),
-                this._mul(normal, normalSpeed),
-            );
-            // A slide points the toes along the extended leg, leaving the ankle
-            // behind the instep. A fixed net-facing foot twists the knee sideways
-            // and exposes its narrow edge when the save is far to either side.
-            const heading =
-                p.receive?.mode === 'slide'
-                    ? this._sub(impact, p.root.translation())
-                    : this._v(p.toward, 0, 0);
-            const forward = this._unit(
-                this._sub(heading, this._mul(normal, this._dot(heading, normal))),
-            );
-            const point = this._sub(
-                this._add(impact, this._mul(normal, -(s.ballRadius + 0.055))),
-                this._mul(forward, toss.forefoot),
-            );
-            const foot = p.byName['foot' + p.kick.side].body;
-            const dynamicReceive = !!p.receive && p.receive.mode !== 'cushion';
-            const ankle = this._point(foot, this._v(0, 0.065, -0.085));
-            const ankleOffset = this._add(this._mul(normal, 0.065), this._mul(forward, -0.085));
-            // Every pass drives the ankle. Curves use foot-centre coordinates;
-            // subtract the same contact anchor offset at the starting boundary.
-            const start = this._sub(ankle, ankleOffset);
-            const startVelocity = { ...foot.velocityAtPoint(ankle) };
-            p.kick.receivePlan = {
-                duration,
-                startedAt: this.time,
-                normal,
-                forward,
-                point,
-                velocity,
-                tracking,
-                attackSet: attacking,
-                dynamicReceive,
-                incoming,
-                start,
-                startVelocity,
-            };
-        }
+        if (!p.kick.receivePlan || p.kick.receivePlan.tracking)
+            this._beginReceivePlan(p, input, ballPos, ballVel);
         const plan = p.kick.receivePlan;
         if (
             p.receive?.hitAt !== null &&
             p.receive?.hitAt !== undefined &&
             this.time - p.receive.hitAt >= toss.followThrough
-        ) {
-            // Finish the bounded physical follow-through, then retract below the
-            // hip. A held button must not sweep through the departing ball again.
-            const root = p.root.translation(),
-                direction = p.receive.direction;
-            const target = {
-                x: root.x - direction.x * 0.15,
-                y: 0.12,
-                z: root.z - direction.z * 0.15,
-            };
-            const velocity = this._sub(
-                this._bodyVelocity(p),
+        )
+            return this._retractReceiveFoot(p, plan, dt);
+        if (plan.dynamicReceive && p.receive?.mode !== 'slide')
+            return this._dynamicReceivePath(p, plan, ballVel, dt);
+        if (plan.attackSet || !plan.dynamicReceive) return this._cushionReceivePath(plan, dt);
+        return this._strokeReceivePath(p, plan, ballVel, dt);
+    }
+
+    /** 받기 계획: 공 도착 예측, 원하는 패스 속도, 그 속도를 낼 접촉면 방향·발 속도, 발 방향, 시작점. */
+    _beginReceivePlan(p, input, ballPos, ballVel) {
+        const s = this.settings,
+            toss = this.settings.groundToss;
+        const pass = this._predictReceivePass(p, input, ballPos, ballVel);
+        const { duration, tracking, incoming, impact, attacking } = pass;
+        const { normal, velocity } = this._receiveStrike(p, pass.wanted, incoming);
+        // A slide points the toes along the extended leg, leaving the ankle
+        // behind the instep. A fixed net-facing foot twists the knee sideways
+        // and exposes its narrow edge when the save is far to either side.
+        const heading =
+            p.receive?.mode === 'slide'
+                ? this._sub(impact, p.root.translation())
+                : this._v(p.toward, 0, 0);
+        const forward = this._unit(
+            this._sub(heading, this._mul(normal, this._dot(heading, normal))),
+        );
+        const point = this._sub(
+            this._add(impact, this._mul(normal, -(s.ballRadius + 0.055))),
+            this._mul(forward, toss.forefoot),
+        );
+        const foot = p.byName['foot' + p.kick.side].body;
+        const dynamicReceive = !!p.receive && p.receive.mode !== 'cushion';
+        const ankle = this._point(foot, this._v(0, 0.065, -0.085));
+        const ankleOffset = this._add(this._mul(normal, 0.065), this._mul(forward, -0.085));
+        // Every pass drives the ankle. Curves use foot-centre coordinates;
+        // subtract the same contact anchor offset at the starting boundary.
+        const start = this._sub(ankle, ankleOffset);
+        const startVelocity = { ...foot.velocityAtPoint(ankle) };
+        p.kick.receivePlan = {
+            duration,
+            startedAt: this.time,
+            normal,
+            forward,
+            point,
+            velocity,
+            tracking,
+            attackSet: attacking,
+            dynamicReceive,
+            incoming,
+            start,
+            startVelocity,
+        };
+    }
+
+    /** 공이 접촉 높이에 오는 시각·위치·속도와, 목표 선수에게 보낼 패스에 필요한 공 속도. */
+    _predictReceivePass(p, input, ballPos, ballVel) {
+        const s = this.settings,
+            toss = this.settings.groundToss;
+        const height =
+            p.receive?.mode === 'slide' && p.receive.phase !== 'recover'
+                ? p.receive.point.y
+                : toss.contactHeight;
+        const disc = ballVel.y * ballVel.y + 2 * s.gravity * (ballPos.y - height);
+        const arrival = (ballVel.y + Math.sqrt(Math.max(0, disc))) / s.gravity;
+        const duration = this._clamp(arrival, toss.minPlanTime, toss.maxPlanTime);
+        const tracking = arrival > toss.maxPlanTime;
+        const prediction = tracking ? arrival : duration;
+        const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * prediction, z: ballVel.z };
+        const impact = this._add(ballPos, this._mul(ballVel, prediction));
+        impact.y -= 0.5 * s.gravity * prediction * prediction;
+        const attacking = takrawIsAttacker(input.tossTarget.playerId);
+        const goalHeight = attacking ? toss.attackHeight : height;
+        const upSpeed = Math.sqrt(
+            2 *
+                s.gravity *
+                Math.max(0.4, (attacking ? toss.attackApex : toss.receiveApex) - impact.y),
+        );
+        const flight =
+            (upSpeed +
+                Math.sqrt(
+                    Math.max(0, upSpeed * upSpeed + 2 * s.gravity * (impact.y - goalHeight)),
+                )) /
+            s.gravity;
+        const wanted = {
+            x: (input.tossTarget.x - impact.x) / flight,
+            y: upSpeed,
+            z: (input.tossTarget.z - impact.z) / flight,
+        };
+        return { duration, tracking, incoming, impact, attacking, wanted };
+    }
+
+    /** 원하는 공 속도로 바꾸는 접촉면 방향과, 발의 유효 질량·반발로 그 변화를 낼 발 속도. */
+    _receiveStrike(p, wanted, incoming) {
+        const s = this.settings,
+            toss = this.settings.groundToss;
+        // Precontact foot targets only; no ball impulse or velocity assignment.
+        // The estimated collision normal and speed guide the articulated foot;
+        // its finite reach, force, orientation and actual collision decide the pass.
+        const delta = this._sub(wanted, incoming),
+            normal = this._unit(delta, this._v(0, 1, 0));
+        const vn = this._dot(incoming, normal);
+        const contactFoot = p.byName['foot' + p.kick.side];
+        const mass = contactFoot.body.mass(),
+            extent = contactFoot.halfExtents;
+        const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
+        const contactMass = 1 / (1 / mass + (toss.forefoot * toss.forefoot) / pitchInertia);
+        const transfer = contactMass / (contactMass + s.ballMass);
+        const normalSpeed = vn + this._length(delta) / ((1 + s.ballRestitution) * transfer);
+        const velocity = this._add(
+            this._sub(incoming, this._mul(normal, vn)),
+            this._mul(normal, normalSpeed),
+        );
+        return { normal, velocity };
+    }
+
+    /** 따라 차기를 마친 발을 엉덩이 아래 뒤쪽으로 거둔다. */
+    _retractReceiveFoot(p, plan, dt) {
+        const s = this.settings,
+            toss = this.settings.groundToss;
+        // Finish the bounded physical follow-through, then retract below the
+        // hip. A held button must not sweep through the departing ball again.
+        const root = p.root.translation(),
+            direction = p.receive.direction;
+        const target = {
+            x: root.x - direction.x * 0.15,
+            y: 0.12,
+            z: root.z - direction.z * 0.15,
+        };
+        const velocity = this._sub(
+            this._bodyVelocity(p),
+            this._mul(
+                direction,
+                (toss.followThrough * s.groundKickSpeed) / Math.max(dt, toss.strokeTime),
+            ),
+        );
+        return { target, velocity, normal: plan.normal };
+    }
+
+    /** 몸을 던지는 받기(슬라이드 제외): 준비 궤적 → 공을 따라가며 접근 속도를 쌓는 스트로크 → 따라 차기, 발등 밀기 제어. */
+    _dynamicReceivePath(p, plan, ballVel, dt) {
+        const s = this.settings,
+            toss = this.settings.groundToss;
+        const elapsed = this.time - plan.startedAt + dt,
+            terminal = Math.min(toss.strokeTime, plan.duration * 0.5);
+        const prepDuration = Math.max(dt, plan.duration - terminal),
+            closing = this._dot(this._sub(plan.velocity, plan.incoming), plan.normal);
+        const prep = this._sub(
+            this._sub(plan.point, this._mul(plan.incoming, terminal)),
+            this._mul(plan.normal, closing * terminal * 0.5),
+        );
+        prep.y -= 0.5 * s.gravity * terminal * terminal;
+        const incoming = this._add(plan.incoming, this._v(0, s.gravity * terminal, 0));
+        const u = this._clamp(elapsed / prepDuration, 0, 1),
+            u2 = u * u,
+            u3 = u2 * u;
+        let target = this._add(
+            this._add(
+                this._mul(plan.start, 2 * u3 - 3 * u2 + 1),
+                this._mul(plan.startVelocity, prepDuration * (u3 - 2 * u2 + u)),
+            ),
+            this._add(
+                this._mul(prep, -2 * u3 + 3 * u2),
+                this._mul(incoming, prepDuration * (u3 - u2)),
+            ),
+        );
+        let velocity = this._add(
+            this._add(
+                this._mul(plan.start, (6 * u2 - 6 * u) / prepDuration),
+                this._mul(plan.startVelocity, 3 * u2 - 4 * u + 1),
+            ),
+            this._add(
+                this._mul(prep, (-6 * u2 + 6 * u) / prepDuration),
+                this._mul(incoming, 3 * u2 - 2 * u),
+            ),
+        );
+        if (elapsed >= prepDuration && elapsed < plan.duration) {
+            const remaining = plan.duration - elapsed;
+            target = this._sub(
+                this._sub(plan.point, this._mul(plan.incoming, remaining)),
                 this._mul(
-                    direction,
-                    (toss.followThrough * s.groundKickSpeed) / Math.max(dt, toss.strokeTime),
+                    plan.normal,
+                    closing * remaining - (0.5 * closing * remaining * remaining) / terminal,
                 ),
             );
-            return { target, velocity, normal: plan.normal };
+            target.y -= 0.5 * s.gravity * remaining * remaining;
+            velocity = this._add(
+                this._add(plan.incoming, this._v(0, s.gravity * remaining, 0)),
+                this._mul(plan.normal, closing * (1 - remaining / terminal)),
+            );
+        } else if (elapsed >= plan.duration) {
+            const follow = Math.min(elapsed - plan.duration, toss.followThrough),
+                fraction = follow / toss.followThrough;
+            target = this._add(plan.point, this._mul(plan.velocity, follow * (1 - 0.5 * fraction)));
+            velocity = this._mul(plan.velocity, 1 - fraction);
         }
-        if (plan.dynamicReceive && p.receive?.mode !== 'slide') {
-            const elapsed = this.time - plan.startedAt + dt,
-                terminal = Math.min(toss.strokeTime, plan.duration * 0.5);
-            const prepDuration = Math.max(dt, plan.duration - terminal),
-                closing = this._dot(this._sub(plan.velocity, plan.incoming), plan.normal);
-            const prep = this._sub(
-                this._sub(plan.point, this._mul(plan.incoming, terminal)),
-                this._mul(plan.normal, closing * terminal * 0.5),
-            );
-            prep.y -= 0.5 * s.gravity * terminal * terminal;
-            const incoming = this._add(plan.incoming, this._v(0, s.gravity * terminal, 0));
-            const u = this._clamp(elapsed / prepDuration, 0, 1),
-                u2 = u * u,
-                u3 = u2 * u;
-            let target = this._add(
-                this._add(
-                    this._mul(plan.start, 2 * u3 - 3 * u2 + 1),
-                    this._mul(plan.startVelocity, prepDuration * (u3 - 2 * u2 + u)),
-                ),
-                this._add(
-                    this._mul(prep, -2 * u3 + 3 * u2),
-                    this._mul(incoming, prepDuration * (u3 - u2)),
-                ),
-            );
-            let velocity = this._add(
-                this._add(
-                    this._mul(plan.start, (6 * u2 - 6 * u) / prepDuration),
-                    this._mul(plan.startVelocity, 3 * u2 - 4 * u + 1),
-                ),
-                this._add(
-                    this._mul(prep, (-6 * u2 + 6 * u) / prepDuration),
-                    this._mul(incoming, 3 * u2 - 2 * u),
-                ),
-            );
-            if (elapsed >= prepDuration && elapsed < plan.duration) {
-                const remaining = plan.duration - elapsed;
-                target = this._sub(
-                    this._sub(plan.point, this._mul(plan.incoming, remaining)),
-                    this._mul(
-                        plan.normal,
-                        closing * remaining - (0.5 * closing * remaining * remaining) / terminal,
-                    ),
-                );
-                target.y -= 0.5 * s.gravity * remaining * remaining;
-                velocity = this._add(
-                    this._add(plan.incoming, this._v(0, s.gravity * remaining, 0)),
-                    this._mul(plan.normal, closing * (1 - remaining / terminal)),
-                );
-            } else if (elapsed >= plan.duration) {
-                const follow = Math.min(elapsed - plan.duration, toss.followThrough),
-                    fraction = follow / toss.followThrough;
-                target = this._add(
-                    plan.point,
-                    this._mul(plan.velocity, follow * (1 - 0.5 * fraction)),
-                );
-                velocity = this._mul(plan.velocity, 1 - fraction);
-            }
-            const contactDrive =
-                p.receive?.hitAt === null && elapsed < plan.duration + toss.followThrough
-                    ? this._instepDrive(
-                          p,
-                          plan.normal,
-                          Math.max(0, this._dot(this._sub(plan.velocity, ballVel), plan.normal)),
-                          toss.forefoot,
-                          s.receive,
-                      )
-                    : null;
-            return { target, velocity, normal: plan.normal, contactDrive };
+        const contactDrive =
+            p.receive?.hitAt === null && elapsed < plan.duration + toss.followThrough
+                ? this._instepDrive(
+                      p,
+                      plan.normal,
+                      Math.max(0, this._dot(this._sub(plan.velocity, ballVel), plan.normal)),
+                      toss.forefoot,
+                      s.receive,
+                  )
+                : null;
+        return { target, velocity, normal: plan.normal, contactDrive };
+    }
+
+    /** 쿠션 받기와 높은 세트: 끝점 속도를 패스 속도로 둔 하나의 연속 접근 궤적. */
+    _cushionReceivePath(plan, dt) {
+        const toss = this.settings.groundToss;
+        // Cushion receptions and high sets share a continuous approach, with
+        // endpoint velocity for the intended pass instead of a late hard swing.
+        const elapsed = this.time - plan.startedAt + dt;
+        const duration = plan.duration;
+        const point = plan.point;
+        const u = this._clamp(elapsed / duration, 0, 1),
+            u2 = u * u,
+            u3 = u2 * u;
+        const start = plan.start,
+            initialVelocity = plan.startVelocity,
+            endVelocity = plan.velocity;
+        let target = this._add(
+            this._add(
+                this._mul(start, 2 * u3 - 3 * u2 + 1),
+                this._mul(initialVelocity, (u3 - 2 * u2 + u) * duration),
+            ),
+            this._add(
+                this._mul(point, -2 * u3 + 3 * u2),
+                this._mul(endVelocity, (u3 - u2) * duration),
+            ),
+        );
+        let velocity = this._add(
+            this._add(
+                this._mul(start, (6 * u2 - 6 * u) / duration),
+                this._mul(initialVelocity, 3 * u2 - 4 * u + 1),
+            ),
+            this._add(
+                this._mul(point, (-6 * u2 + 6 * u) / duration),
+                this._mul(endVelocity, 3 * u2 - 2 * u),
+            ),
+        );
+        let acceleration = this._add(
+            this._add(
+                this._mul(start, (12 * u - 6) / (duration * duration)),
+                this._mul(initialVelocity, (6 * u - 4) / duration),
+            ),
+            this._add(
+                this._mul(point, (-12 * u + 6) / (duration * duration)),
+                this._mul(endVelocity, (6 * u - 2) / duration),
+            ),
+        );
+        if (elapsed >= plan.duration) {
+            const follow = Math.min(elapsed - plan.duration, toss.followThrough);
+            target = this._add(plan.point, this._mul(plan.velocity, follow));
+            velocity = elapsed - plan.duration < toss.followThrough ? plan.velocity : this._v();
+            acceleration = this._v();
         }
-        if (plan.attackSet || !plan.dynamicReceive) {
-            // Cushion receptions and high sets share a continuous approach, with
-            // endpoint velocity for the intended pass instead of a late hard swing.
-            const elapsed = this.time - plan.startedAt + dt;
-            const duration = plan.duration;
-            const point = plan.point;
-            const u = this._clamp(elapsed / duration, 0, 1),
-                u2 = u * u,
-                u3 = u2 * u;
-            const start = plan.start,
-                initialVelocity = plan.startVelocity,
-                endVelocity = plan.velocity;
-            let target = this._add(
-                this._add(
-                    this._mul(start, 2 * u3 - 3 * u2 + 1),
-                    this._mul(initialVelocity, (u3 - 2 * u2 + u) * duration),
-                ),
-                this._add(
-                    this._mul(point, -2 * u3 + 3 * u2),
-                    this._mul(endVelocity, (u3 - u2) * duration),
-                ),
-            );
-            let velocity = this._add(
-                this._add(
-                    this._mul(start, (6 * u2 - 6 * u) / duration),
-                    this._mul(initialVelocity, 3 * u2 - 4 * u + 1),
-                ),
-                this._add(
-                    this._mul(point, (-6 * u2 + 6 * u) / duration),
-                    this._mul(endVelocity, 3 * u2 - 2 * u),
-                ),
-            );
-            let acceleration = this._add(
-                this._add(
-                    this._mul(start, (12 * u - 6) / (duration * duration)),
-                    this._mul(initialVelocity, (6 * u - 4) / duration),
-                ),
-                this._add(
-                    this._mul(point, (-12 * u + 6) / (duration * duration)),
-                    this._mul(endVelocity, (6 * u - 2) / duration),
-                ),
-            );
-            if (elapsed >= plan.duration) {
-                const follow = Math.min(elapsed - plan.duration, toss.followThrough);
-                target = this._add(plan.point, this._mul(plan.velocity, follow));
-                velocity = elapsed - plan.duration < toss.followThrough ? plan.velocity : this._v();
-                acceleration = this._v();
-            }
-            return { target, velocity, acceleration, normal: plan.normal };
-        }
+        return { target, velocity, acceleration, normal: plan.normal };
+    }
+
+    /** 나머지 받기(슬라이드): 접촉 직전 짧은 스트로크로 패스 속도까지 가속한다. */
+    _strokeReceivePath(p, plan, ballVel, dt) {
+        const s = this.settings,
+            toss = this.settings.groundToss;
         // A plan created after recovery starts now, retaining the first-substep drive.
         const elapsed = this.time - plan.startedAt + dt;
         const stroke = Math.min(toss.strokeTime, plan.duration * toss.strokeFraction);

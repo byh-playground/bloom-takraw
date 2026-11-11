@@ -2,7 +2,13 @@ import { AiBrain, Temperament } from './ai-brain.js';
 import { AiFormation } from './ai-formation.js';
 import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
+import {
+    TAKRAW_TRAINING_LESSONS,
+    TAKRAW_TRAINING_TEMPOS,
+    TakrawTrainingDrill,
+} from './training.js';
 import { takrawDecodeIdentity } from './identity.js';
+import { takrawModeProfile } from './modes.js';
 import { takrawSeededUnit } from './random.js';
 import {
     TAKRAW_ROLES,
@@ -14,125 +20,6 @@ import {
     takrawPlayerId,
     takrawTeamOf,
 } from './roster.js';
-
-/**
- * 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다.
- * title·sequence·detail은 TextPair다. 조작 이름은 PC 기준(좌클)이고 터치 화면은 ui.js controlText가 바꾼다.
- */
-const defineLesson = (
-    id,
-    command,
-    [titleKo, titleEn],
-    [sequenceKo, sequenceEn],
-    [detailKo, detailEn],
-    extra = {},
-) =>
-    Object.freeze({
-        id,
-        command,
-        ...extra,
-        title: Object.freeze({ ko: titleKo, en: titleEn }),
-        sequence: Object.freeze({ ko: sequenceKo, en: sequenceEn }),
-        detail: Object.freeze({ ko: detailKo, en: detailEn }),
-    });
-const TAKRAW_TRAINING_LESSONS = Object.freeze([
-    defineLesson(
-        'auto',
-        6,
-        ['상황에 맞춰 차기', 'Context kick'],
-        [
-            '거리와 높이 맞추기 → 점프 → 좌클 유지',
-            'Match distance and height → Jump → Hold left click',
-        ],
-        [
-            '공과 몸의 위치에 맞는 발차기로 이어져요. 점프 높이와 누르는 시점을 맞춰 보세요.',
-            'You get the kick that fits the ball and your body. Match your jump height and when you press.',
-        ],
-    ),
-    defineLesson(
-        'downward',
-        5,
-        ['내려찍기', 'Downward strike'],
-        [
-            '좌클 먼저 유지 → 점프 → 높은 발로 내려찍기',
-            'Hold left click first → Jump → Strike down from a raised foot',
-        ],
-        [
-            '올려 둔 발에서 내려치는 동작을 이어가세요. 공과 몸 사이에 발을 돌릴 공간을 남겨요.',
-            'Bring the raised foot down through the ball. Leave room between the ball and your body to swing.',
-        ],
-    ),
-    defineLesson(
-        'sideswipe',
-        7,
-        ['사선 회전킥', 'Diagonal spin kick'],
-        [
-            '무릎 들고 점프 → 좌클 유지 → 몸을 돌려 사선 타격',
-            'Knee up and jump → Hold left click → Turn and strike diagonally',
-        ],
-        [
-            '몸통을 기울여 돌며 뒷발을 사선으로 내려요. 발자국에서 높이와 거리를 먼저 맞추세요.',
-            'Lean and turn your torso, bringing the back foot down diagonally. Match height and distance at the footprints first.',
-        ],
-        { approachScale: 0.75, kickDelayScale: 1.5 },
-    ),
-    defineLesson(
-        'scissors',
-        8,
-        ['가위치기', 'Scissor kick'],
-        [
-            '점프 → 좌클 유지 → 다리를 교차해 발등 타격',
-            'Jump → Hold left click → Cross your legs and strike with the instep',
-        ],
-        [
-            '공중에서 두 다리를 교차하며 발등을 보내요. 공 바로 아래로 너무 붙지 않게 준비하세요.',
-            "Cross both legs in the air and send the instep through. Don't get too close underneath the ball.",
-        ],
-    ),
-    defineLesson(
-        'roundhouse540',
-        9,
-        ['540도 회전킥', '540 spin kick'],
-        [
-            '점프 → 좌클 유지 → 발등이 앞서는 회전 타격',
-            'Jump → Hold left click → Spin with the instep leading',
-        ],
-        [
-            '몸과 다리를 함께 돌려 발등 쪽으로 차요. 높은 토스를 보고 회전할 시간을 확보하세요.',
-            'Turn your body and leg together and kick with the instep. Use a high set to give yourself time to spin.',
-        ],
-    ),
-]);
-
-/** 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다. */
-const TAKRAW_TRAINING_TEMPOS = Object.freeze(
-    [
-        {
-            id: 'high',
-            command: 21,
-            title: { ko: '높은 토스', en: 'High set' },
-            detail: {
-                ko: '세터가 높게 올려요. 점프 버튼을 잠깐 유지하며 여유 있게 타이밍을 맞춰요.',
-                en: 'The setter lifts it high. Hold the jump button briefly and take your time with the timing.',
-            },
-        },
-        {
-            id: 'quick',
-            command: 22,
-            title: { ko: '속공', en: 'Quick set' },
-            detail: {
-                ko: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.',
-                en: 'It comes low and fast in front of the net. Tap the jump button and go straight into the kick.',
-            },
-        },
-    ].map((tempo) =>
-        Object.freeze({
-            ...tempo,
-            title: Object.freeze(tempo.title),
-            detail: Object.freeze(tempo.detail),
-        }),
-    ),
-);
 
 /**
  * 화면 문구의 코드와 값. 시뮬레이션은 문장을 만들지 않고, 화면(src/i18n/messages/match.js)이 id로 언어별 문장을 만든다.
@@ -151,6 +38,7 @@ class TakrawGame {
         this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
         this.timingJudge = new TakrawTimingJudge(config.timing);
+        this.drill = new TakrawTrainingDrill();
         this.aiBrain = new AiBrain();
         this.formation = new AiFormation(config.ai.fill, {
             speed: this.physics.settings.movementSpeed,
@@ -164,6 +52,11 @@ class TakrawGame {
         this.teamById = {};
         this.setTeams();
         this.reset('match');
+    }
+
+    /** 지금 모드의 능력(simulation/modes.js). 저장되는 값은 모드 이름뿐이고 프로필은 거기서 파생한다. */
+    get profile() {
+        return takrawModeProfile(this.mode);
     }
 
     setTeams(home = null, away = null) {
@@ -238,18 +131,19 @@ class TakrawGame {
     /** seed는 경기 변주(선수 성향·서브)의 원천이다. 훈련은 같은 상황이 반복되어야 하므로 기본 시드를 쓴다. */
     reset(
         mode = this.mode,
-        lesson = this.state?.training?.lesson || 'auto',
+        lesson = this.state?.training?.lesson,
         seed = this.config.simulation.fixedSeed,
-        tempo = this.state?.training?.tempo || 'high',
+        tempo = this.state?.training?.tempo,
     ) {
         const reused = Boolean(this.state);
+        const profile = takrawModeProfile(mode);
         this.mode = mode;
         this.state = {
             mode,
             phase: 'ready',
             tick: 0,
             time: 0,
-            seed: mode === 'training' ? this.config.simulation.fixedSeed : seed >>> 0,
+            seed: profile.repeatable ? this.config.simulation.fixedSeed : seed >>> 0,
             score: [0, 0],
             sets: [0, 0],
             set: 1,
@@ -261,7 +155,7 @@ class TakrawGame {
             toss: null,
             play: null,
             defense: [null, null],
-            lastMessage: message(mode === 'training' ? 'trainingStart' : 'firstServe'),
+            lastMessage: message(profile.drill ? 'trainingStart' : 'firstServe'),
             pointWinner: -1,
             pointReason: '',
             matchWinner: -1,
@@ -270,32 +164,10 @@ class TakrawGame {
             rally: 0,
             // 팀별 최근 점프·발차기 입력 오차. 접촉 때 평가해 소비한다(스냅샷에 포함).
             timing: this.timingJudge.emptyRecords(),
-            training:
-                mode === 'training'
-                    ? {
-                          lesson: TAKRAW_TRAINING_LESSONS.some((item) => item.id === lesson)
-                              ? lesson
-                              : 'auto',
-                          attempt: 0,
-                          successes: 0,
-                          tempo: TAKRAW_TRAINING_TEMPOS.some((item) => item.id === tempo)
-                              ? tempo
-                              : 'high',
-                          setAt: null,
-                          jumpAt: null,
-                          kickAt: null,
-                          jumpOffset: null,
-                          kickOffset: null,
-                          entry: null,
-                          motionId: null,
-                          contact: null,
-                          result: null,
-                          previousResult: null,
-                          setApex: 0,
-                      }
-                    : null,
+            // 연습 기록(TakrawTrainingDrill이 유일한 writer). 연습이 아니면 null이다.
+            training: profile.drill ? this.drill.createRecord(lesson, tempo) : null,
         };
-        if (mode === 'training') this.state.timer = this.config.training.ready;
+        if (profile.drill) this.state.timer = this.config.training.ready;
         this.ai = Array.from({ length: 6 }, () => ({
             x: 0,
             z: 0,
@@ -330,7 +202,7 @@ class TakrawGame {
         this.physics.resetPlayers();
         this.physics.resetBall({ x: 3.6, y: 0.2, z: 0 }, { x: 0, y: 0, z: 0 });
         // 첫 서브도 다음 서브와 같은 배치(prepareRally와 같은 placeServe)다. 사람이 아직 없어도 서버는 엔드라인 뒤에서 시작한다.
-        if (mode !== 'training') this.placeServe();
+        if (profile.serve) this.placeServe();
         this.revision++;
     }
 
@@ -352,16 +224,16 @@ class TakrawGame {
     }
 
     setTrainingLesson(lesson) {
-        if (this.mode !== 'training' || !TAKRAW_TRAINING_LESSONS.some((item) => item.id === lesson))
+        if (!this.profile.drill || !TAKRAW_TRAINING_LESSONS.some((item) => item.id === lesson))
             return false;
-        this.reset('training', lesson);
+        this.reset(this.mode, lesson);
         return true;
     }
 
     setTrainingTempo(tempo) {
-        if (this.mode !== 'training' || !TAKRAW_TRAINING_TEMPOS.some((item) => item.id === tempo))
+        if (!this.profile.drill || !TAKRAW_TRAINING_TEMPOS.some((item) => item.id === tempo))
             return false;
-        this.reset('training', undefined, undefined, tempo);
+        this.reset(this.mode, undefined, undefined, tempo);
         return true;
     }
 
@@ -377,7 +249,7 @@ class TakrawGame {
         }
         this.teamById = next;
         this.aiDirty = true;
-        if (this.mode === 'online' && change.players.length < 2)
+        if (this.profile.waitsForPeers && change.players.length < 2)
             this.state.lastMessage = message('waitingOpponent');
         this.revision++;
     }
@@ -424,21 +296,21 @@ class TakrawGame {
                     this.teamSchools[team] = identity.schoolId;
                 }
             }
-            if (this.mode === 'local')
+            if (this.profile.secondaryInput)
                 humans[1] = this.decode(entry.input, entry.commands || [], true);
         }
-        if (this.mode === 'training' && humans[0]?.trainingLesson) {
+        if (this.profile.drill && humans[0]?.trainingLesson) {
             this.setTrainingLesson(humans[0].trainingLesson);
             this.state.tick = frame.tick + 1;
             return;
         }
-        if (this.mode === 'training' && humans[0]?.trainingTempo) {
+        if (this.profile.drill && humans[0]?.trainingTempo) {
             this.setTrainingTempo(humans[0].trainingTempo);
             this.state.tick = frame.tick + 1;
             return;
         }
         if (humans[0]?.restart) {
-            if (this.mode === 'training') this.prepareRally();
+            if (this.profile.drill) this.prepareRally();
             // 다시 시작은 새 변주를 쓴다. 두 피어가 같은 현재 시드·랠리 번호에서 같은 새 시드를 얻는다.
             else
                 this.reset(
@@ -452,8 +324,9 @@ class TakrawGame {
             this.state.tick = frame.tick + 1;
             return;
         }
-        if (this.mode === 'match' || this.mode === 'training') humans[1] = null;
-        if (this.mode === 'watch') humans.fill(null); // 관전: 두 팀 모두 AI
+        // 사람 입력을 받지 않는 팀(AI 대전·연습의 팀 1, 관전의 두 팀)은 들어온 입력을 버린다.
+        for (let team = 0; team < 2; team++)
+            if (!this.profile.humanInput[team]) humans[team] = null;
         const humanTeams = [!!humans[0], !!humans[1]];
         const changed =
             humanTeams[0] !== this.humanTeams[0] || humanTeams[1] !== this.humanTeams[1];
@@ -481,7 +354,7 @@ class TakrawGame {
 
         // Claim/release is an input edge. Re-evaluate that change immediately,
         // while ordinary pursuit decisions remain on the configured AI clock.
-        if (this.mode !== 'training')
+        if (this.profile.defense)
             for (const [team, input] of humans.entries()) {
                 if (!input) continue;
                 const previous = this.inputs[this.state.selected[team]];
@@ -494,7 +367,7 @@ class TakrawGame {
                     this.aiDirty = true;
             }
 
-        const onlineWaiting = this.mode === 'online' && Object.keys(this.teamById).length < 2;
+        const onlineWaiting = this.profile.waitsForPeers && Object.keys(this.teamById).length < 2;
         if (this.state.phase !== 'finished' && !onlineWaiting) {
             if (this.state.phase === 'ready') {
                 this.state.timer -= dt;
@@ -575,7 +448,7 @@ class TakrawGame {
                 });
         }
         this.updateServeToss(humans, dt);
-        if (this.mode === 'training') this.recordTrainingInput();
+        if (this.profile.drill) this.recordTrainingInput();
         this.observeTiming(humans);
 
         // The game chooses an ally; the physics controller only guides the foot.
@@ -618,7 +491,11 @@ class TakrawGame {
             for (const event of events) this.handlePhysicsEvent(event, humans);
             this.confirmToss(humans);
             const afterBall = this.physics.ball.translation();
-            if (this.mode === 'training') this.observeTraining();
+            if (this.profile.drill)
+                this.drill.observeStep(this.state.training, {
+                    ball: this.physics.ball,
+                    player: this.physics.players[this.state.selected[0]],
+                });
             if (this.state.phase === 'rally' && beforeBall.x * afterBall.x < 0) {
                 const play = this.state.play,
                     leavingTeam = beforeBall.x < 0 ? 0 : 1;
@@ -635,10 +512,12 @@ class TakrawGame {
                 const crossingHeight = beforeBall.y + (afterBall.y - beforeBall.y) * fraction;
                 if (this.state.training?.contact && afterBall.x > beforeBall.x) {
                     const crossingSide = beforeBall.z + (afterBall.z - beforeBall.z) * fraction;
-                    this.state.training.contact.crossed =
+                    this.drill.observeCrossing(
+                        this.state.training,
                         crossingHeight >=
                             this.config.court.netHeight + this.physics.settings.ballRadius - 0.02 &&
-                        Math.abs(crossingSide) <= this.config.court.halfWidth;
+                            Math.abs(crossingSide) <= this.config.court.halfWidth,
+                    );
                 }
                 if (
                     crossingHeight <
@@ -673,7 +552,7 @@ class TakrawGame {
             );
         }
         if (
-            this.mode === 'training' &&
+            this.profile.drill &&
             this.state.phase === 'rally' &&
             this.state.time - this.rallyStart > this.config.training.timeout
         )
@@ -695,8 +574,9 @@ class TakrawGame {
 
     prepareRally() {
         this.state.phase = 'ready';
-        this.state.timer =
-            this.mode === 'training' ? this.config.training.ready : this.config.rules.ready;
+        this.state.timer = this.profile.drill
+            ? this.config.training.ready
+            : this.config.rules.ready;
         this.state.touches = 0;
         this.state.possession = -1;
         this.state.lastTouch = -1;
@@ -707,26 +587,10 @@ class TakrawGame {
         this.state.pointReason = '';
         this.state.selected = takrawHumanPlayerIds();
         this.state.timing = this.timingJudge.emptyRecords();
-        this.state.lastMessage =
-            this.mode === 'training'
-                ? message('nextBall')
-                : message('serve', { team: this.state.serving });
-        if (this.state.training) {
-            const training = this.state.training;
-            training.previousResult = training.result;
-            Object.assign(training, {
-                setAt: null,
-                jumpAt: null,
-                kickAt: null,
-                jumpOffset: null,
-                kickOffset: null,
-                entry: null,
-                motionId: null,
-                contact: null,
-                result: null,
-                setApex: 0,
-            });
-        }
+        this.state.lastMessage = this.profile.drill
+            ? message('nextBall')
+            : message('serve', { team: this.state.serving });
+        if (this.state.training) this.drill.clearAttempt(this.state.training);
         this.placeServe();
         for (const ai of this.ai)
             Object.assign(ai, {
@@ -759,11 +623,11 @@ class TakrawGame {
         this.state.defense = [null, null];
         this.rallyStart = this.state.time;
         this.state.timing = this.timingJudge.emptyRecords();
-        if (this.mode === 'training') {
+        if (this.profile.drill) {
             const setter = this.physics.players[TAKRAW_TRAINING_SETTER_ID],
                 p = setter.root.translation(),
                 feed = this.config.training.feed;
-            this.state.training.attempt++;
+            this.drill.startAttempt(this.state.training);
             // A fresh drill feeds the setter. After this reset the setter's real
             // foot collision supplies the set, exactly as in a match.
             if (this.state.training.tempo === 'quick') {
@@ -908,7 +772,7 @@ class TakrawGame {
             y: rise,
             z: (contact.z - start.z) / time,
         });
-        this.state.training.setAt = this.state.time;
+        this.drill.observeSet(this.state.training, this.state.time);
     }
 
     handlePhysicsEvent(event, humans) {
@@ -920,29 +784,13 @@ class TakrawGame {
         // 공을 던지기 전(손에 든 공)에는 몸이 부딪혀도 터치·반칙·낙하로 세지 않는다. 공은 매 틱 손 자리로 되돌려진다.
         if (this.state.serveToss?.stage === 'hold') return;
         if (event.type === 'touch') {
-            if (this.state.training && event.playerId === this.state.selected[0]) {
-                const training = this.state.training,
-                    player = this.physics.players[event.playerId];
-                const foot = /^foot/.test(event.part || '');
-                if (!training.contact || (foot && !training.contact.foot)) {
-                    training.contact = {
-                        part: event.part,
-                        foot,
-                        downward:
-                            foot &&
-                            !!event.footVelocity &&
-                            event.footVelocity.y < -1 &&
-                            event.position.y > this.config.court.netHeight,
-                        height: event.position.y,
-                        entry: player.kick.airPlan?.entry || null,
-                        motionId: player.kick.airPlan?.motion?.id || null,
-                        time: this.state.time,
-                        outgoing: null,
-                        crossed: false,
-                        counted: false,
-                    };
-                }
-            }
+            if (this.state.training && event.playerId === this.state.selected[0])
+                this.drill.observeContact(
+                    this.state.training,
+                    event,
+                    this.physics.players[event.playerId],
+                    { netHeight: this.config.court.netHeight, time: this.state.time },
+                );
             if (/hand|forearm|upperArm/i.test(event.part || '')) {
                 this.emit(event);
                 this.awardPoint(1 - event.team, 'hand');
@@ -955,7 +803,7 @@ class TakrawGame {
             this.state.touches++;
             this.state.lastTouch = event.playerId;
             const defendedTouch = this.state.defense[event.team]?.playerId === event.playerId;
-            if (this.mode !== 'training') {
+            if (this.profile.defense) {
                 const defense = this.state.defense[event.team];
                 this.state.defense = [null, null];
                 if (defense && (defense.human || defense.plan.mode !== 'cushion'))
@@ -1058,7 +906,7 @@ class TakrawGame {
             pass.from === TAKRAW_TRAINING_SETTER_ID &&
             pass.to === this.state.selected[0]
         )
-            this.state.training.setAt = this.state.time;
+            this.drill.observeSet(this.state.training, this.state.time);
         this.aiDirty = true;
         this.state.lastMessage = message(
             takrawIsAttacker(pass.to) ? 'tossToAttacker' : 'receiveToTeammate',
@@ -1088,14 +936,18 @@ class TakrawGame {
         this.state.defense = [null, null];
         this.state.pointWinner = winner;
         this.state.pointReason = reason;
-        this.state.timer =
-            this.mode === 'training' ? this.config.training.retry : this.config.rules.point;
-        if (this.state.training) this.finishTraining(reason);
-        this.state.lastMessage =
-            this.mode === 'training'
-                ? message('trainingPoint', { reason })
-                : message('point', { team: winner, reason });
-        if (this.mode !== 'training') {
+        this.state.timer = this.profile.drill
+            ? this.config.training.retry
+            : this.config.rules.point;
+        if (this.state.training)
+            this.drill.finish(this.state.training, {
+                reason,
+                pointWinner: this.state.pointWinner,
+            });
+        this.state.lastMessage = this.profile.drill
+            ? message('trainingPoint', { reason })
+            : message('point', { team: winner, reason });
+        if (this.profile.scoring) {
             this.state.score[winner]++;
             const [a, b] = this.state.score;
             const limit =
@@ -1128,7 +980,7 @@ class TakrawGame {
     humanServes(team) {
         return (
             this.humanTeams[team] &&
-            this.mode !== 'training' &&
+            this.profile.serve &&
             this.state.serving === team &&
             this.state.lastTouch < 0
         );
@@ -1136,7 +988,7 @@ class TakrawGame {
 
     /** 서브하는 선수. 사람이 있는 팀은 사람이 조작하는 공격수가 뒤에서 서브하고, 사람이 없는 팀은 첫 번째 선수가 서브한다. */
     serverId(team) {
-        return this.humanTeams[team] && this.mode !== 'training'
+        return this.humanTeams[team] && this.profile.serve
             ? this.state.selected[team]
             : takrawPlayerId(team, 0);
     }
@@ -1145,7 +997,7 @@ class TakrawGame {
     serveStarts() {
         const team = this.state.serving,
             id = this.serverId(team);
-        if (this.mode === 'training') return null;
+        if (!this.profile.serve) return null;
         const player = this.physics.players[id],
             n = player.toward,
             spot = this.config.ai.serve.spot;
@@ -1172,7 +1024,7 @@ class TakrawGame {
     }
 
     isReceiveBall(team, intercept) {
-        if (this.mode === 'training' || this.state.phase !== 'rally') return false;
+        if (!this.profile.defense || this.state.phase !== 'rally') return false;
         const toward = team === 0 ? 1 : -1;
         // A ball already below the normal receiving height may still have a
         // reachable lower slide contact. The physical planner verifies that path.
@@ -1338,7 +1190,7 @@ class TakrawGame {
     /** 사람이 발차기를 누르고 받을 자리로 달릴 때 자리에서 멈추게 입력 크기만 줄인다. 방향·점프·발차기는 건드리지 않는다. */
     assistReceive(team, human) {
         const settings = this.config.ai.receive.assist;
-        if (!human || !settings || this.mode === 'training' || this.state.phase !== 'rally')
+        if (!human || !settings || !this.profile.defense || this.state.phase !== 'rally')
             return human;
         if (!(human.kick || human.kickPressed) || human.jump || human.jumpPressed) return human;
         const assignment = this.state.defense[team],
@@ -1412,11 +1264,7 @@ class TakrawGame {
         if (this.state.phase !== 'rally') return null;
         // A serve and the last legal team contact must clear the net. Every other
         // grounded kick builds the team's attack, including a human reception.
-        if (
-            this.mode !== 'training' &&
-            this.state.lastTouch < 0 &&
-            this.state.serving === player.team
-        ) {
+        if (this.profile.serve && this.state.lastTouch < 0 && this.state.serving === player.team) {
             // 서브 발차기는 사람·AI 모두 상대 코트 뒤쪽 한가운데를 향해 네트를 넘는 공을 만든다(공중 발차기는 기존 그대로 앞으로 내리찍는다).
             const target = {
                 x: player.toward * this.config.ai.serve.groundAim.x,
@@ -1512,7 +1360,7 @@ class TakrawGame {
      */
     tossSpread(setter) {
         const spread = this.config.ai.toss.spread;
-        if (!spread || this.mode === 'training') return { x: 0, z: 0 };
+        if (!spread || this.profile.repeatable) return { x: 0, z: 0 };
         const bonus = this.config.athletes.bonus.setting,
             ratio =
                 bonus > 0 ? Math.min(1, Math.max(0, (setter.effects?.setting ?? 0) / bonus)) : 0;
@@ -1534,7 +1382,7 @@ class TakrawGame {
      * values의 own은 이 팀(team) 기준이고, from·to·role은 역할 id(receiver|setter|attacker, 모르면 null)다.
      */
     getTeamPlay(team) {
-        if (this.mode === 'training') return null;
+        if (!this.profile.teamPlay) return null;
         const state = this.state,
             play = state.play;
         const role = (id) => this.physics.players[id]?.role ?? null;
@@ -1786,37 +1634,27 @@ class TakrawGame {
         };
     }
 
+    /** 연습 기록에 사람 선수의 점프·발차기 입력 순간을 남긴다(updateServeToss 뒤, observeTiming 앞). */
     recordTrainingInput() {
         const training = this.state.training;
         if (!training || this.state.phase !== 'rally') return;
         const input = this.inputs[this.state.selected[0]],
             guide = this.getAttackGuides()[0];
         const player = this.physics.players[this.state.selected[0]];
-        if (input.jumpPressed && training.jumpAt === null) {
-            // Remember the displayed low/high preparation for this jump. The ball's
-            // prediction can change later, but an airborne player cannot redo it.
-            training.jumpTiming = guide
-                ? {
-                      attempt: training.attempt,
-                      shortJump: guide.shortJump,
-                      contactLead: guide.contactLead,
-                      jumpHold: guide.jumpHold,
-                      kickDelay: guide.kickDelay,
-                  }
-                : null;
-            training.jumpAt = this.state.time;
-            training.jumpOffset = this.timingJudge.jumpError(guide);
-        }
-        if ((input.kickPressed || input.kick) && training.kickAt === null) {
-            training.kickAt = this.state.time;
-            training.kickOffset = this.kickTimingError(player, guide, training.lesson);
-        }
+        this.drill.recordInput(training, {
+            input,
+            guide,
+            time: this.state.time,
+            jumpError: this.timingJudge.jumpError(guide),
+            kickError: () =>
+                this.kickTimingError(player, guide, this.drill.lesson(training).prehold),
+        });
     }
 
     /** 발차기 입력 시점의 타이밍 오차. 연습 기록과 접촉 판정이 같은 식을 쓴다. */
-    kickTimingError(player, guide, lesson) {
+    kickTimingError(player, guide, prehold) {
         return this.timingJudge.kickError({
-            lesson,
+            prehold,
             guide,
             jumpActive: player.jump.active,
             jumpTime: player.jump.time,
@@ -1828,7 +1666,10 @@ class TakrawGame {
     /** 사람이 조작하는 선수의 점프·발차기 입력 순간을 기록한다. 안내는 입력이 있을 때만 계산한다. */
     observeTiming(humans) {
         if (this.state.phase !== 'rally') return;
-        const lesson = this.state.training?.lesson ?? 'auto';
+        // 연습이 아닐 때와 발을 먼저 올리지 않는 레슨은 점프 뒤 지연 기준이다.
+        const prehold = this.state.training
+            ? this.drill.lesson(this.state.training).prehold
+            : false;
         let guides = null;
         for (const team of [0, 1]) {
             if (!humans[team]) continue;
@@ -1850,7 +1691,7 @@ class TakrawGame {
                     this.state.timing,
                     team,
                     'kick',
-                    this.kickTimingError(player, guide, lesson),
+                    this.kickTimingError(player, guide, prehold),
                     this.state.time,
                 );
         }
@@ -1867,107 +1708,29 @@ class TakrawGame {
         return this.timingJudge.evaluate(record, this.state.time);
     }
 
-    observeTraining() {
-        const training = this.state.training;
-        if (!training) return;
-        if (training.setAt !== null && !training.contact)
-            training.setApex = Math.max(training.setApex, this.physics.ball.translation().y);
-        const player = this.physics.players[this.state.selected[0]];
-        if (player.kick.mode === 'air' && player.kick.airPlan) {
-            training.entry = player.kick.airPlan.entry;
-            training.motionId = player.kick.airPlan.motion?.id || null;
-        }
-        if (training.contact && !training.contact.outgoing) {
-            const v = this.physics.ball.linvel();
-            training.contact.outgoing = { x: v.x, y: v.y, z: v.z };
-        }
-    }
-
-    /**
-     * 연습 한 번의 결과. code가 결과 종류이고 values는 문구의 갈래(언어와 무관한 값)다. 제목·설명은 화면이 code·values로 만든다
-     * (src/i18n/messages/match.js resultTitle·resultDetail).
-     */
-    finishTraining(reason) {
-        const t = this.state.training,
-            hit = t.contact;
-        const matches = !!hit?.motionId && (t.lesson === 'auto' || hit.motionId === t.lesson);
-        const downward =
-            hit?.foot && hit.downward && hit.outgoing?.y < -0.2 && hit.outgoing.x > 0.5;
-        const lessonDownward = t.lesson === 'downward';
-        let result;
-        if (downward && matches && hit.crossed && this.state.pointWinner === 0) {
-            result = {
-                code: 'success',
-                values: { motionId: hit.motionId, quick: t.tempo === 'quick' },
-                tone: 'success',
-            };
-            if (!hit.counted) {
-                t.successes++;
-                hit.counted = true;
-            }
-        } else if (t.setAt === null) {
-            result = { code: 'set', values: {}, tone: 'neutral' };
-        } else if (hit?.foot && !matches) {
-            result = {
-                code: 'motion',
-                values: { other: !!hit.motionId, downward: lessonDownward },
-                tone: 'retry',
-            };
-        } else if (downward && hit.crossed) {
-            result = { code: 'out', values: { reason }, tone: 'retry' };
-        } else if (downward) {
-            result = { code: 'net', values: {}, tone: 'retry' };
-        } else if (hit?.foot) {
-            result = { code: 'angle', values: {}, tone: 'retry' };
-        } else if (hit) {
-            result = { code: 'body', values: { shin: /^lowerLeg/.test(hit.part) }, tone: 'retry' };
-        } else if (t.jumpAt === null) {
-            result = { code: 'jump', values: {}, tone: 'retry' };
-        } else if (t.kickAt === null) {
-            result = { code: 'kick', values: { downward: lessonDownward }, tone: 'retry' };
-        } else {
-            result = {
-                code: 'miss',
-                values: { prehold: lessonDownward && t.kickAt >= t.jumpAt },
-                tone: 'retry',
-            };
-        }
-        t.result = {
-            ...result,
-            reason,
-            entry: hit?.entry || t.entry,
-            motionId: hit?.motionId || t.motionId,
-            contact: hit?.part || null,
-            jumpOffset: t.jumpOffset,
-            kickOffset: t.kickOffset,
-        };
-    }
-
     getAttackKickDelay(aerial = this.predictAerial()) {
         const training = this.state.training;
-        if (
-            training &&
-            training.jumpAt !== null &&
-            training.jumpTiming?.attempt === training.attempt
-        )
-            return training.jumpTiming.kickDelay;
-        const lesson =
-            training && TAKRAW_TRAINING_LESSONS.find((item) => item.id === training.lesson);
+        const recorded = this.drill.recordedJump(training);
+        if (recorded) return recorded.kickDelay;
+        const lesson = training && this.drill.lesson(training);
         const attack = aerial.shortJump
             ? this.config.ai.toss.lowAttack
             : this.config.ai.toss.attack;
         return attack.kickDelay * (lesson?.kickDelayScale ?? 1);
     }
 
-    getTraining(guide = this.getAttackGuides()[0]) {
+    /**
+     * 연습 안내의 재료(사실)만 낸다. 단계·문구·색·진행 막대는 화면(presentation/training-coach.js)이 이 값으로 만든다.
+     * 상태를 바꾸지 않는다(DEV-008). guide는 사람 팀의 공격 안내(getAttackGuides()[0])다.
+     */
+    getTrainingFacts(guide = this.getAttackGuides()[0]) {
         const t = this.state.training;
         if (!t) return null;
         const player = this.physics.players[this.state.selected[0]],
             input = this.inputs[player.id];
         const settings = this.config.training.guide,
             aerial = this.predictAerial(player);
-        const recorded =
-            t.jumpAt !== null && t.jumpTiming?.attempt === t.attempt ? t.jumpTiming : null;
+        const recorded = this.drill.recordedJump(t);
         const shortJump = recorded?.shortJump ?? guide?.shortJump ?? aerial.shortJump;
         const contactLead = recorded?.contactLead ?? guide?.contactLead ?? aerial.contactLead;
         const jumpHold =
@@ -1976,9 +1739,7 @@ class TakrawGame {
             (shortJump ? 1 / this.config.simulation.tickRate : this.config.ai.jumpHold);
         const kickDelay =
             recorded?.kickDelay ?? guide?.kickDelay ?? this.getAttackKickDelay(aerial);
-        const lesson =
-            TAKRAW_TRAINING_LESSONS.find((item) => item.id === t.lesson) ||
-            TAKRAW_TRAINING_LESSONS[0];
+        const lesson = this.drill.lesson(t);
         const plan = player.kick.airPlan,
             motion = plan?.motion;
         const motionId = t.contact?.motionId || motion?.id || t.motionId;
@@ -1993,32 +1754,30 @@ class TakrawGame {
                     ? 'adapt'
                     : null;
         const jumpIn = guide && player.grounded ? guide.time - contactLead : null;
-        const kickIn =
-            t.lesson === 'downward'
-                ? jumpIn === null
-                    ? null
-                    : jumpIn - settings.preholdLead
-                : player.jump.active
-                  ? input.kick && plan
-                      ? null
-                      : kickDelay - player.jump.time
-                  : jumpIn === null
-                    ? null
-                    : jumpIn + kickDelay;
+        const kickIn = lesson.prehold
+            ? jumpIn === null
+                ? null
+                : jumpIn - settings.preholdLead
+            : player.jump.active
+              ? input.kick && plan
+                  ? null
+                  : kickDelay - player.jump.time
+              : jumpIn === null
+                ? null
+                : jumpIn + kickDelay;
         const contactIn = Number.isFinite(plan?.remaining) ? Math.max(0, plan.remaining) : null;
-        const base = {
+        return {
             lesson: t.lesson,
             tempo: t.tempo,
             attempt: t.attempt,
             successes: t.successes,
             title: lesson.title,
             sequence: lesson.sequence,
+            anyMotion: lesson.anyMotion,
+            prehold: lesson.prehold,
             motionId: motionId || null,
-            motionStatus: motionKnown
-                ? message('motionStatus', { motionId, adjustment })
-                : message(t.lesson === 'auto' ? 'motionAuto' : 'motionLesson', {
-                      lesson: t.lesson,
-                  }),
+            motionKnown,
+            adjustment,
             jumpIn,
             kickIn,
             shortJump,
@@ -2028,149 +1787,30 @@ class TakrawGame {
             contactIn,
             phase: plan?.phase || null,
             estimated: !plan,
+            // 화면에 남길 결과(이번 시도, 없으면 지난 시도)와 이번 시도의 결과.
             result: t.result || t.previousResult,
-            stage: 'set',
-            cue: message('cueWaitSet'),
-            detail: message('detailWaitSet'),
-            tone: 'neutral',
-            progress: 0,
-        };
-        // 결과 단계의 cue·detail은 결과 코드의 제목·설명이다(값은 결과의 code와 갈래).
-        const outcome = t.result && { code: t.result.code, ...t.result.values };
-        if (this.state.phase === 'point')
-            return {
-                ...base,
-                stage: 'result',
-                cue: outcome ? message('resultTitle', outcome) : message('cueRetry'),
-                detail: outcome ? message('resultDetail', outcome) : message('none'),
-                tone: t.result?.tone || 'neutral',
-                progress: 1,
-            };
-        if (this.state.phase === 'ready')
-            return {
-                ...base,
-                stage: 'ready',
-                cue: message('cueNextToss'),
-                detail: message('lessonSequence', { lesson: lesson.id }),
-            };
-        if (t.contact && (!player.jump.active || !plan || plan.phase === 'follow' || !input.kick)) {
-            const down = t.contact.foot && t.contact.downward && t.contact.outgoing?.y < -0.2;
-            return {
-                ...base,
-                stage: 'contact',
-                cue: message(
-                    down
-                        ? 'cueStruckDown'
-                        : t.contact.foot
-                          ? 'cueFoot'
-                          : /^lowerLeg/.test(t.contact.part)
-                            ? 'cueShin'
-                            : 'cueBody',
-                ),
-                detail: message(down ? 'detailWatchNet' : 'detailRetryTiming'),
-                tone: down ? 'success' : 'retry',
-                progress: 1,
-            };
-        }
-        if (t.setAt === null) return base;
-        if (player.jump.active) {
-            const jump = shortJump ? 'tap' : player.jump.time < jumpHold ? 'hold' : 'release';
-            if (plan && input.kick) {
-                const follow = plan.phase === 'follow',
-                    striking = plan.phase === 'strike';
-                const horizon = this.physics.settings.airKick.contact?.horizon || contactLead;
-                return {
-                    ...base,
-                    stage: follow ? 'contact' : 'kick',
-                    cue: message(follow ? 'cueLanding' : striking ? 'cueStriking' : 'cueRaising'),
-                    detail: follow ? message('detailLanding') : message('detailKeepKick', { jump }),
-                    tone: follow ? 'neutral' : 'ready',
-                    progress: follow
-                        ? 1
-                        : Math.max(
-                              0,
-                              Math.min(1, 1 - (contactIn ?? horizon) / Math.max(horizon, 0.01)),
-                          ),
-                };
-            }
-            const wait = t.lesson !== 'downward' && kickIn > 0;
-            return {
-                ...base,
-                stage: 'kick',
-                cue: message(wait ? 'cueRise' : input.kick ? 'cueHoldKick' : 'cueKickNow'),
-                detail: message(wait ? 'detailWaitKick' : 'detailPressKick', { jump }),
-                tone: wait ? 'neutral' : 'ready',
-                progress: Math.max(0, Math.min(1, player.jump.time / Math.max(kickDelay, 0.01))),
-            };
-        }
-        if (!guide)
-            return {
-                ...base,
-                stage: 'position',
-                cue: message('cueBesideBall'),
-                detail: message('detailGuideSoon'),
-            };
-        const progress =
-            jumpIn === null
-                ? 0
-                : Math.max(0, Math.min(1, 1 - jumpIn / this.config.visual.attackGuide.maxLead));
-        // The ground hold starts while approaching; waiting until the position
-        // circle is reached can consume the whole preparation interval.
-        if (guide.preholdWindow && !guide.preheld)
-            return {
-                ...base,
-                stage: 'kick',
-                cue: message(input.kick ? 'cueKeepRaised' : 'cuePressFirst'),
-                detail: message('detailPrehold'),
-                tone: 'ready',
-                progress,
-            };
-        if (!guide.inPosition || (!guide.settled && !guide.braking))
-            return {
-                ...base,
-                stage: 'position',
-                cue: message('cueMoveToFootprint', {
-                    holding: t.lesson === 'downward' && input.kick,
-                }),
-                detail: message('detailPrediction'),
-                progress,
-            };
-        if (guide.braking)
-            return {
-                ...base,
-                stage: 'brake',
-                cue: message('cueBrake', { holding: t.lesson === 'downward' && input.kick }),
-                detail: message('detailBrake'),
-                tone: 'neutral',
-                progress,
-            };
-        if (guide.jumpWindow)
-            return {
-                ...base,
-                stage: 'jump',
-                cue: message('cueJumpNow'),
-                detail: message('detailJumpNow', {
-                    downward: t.lesson === 'downward',
-                    short: shortJump,
-                }),
-                tone: 'ready',
-                progress: 1,
-            };
-        if (guide.preholdWindow && input.kick)
-            return {
-                ...base,
-                stage: 'kick',
-                cue: message('cueWaitJump'),
-                detail: message('detailWaitJump'),
-                tone: 'ready',
-                progress,
-            };
-        return {
-            ...base,
-            stage: 'position',
-            cue: message('cueJumpTiming'),
-            detail: message('detailOrder', { downward: t.lesson === 'downward' }),
-            progress,
+            attemptResult: t.result,
+            rallyPhase: this.state.phase,
+            set: t.setAt !== null,
+            contact: t.contact && {
+                part: t.contact.part,
+                foot: t.contact.foot,
+                downward: t.contact.downward,
+                outgoingY: t.contact.outgoing?.y,
+            },
+            jumpActive: player.jump.active,
+            jumpTime: player.jump.time,
+            planned: !!plan,
+            kickHeld: input.kick,
+            horizon: this.physics.settings.airKick.contact?.horizon || contactLead,
+            guide: guide && {
+                preholdWindow: guide.preholdWindow,
+                preheld: guide.preheld,
+                inPosition: guide.inPosition,
+                settled: guide.settled,
+                braking: guide.braking,
+                jumpWindow: guide.jumpWindow,
+            },
         };
     }
 
@@ -2179,17 +1819,10 @@ class TakrawGame {
         if (this.state.training && this.state.training.setAt === null) return [null, null];
         const { attack } = this.config.ai.toss;
         const { court } = this.config;
-        const lesson =
-            this.state.training &&
-            TAKRAW_TRAINING_LESSONS.find((item) => item.id === this.state.training.lesson);
-        const approachOffset = attack.offset * (lesson?.approachScale ?? 1);
         const training = this.state.training;
-        const recorded =
-            training &&
-            training.jumpAt !== null &&
-            training.jumpTiming?.attempt === training.attempt
-                ? training.jumpTiming
-                : null;
+        const lesson = training && this.drill.lesson(training);
+        const approachOffset = attack.offset * (lesson?.approachScale ?? 1);
+        const recorded = this.drill.recordedJump(training);
         return [0, 1].map((team) => {
             const n = team === 0 ? 1 : -1,
                 player = this.physics.players[this.state.selected[team]];
@@ -2206,7 +1839,7 @@ class TakrawGame {
                 (shortJump ? 1 / this.config.simulation.tickRate : this.config.ai.jumpHold);
             const kickDelay = this.getAttackKickDelay(aerial);
             if (
-                this.mode !== 'training' &&
+                !this.profile.drill &&
                 !this.humanServes(team) &&
                 (this.state.possession !== team ||
                     this.state.touches < 1 ||
@@ -2243,7 +1876,7 @@ class TakrawGame {
             const braking =
                 inPosition &&
                 ((!settled && drift > distance) || brakeTravel > attack.positionRadius);
-            const needsPrehold = lesson?.id === 'downward';
+            const needsPrehold = !!lesson?.prehold;
             const preheld =
                 !!this.inputs[player.id]?.kick && player.kick.held && player.kick.mode === 'ground';
             const preholdWindow =
@@ -2340,8 +1973,8 @@ class TakrawGame {
         const intercept = this.predictAtHeight(this.config.ai.receiveHeight);
         const { lowAttack, attack } = this.config.ai.toss;
         for (let team = 0; team < 2; team++) {
-            if (this.mode === 'training' && team === 1) {
-                for (let i = 3; i < 6; i++)
+            if (!this.profile.aiTeams[team]) {
+                for (const i of TAKRAW_TEAM_PLAYER_IDS[team])
                     Object.assign(this.ai[i], {
                         x: 0,
                         z: 0,
@@ -2353,12 +1986,12 @@ class TakrawGame {
                 continue;
             }
             const human = humans[team];
-            this.fillStance[team] = this.mode === 'training' ? null : this.fillTargets(team, human);
+            this.fillStance[team] = this.profile.formation ? this.fillTargets(team, human) : null;
             const available = this.physics.players.filter(
                 (player) =>
                     player.team === team &&
                     (!human || this.state.selected[team] !== player.id) &&
-                    (this.mode !== 'training' || player.id === TAKRAW_TRAINING_SETTER_ID) &&
+                    (!this.profile.drill || player.id === TAKRAW_TRAINING_SETTER_ID) &&
                     !this.humanServes(team),
             );
             for (const id of TAKRAW_TEAM_PLAYER_IDS[team]) this.ai[id].active = false;
@@ -2594,7 +2227,7 @@ class TakrawGame {
             revision: this.revision,
             attackGuides,
             receiveGuides: this.getReceiveGuides(),
-            training: this.getTraining(attackGuides[0]),
+            training: this.getTrainingFacts(attackGuides[0]),
             teamNames: [...this.teamNames],
             teamSchools: [...this.teamSchools],
             teamPlay: [this.getTeamPlay(0), this.getTeamPlay(1)],
@@ -2739,4 +2372,4 @@ class TakrawGame {
     }
 }
 
-export { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame };
+export { TakrawGame, message as takrawMessage };

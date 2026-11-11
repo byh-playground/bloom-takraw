@@ -1,6 +1,6 @@
 import { LOCALE } from '../locale.js';
 import { TAKRAW_CLUB_RULES } from '../../club/club.js';
-import { TAKRAW_TRAINING_LESSONS } from '../../simulation/game.js';
+import { takrawTrainingLesson } from '../../simulation/training.js';
 
 /**
  * 시뮬레이션이 내는 message(id, values)의 문장(docs/i18n.md). 값의 own은 보는 팀 기준이고, team(0|1)은 화면이 own으로 바꿔 넘긴다.
@@ -14,8 +14,7 @@ const roleName = (role, locale) =>
 const ko = (role) => roleName(role, 'ko');
 const en = (role) => roleName(role, 'en');
 const enLower = (role) => en(role).toLowerCase();
-const lessonTitle = (id, locale) =>
-    TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === id)?.title[locale];
+const lessonTitle = (id, locale) => takrawTrainingLesson(id)?.title[locale];
 
 /** 득점 사유 코드(game.js awardPoint). */
 const REASON = LOCALE.messages({
@@ -409,8 +408,8 @@ const MATCH = LOCALE.messages({
         en: ({ lesson }) => `Practicing: ${lessonTitle(lesson, 'en')}`,
     },
     lessonSequence: {
-        ko: ({ lesson }) => TAKRAW_TRAINING_LESSONS.find((item) => item.id === lesson).sequence.ko,
-        en: ({ lesson }) => TAKRAW_TRAINING_LESSONS.find((item) => item.id === lesson).sequence.en,
+        ko: ({ lesson }) => takrawTrainingLesson(lesson).sequence.ko,
+        en: ({ lesson }) => takrawTrainingLesson(lesson).sequence.en,
     },
     resultTitle: {
         ko: ({ code, ...values }) => RESULT_TITLE[code](values),

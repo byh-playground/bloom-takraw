@@ -2213,6 +2213,7 @@ async function bootTakraw() {
                         tick: game.state.tick,
                         score: [...game.state.score],
                     }),
+                    stateHash: () => deterministic.hashBytes(codec.encode(game.save())),
                     async openClub(seed, stored = null) {
                         // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
                         // stored가 있으면 메모리 저장에 그 레코드가 이미 있는 것으로 시작한다(읽지 못하는 저장의 화면 확인용).

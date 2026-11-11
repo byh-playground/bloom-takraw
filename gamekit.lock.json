@@ -69,6 +69,11 @@
             "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/pwa-build.mjs",
             "sha256": "f4f213c2bec77e4cce2c6fa64434d127b09d382f75b487c9a55750bac1bea80f",
             "file": "scripts/vendor/gamekit/pwa-build.mjs"
+        },
+        "debug-scene": {
+            "url": "https://cdn.jsdelivr.net/gh/byh-playground/bloom-gamekit@bbd03f6e18068fc51f44df7e4389a2cc6d437829/debug-scene.mjs",
+            "sha256": "639d8b5f8fef382ce26d0c92485c731baf5b8212a93b4374df8f2b7ef982b90c",
+            "file": "scripts/vendor/gamekit/debug-scene.mjs"
         }
     },
     "external": {

@@ -26,6 +26,7 @@ export function createDebugScenes({
     renderFrom,
     ballPosition,
     read,
+    stateHash,
     openClub,
     showClub,
     openMatch,
@@ -51,6 +52,8 @@ export function createDebugScenes({
                 },
                 render: () => render(clock.now()),
                 state: read,
+                // 경기 전체 상태(game.save())의 해시. 두 체크아웃에서 같은 주소를 열어 결과가 비트 단위로 같은지 본다.
+                hash: stateHash,
             };
         },
         /**
@@ -79,6 +82,7 @@ export function createDebugScenes({
                     });
                 },
                 state: () => ({ ...read(), ball: ballPosition() }),
+                hash: watch.hash,
                 dispose() {
                     style.remove();
                 },

@@ -131,6 +131,8 @@ const TAKRAW_PHYSICS = Object.freeze({
     airReady: {
         hipPitch: 1.0,
         kneeBend: 1.8,
+        // 엉덩이 벌림(rad). 왼발은 −, 오른발은 +.
+        hipSpread: 0.06,
         strength: 0.72,
         bodyStrength: 0.25,
     },
@@ -162,6 +164,47 @@ const TAKRAW_PHYSICS = Object.freeze({
         gaitInput: 0.08,
         // 상태별 관절 모터 세기 배율(공중 준비 자세는 airReady.strength).
         muscle: { falling: 0.045, airborne: 0.32, fallen: 0.85 },
+        // 땅 자세(_driveGroundStance). fallenBalance: 넘어졌을 때 몸 세우기 세기 배율.
+        // 골반 목표 높이는 height, 넘어져 몸 위쪽 축의 y가 lowUp보다 작으면 lowHeight.
+        // 골반을 드는 힘 = 무게 × gravityShare + 높이 차 × stiffness − 상승 속도 × damping. 위 한도는 무게 × maxGravity
+        // (넘어졌으면 fallenMaxGravity), 받기 자세 중 아래 한도는 −무게 × receiveMinGravity.
+        // fallenSpeed: 넘어졌을 때 이동 속도 비율. 공격수가 멈추면 몸 전체 수평 속도가 stopSpeed 아래가 될 때까지 제동한다.
+        // 이동 힘은 골반 아래 pushHeight 높이에 준다.
+        stance: {
+            fallenBalance: 1.2,
+            height: 0.99,
+            lowUp: 0.45,
+            lowHeight: 0.43,
+            gravityShare: 0.4,
+            stiffness: 1450,
+            damping: 290,
+            receiveMinGravity: 0.5,
+            fallenMaxGravity: 1.85,
+            maxGravity: 0.95,
+            fallenSpeed: 0.2,
+            stopSpeed: 0.12,
+            pushHeight: 0.09,
+        },
+        // 걸음. rate: 걸음 위상 속도(rad/s). 발 자리는 몸 기준 좌우 width·앞 forward, 이동 방향으로 stride만큼 흔든다.
+        // 받기 자세에서는 디딤발을 받는 방향 반대로 plant만큼 뺀다. 발 높이 footHeight, 걸을 때 lift까지 든다.
+        // 발 끌기: 목표 속도 = 이동 속도 × footSpeed, 힘 footForce, 위치 이득 positionGain, 속도 이득 velocityGain(근육 반응 곱).
+        gait: {
+            rate: 8.5,
+            width: 0.14,
+            forward: 0.06,
+            stride: 0.18,
+            plant: 0.18,
+            footHeight: 0.075,
+            lift: 0.15,
+            footSpeed: 0.55,
+            footForce: 130,
+            positionGain: 230,
+            velocityGain: 17,
+        },
+        // 발목을 엉덩이·무릎 굽힘 합의 이 비율만큼 반대로 꺾어 발바닥을 수평에 가깝게 둔다.
+        ankleCompensation: 0.7,
+        // 공중 준비 자세가 아닐 때의 공중 몸 방향 잡기 세기(준비 자세는 airReady.bodyStrength).
+        airBalance: 0.1,
     },
     // Scale units per second: full extension takes 250 ms, return 500 ms.
     legStretch: { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 },

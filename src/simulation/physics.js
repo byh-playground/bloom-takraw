@@ -1397,6 +1397,8 @@ class TakrawPhysics {
 
     _driveGroundStance(p, body, intent, action, targetMap, dt) {
         const s = p.settings,
+            stance = s.drive.stance,
+            gait = s.drive.gait,
             root = p.root;
         const { pos, vel, rootRotation, up, muscleResponse, balanceResponse } = body;
         const { move, moving } = intent;
@@ -1404,35 +1406,41 @@ class TakrawPhysics {
         this._orientRoot(
             p,
             dt,
-            (fallen ? 1.2 : 1) * balanceResponse * recovery,
+            (fallen ? stance.fallenBalance : 1) * balanceResponse * recovery,
             false,
             motion ? { angle: motion.lean * receiveBlend, direction: receive.direction } : null,
         );
         const liftHeight = motion
-            ? 0.99 + (motion.height - 0.99) * receiveBlend
-            : fallen && up.y < 0.45
-              ? 0.43
-              : 0.99;
+            ? stance.height + (motion.height - stance.height) * receiveBlend
+            : fallen && up.y < stance.lowUp
+              ? stance.lowHeight
+              : stance.height;
         const lift = this._clamp(
-            p.mass * s.gravity * 0.4 + (liftHeight - pos.y) * 1450 - vel.y * 290,
-            motion ? -p.mass * s.gravity * 0.5 : 0,
-            p.mass * s.gravity * (fallen ? 1.85 : 0.95),
+            p.mass * s.gravity * stance.gravityShare +
+                (liftHeight - pos.y) * stance.stiffness -
+                vel.y * stance.damping,
+            motion ? -p.mass * s.gravity * stance.receiveMinGravity : 0,
+            p.mass * s.gravity * (fallen ? stance.fallenMaxGravity : stance.maxGravity),
         );
         root.applyImpulse({ x: 0, y: lift * dt * balanceResponse * recovery, z: 0 }, true);
         const targetV = this._mul(
             move,
             s.movementSpeed *
-                (fallen ? 0.2 : receive?.mode === 'slide' ? s.receive.slide.speed : 1),
+                (fallen
+                    ? stance.fallenSpeed
+                    : receive?.mode === 'slide'
+                      ? s.receive.slide.speed
+                      : 1),
         );
         let movementVelocity = vel;
-        if (p.locomotionActive && moving <= 0.08) {
+        if (p.locomotionActive && moving <= s.drive.gaitInput) {
             movementVelocity = this._v();
             for (const part of p.parts)
                 movementVelocity = this._add(
                     movementVelocity,
                     this._mul(part.body.linvel(), part.mass / p.mass),
                 );
-            if (Math.hypot(movementVelocity.x, movementVelocity.z) < 0.12)
+            if (Math.hypot(movementVelocity.x, movementVelocity.z) < stance.stopSpeed)
                 p.locomotionActive = false;
         }
         const force = this._limit(
@@ -1445,10 +1453,10 @@ class TakrawPhysics {
         );
         root.applyImpulseAtPoint(
             this._mul(force, dt * muscleResponse),
-            { x: pos.x, y: 0.09, z: pos.z },
+            { x: pos.x, y: stance.pushHeight, z: pos.z },
             true,
         );
-        p.gait += dt * (moving > 0.08 ? 8.5 : 0);
+        p.gait += dt * (moving > s.drive.gaitInput ? gait.rate : 0);
         const facing = this._yaw(p.desiredYaw);
         for (const [suffix, side] of [
             ['L', -1],
@@ -1456,13 +1464,17 @@ class TakrawPhysics {
         ]) {
             if (kicking && suffix === p.kick.side && !fallen) continue;
             const phase = p.gait + (side < 0 ? 0 : Math.PI);
-            const localFoot = { x: side * 0.14, y: 0, z: 0.06 };
+            const localFoot = { x: side * gait.width, y: 0, z: gait.forward };
             const spread = this._rotate(facing, localFoot);
-            const planted = motion ? this._mul(receive.direction, -0.18 * receiveBlend) : this._v();
+            const planted = motion
+                ? this._mul(receive.direction, -gait.plant * receiveBlend)
+                : this._v();
             const target = {
-                x: pos.x + spread.x + move.x * Math.sin(phase) * 0.18 + planted.x,
-                y: 0.075 + (moving > 0.1 ? Math.max(0, Math.sin(phase)) * 0.15 : 0),
-                z: pos.z + spread.z + move.z * Math.sin(phase) * 0.18 + planted.z,
+                x: pos.x + spread.x + move.x * Math.sin(phase) * gait.stride + planted.x,
+                y:
+                    gait.footHeight +
+                    (moving > s.drive.moveInput ? Math.max(0, Math.sin(phase)) * gait.lift : 0),
+                z: pos.z + spread.z + move.z * Math.sin(phase) * gait.stride + planted.z,
             };
             const pose = this._legTargets(p, suffix, target, 1, pos, rootRotation);
             if (motion) {
@@ -1476,7 +1488,7 @@ class TakrawPhysics {
                     ) * receiveBlend;
                 pose.hip[0] -= bend * 0.5;
                 pose.knee[0] = Math.max(pose.knee[0], bend);
-                pose.ankle[0] = -(pose.hip[0] + pose.knee[0]) * 0.7;
+                pose.ankle[0] = -(pose.hip[0] + pose.knee[0]) * s.drive.ankleCompensation;
             }
             targetMap['hip' + suffix] = pose.hip;
             targetMap['knee' + suffix] = pose.knee;
@@ -1485,11 +1497,11 @@ class TakrawPhysics {
                 p,
                 p.byName['foot' + suffix],
                 target,
-                this._mul(move, s.movementSpeed * 0.55),
-                130 * muscleResponse,
+                this._mul(move, s.movementSpeed * gait.footSpeed),
+                gait.footForce * muscleResponse,
                 dt,
-                230 * muscleResponse,
-                17 * muscleResponse,
+                gait.positionGain * muscleResponse,
+                gait.velocityGain * muscleResponse,
             );
         }
     }
@@ -1502,7 +1514,12 @@ class TakrawPhysics {
         const { mode, floppy, ready } = action;
         if (!floppy) {
             if (mode !== 'air')
-                this._orientRoot(p, dt, ready ? s.airReady.bodyStrength : 0.1, !ready);
+                this._orientRoot(
+                    p,
+                    dt,
+                    ready ? s.airReady.bodyStrength : s.drive.airBalance,
+                    !ready,
+                );
         }
         if (mode === 'air') this._rotateOverhead(p, dt, muscleResponse);
         // Air steering is a bounded acceleration, never a root velocity assignment.
@@ -1538,10 +1555,10 @@ class TakrawPhysics {
                 ['L', -1],
                 ['R', 1],
             ]) {
-                targetMap['hip' + suffix] = [s.airReady.hipPitch, 0, side * 0.06];
+                targetMap['hip' + suffix] = [s.airReady.hipPitch, 0, side * s.airReady.hipSpread];
                 targetMap['knee' + suffix] = [s.airReady.kneeBend, 0, 0];
                 targetMap['ankle' + suffix] = [
-                    -(s.airReady.hipPitch + s.airReady.kneeBend) * 0.7,
+                    -(s.airReady.hipPitch + s.airReady.kneeBend) * s.drive.ankleCompensation,
                     0,
                     0,
                 ];

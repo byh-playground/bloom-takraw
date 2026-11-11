@@ -103,12 +103,16 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
     ),
 ]);
 
-/** 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다. */
+/**
+ * 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다.
+ * quick 속성은 그 토스가 속공인지다. 토스 궤적(game.js beginRally)과 성공 문구 값(finish)이 id 글자 대신 이 속성을 읽는다.
+ */
 const TAKRAW_TRAINING_TEMPOS = Object.freeze(
     [
         {
             id: 'high',
             command: 21,
+            quick: false,
             title: { ko: '높은 토스', en: 'High set' },
             detail: {
                 ko: '세터가 높게 올려요. 점프 버튼을 잠깐 유지하며 여유 있게 타이밍을 맞춰요.',
@@ -118,6 +122,7 @@ const TAKRAW_TRAINING_TEMPOS = Object.freeze(
         {
             id: 'quick',
             command: 22,
+            quick: true,
             title: { ko: '속공', en: 'Quick set' },
             detail: {
                 ko: '네트 앞으로 낮고 빠르게 와요. 점프 버튼을 짧게 누르고 떼며 바로 발차기를 이어가요.',
@@ -145,6 +150,14 @@ class TakrawTrainingDrill {
     /** 기록의 레슨 정의. */
     lesson(record) {
         return takrawTrainingLesson(record.lesson);
+    }
+
+    /** 기록의 토스 정의. 모르는 id면 첫 정의(높은 토스, 속공 아님)로 읽어 예전 글자 비교(=== 'quick')와 같은 결과를 낸다. */
+    tempo(record) {
+        return (
+            TAKRAW_TRAINING_TEMPOS.find((item) => item.id === record.tempo) ??
+            TAKRAW_TRAINING_TEMPOS[0]
+        );
     }
 
     /** 이번 시도에서 점프할 때 기억한 준비(낮은/높은 점프·지연). 없거나 지난 시도의 것이면 null. */
@@ -288,7 +301,7 @@ class TakrawTrainingDrill {
         if (downward && matches && hit.crossed && pointWinner === 0) {
             result = {
                 code: 'success',
-                values: { motionId: hit.motionId, quick: t.tempo === 'quick' },
+                values: { motionId: hit.motionId, quick: this.tempo(t).quick },
                 tone: 'success',
             };
             if (!hit.counted) {

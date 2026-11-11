@@ -631,7 +631,7 @@ class TakrawGame {
             this.drill.startAttempt(this.state.training);
             // A fresh drill feeds the setter. After this reset the setter's real
             // foot collision supplies the set, exactly as in a match.
-            if (this.state.training.tempo === 'quick') {
+            if (this.drill.tempo(this.state.training).quick) {
                 this.feedQuick(p);
                 this.state.lastMessage = message('quickToss');
             } else {

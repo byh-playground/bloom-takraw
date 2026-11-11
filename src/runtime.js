@@ -78,6 +78,15 @@ const CONNECTION_CAUSES = Object.freeze({
     other: { error: RUNTIME.errOther, phase: RUNTIME.phaseFailed },
 });
 
+/**
+ * gamekit가 코드를 주는 실패의 원인. 코드는 transport 방 오류의 Error.code(version-mismatch)와
+ * rollback 세션 failure.reason(join-rejected의 incompatible-session)이다. 코드가 없는 실패는 connectionCause가 메시지로 분류한다.
+ */
+const CONNECTION_CAUSE_BY_CODE = Object.freeze({
+    'version-mismatch': 'version',
+    'incompatible-session': 'version',
+});
+
 /** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
 const localizedTeam = (team) =>
     team && {
@@ -365,8 +374,14 @@ async function bootTakraw() {
         });
     }
 
-    /** 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다. */
-    function connectionCause(raw) {
+    /**
+     * 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다.
+     * code는 gamekit가 준 실패 코드다. 코드가 없거나 모르는 코드면 메시지(raw)를 정규식으로 분류한다.
+     * 코드를 주지 않는 실패(릴레이·WebRTC·브라우저 보안 오류와 자유 형식 reason)는 아직 정규식으로 분류한다.
+     */
+    function connectionCause(raw, code) {
+        const coded = CONNECTION_CAUSE_BY_CODE[code];
+        if (coded) return coded;
         if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw))
             return 'secure';
         if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return 'sync';
@@ -385,9 +400,9 @@ async function bootTakraw() {
             .slice(0, 180);
     }
 
-    function readableConnectionError(error) {
+    function readableConnectionError(error, code = error?.code) {
         const raw = connectionText(error);
-        return CONNECTION_CAUSES[connectionCause(raw)].error({
+        return CONNECTION_CAUSES[connectionCause(raw, code)].error({
             detail: raw,
             version: TAKRAW_VERSION,
         });
@@ -1097,6 +1112,7 @@ async function bootTakraw() {
             state = 'error';
             const cause = connectionCause(
                 connectionText(failed.reason || failed.type || 'session sync failed'),
+                failed.reason,
             );
             phase = failurePhase(cause);
             if (connection.observedFailure !== failed) {
@@ -1107,6 +1123,7 @@ async function bootTakraw() {
             }
             message = readableConnectionError(
                 failed.reason || failed.type || 'session sync failed',
+                failed.reason,
             );
         } else if (
             count === 2 &&
@@ -1798,7 +1815,7 @@ async function bootTakraw() {
             if (token !== run || disposed) return;
             networkEvent('connect-error', String(error?.message || error));
             recordError(error, 'network');
-            const cause = connectionCause(connectionText(error));
+            const cause = connectionCause(connectionText(error), error?.code);
             trackConnectionFailure(cause, 'connect');
             const diagnostics = network.diagnostics;
             stopSession({ preserveResume: true });

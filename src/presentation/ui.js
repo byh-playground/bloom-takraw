@@ -25,6 +25,7 @@ class TakrawUI {
         this.dialog = '';
         this.controller = new AbortController();
         this.previousFocus = null;
+        this.diagnosticTimer = null; // 진단 복사 버튼 글을 되돌리는 타이머
         this.homeShown = false;
         this.nodes = {};
         for (const id of [
@@ -478,11 +479,16 @@ class TakrawUI {
         });
         area.hidden = result.copied;
         button.textContent = result.copied ? UI.copied() : UI.copyManually();
-        if (this.diagnosticTimer) window.clearTimeout(this.diagnosticTimer);
+        this.clearDiagnosticTimer();
         this.diagnosticTimer = window.setTimeout(() => {
             if (button.isConnected) button.textContent = label;
             this.diagnosticTimer = null;
         }, 1800);
+    }
+
+    clearDiagnosticTimer() {
+        if (this.diagnosticTimer) window.clearTimeout(this.diagnosticTimer);
+        this.diagnosticTimer = null;
     }
 
     /** runtime이 연결 상태를 넘긴다. 화면 위 연결 표시와 열린 친구와 하기 창을 갱신한다. */
@@ -523,6 +529,7 @@ class TakrawUI {
         this.touch.release();
         this.drawStage.dispose();
         this.screens.network.clearCopyTimer();
+        this.clearDiagnosticTimer();
         this.controller.abort();
         this.routes.dispose();
     }

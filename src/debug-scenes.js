@@ -65,7 +65,7 @@ export function createDebugScenes({ config, openWatch, pulse, render, renderFrom
       if (!/^\d+$/.test(seed ?? '')) throw new Error(`club needs an integer seed: ${seed}`);
       const club = await openClub(Number(seed));
       if (credits !== undefined) await club.debugMutate(record => { record.credits = Number(credits); });
-      if (draws !== undefined) for (const _ of Array.from({ length: Number(draws) })) await club.draw();
+      if (draws !== undefined) for (let drawn = 0; drawn < Number(draws); drawn++) await club.draw();
       showClub();
       const view = () => club.getView();
       return {

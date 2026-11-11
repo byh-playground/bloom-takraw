@@ -57,6 +57,11 @@ export default [
         },
     },
     {
+        // page.evaluate 안에서 도는 코드는 브라우저에서 실행되므로 시험 파일에도 브라우저 전역을 준다.
+        files: ['tests/**/*.{js,mjs}'],
+        languageOptions: { globals: globals.browser },
+    },
+    {
         files: ['src/presentation/highlight-worker.js'],
         rules: js.configs.recommended.rules,
         languageOptions: { globals: globals.serviceworker },

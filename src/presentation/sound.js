@@ -1,22 +1,19 @@
 // 시뮬레이션 이벤트를 소리 id와 재생 변수(세기·좌우·음높이)로 옮긴다.
 // 표시 전용이다. 시뮬레이션 상태를 읽거나 바꾸지 않고, 난수는 호출자가 넘긴다(롤백·재생에 영향이 없다).
 
-const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
+import { TAKRAW_KICK_SOUND } from '../config/runtime.js';
 
-// 공 속도 / 기준 속도가 below 미만이면 그 단계. config/runtime.js의 KICK_LEVELS 이름과 같아야 한다.
-const KICK_LEVELS = [
-    { name: 'Soft', below: 0.45 },
-    { name: 'Medium', below: 0.8 },
-    { name: 'Hard', below: Infinity },
-];
-const KICK_GRADE_SUFFIX = { perfect: 'Perfect', good: 'Good' };
+const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
 /** 접촉 하나의 소리 id. 스파이크 > 발이 아닌 몸 > 발(속도 단계 × 타이밍 등급). */
 function takrawKickSoundId(event, reference) {
     if (event.spike) return 'kickSpike';
     if (!String(event.part || '').startsWith('foot')) return 'kickBody';
-    const level = KICK_LEVELS.find((item) => event.speed / reference < item.below).name;
-    return `kick${level}${KICK_GRADE_SUFFIX[event.timing?.grade] ?? ''}`;
+    // 단계 이름·기준과 등급 접미사는 소리 정의와 같은 표(config/runtime.js TAKRAW_KICK_SOUND)에서 온다.
+    const level = TAKRAW_KICK_SOUND.levels.find(
+        (item) => event.speed / reference < item.below,
+    ).name;
+    return `kick${level}${TAKRAW_KICK_SOUND.gradeSuffix[event.timing?.grade] ?? ''}`;
 }
 
 /**

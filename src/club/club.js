@@ -1,6 +1,6 @@
 /**
  * 선수·편성·경제·영속 상태의 단일 소유자. 경기 물리 상태는 저장하지 않는다.
- * 규칙·프리셋의 이름은 TextPair이고, 상태 문구(message)와 오류는 코드 + 값이다. 문구는 화면(presentation/club-text.js)이 언어별로 만든다(docs/i18n.md).
+ * 규칙·프리셋의 이름은 TextPair이고, 상태 문구(message)와 오류는 코드 + 값이다. 문구는 화면(i18n/messages/ui.js의 clubText)이 언어별로 만든다(docs/i18n.md).
  */
 import { takrawGenerateCard, takrawCardTag } from './generator.js';
 import { TAKRAW_NAMES } from './names.js';
@@ -213,7 +213,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
     },
 ]);
 
-/** 상태 문구·오류의 값. id는 presentation/club-text.js의 키다. */
+/** 상태 문구·오류의 값. id는 i18n/messages/ui.js CLUB의 키다. */
 const clubMessage = (id, values = {}) => Object.freeze({ id, values: Object.freeze(values) });
 
 /** 0 이상 1 미만의 난수 하나(내 학교 추첨용). 경기 시뮬레이션과 무관하다. */

@@ -4,6 +4,16 @@ import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
 import { takrawDecodeIdentity } from './identity.js';
 import { takrawSeededUnit } from './random.js';
+import {
+    TAKRAW_ROLES,
+    TAKRAW_TEAM_PLAYER_IDS,
+    TAKRAW_TRAINING_SETTER_ID,
+    takrawHumanPlayerId,
+    takrawHumanPlayerIds,
+    takrawIsAttacker,
+    takrawPlayerId,
+    takrawTeamOf,
+} from './roster.js';
 
 /**
  * 연습 선택과 안내의 단일 원본. 실제 발차기 선택/자세는 물리 계층이 소유한다.
@@ -130,6 +140,9 @@ const TAKRAW_TRAINING_TEMPOS = Object.freeze(
  */
 const message = (id, values = {}) => ({ id, values });
 
+/** 부호 있는 바이트(int8)의 최댓값. 이보다 큰 바이트는 음수(b - 256)다. */
+const INT8_MAX = 127;
+
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
     /** deterministic은 gamekit `@bloom-gamekit/deterministic` 모듈이다. 리플레이 워커에는 import map이 없어 RAPIER처럼 받는다. */
@@ -154,7 +167,7 @@ class TakrawGame {
     }
 
     setTeams(home = null, away = null) {
-        const roles = ['receiver', 'setter', 'attacker'];
+        const roles = TAKRAW_ROLES;
         const definition = this.config.athletes,
             keys = Object.keys(definition.bonus);
         const teamNames = [],
@@ -184,7 +197,7 @@ class TakrawGame {
                 const player = supplied
                     ? matches[0]
                     : {
-                          id: `standard-${team * 3 + slot}`,
+                          id: `standard-${takrawPlayerId(team, slot)}`,
                           name: null,
                           role,
                           stats: Object.fromEntries(keys.map((key) => [key, definition.base])),
@@ -226,7 +239,7 @@ class TakrawGame {
     reset(
         mode = this.mode,
         lesson = this.state?.training?.lesson || 'auto',
-        seed = this.config.network.seed,
+        seed = this.config.simulation.fixedSeed,
         tempo = this.state?.training?.tempo || 'high',
     ) {
         const reused = Boolean(this.state);
@@ -236,12 +249,12 @@ class TakrawGame {
             phase: 'ready',
             tick: 0,
             time: 0,
-            seed: mode === 'training' ? this.config.network.seed : seed >>> 0,
+            seed: mode === 'training' ? this.config.simulation.fixedSeed : seed >>> 0,
             score: [0, 0],
             sets: [0, 0],
             set: 1,
             serving: 1,
-            selected: [2, 5],
+            selected: takrawHumanPlayerIds(),
             touches: 0,
             possession: -1,
             lastTouch: -1,
@@ -371,7 +384,7 @@ class TakrawGame {
 
     decode(input, commands, secondary = false) {
         const offset = secondary ? 3 : 0;
-        const signed = (b) => (b > 127 ? b - 256 : b) / 127;
+        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
         const code = secondary ? 10 : 0;
         const has = (n) => commands.some((command) => command.payload?.[0] === n + code);
         return {
@@ -440,7 +453,7 @@ class TakrawGame {
             return;
         }
         if (this.mode === 'match' || this.mode === 'training') humans[1] = null;
-        if (this.mode === 'ai') humans.fill(null); // 관전: 두 팀 모두 AI
+        if (this.mode === 'watch') humans.fill(null); // 관전: 두 팀 모두 AI
         const humanTeams = [!!humans[0], !!humans[1]];
         const changed =
             humanTeams[0] !== this.humanTeams[0] || humanTeams[1] !== this.humanTeams[1];
@@ -634,7 +647,7 @@ class TakrawGame {
                     const loser =
                         this.state.lastTouch < 0
                             ? this.state.serving
-                            : Math.floor(this.state.lastTouch / 3);
+                            : takrawTeamOf(this.state.lastTouch);
                     this.awardPoint(1 - loser, 'underNet');
                 }
             }
@@ -655,7 +668,7 @@ class TakrawGame {
             this.awardPoint(
                 this.state.lastTouch < 0
                     ? 1 - this.state.serving
-                    : 1 - Math.floor(this.state.lastTouch / 3),
+                    : 1 - takrawTeamOf(this.state.lastTouch),
                 'out',
             );
         }
@@ -692,7 +705,7 @@ class TakrawGame {
         this.state.defense = [null, null];
         this.state.pointWinner = -1;
         this.state.pointReason = '';
-        this.state.selected = [2, 5];
+        this.state.selected = takrawHumanPlayerIds();
         this.state.timing = this.timingJudge.emptyRecords();
         this.state.lastMessage =
             this.mode === 'training'
@@ -747,7 +760,7 @@ class TakrawGame {
         this.rallyStart = this.state.time;
         this.state.timing = this.timingJudge.emptyRecords();
         if (this.mode === 'training') {
-            const setter = this.physics.players[1],
+            const setter = this.physics.players[TAKRAW_TRAINING_SETTER_ID],
                 p = setter.root.translation(),
                 feed = this.config.training.feed;
             this.state.training.attempt++;
@@ -976,7 +989,7 @@ class TakrawGame {
                     event.position,
                     target,
                 );
-            else if (set && target.playerId % 3 === 2)
+            else if (set && takrawIsAttacker(target.playerId))
                 this.physics.assistSet(
                     this.physics.players[event.playerId],
                     event.position,
@@ -1016,7 +1029,7 @@ class TakrawGame {
                     : 1
                 : this.state.lastTouch < 0
                   ? this.state.serving
-                  : Math.floor(this.state.lastTouch / 3);
+                  : takrawTeamOf(this.state.lastTouch);
             this.awardPoint(1 - loser, inside ? 'grounded' : 'out');
         } else if (event.type === 'net' && event.playerId >= 0) {
             this.emit(event);
@@ -1040,11 +1053,15 @@ class TakrawGame {
         pass.pending = false;
         if (this.state.play?.from === pass.from && this.state.play.kind === 'toss')
             this.state.play.outcome = 'set';
-        if (this.state.training && pass.from === 1 && pass.to === this.state.selected[0])
+        if (
+            this.state.training &&
+            pass.from === TAKRAW_TRAINING_SETTER_ID &&
+            pass.to === this.state.selected[0]
+        )
             this.state.training.setAt = this.state.time;
         this.aiDirty = true;
         this.state.lastMessage = message(
-            pass.to % 3 === 2 ? 'tossToAttacker' : 'receiveToTeammate',
+            takrawIsAttacker(pass.to) ? 'tossToAttacker' : 'receiveToTeammate',
         );
         for (const player of this.physics.players) {
             if (
@@ -1121,7 +1138,7 @@ class TakrawGame {
     serverId(team) {
         return this.humanTeams[team] && this.mode !== 'training'
             ? this.state.selected[team]
-            : team * 3;
+            : takrawPlayerId(team, 0);
     }
 
     /** 서브 시작 자리: 사람이 서브하면 공격수가 자기 코트 뒤쪽 서브 자리(ai.serve.spot, 팀 방향 좌표)에서 시작한다. */
@@ -1133,7 +1150,9 @@ class TakrawGame {
             n = player.toward,
             spot = this.config.ai.serve.spot;
         // 사람 서버는 서브 자리(x, z), AI 서버는 서브 자리 x에 자기 자리 z로 선다(엔드라인 뒤). 서브 뒤 AI는 평소처럼 자기 포메이션으로 돌아간다.
-        return { [id]: { x: spot.x * n, z: id === team * 3 ? player.home.z : spot.z * n } };
+        return {
+            [id]: { x: spot.x * n, z: id === takrawPlayerId(team, 0) ? player.home.z : spot.z * n },
+        };
     }
 
     /** 서브 직전 배치: 선수를 시작 자리에 세우고 공을 서버 발밑에 둔다. */
@@ -1185,7 +1204,7 @@ class TakrawGame {
     decideReceive(team, human, available, intercept, preferred) {
         const previous = this.state.defense[team];
         this.state.defense[team] = null;
-        for (let id = team * 3; id < team * 3 + 3; id++) this.ai[id].receive = null;
+        for (const id of TAKRAW_TEAM_PLAYER_IDS[team]) this.ai[id].receive = null;
         if (!this.isReceiveBall(team, intercept)) return null;
         const settings = this.config.ai.receive;
         const effort = (player, plan) => {
@@ -2305,7 +2324,7 @@ class TakrawGame {
         const key = `${this.state.seed}:${this.state.rally}`;
         if (this.temperaments.key !== key) this.temperaments = { key, list: [] };
         return (this.temperaments.list[playerId] ??= new Temperament(
-            this.temperamentProfiles[Math.floor(playerId / 3)] || this.config.ai.temperament,
+            this.temperamentProfiles[takrawTeamOf(playerId)] || this.config.ai.temperament,
             this.state.seed,
             playerId,
             this.state.rally,
@@ -2339,10 +2358,10 @@ class TakrawGame {
                 (player) =>
                     player.team === team &&
                     (!human || this.state.selected[team] !== player.id) &&
-                    (this.mode !== 'training' || player.id === 1) &&
+                    (this.mode !== 'training' || player.id === TAKRAW_TRAINING_SETTER_ID) &&
                     !this.humanServes(team),
             );
-            for (let id = team * 3; id < team * 3 + 3; id++) this.ai[id].active = false;
+            for (const id of TAKRAW_TEAM_PLAYER_IDS[team]) this.ai[id].active = false;
             const pass = this.state.toss?.team === team ? this.state.toss : null;
             const recipient = pass ? this.physics.players[pass.to] : null;
             const aerialPass =
@@ -2390,7 +2409,7 @@ class TakrawGame {
             if (this.state.training)
                 active =
                     this.state.training.setAt === null && !this.state.training.contact
-                        ? this.physics.players[1]
+                        ? this.physics.players[TAKRAW_TRAINING_SETTER_ID]
                         : null;
             const groundBase = this.config.ai.toss.ground;
             const braking = this.config.ai.receive.braking;
@@ -2645,11 +2664,10 @@ class TakrawGame {
             assignment === null ||
             (assignment &&
                 Number.isInteger(assignment.playerId) &&
-                assignment.playerId >= team * 3 &&
-                assignment.playerId < team * 3 + 3 &&
+                takrawTeamOf(assignment.playerId) === team &&
                 assignment.team === team &&
                 typeof assignment.human === 'boolean' &&
-                (!assignment.human || assignment.playerId === team * 3 + 2) &&
+                (!assignment.human || assignment.playerId === takrawHumanPlayerId(team)) &&
                 receivePlan(assignment.plan) &&
                 (assignment.humanPlan === null || receivePlan(assignment.humanPlan)));
         return (
@@ -2696,7 +2714,7 @@ class TakrawGame {
             ) &&
             Array.isArray(data.state.selected) &&
             data.state.selected.length === 2 &&
-            data.state.selected.every((id, team) => id === team * 3 + 2)
+            data.state.selected.every((id, team) => id === takrawHumanPlayerId(team))
         );
     }
     load(data) {

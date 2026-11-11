@@ -12,7 +12,7 @@ class TakrawFieldEffects {
         this.THREE = THREE;
         this.scene = scene;
         this.style = config.visual.field;
-        this.seed = config.network.seed;
+        this.seed = config.visual.effectSeed;
         this.reducedMotion = reducedMotion;
         this.puffGeometry = new THREE.CircleGeometry(1, 14);
         this.confettiGeometry = new THREE.PlaneGeometry(0.09, 0.05);

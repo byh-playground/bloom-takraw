@@ -78,6 +78,18 @@
 
 선수 상태명은 HUD 생성 시 한 번 해석한 결과를 UI가 그대로 표시합니다. HTML의 대화상자는 빈 골격이며, 저장된 클럽 화면 사본을 포함하지 않습니다. 클럽 상태는 club owner의 현재 조회 결과로만 표시합니다.
 
+## 설정·식별자의 소유 (v0.17.0 이후 정리)
+
+- **선수 id 배치**(팀당 3명, 슬롯 리시버·세터·공격수, 사람이 조종하는 선수는 팀의 공격수)는 `simulation/roster.js`가 소유합니다. 시뮬레이션·물리·화면이 id에서 팀·슬롯을 읽을 때 `takrawTeamOf`·`takrawSlotOf`·`takrawHumanPlayerId` 등을 씁니다.
+- **페이지를 연 맥락**(`?debug`, `?showcaseDemo=1`, iframe)은 `launch.js`가 한 번 정합니다. 저장·지표·언어 선택의 격리(`isolated`)와 `runtime.js`가 같은 값을 읽습니다.
+- **입력 바이트 배치**(`TAKRAW_CONFIG.input`: 크기·축 배율)는 시뮬레이션이 읽는 게임 설정입니다. 인코딩(`runtime.js`)과 디코딩(`game.js decode`)이 같은 값을 읽습니다.
+- **이름과 식별자**는 `config/game.js`에서 뜻별로 나뉩니다. `TAKRAW_GAME_NAME`(종목), `TAKRAW_PRODUCT_NAME`(제품), `TAKRAW_DIAGNOSTIC_NAME`(진단 머리글), `TAKRAW_ID`(저장·방·지표 식별자, 바꾸면 기존 저장이 끊김). 제품 버전은 `package.json`과 `TAKRAW_VERSION` 두 곳이며 `npm run check`가 일치를 검사합니다.
+- **시드**는 뜻별로 나뉩니다. 시드를 받지 않은 경기·연습은 `TAKRAW_CONFIG.simulation.fixedSeed`, 접촉·착지 효과는 `TAKRAW_CONFIG.visual.effectSeed`, 롤백 세션 초기 시드와 방 이름공간은 `TAKRAW_RUNTIME.network`입니다(`TAKRAW_CONFIG`에는 network 섹션이 없습니다).
+- **코트·네트 치수**는 `TAKRAW_CONFIG.court`가 단일 출처이고 물리의 네트 충돌체도 이를 읽습니다. 주발(`dominantFoot`)과 `groundToss.attackApex`는 `TAKRAW_CONFIG.physics`가 원본입니다.
+- **킥 소리 단계·등급 이름**은 `config/runtime.js`의 소리 정의 표에서 파생해 `presentation/sound.js`가 읽습니다(`TAKRAW_KICK_SOUND`).
+- **같은 뜻의 화면 문구**는 `i18n/messages/shared.js` 한 곳에 두고 PAGE·UI·RUNTIME 표가 가리킵니다.
+- **연결 실패 분류**(`connectionCause`)는 gamekit가 코드를 주는 실패(`version-mismatch`·`incompatible-session`)를 코드로, 나머지를 메시지 정규식으로 나눕니다. 원인별 문구·단계 이름은 `CONNECTION_CAUSES` 한 표입니다.
+
 규칙 근거는 [bloom-reference 개발 규칙](https://github.com/byh-playground/bloom-reference/blob/main/rules/development.html)의 SSOT·단일 소유권·CQS·Lifecycle·DRY입니다. 정책 자체의 원문은 reference 저장소가 소유합니다.
 
 ## 접촉 타이밍 효과의 경계

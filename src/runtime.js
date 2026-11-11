@@ -29,11 +29,18 @@ import {
 } from '@bloom-gamekit/metrics';
 import { DiagnosticRing, redactDiagnostic } from '@bloom-gamekit/debug-tools';
 
-import { TAKRAW_VERSION, TAKRAW_PRODUCT_NAME, TAKRAW_CONFIG } from './config/game.js';
+import {
+    TAKRAW_VERSION,
+    TAKRAW_PRODUCT_NAME,
+    TAKRAW_DIAGNOSTIC_NAME,
+    TAKRAW_ID,
+    TAKRAW_CONFIG,
+} from './config/game.js';
 import { TAKRAW_RUNTIME } from './config/runtime.js';
 import { TAKRAW_CLUB_RULES, TakrawClub } from './club/club.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS, TakrawGame } from './simulation/game.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from './simulation/identity.js';
+import { takrawHumanPlayerId, takrawHumanPlayerIds } from './simulation/roster.js';
 import { TakrawView } from './presentation/view.js';
 import { impactStyleKey } from './presentation/impact.js';
 import { winningSpikeScore } from './presentation/score-motion.js';
@@ -43,6 +50,7 @@ import { takrawSoundPayload } from './presentation/sound.js';
 import { takrawUnitStream } from './simulation/random.js';
 import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
+import { TAKRAW_LAUNCH } from './launch.js';
 import { LOCALE } from './i18n/locale.js';
 import { RUNTIME } from './i18n/messages/runtime.js';
 import { roleName } from './i18n/messages/match.js';
@@ -55,6 +63,28 @@ const PLAYER_STATE_LABELS = Object.freeze({
     kicking: RUNTIME.stateKick,
     overhead: RUNTIME.stateSpike,
     recovering: RUNTIME.stateGettingUp,
+});
+
+/**
+ * 연결 실패 원인별 화면 문구(error)와 연결 카드 단계 이름(phase). 키가 connectionCause가 돌려주는 원인이고,
+ * 문구·단계·지표(trackConnectionFailure)가 이 분류 하나를 쓴다.
+ */
+const CONNECTION_CAUSES = Object.freeze({
+    secure: { error: RUNTIME.errSecure, phase: RUNTIME.phaseBrowser },
+    sync: { error: RUNTIME.errSync, phase: RUNTIME.phaseSyncFailed },
+    version: { error: RUNTIME.errVersion, phase: RUNTIME.phaseVersionFailed },
+    relay: { error: RUNTIME.errRelay, phase: RUNTIME.phaseRelayFailed },
+    peer: { error: RUNTIME.errPeer, phase: RUNTIME.phasePeerFailed },
+    other: { error: RUNTIME.errOther, phase: RUNTIME.phaseFailed },
+});
+
+/**
+ * gamekit가 코드를 주는 실패의 원인. 코드는 transport 방 오류의 Error.code(version-mismatch)와
+ * rollback 세션 failure.reason(join-rejected의 incompatible-session)이다. 코드가 없는 실패는 connectionCause가 메시지로 분류한다.
+ */
+const CONNECTION_CAUSE_BY_CODE = Object.freeze({
+    'version-mismatch': 'version',
+    'incompatible-session': 'version',
 });
 
 /** 클럽 편성(선수 이름이 TextPair)을 시뮬레이션이 받는 문자열 이름으로. 시뮬레이션은 언어를 모른다. */
@@ -132,24 +162,24 @@ async function bootTakraw() {
     let latestView = null;
     let intro = null;
     let mode = null;
-    const demo = new URLSearchParams(location.search).get('showcaseDemo') === '1';
+    const demo = TAKRAW_LAUNCH.showcaseDemo;
     if (demo) document.body.dataset.showcase = '';
     // 저장소는 여기서만 고른다. 격리 장면(확인용 주소 ?debug, 소개영상 화면 ?showcaseDemo=1)은 모든 저장(팀·소리 설정·방 복귀)을
     // 메모리에만 남겨 실제 저장을 읽지도 쓰지도 않는다. 방 복귀는 탭마다 따로이고 같은 게임 버전끼리만 이어지도록 sessionStorage에 버전을 붙여 둔다.
-    const isolated = demo || new URLSearchParams(location.search).has('debug');
+    const isolated = TAKRAW_LAUNCH.isolated;
     const SAVE_STORES = {
-        club: () => indexedDbAdapter({ database: 'bloom-takraw-club', store: 'club' }),
-        settings: () => localStorageAdapter({ prefix: 'bloom-takraw:' }),
+        club: () => indexedDbAdapter({ database: `${TAKRAW_ID}-club`, store: 'club' }),
+        settings: () => localStorageAdapter({ prefix: `${TAKRAW_ID}:` }),
         resume: () =>
             localStorageAdapter({
                 storage: sessionStorage,
-                prefix: `bloom-takraw:${TAKRAW_VERSION}:`,
+                prefix: `${TAKRAW_ID}:${TAKRAW_VERSION}:`,
             }),
     };
     const saveAdapter = (store) => (isolated ? memoryAdapter() : SAVE_STORES[store]());
     // 지표도 격리 장면에서는 메모리에만 남긴다. 개발자 본인 플레이는 수집 서버가 접속 키로 나중에 거른다.
     const metrics = createMetrics({
-        game: 'bloom-takraw',
+        game: TAKRAW_ID,
         version: TAKRAW_VERSION,
         locale: LOCALE.locale,
         adapter: isolated ? new MemoryAdapter() : new HttpAdapter(TAKRAW_RUNTIME.metrics.endpoint),
@@ -185,7 +215,7 @@ async function bootTakraw() {
     let presentationRevision = 0;
     let presentationSequence = 0;
     let resetMode = 'reset';
-    let lastInput = new Uint8Array(TAKRAW_RUNTIME.input.size);
+    let lastInput = new Uint8Array(config.input.size);
     let lastContact = null;
     let network = Object.freeze({
         state: 'idle',
@@ -233,7 +263,7 @@ async function bootTakraw() {
     // 설치·오프라인 시작(sw.js). 새로고침하면 항상 최신 버전이라 업데이트 알림은 없다. 격리 장면(?debug, ?showcaseDemo=1)과 iframe 안은 등록하지 않는다. 오류는 처음 화면의 상태 줄에, 설치는 설정 창에 둔다.
     let pwa = null;
     // 다른 페이지의 iframe 안(itch.io 임베드 등)에서는 설치할 수 없고, 같은 출처를 나눠 쓰는 다른 게임과 캐시가 섞일 수 있어 등록하지 않는다.
-    const embedded = window.self !== window.top;
+    const embedded = TAKRAW_LAUNCH.embedded;
     function startPwa() {
         pwa = registerPwa({
             serviceWorker: './sw.js',
@@ -340,12 +370,18 @@ async function bootTakraw() {
         connection.history.push(entry);
         if (connection.history.length > 28) connection.history.shift();
         setNetwork({
-            diagnostics: `BLOOM TAKRAW ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}`,
+            diagnostics: `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION} · ${location.protocol} · secure=${window.isSecureContext}\n${connection.history.join('\n')}`,
         });
     }
 
-    /** 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다. */
-    function connectionCause(raw) {
+    /**
+     * 연결 실패의 원인. 화면 문구·단계 이름·지표(trackConnectionFailure)가 같은 분류를 쓴다.
+     * code는 gamekit가 준 실패 코드다. 코드가 없거나 모르는 코드면 메시지(raw)를 정규식으로 분류한다.
+     * 코드를 주지 않는 실패(릴레이·WebRTC·브라우저 보안 오류와 자유 형식 reason)는 아직 정규식으로 분류한다.
+     */
+    function connectionCause(raw, code) {
+        const coded = CONNECTION_CAUSE_BY_CODE[code];
+        if (coded) return coded;
         if (/WebCrypto|secure randomness|secure context|HTTPS|crypto\.subtle/i.test(raw))
             return 'secure';
         if (/bootstrap|checkpoint|snapshot|membership-failed/i.test(raw)) return 'sync';
@@ -364,29 +400,17 @@ async function bootTakraw() {
             .slice(0, 180);
     }
 
-    function readableConnectionError(error) {
+    function readableConnectionError(error, code = error?.code) {
         const raw = connectionText(error);
-        const values = { detail: raw, version: TAKRAW_VERSION };
-        return {
-            secure: () => RUNTIME.errSecure(),
-            sync: () => RUNTIME.errSync(values),
-            version: () => RUNTIME.errVersion(values),
-            relay: () => RUNTIME.errRelay(values),
-            peer: () => RUNTIME.errPeer(values),
-            other: () => RUNTIME.errOther(values),
-        }[connectionCause(raw)]();
+        return CONNECTION_CAUSES[connectionCause(raw, code)].error({
+            detail: raw,
+            version: TAKRAW_VERSION,
+        });
     }
 
     /** 연결 오류 카드의 단계 이름. 원인을 알면 그 원인을 말한다. */
     function failurePhase(cause) {
-        return {
-            secure: () => RUNTIME.phaseBrowser(),
-            relay: () => RUNTIME.phaseRelayFailed(),
-            peer: () => RUNTIME.phasePeerFailed(),
-            sync: () => RUNTIME.phaseSyncFailed(),
-            version: () => RUNTIME.phaseVersionFailed(),
-            other: () => RUNTIME.phaseFailed(),
-        }[cause]();
+        return CONNECTION_CAUSES[cause].phase();
     }
 
     /**
@@ -424,7 +448,7 @@ async function bootTakraw() {
      */
     function diagnosticReport() {
         const state = [
-            `BLOOM TAKRAW ${TAKRAW_VERSION}`,
+            `${TAKRAW_DIAGNOSTIC_NAME} ${TAKRAW_VERSION}`,
             `mode=${mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${session?.tick ?? latestView?.state.tick ?? 0}`,
             `locale=${LOCALE.locale} viewport=${innerWidth}x${innerHeight} dpr=${devicePixelRatio} touch=${matchMedia('(pointer: coarse)').matches}`,
             `ua=${navigator.userAgent}`,
@@ -698,7 +722,7 @@ async function bootTakraw() {
         actions?.releaseAll();
         device?.releaseAll();
         actions?.consume();
-        lastInput = new Uint8Array(TAKRAW_RUNTIME.input.size);
+        lastInput = new Uint8Array(config.input.size);
     }
 
     function releaseControls() {
@@ -728,7 +752,7 @@ async function bootTakraw() {
     }
 
     function encodeAxis(value) {
-        return Math.round(Math.max(-1, Math.min(1, value)) * TAKRAW_RUNTIME.input.axisScale) & 255;
+        return Math.round(Math.max(-1, Math.min(1, value)) * config.input.axisScale) & 255;
     }
 
     function writeMovement(input, offset, right, back) {
@@ -766,7 +790,7 @@ async function bootTakraw() {
     }
 
     function getInput() {
-        const input = new Uint8Array(TAKRAW_RUNTIME.input.size);
+        const input = new Uint8Array(config.input.size);
         const commands = pendingCommands
             .splice(0)
             .map((code) => ({ payload: Uint8Array.of(code) }));
@@ -1088,6 +1112,7 @@ async function bootTakraw() {
             state = 'error';
             const cause = connectionCause(
                 connectionText(failed.reason || failed.type || 'session sync failed'),
+                failed.reason,
             );
             phase = failurePhase(cause);
             if (connection.observedFailure !== failed) {
@@ -1098,6 +1123,7 @@ async function bootTakraw() {
             }
             message = readableConnectionError(
                 failed.reason || failed.type || 'session sync failed',
+                failed.reason,
             );
         } else if (
             count === 2 &&
@@ -1175,7 +1201,7 @@ async function bootTakraw() {
 
     function selectedHud() {
         const team = localTeam();
-        const selectedId = latestView.state.selected?.[team] ?? (team === 1 ? 5 : 2);
+        const selectedId = latestView.state.selected?.[team] ?? takrawHumanPlayerId(team);
         const player = latestView.players.find((candidate) => candidate.id === selectedId);
         const motion = TAKRAW_TRAINING_LESSONS.find((lesson) => lesson.id === player?.motionId),
             attacker = roleName('attacker', LOCALE.locale);
@@ -1450,7 +1476,7 @@ async function bootTakraw() {
                 : nextMode === 'match' && debugMatchSeed !== null
                   ? debugMatchSeed
                   : crypto.getRandomValues(new Uint32Array(1))[0];
-        game.reset(watching ? 'ai' : nextMode, undefined, matchSeed);
+        game.reset(nextMode, undefined, matchSeed);
         latestView = game.getView();
         BodyPose = createPresentation();
         replaceJournal();
@@ -1546,8 +1572,8 @@ async function bootTakraw() {
             mode: online ? 'online' : 'local',
             ...(online ? { room: capability } : { localPlayerId: 'local', localFastPath: true }),
             simulationVersion: TAKRAW_VERSION,
-            seed: config.network.seed,
-            inputSize: TAKRAW_RUNTIME.input.size,
+            seed: TAKRAW_RUNTIME.network.sessionSeed,
+            inputSize: config.input.size,
             adapter,
             profile,
             recordReplay: recorded,
@@ -1742,7 +1768,7 @@ async function bootTakraw() {
             capability = await createNostrDynamicRoom({
                 role: action,
                 room: roomCode,
-                namespace: config.network.namespace,
+                namespace: TAKRAW_RUNTIME.network.namespace,
                 resume: { adapter: resumeAdapter, key: `room:${roomCode}`, reset: !resuming },
                 maxPlayers: 2,
                 timeoutMs: TAKRAW_RUNTIME.network.timeout,
@@ -1789,7 +1815,7 @@ async function bootTakraw() {
             if (token !== run || disposed) return;
             networkEvent('connect-error', String(error?.message || error));
             recordError(error, 'network');
-            const cause = connectionCause(connectionText(error));
+            const cause = connectionCause(connectionText(error), error?.code);
             trackConnectionFailure(cause, 'connect');
             const diagnostics = network.diagnostics;
             stopSession({ preserveResume: true });
@@ -1904,7 +1930,7 @@ async function bootTakraw() {
                 dependencies: { ...dependencyState },
                 tick: session?.tick ?? latestView?.state.tick ?? 0,
                 phase: latestView?.state.phase || 'loading',
-                selected: latestView?.state.selected?.slice() || [2, 5],
+                selected: latestView?.state.selected?.slice() || takrawHumanPlayerIds(),
                 physics: {
                     players: game?.physics.players.length || 0,
                     entities: latestView?.entities.length || 0,
@@ -2162,7 +2188,7 @@ async function bootTakraw() {
         const query = new URLSearchParams(location.search),
             watchParam = query.get(TAKRAW_RUNTIME.watch.param);
         if (watchParam !== null && /^\d+$/.test(watchParam)) startWatch(watchParam);
-        if (query.has('debug')) {
+        if (TAKRAW_LAUNCH.debug) {
             // 확인용 주소(`?debug=1&scene=…`)일 때만 불러온다. 실시간 구동을 멈추고 가상 시계로 틱을 직접 진행한다.
             const [{ installDebugHost }, { createDebugScenes }] = await Promise.all([
                 import('@bloom-gamekit/debug-tools'),

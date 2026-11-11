@@ -1,10 +1,18 @@
+// 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
 const TAKRAW_VERSION = '0.17.0';
-// 게임 이름의 단일 출처(TextPair). 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일과의 일치(index.html은 en, README·AGENTS·package.json은 ko)는 scripts/check.cjs가 검사한다.
+// 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
+//   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
+//   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
+//   TAKRAW_DIAGNOSTIC_NAME: 진단 글·콘솔 머리글의 영어 대문자 제품 이름.
+// 정적 파일과의 일치(index.html은 en, README·AGENTS·package.json은 ko)는 scripts/check.cjs가 검사한다.
 const TAKRAW_GAME_NAME = Object.freeze({ ko: '발 배구', en: 'Takraw' });
 const TAKRAW_PRODUCT_NAME = Object.freeze({
     ko: `블룸 ${TAKRAW_GAME_NAME.ko}`,
     en: `Bloom ${TAKRAW_GAME_NAME.en}`,
 });
+const TAKRAW_DIAGNOSTIC_NAME = TAKRAW_PRODUCT_NAME.en.toUpperCase();
+// 저장·방·지표가 이 게임을 가리키는 식별자. 화면 이름이 아니라서 바꾸면 기존 저장·방 복귀·지표가 끊긴다.
+const TAKRAW_ID = 'bloom-takraw';
 
 /**
  * 능력치 → 경기 효과의 단일 공식(경기와 팀 관리 화면이 같이 읽는다).
@@ -26,8 +34,11 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
-    simulation: { tickRate: 60, substeps: 2, aiRate: 15 },
-    network: { namespace: 'bloom-takraw', seed: 7 },
+    // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
+    simulation: { tickRate: 60, substeps: 2, aiRate: 15, fixedSeed: 7 },
+    // 매 틱 입력 바이트열: [x, z, 버튼] × 2명(1P·2P). x·z는 -1..1을 axisScale배 한 부호 있는 바이트(runtime.js가 쓰고 game.js decode가 읽는다).
+    input: { size: 6, axisScale: 127 },
+    // 코트·네트 치수의 단일 출처. 물리(네트 충돌체)·판정·AI·화면이 모두 이 값을 읽는다.
     court: { halfLength: 6.7, halfWidth: 3.05, netHeight: 1.52 },
     // Team 0 coordinates; team 1 mirrors X/Z: receive, central set, front attack.
     formation: {
@@ -152,6 +163,8 @@ const TAKRAW_CONFIG = Object.freeze({
         },
     },
     visual: {
+        // 접촉·착지 효과의 변주(무늬·방향)를 이벤트에서 뽑는 난수의 시드. 표시 전용이라 경기에 영향이 없다.
+        effectSeed: 7,
         receiveGuide: {
             groundHeight: 0.07,
             contactRadius: 0.1,
@@ -707,6 +720,8 @@ export {
     TAKRAW_VERSION,
     TAKRAW_GAME_NAME,
     TAKRAW_PRODUCT_NAME,
+    TAKRAW_DIAGNOSTIC_NAME,
+    TAKRAW_ID,
     TAKRAW_CONFIG,
     takrawAthleteEffects,
 };

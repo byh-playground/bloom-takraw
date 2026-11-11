@@ -1,44 +1,76 @@
+import { TAKRAW_ID } from './game.js';
+
 // 발차기 한 번은 네 층이다. 낮은 쿵(thump)은 무게를, 중음 몸통(body, 삼각파)은 작은 스피커에서도 들리는 울림을,
 // 슬랩(slap)과 클릭(click)은 발이 공에 닿는 순간의 "탁"을 맡는다. 공 속도가 세질수록 모든 층이 커지고 길어지고 밝아진다.
 // (이전 소리는 사실상 120~500Hz 사인파 하나라 2kHz 위 에너지가 0이었고, 단계별 음량 차이도 2dB뿐이었다.)
+// below: 공 속도 / 기준 속도가 이 값 미만이면 그 단계다. 단계 이름·기준은 TAKRAW_KICK_SOUND로 내보내 src/presentation/sound.js가 소리 id를 고른다.
 const KICK_LEVELS = {
-    Soft: [
-        { kind: 'tone', hz: 150, end: 70, ms: 80, gain: 0.3, type: 'sine' },
-        { kind: 'tone', hz: 240, end: 130, ms: 50, gain: 0.3, type: 'triangle' },
-        { kind: 'noise', hz: 2200, ms: 28, gain: 0.12 },
-        { kind: 'noise', hz: 6000, ms: 7, gain: 0.25 },
-    ],
-    Medium: [
-        { kind: 'tone', hz: 170, end: 62, ms: 95, gain: 0.45, type: 'sine' },
-        { kind: 'tone', hz: 280, end: 130, ms: 60, gain: 0.45, type: 'triangle' },
-        { kind: 'noise', hz: 2800, ms: 38, gain: 0.2 },
-        { kind: 'noise', hz: 7000, ms: 8, gain: 0.45 },
-    ],
-    Hard: [
-        { kind: 'tone', hz: 200, end: 52, ms: 130, gain: 0.62, type: 'sine' },
-        { kind: 'tone', hz: 330, end: 140, ms: 75, gain: 0.6, type: 'triangle' },
-        { kind: 'noise', hz: 3400, ms: 50, gain: 0.3 },
-        { kind: 'noise', hz: 8000, ms: 10, gain: 0.7 },
-        { kind: 'tone', hz: 1100, end: 520, ms: 35, gain: 0.14, type: 'triangle' },
-    ],
+    Soft: {
+        below: 0.45,
+        layers: [
+            { kind: 'tone', hz: 150, end: 70, ms: 80, gain: 0.3, type: 'sine' },
+            { kind: 'tone', hz: 240, end: 130, ms: 50, gain: 0.3, type: 'triangle' },
+            { kind: 'noise', hz: 2200, ms: 28, gain: 0.12 },
+            { kind: 'noise', hz: 6000, ms: 7, gain: 0.25 },
+        ],
+    },
+    Medium: {
+        below: 0.8,
+        layers: [
+            { kind: 'tone', hz: 170, end: 62, ms: 95, gain: 0.45, type: 'sine' },
+            { kind: 'tone', hz: 280, end: 130, ms: 60, gain: 0.45, type: 'triangle' },
+            { kind: 'noise', hz: 2800, ms: 38, gain: 0.2 },
+            { kind: 'noise', hz: 7000, ms: 8, gain: 0.45 },
+        ],
+    },
+    Hard: {
+        below: Infinity,
+        layers: [
+            { kind: 'tone', hz: 200, end: 52, ms: 130, gain: 0.62, type: 'sine' },
+            { kind: 'tone', hz: 330, end: 140, ms: 75, gain: 0.6, type: 'triangle' },
+            { kind: 'noise', hz: 3400, ms: 50, gain: 0.3 },
+            { kind: 'noise', hz: 8000, ms: 10, gain: 0.7 },
+            { kind: 'tone', hz: 1100, end: 520, ms: 35, gain: 0.14, type: 'triangle' },
+        ],
+    },
 };
 
-// 타이밍 등급이 높을수록 같은 단계 위에 높은 음을 더한다.
+// 타이밍 등급이 높을수록 같은 단계 위에 높은 음을 더한다. timing: 접촉 타이밍 판정의 등급 이름(없으면 등급 없는 기본 소리).
 const KICK_GRADES = {
-    '': [],
-    Good: [{ kind: 'tone', hz: 880, end: 880, ms: 70, gain: 0.22, type: 'sine', delay: 20 }],
-    Perfect: [
-        { kind: 'tone', hz: 988, end: 1319, ms: 90, gain: 0.28, type: 'sine', delay: 15 },
-        { kind: 'tone', hz: 1760, end: 1760, ms: 140, gain: 0.18, type: 'sine', delay: 70 },
-    ],
+    '': { timing: undefined, layers: [] },
+    Good: {
+        timing: 'good',
+        layers: [{ kind: 'tone', hz: 880, end: 880, ms: 70, gain: 0.22, type: 'sine', delay: 20 }],
+    },
+    Perfect: {
+        timing: 'perfect',
+        layers: [
+            { kind: 'tone', hz: 988, end: 1319, ms: 90, gain: 0.28, type: 'sine', delay: 15 },
+            { kind: 'tone', hz: 1760, end: 1760, ms: 140, gain: 0.18, type: 'sine', delay: 70 },
+        ],
+    },
 };
+
+// 소리 id를 고르는 쪽(sound.js)이 읽는 단계 이름·기준과 등급 접미사. 소리 정의(KICK_SOUNDS)와 같은 표에서 나오므로 이름이 어긋날 수 없다.
+const TAKRAW_KICK_SOUND = Object.freeze({
+    levels: Object.freeze(
+        Object.entries(KICK_LEVELS).map(([name, { below }]) => Object.freeze({ name, below })),
+    ),
+    gradeSuffix: Object.freeze(
+        Object.fromEntries(
+            Object.entries(KICK_GRADES)
+                .filter(([, { timing }]) => timing)
+                .map(([suffix, { timing }]) => [timing, suffix]),
+        ),
+    ),
+});
 
 // kickSoft·kickSoftGood·kickSoftPerfect … kickHardPerfect(9개). 단계×등급 조합은 src/presentation/sound.js가 고른다.
 const KICK_SOUNDS = Object.fromEntries(
-    Object.entries(KICK_LEVELS).flatMap(([level, layers]) =>
+    Object.entries(KICK_LEVELS).flatMap(([level, { layers }]) =>
         Object.entries(KICK_GRADES).map(([grade, extra]) => [
             `kick${level}${grade}`,
-            { category: 'impact', priority: 3, layers: [...layers, ...extra] },
+            { category: 'impact', priority: 3, layers: [...layers, ...extra.layers] },
         ]),
     ),
 );
@@ -53,7 +85,6 @@ const POINT_LAYERS = [
 ];
 
 const TAKRAW_RUNTIME = Object.freeze({
-    input: { size: 6, axisScale: 127 },
     // 관전: 같은 시드는 같은 AI 대 AI 경기를 만든다. showcaseSeed는 소개영상의 명경기다.
     watch: {
         param: 'watch',
@@ -97,6 +128,10 @@ const TAKRAW_RUNTIME = Object.freeze({
     },
     clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },
     network: {
+        // 신호 릴레이에서 방을 찾는 이름공간(게임 식별자). 다른 게임과 방 코드가 섞이지 않게 한다.
+        namespace: TAKRAW_ID,
+        // 온라인·로컬 롤백 세션이 두 피어와 맞추는 초기 시드(createRoomSession). 경기 변주 시드와는 별개다.
+        sessionSeed: 7,
         timeout: 45000,
         peerTimeout: 25000,
         handshakeTimeout: 45000,
@@ -178,7 +213,7 @@ const TAKRAW_RUNTIME = Object.freeze({
                 category: 'impact',
                 priority: 4,
                 layers: [
-                    ...KICK_LEVELS.Hard,
+                    ...KICK_LEVELS.Hard.layers,
                     { kind: 'tone', hz: 130, end: 50, ms: 200, gain: 0.45, type: 'sine' },
                     { kind: 'tone', hz: 90, end: 36, ms: 320, gain: 0.3, type: 'sine', delay: 30 },
                     { kind: 'noise', hz: 3600, ms: 80, gain: 0.35 },
@@ -284,4 +319,4 @@ const TAKRAW_RUNTIME = Object.freeze({
     },
 });
 
-export { TAKRAW_RUNTIME };
+export { TAKRAW_RUNTIME, TAKRAW_KICK_SOUND };

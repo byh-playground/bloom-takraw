@@ -16,6 +16,13 @@ import { matchText, touchControlText } from '../i18n/messages/match.js';
 
 /** 모델이 넘긴 TextPair({ ko, en })를 이 페이지 언어의 문자열로. */
 const say = (pair) => LOCALE.text(pair);
+/** innerHTML 템플릿에 넣는 모든 문자열(문구·사용자 팀 이름·선수 이름)은 이 함수를 거친다. */
+function escape(value) {
+    return String(value ?? '').replace(
+        /[&<>"']/g,
+        (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
+    );
+}
 
 /** 처음 화면의 안쪽 단계와 그 부모 주소. 뒤로 버튼·Esc·브라우저 뒤로가 같은 길을 간다. */
 const HOME_PARENT = { start: '', multi: 'start' };
@@ -640,17 +647,9 @@ class TakrawUI {
         }
     }
 
-    escape(value) {
-        return String(value ?? '').replace(
-            /[&<>"']/g,
-            (char) =>
-                ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char],
-        );
-    }
-
     campaignUniform(school, big = false) {
         const hex = (value) => `#${value.toString(16).padStart(6, '0')}`;
-        return `<span class="campaign-uniform ${big ? 'is-big' : ''}" aria-label="${this.escape(UI.uniform({ school: say(school.name) }))}" style="--uniform-primary:${hex(school.uniform.primary)};--uniform-secondary:${hex(school.uniform.secondary)}"></span>`;
+        return `<span class="campaign-uniform ${big ? 'is-big' : ''}" aria-label="${escape(UI.uniform({ school: say(school.name) }))}" style="--uniform-primary:${hex(school.uniform.primary)};--uniform-secondary:${hex(school.uniform.secondary)}"></span>`;
     }
 
     /**
@@ -660,7 +659,6 @@ class TakrawUI {
     campaignIntroContent(home, first) {
         const intro = this.campaignIntro,
             step = intro.step,
-            escape = (value) => this.escape(value),
             element = (school) => say(this.campaignElement(school));
         const names = ['receiver', 'setter', 'attacker']
             .map(
@@ -695,7 +693,6 @@ class TakrawUI {
         const cleared = new Set(this.club.campaign?.cleared || []),
             ready = this.club.status === 'ready' && !this.inGame;
         const home = takrawSchool(this.club.campaign?.home),
-            escape = (value) => this.escape(value),
             element = (school) => say(this.campaignElement(school));
         if (!home) return `<p>${escape(UI.campaignNeedsTeam())}</p>`;
         const list = takrawOpponents(home.id),
@@ -899,7 +896,7 @@ class TakrawUI {
                 const p = point(index, top, 126),
                     anchor =
                         Math.abs(p.x - center.x) < 12 ? 'middle' : p.x > center.x ? 'start' : 'end';
-                return `<text class="radar-label" x="${p.x}" y="${p.y - 4}" text-anchor="${anchor}">${this.escape(say(stat.name))}</text><text class="radar-value" x="${p.x}" y="${p.y + 15}" text-anchor="${anchor}">${stats[stat.id]}</text>`;
+                return `<text class="radar-label" x="${p.x}" y="${p.y - 4}" text-anchor="${anchor}">${escape(say(stat.name))}</text><text class="radar-value" x="${p.x}" y="${p.y + 15}" text-anchor="${anchor}">${stats[stat.id]}</text>`;
             })
             .join('');
         const dots = axes
@@ -910,7 +907,7 @@ class TakrawUI {
             .join('');
         const description = axes.map((stat) => `${say(stat.name)} ${stats[stat.id]}`).join('. ');
         return `<svg class="club-radar" viewBox="0 0 360 310" role="img" aria-labelledby="club-radar-title club-radar-description">
-      <title id="club-radar-title">${this.escape(UI.radarTitle({ name: say(player.name) }))}</title><desc id="club-radar-description">${this.escape(UI.radarScale({ top, description }))}</desc>
+      <title id="club-radar-title">${escape(UI.radarTitle({ name: say(player.name) }))}</title><desc id="club-radar-description">${escape(UI.radarScale({ top, description }))}</desc>
       <g class="radar-grid">${grids}</g><g class="radar-axis">${spokes}</g>
       <g class="radar-baseline">${rings.map((value) => `<text class="radar-ring-label" x="185" y="${center.y - (radius * value) / top + 4}">${value}</text>`).join('')}<text class="radar-ring-label" x="185" y="164">0</text></g>
       <polygon class="radar-current" points="${polygon(stats)}"/><g class="radar-dot">${dots}</g>${labels}
@@ -927,19 +924,18 @@ class TakrawUI {
             .filter((item) => item.change)
             .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
             .slice(0, 2);
-        if (!changes.length) return `<span>${this.escape(UI.statsEqual())}</span>`;
+        if (!changes.length) return `<span>${escape(UI.statsEqual())}</span>`;
         return changes
             .map(
                 (item) =>
-                    `<span class="${item.change > 0 ? 'positive' : 'negative'}">${this.escape(item.name)} ${item.change > 0 ? '+' : '−'}${Math.abs(item.change)}</span>`,
+                    `<span class="${item.change > 0 ? 'positive' : 'negative'}">${escape(item.name)} ${item.change > 0 ? '+' : '−'}${Math.abs(item.change)}</span>`,
             )
             .join(' ');
     }
 
     /** 선수 한 명을 한 줄로: 등번호 셔츠 · 이름(등급) · 대표 능력치 둘(자리를 고르는 중이면 그 자리 선수와의 차이) · 상태. 추천 자리·성격은 ⓘ 상세에 있다. */
     clubCard(player, { selected = false, recommended = false, badge = '', note = '' }) {
-        const escape = (value) => this.escape(value),
-            name = say(player.name),
+        const name = say(player.name),
             peaks = TAKRAW_CLUB_RULES.stats
                 .slice()
                 .sort((a, b) => player.stats[b.id] - player.stats[a.id])
@@ -957,16 +953,16 @@ class TakrawUI {
             .map((role) => {
                 const starter = c.roster.find((value) => value.id === c.lineup[role.id]);
                 if (!starter)
-                    return `<button type="button" disabled><small>${this.escape(say(role.name))}</small><strong>${this.escape(UI.slotLoading())}</strong></button>`;
+                    return `<button type="button" disabled><small>${escape(say(role.name))}</small><strong>${escape(UI.slotLoading())}</strong></button>`;
                 const current = picked?.id === starter.id,
                     selected = pick?.type === 'slot' && pick.id === role.id,
                     recommended = !!picked && !current && picked.preferredRole === role.id;
                 const note =
                     picked && !current
-                        ? `${recommended ? `<span class="club-chip">${this.escape(UI.recommended())}</span>` : ''}${this.clubDelta(picked, starter)}`
-                        : `<span>${this.escape(current ? UI.starting() : role.id === 'attacker' ? UI.directControl() : UI.teammate())}</span>`;
+                        ? `${recommended ? `<span class="club-chip">${escape(UI.recommended())}</span>` : ''}${this.clubDelta(picked, starter)}`
+                        : `<span>${escape(current ? UI.starting() : role.id === 'attacker' ? UI.directControl() : UI.teammate())}</span>`;
                 // 선발 칸에도 선수 카드와 같은 ⓘ가 있다. 칸 자체는 자리 선택 버튼이라 ⓘ는 그 옆에 따로 둔다.
-                return `<div class="club-slot"><button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${this.escape(say(role.name))}</small><strong>${this.escape(say(starter.name))}</strong><span class="club-slot-note">${note}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${starter.id}" data-club-focus="lineup-info-${role.id}" aria-label="${this.escape(UI.infoLabel({ name: say(starter.name) }))}">ⓘ</button></div>`;
+                return `<div class="club-slot"><button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${escape(say(role.name))}</small><strong>${escape(say(starter.name))}</strong><span class="club-slot-note">${note}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${starter.id}" data-club-focus="lineup-info-${role.id}" aria-label="${escape(UI.infoLabel({ name: say(starter.name) }))}">ⓘ</button></div>`;
             })
             .join('');
         const hint = picked
@@ -974,7 +970,7 @@ class TakrawUI {
             : pick?.type === 'slot'
               ? UI.pickSlotHint({ role: this.clubRoleName(pick.id) })
               : UI.lineupHint();
-        return `<div class="club-lineup" aria-label="${this.escape(UI.currentLineup())}">${slots}</div><p class="club-hint">${this.escape(hint)}</p>`;
+        return `<div class="club-lineup" aria-label="${escape(UI.currentLineup())}">${slots}</div><p class="club-hint">${escape(hint)}</p>`;
     }
 
     clubRosterCards() {
@@ -992,7 +988,7 @@ class TakrawUI {
                 const badge = current ? UI.currentSpot() : this.clubPlayerBadge(player);
                 const note =
                     slotOccupant && !current
-                        ? `${recommended ? `<span class="club-chip">${this.escape(UI.recommended())}</span>` : ''}${this.clubDelta(player, slotOccupant)}`
+                        ? `${recommended ? `<span class="club-chip">${escape(UI.recommended())}</span>` : ''}${this.clubDelta(player, slotOccupant)}`
                         : '';
                 return this.clubCard(player, { selected, recommended, badge, note });
             })
@@ -1001,7 +997,7 @@ class TakrawUI {
 
     /** 하단 고정 줄. 왼쪽에 상태 한 줄, 오른쪽에 이 화면의 버튼 하나. */
     clubBar(summary, button) {
-        return `<footer class="club-bar"><span>${this.escape(summary)}</span>${button}</footer>`;
+        return `<footer class="club-bar"><span>${escape(summary)}</span>${button}</footer>`;
     }
 
     clubRarityName(rarity) {
@@ -1036,13 +1032,12 @@ class TakrawUI {
         const summary = UI.trainSummary({ level: player.level, gain, points });
         return this.clubBar(
             lock || (points < rule.cost ? UI.noPoints({ summary }) : summary),
-            `<button type="button" class="primary-small" ${lock || points < rule.cost ? 'disabled' : ''} data-club-action="train" data-value="${player.id}" data-club-focus="train">${this.escape(UI.train({ cost: rule.cost }))}</button>`,
+            `<button type="button" class="primary-small" ${lock || points < rule.cost ? 'disabled' : ''} data-club-action="train" data-value="${player.id}" data-club-focus="train">${escape(UI.train({ cost: rule.cost }))}</button>`,
         );
     }
 
     clubDetailContent(player) {
-        const escape = (value) => this.escape(value),
-            badge = this.clubPlayerBadge(player);
+        const badge = this.clubPlayerBadge(player);
         return `<div class="club-detail-heading"><div class="club-player-title"><strong tabindex="-1" data-club-focus="detail-heading">${escape(say(player.name))}</strong><span class="club-badge">${escape(badge)}</span><span class="club-rarity" data-rarity="${player.rarity}">${escape(this.clubRarityName(player.rarity))}</span></div><p>${escape(UI.detailTag({ tag: say(player.tag), role: this.clubRoleName(player.preferredRole) }))}</p></div>
       <div class="club-radar-view">${this.clubRadar(player, player.stats)}</div>
       ${this.clubTrainBar(player)}`;
@@ -1060,15 +1055,15 @@ class TakrawUI {
             .map((rarity) => `${say(rarity.name)} ${rule.refund[rarity.id]} P`)
             .join(' · ');
         const body = `<div class="club-draw"><div class="draw-pack-art" aria-hidden="true"><i></i><b>?</b></div>
-      <p class="draw-odds">${this.escape(this.clubOddsText())}</p>
-      <p class="draw-note">${this.escape(UI.drawJoinNote({ refunds }))}</p>
-      <p class="draw-note">${this.escape(UI.drawCreditsNote({ winC: reward.win.credits, winP: reward.win.trainingPoints, lossC: reward.loss.credits, lossP: reward.loss.trainingPoints }))}</p></div>`;
+      <p class="draw-odds">${escape(this.clubOddsText())}</p>
+      <p class="draw-note">${escape(UI.drawJoinNote({ refunds }))}</p>
+      <p class="draw-note">${escape(UI.drawCreditsNote({ winC: reward.win.credits, winP: reward.win.trainingPoints, lossC: reward.loss.credits, lossP: reward.loss.trainingPoints }))}</p></div>`;
         if (pending)
             return (
                 body +
                 this.clubBar(
                     UI.drawPending(),
-                    `<button type="button" class="primary-small" ${lock ? 'disabled' : ''} data-club-action="draw-resume" data-club-focus="draw-button">${this.escape(UI.drawResume())}</button>`,
+                    `<button type="button" class="primary-small" ${lock ? 'disabled' : ''} data-club-action="draw-resume" data-club-focus="draw-button">${escape(UI.drawResume())}</button>`,
                 )
             );
         const summary =
@@ -1080,7 +1075,7 @@ class TakrawUI {
             body +
             this.clubBar(
                 summary,
-                `<button type="button" class="primary-small" ${lock || shortage ? 'disabled' : ''} data-club-action="draw" data-club-focus="draw-button">${this.escape(UI.draw({ cost: rule.cost }))}</button>`,
+                `<button type="button" class="primary-small" ${lock || shortage ? 'disabled' : ''} data-club-action="draw" data-club-focus="draw-button">${escape(UI.draw({ cost: rule.cost }))}</button>`,
             )
         );
     }
@@ -1088,8 +1083,7 @@ class TakrawUI {
     clubContent() {
         const c = this.club,
             selection = this.clubSelection,
-            rules = TAKRAW_CLUB_RULES,
-            escape = (value) => this.escape(value);
+            rules = TAKRAW_CLUB_RULES;
         const lock = this.clubLockReason(),
             isDraw = selection.tab === 'draw';
         const detail = selection.detail
@@ -1326,7 +1320,6 @@ class TakrawUI {
 
     drawStageContent() {
         const { card, joined } = this.drawStage,
-            escape = (value) => this.escape(value),
             rules = TAKRAW_CLUB_RULES;
         const bench = this.club.roster.filter((value) => !value.role);
         const front = `<span class="draw-face draw-front"><span class="draw-front-head">${this.clubShirt(card)}<span><strong>${escape(say(card.name))}</strong><small>${escape(say(card.tag))}</small></span></span><span class="club-rarity" data-rarity="${card.rarity}">${escape(UI.rarityRole({ rarity: this.clubRarityName(card.rarity), role: this.clubRoleName(card.preferredRole) }))}</span>${this.clubRadar(card, card.stats)}</span>`;
@@ -1401,9 +1394,8 @@ class TakrawUI {
 
     settingsContent() {
         const status = this.sound.message
-            ? `<p class="room-status error" role="status">${this.escape(this.sound.message)}</p>`
+            ? `<p class="room-status error" role="status">${escape(this.sound.message)}</p>`
             : '';
-        const escape = (value) => this.escape(value);
         // 언어는 페이지를 읽을 때 한 번 정한다. 고르면 저장하고 새로고침하므로 경기 중에는 막는다.
         const languages = Object.entries(LOCALE_NAMES)
             .map(
@@ -1420,12 +1412,10 @@ class TakrawUI {
     }
 
     pauseContent() {
-        const escape = (value) => this.escape(value);
         return `<div class="pause-menu"><button type="button" class="primary-small" data-dialog-action="close">${escape(UI.resume())}</button>${this.mode !== 'online' ? `<button type="button" class="secondary-small" data-dialog-action="restart">${escape(UI.restart())}</button>` : `<p class="key-tip">${escape(UI.onlinePauseTip())}</p>`}<button type="button" class="secondary-small" data-dialog-action="quit">${escape(UI.toHome())}</button></div>`;
     }
 
     networkContent() {
-        const escape = (value) => this.escape(value);
         return `<p>${escape(UI.networkIntroA())}<br>${escape(UI.networkIntroB())}</p><div class="network-form"><button type="button" class="primary-small" data-dialog-action="host">${escape(UI.host())} <span aria-hidden="true">＋</span></button></div><div class="network-divider">${escape(UI.orJoin())}</div>
       <form id="join-form" class="network-form"><label for="room-input">${escape(UI.roomInputLabel())}</label><input id="room-input" class="network-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="numeric" maxlength="4" placeholder="${escape(UI.roomPlaceholder())}"><button type="button" class="secondary-small" data-dialog-action="join">${escape(UI.join())}</button></form>
       <div id="room-status" class="room-status" role="status" hidden><strong id="network-phase" class="network-phase">${escape(UI.connectionReady())}</strong><span id="room-status-message"></span><div id="room-code-line" class="room-code-line" hidden><input id="room-code" aria-label="${escape(UI.myRoomCode())}" readonly><button type="button" data-dialog-action="copy-code">${escape(UI.copy())}</button></div><small id="network-hint" class="network-hint" hidden></small></div>

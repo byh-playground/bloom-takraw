@@ -15,7 +15,7 @@ import { TAKRAW_RUNTIME } from './runtime.js';
 const TAKRAW_INTRO = Object.freeze({
     title: TAKRAW_PRODUCT_NAME,
     seed: TAKRAW_RUNTIME.watch.showcaseSeed,
-    tickRate: 60,
+    tickRate: TAKRAW_CONFIG.simulation.tickRate,
     durationMs: 30000,
     chapters: Object.freeze(
         [

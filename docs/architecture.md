@@ -20,7 +20,7 @@
 | i18n                | createLocale                                                       | 화면 언어 선택, 문구 표(`src/i18n/`)                                  |
 | metrics             | createMetrics, HttpAdapter, MemoryAdapter, SessionReplayRecorder   | 지표 이벤트 표(README 「게임 지표」)·경기 기록                        |
 
-별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm run check`가 lock과 일치(링크·SHA 형식·사용 여부)를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 처음 화면을 열 때(v0.17.0, 서비스 워커 제외) 외부 요청은 GameKit 15개와 Three.js 2개·Rapier 1개이고, 로컬 JS 39개(연습·모드 분리로 3개 늘어남)와 CSS 1개 요청이 추가됩니다.
+별칭은 `@bloom-gamekit/<모듈>`입니다. 정확한 배포 URL과 SHA-256은 `gamekit.lock.json`을 따릅니다. HTML import map은 브라우저의 별칭 해석만 수행하며 `npm run check`가 lock과 일치(링크·SHA 형식·사용 여부)를 확인합니다. `npm run verify:dependencies`는 원격 파일 바이트를 대조합니다. 버전 업데이트는 lock과 import map을 함께 고치고 공개 계약과 브라우저 결과를 확인합니다. 처음 화면을 열 때(v0.17.0, 서비스 워커 제외) 외부 요청은 GameKit 15개와 Three.js 2개·Rapier 1개이고, 이 저장소에서 받는 서로 다른 로컬 JS 파일 43개(첫 화면이 준비될 때까지 요청한 `.js` 경로 수, 연습·모드 분리로 `training.js`·`modes.js`·`training-coach.js` 3개가 늘어 40개에서 43개)와 CSS 1개 요청이 추가됩니다.
 
 ## 저장(v0.13.10~)
 

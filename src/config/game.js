@@ -1,4 +1,4 @@
-const TAKRAW_VERSION = '0.15.12';
+const TAKRAW_VERSION = '0.16.0';
 // 게임 이름의 단일 출처(TextPair). 화면·진단·학교 현수막은 이 값을 쓰고, 정적 파일과의 일치(index.html은 en, README·AGENTS·package.json은 ko)는 scripts/check.cjs가 검사한다.
 const TAKRAW_GAME_NAME = Object.freeze({ ko: '발 배구', en: 'Takraw' });
 const TAKRAW_PRODUCT_NAME = Object.freeze({

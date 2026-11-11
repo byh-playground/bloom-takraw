@@ -14,6 +14,39 @@ function takrawPhysicsSettings(config) {
     return settings;
 }
 
+/** 스냅샷 검사: x·y·z가 모두 유한한 벡터인지. */
+const snapshotVector = (value) =>
+    value && ['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]));
+/** 스냅샷 검사: 받기 기록이 없거나(null) 올바른 받기 기록인지. */
+const snapshotReceive = (value) =>
+    value === null ||
+    (value &&
+        ['cushion', 'lunge', 'slide'].includes(value.mode) &&
+        ['prepare', 'contact', 'recover'].includes(value.phase) &&
+        snapshotVector(value.point) &&
+        snapshotVector(value.direction) &&
+        value.committed === true &&
+        Number.isFinite(value.startedAt) &&
+        value.startedAt >= 0 &&
+        Number.isFinite(value.contactAt) &&
+        value.contactAt >= value.startedAt &&
+        Number.isFinite(value.until) &&
+        value.until >= value.contactAt &&
+        (value.hitAt === null ||
+            (Number.isFinite(value.hitAt) && value.hitAt >= value.startedAt)) &&
+        (!Object.hasOwn(value, 'launch') || (Number.isFinite(value.launch) && value.launch >= 0)));
+/** 스냅샷 검사: 신체 형상(상자 반길이, 공·캡슐 반지름·반높이)이 모양에 맞는지. */
+const snapshotGeometry = (value, shape) =>
+    value &&
+    (shape === 'box'
+        ? Object.keys(value).length === 1 &&
+          snapshotVector(value.halfExtents) &&
+          ['x', 'y', 'z'].every((axis) => value.halfExtents[axis] > 0)
+        : Object.keys(value).length === (shape === 'capsule' ? 2 : 1) &&
+          Number.isFinite(value.radius) &&
+          value.radius > 0 &&
+          (shape !== 'capsule' || (Number.isFinite(value.halfHeight) && value.halfHeight >= 0)));
+
 /**
  * Articulated, force-driven players. Rendering never writes back into this world.
  * The only pose teleports are the public rally reset methods below.
@@ -3591,37 +3624,6 @@ class TakrawPhysics {
 
     /** 스냅샷의 모양(version 3, 선수 6명의 리시브·다리·신체·관절 기록)을 검사한다. 틀리면 아무것도 바꾸지 않고 던진다. */
     _validateSnapshot(data) {
-        const vector = (value) =>
-            value && ['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]));
-        const receive = (value) =>
-            value === null ||
-            (value &&
-                ['cushion', 'lunge', 'slide'].includes(value.mode) &&
-                ['prepare', 'contact', 'recover'].includes(value.phase) &&
-                vector(value.point) &&
-                vector(value.direction) &&
-                value.committed === true &&
-                Number.isFinite(value.startedAt) &&
-                value.startedAt >= 0 &&
-                Number.isFinite(value.contactAt) &&
-                value.contactAt >= value.startedAt &&
-                Number.isFinite(value.until) &&
-                value.until >= value.contactAt &&
-                (value.hitAt === null ||
-                    (Number.isFinite(value.hitAt) && value.hitAt >= value.startedAt)) &&
-                (!Object.hasOwn(value, 'launch') ||
-                    (Number.isFinite(value.launch) && value.launch >= 0)));
-        const geometry = (value, shape) =>
-            value &&
-            (shape === 'box'
-                ? Object.keys(value).length === 1 &&
-                  vector(value.halfExtents) &&
-                  ['x', 'y', 'z'].every((axis) => value.halfExtents[axis] > 0)
-                : Object.keys(value).length === (shape === 'capsule' ? 2 : 1) &&
-                  Number.isFinite(value.radius) &&
-                  value.radius > 0 &&
-                  (shape !== 'capsule' ||
-                      (Number.isFinite(value.halfHeight) && value.halfHeight >= 0)));
         if (
             !data ||
             data.version !== 3 ||
@@ -3630,63 +3632,85 @@ class TakrawPhysics {
             data.time < 0 ||
             !Array.isArray(data.players) ||
             data.players.length !== 6 ||
-            Array.from(data.players).some(
-                (saved, id) =>
-                    !saved ||
-                    saved.id !== id ||
-                    !receive(saved.receive) ||
-                    !Array.isArray(saved.contacts) ||
-                    !saved.jump ||
-                    !saved.kick ||
-                    !saved.legs ||
-                    ['L', 'R'].some((suffix) => {
-                        const leg = saved.legs[suffix];
-                        return (
-                            !leg ||
-                            ['scale', 'targetScale'].some(
-                                (key) =>
-                                    !Number.isFinite(leg[key]) ||
-                                    leg[key] < 1 ||
-                                    leg[key] > this.settings.legStretch.maxScale + 1e-10,
-                            )
-                        );
-                    }) ||
-                    !Array.isArray(saved.partHandles) ||
-                    saved.partHandles.length !== this.players[id].parts.length ||
-                    new Set(saved.partHandles.map((part) => part?.name)).size !==
-                        saved.partHandles.length ||
-                    Array.from(saved.partHandles).some(
-                        (part) =>
-                            !part ||
-                            !this.players[id].parts.some(
-                                (item) => item.name === part.name && item.shape === part.shape,
-                            ) ||
-                            !Number.isFinite(part.body) ||
-                            !Number.isFinite(part.collider) ||
-                            !geometry(part.geometry, part.shape) ||
-                            !geometry(part.restGeometry, part.shape),
-                    ) ||
-                    !Array.isArray(saved.joints) ||
-                    saved.joints.length !== this.players[id].joints.length ||
-                    new Set(saved.joints.map((joint) => joint?.name)).size !==
-                        saved.joints.length ||
-                    Array.from(saved.joints).some(
-                        (joint) =>
-                            !joint ||
-                            !this.players[id].joints.some((item) => item.name === joint.name) ||
-                            !Number.isFinite(joint.handle) ||
-                            !Array.isArray(joint.target) ||
-                            joint.target.length !== 3 ||
-                            !Array.from(joint.target).every(Number.isFinite) ||
-                            !vector(joint.restAnchor1) ||
-                            !vector(joint.restAnchor2),
-                    ),
-            )
+            Array.from(data.players).some((saved, id) => this._savedPlayerInvalid(saved, id))
         ) {
             throw new Error(
                 '올바르지 않은 물리 스냅샷 (선수와 리시브 상태가 포함된 version 3 필요)',
             );
         }
+    }
+
+    /** 저장된 선수 하나의 모양이 틀렸는지(id·리시브·접촉·점프·발차기·다리·신체·관절 순서로 본다). */
+    _savedPlayerInvalid(saved, id) {
+        return (
+            !saved ||
+            saved.id !== id ||
+            !snapshotReceive(saved.receive) ||
+            !Array.isArray(saved.contacts) ||
+            !saved.jump ||
+            !saved.kick ||
+            !saved.legs ||
+            this._savedLegsInvalid(saved) ||
+            this._savedPartsInvalid(saved, id) ||
+            this._savedJointsInvalid(saved, id)
+        );
+    }
+
+    /** 다리 늘이기 배율(scale·targetScale)이 1 이상 최대 배율 이하인지 본다. 틀리면 true. */
+    _savedLegsInvalid(saved) {
+        return ['L', 'R'].some((suffix) => {
+            const leg = saved.legs[suffix];
+            return (
+                !leg ||
+                ['scale', 'targetScale'].some(
+                    (key) =>
+                        !Number.isFinite(leg[key]) ||
+                        leg[key] < 1 ||
+                        leg[key] > this.settings.legStretch.maxScale + 1e-10,
+                )
+            );
+        });
+    }
+
+    /** 신체 기록(이름 중복 없음, 모양·핸들·형상)이 지금 선수의 신체와 맞는지 본다. 틀리면 true. */
+    _savedPartsInvalid(saved, id) {
+        return (
+            !Array.isArray(saved.partHandles) ||
+            saved.partHandles.length !== this.players[id].parts.length ||
+            new Set(saved.partHandles.map((part) => part?.name)).size !==
+                saved.partHandles.length ||
+            Array.from(saved.partHandles).some(
+                (part) =>
+                    !part ||
+                    !this.players[id].parts.some(
+                        (item) => item.name === part.name && item.shape === part.shape,
+                    ) ||
+                    !Number.isFinite(part.body) ||
+                    !Number.isFinite(part.collider) ||
+                    !snapshotGeometry(part.geometry, part.shape) ||
+                    !snapshotGeometry(part.restGeometry, part.shape),
+            )
+        );
+    }
+
+    /** 관절 기록(이름 중복 없음, 핸들·목표 3개·기준점)이 지금 선수의 관절과 맞는지 본다. 틀리면 true. */
+    _savedJointsInvalid(saved, id) {
+        return (
+            !Array.isArray(saved.joints) ||
+            saved.joints.length !== this.players[id].joints.length ||
+            new Set(saved.joints.map((joint) => joint?.name)).size !== saved.joints.length ||
+            Array.from(saved.joints).some(
+                (joint) =>
+                    !joint ||
+                    !this.players[id].joints.some((item) => item.name === joint.name) ||
+                    !Number.isFinite(joint.handle) ||
+                    !Array.isArray(joint.target) ||
+                    joint.target.length !== 3 ||
+                    !Array.from(joint.target).every(Number.isFinite) ||
+                    !snapshotVector(joint.restAnchor1) ||
+                    !snapshotVector(joint.restAnchor2),
+            )
+        );
     }
 
     /**

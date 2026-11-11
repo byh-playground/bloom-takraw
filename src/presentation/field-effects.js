@@ -1,5 +1,6 @@
 import { ObjectPool } from '@bloom-gamekit/object-pool';
-import { SeededPRNG, statelessRandom } from '@bloom-gamekit/deterministic';
+import * as deterministic from '@bloom-gamekit/deterministic';
+import { takrawEventUnits } from '../simulation/random.js';
 
 /**
  * 코트 바닥·득점 연출(착지 먼지, 득점 색종이)의 단일 소유자.
@@ -88,18 +89,11 @@ class TakrawFieldEffects {
         node.age = 0;
     }
 
-    rng(payload) {
-        const rng = new SeededPRNG(
-            statelessRandom(this.seed, (payload.tick * 16 + payload.sequence) >>> 0),
-        );
-        return () => rng.nextUint32() / 4294967296;
-    }
-
     /** 선수 착지 이벤트로 먼지를 시작한다. 약한 착지는 null을 돌려준다. */
     startLand(payload) {
         if (this.reducedMotion() || (payload.speed || 0) < this.style.land.minSpeed) return null;
         const node = this.landPool.acquire(),
-            unit = this.rng(payload);
+            unit = takrawEventUnits(deterministic, this.seed, payload);
         node.group.position.set(payload.position.x, 0.04, payload.position.z);
         const strength = Math.min(1.4, 0.6 + (payload.speed || 0) * 0.08);
         for (const puff of node.puffs) {
@@ -117,7 +111,7 @@ class TakrawFieldEffects {
     startConfetti(payload) {
         if (this.reducedMotion()) return null;
         const node = this.confettiPool.acquire(),
-            unit = this.rng(payload),
+            unit = takrawEventUnits(deterministic, this.seed, payload),
             { height, spread } = this.style.confetti;
         node.group.position.set(payload.position.x, 0, payload.position.z);
         for (const piece of node.pieces) {

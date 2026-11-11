@@ -15,25 +15,6 @@
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const lerp = ([min, max], t) => min + (max - min) * t;
 
-/** 정수 값 여러 개를 섞어 [0, 1)을 만드는 결정론 해시. */
-function seededUnit(...values) {
-    let h = 0x9e3779b9;
-    for (const value of values) {
-        h = Math.imul(h ^ (Math.floor(value) | 0), 0x85ebca6b);
-        h ^= h >>> 13;
-        h = Math.imul(h, 0xc2b2ae35);
-        h ^= h >>> 16;
-    }
-    return (h >>> 0) / 4294967296;
-}
-
-/** 문자열을 32비트 정수로 만든다(온라인 방 코드에서 경기 시드를 정할 때 쓴다). */
-function seedFromText(text) {
-    let h = 2166136261;
-    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
-    return h >>> 0;
-}
-
 class Temperament {
     static validConfig(value) {
         const range = (array, minimum) =>
@@ -57,8 +38,11 @@ class Temperament {
             value.lateral >= 0
         );
     }
-    /** personality는 경기 내내 같고(반응·간격), jitter는 랠리마다 바뀐다(위치 흔들림·옆 선택). */
-    constructor(config, seed, playerId, rally) {
+    /**
+     * personality는 경기 내내 같고(반응·간격), jitter는 랠리마다 바뀐다(위치 흔들림·옆 선택).
+     * seededUnit은 game이 만든 시드 난수(simulation/random.js takrawSeededUnit)다.
+     */
+    constructor(config, seed, playerId, rally, seededUnit) {
         const u = (...salt) => seededUnit(seed, playerId, ...salt);
         this.reaction = lerp(config.reaction, u(1));
         this.clearance = lerp(config.clearance, u(2));
@@ -263,4 +247,4 @@ class AiBrain {
     }
 }
 
-export { AiBrain, Temperament, seededUnit, seedFromText };
+export { AiBrain, Temperament };

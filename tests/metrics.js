@@ -51,7 +51,7 @@ export function replaySession(page) {
             { playReplay },
             { TakrawGame },
             { TAKRAW_CONFIG },
-            { createValueCodec },
+            deterministic,
             { default: RAPIER },
         ] = await Promise.all([
             import(url),
@@ -60,10 +60,10 @@ export function replaySession(page) {
             import('@bloom-gamekit/deterministic'),
             import('rapier'),
         ]);
-        const codec = createValueCodec(),
+        const codec = deterministic.createValueCodec(),
             replay = window.__takraw.session.exportReplay();
         return replay.segments.map((segment) => {
-            const game = new TakrawGame({ RAPIER, config: TAKRAW_CONFIG });
+            const game = new TakrawGame({ RAPIER, config: TAKRAW_CONFIG, deterministic });
             try {
                 const played = playReplay({
                     replay: segment,

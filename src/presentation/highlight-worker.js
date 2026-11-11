@@ -2,7 +2,7 @@ import { TAKRAW_CONFIG } from '../config/game.js';
 import { TakrawGame } from '../simulation/game.js';
 import { TakrawHighlightShadow } from './highlight-shadow.js';
 
-// 리플레이 그림자 경기를 메인 스레드 밖에서 계산한다. 워커에는 import map이 없으므로 Rapier·코덱 주소는 메인이 풀어서 넘긴다.
+// 리플레이 그림자 경기를 메인 스레드 밖에서 계산한다. 워커에는 import map이 없으므로 Rapier·gamekit deterministic 주소는 메인이 풀어서 넘긴다.
 let shadow = null;
 let codec = null;
 let queue = Promise.resolve();
@@ -12,9 +12,10 @@ async function handle(message) {
         const loaded = await import(message.rapierUrl),
             RAPIER = loaded.default ?? loaded;
         await RAPIER.init();
-        codec = (await import(message.codecUrl)).createValueCodec();
+        const deterministic = await import(message.deterministicUrl);
+        codec = deterministic.createValueCodec();
         shadow = new TakrawHighlightShadow(
-            new TakrawGame({ RAPIER, config: TAKRAW_CONFIG }),
+            new TakrawGame({ RAPIER, config: TAKRAW_CONFIG, deterministic }),
             (data, transfer) => self.postMessage(data, transfer),
         );
         self.postMessage({ type: 'ready' });

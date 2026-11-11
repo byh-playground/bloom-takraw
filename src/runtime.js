@@ -13,7 +13,7 @@ import { createRoomSession, profiles } from '@bloom-gamekit/rollback';
 import { createNostrDynamicRoom } from '@bloom-gamekit/transport';
 import { AudioPlayer, audioSettings } from '@bloom-gamekit/audio';
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
-import { createValueCodec } from '@bloom-gamekit/deterministic';
+import * as deterministic from '@bloom-gamekit/deterministic';
 import {
     createSave,
     indexedDbAdapter,
@@ -40,7 +40,7 @@ import { winningSpikeScore } from './presentation/score-motion.js';
 import { TakrawHighlight } from './presentation/highlight.js';
 import { takrawMatchStatus } from './presentation/match-status.js';
 import { takrawSoundPayload } from './presentation/sound.js';
-import { seedFromText, seededUnit } from './simulation/ai-brain.js';
+import { takrawUnitStream } from './simulation/random.js';
 import { TakrawUI } from './presentation/ui.js';
 import { TakrawIntro } from './presentation/intro.js';
 import { LOCALE } from './i18n/locale.js';
@@ -163,7 +163,7 @@ async function bootTakraw() {
         { ...TAKRAW_RUNTIME.highlight, tickRate: config.simulation.tickRate },
         {
             rapierUrl: import.meta.resolve('rapier'),
-            codecUrl: import.meta.resolve('@bloom-gamekit/deterministic'),
+            deterministicUrl: import.meta.resolve('@bloom-gamekit/deterministic'),
         },
     );
     let highlightPlayedAt = 0;
@@ -1444,7 +1444,7 @@ async function bootTakraw() {
         const matchSeed = watching
             ? watchSeed
             : nextMode === 'online'
-              ? seedFromText(String(capability))
+              ? deterministic.hashBytes(new TextEncoder().encode(String(capability)))
               : nextMode === 'training'
                 ? undefined
                 : nextMode === 'match' && debugMatchSeed !== null
@@ -2080,11 +2080,11 @@ async function bootTakraw() {
         showBootStatus(RUNTIME.bootPlayers());
         if (!RAPIER || typeof RAPIER.init !== 'function') throw new Error('Rapier entry contract');
         await RAPIER.init();
-        game = new TakrawGame({ RAPIER, config });
+        game = new TakrawGame({ RAPIER, config, deterministic });
         bootstrapStage = 'graphics';
         view = new TakrawView({ THREE, canvas: ui.canvas, config });
         bootstrapStage = 'controls';
-        codec = createValueCodec();
+        codec = deterministic.createValueCodec();
         if (await soundLoad) {
             audio = new AudioPlayer({
                 ...TAKRAW_RUNTIME.audio,
@@ -2190,7 +2190,6 @@ async function bootTakraw() {
                     async openClub(seed, stored = null) {
                         // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
                         // stored가 있으면 메모리 저장에 그 레코드가 이미 있는 것으로 시작한다(읽지 못하는 저장의 화면 확인용).
-                        let draws = 0;
                         club.dispose();
                         club = new TakrawClub({
                             onChange: publishClub,
@@ -2202,7 +2201,7 @@ async function bootTakraw() {
                                       })
                                 : openClubSave,
                             defaultName: clubName,
-                            random: () => seededUnit(seed, draws++),
+                            random: takrawUnitStream(new deterministic.SeededPRNG(seed)),
                         });
                         await club.load().catch((error) => {
                             if (!stored) throw error;

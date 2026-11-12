@@ -1458,6 +1458,8 @@ class TakrawView {
         this.updateCrowd(nowMs);
         this.applyHitFlash();
         if (ball) this.updateBallMask(ball);
+        this.impacts.drawCloud();
+        this.field.draw();
         this.shockWave.render(this.scene, this.camera, this.impacts);
         this.renderStats.end();
     }
@@ -1561,6 +1563,8 @@ class TakrawView {
         this.camera.updateMatrixWorld();
         const ball = this.meshes.get('ball');
         if (ball) this.updateBallMask(ball);
+        this.impacts.drawCloud();
+        this.field.draw();
         this.shockWave.render(this.scene, this.camera, this.impacts);
         guides.forEach((guide, index) => {
             guide.visible = shown[index];
@@ -1775,12 +1779,17 @@ class TakrawView {
             saved.push(object);
             object.visible = true;
         });
+        this.impacts.cloud.warm();
+        this.field.warmLayers();
         try {
             this.camera.updateMatrixWorld();
             this.renderer.compile(this.scene, this.camera);
             this.shockWave.warm(this.scene, this.camera);
         } finally {
             for (const object of saved) object.visible = false;
+            // 켜 둔 인스턴스 레이어를 실제 상태(살아 있는 효과만)로 되돌린다.
+            this.impacts.drawCloud();
+            this.field.draw();
         }
         this.warmed = true;
     }

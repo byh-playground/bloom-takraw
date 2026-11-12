@@ -1,6 +1,7 @@
 import { ObjectPool } from '@bloom-gamekit/object-pool';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { takrawEventUnits } from '../simulation/random.js';
+import { InstanceLayer, createInstanceMaterial } from './instanced-effects.js';
 
 /**
  * 코트 바닥·득점 연출(착지 먼지, 득점 색종이)의 단일 소유자.
@@ -16,6 +17,34 @@ class TakrawFieldEffects {
         this.reducedMotion = reducedMotion;
         this.puffGeometry = new THREE.CircleGeometry(1, 14);
         this.confettiGeometry = new THREE.PlaneGeometry(0.09, 0.05);
+        // 먼지 퍼프와 색종이는 노드·조각 수와 무관하게 인스턴스 레이어 하나씩으로 그린다(DEV-034). 투명도는 인스턴스마다 다르다.
+        // 칸은 먼지 노드 16개·색종이 노드 4개가 동시에 겹쳐도 넘치지 않는 수다.
+        this.puffMaterial = createInstanceMaterial(THREE, {});
+        this.confettiMaterial = createInstanceMaterial(THREE, { side: THREE.DoubleSide });
+        this.puffs = new InstanceLayer(
+            THREE,
+            this.puffGeometry,
+            this.puffMaterial,
+            this.style.land.puffs * 16,
+        );
+        this.confetti = new InstanceLayer(
+            THREE,
+            this.confettiGeometry,
+            this.confettiMaterial,
+            this.style.confetti.count * 4,
+        );
+        scene.add(this.puffs.mesh, this.confetti.mesh);
+        this.palette = this.style.confetti.colors.map((color) => new THREE.Color(color));
+        this.tint = new THREE.Color(this.style.land.color);
+        this.flat = new THREE.Quaternion().setFromAxisAngle(
+            new THREE.Vector3(1, 0, 0),
+            -Math.PI / 2,
+        );
+        this.quaternion = new THREE.Quaternion();
+        this.euler = new THREE.Euler();
+        this.position = new THREE.Vector3();
+        this.scale = new THREE.Vector3();
+        this.matrix = new THREE.Matrix4();
         this.nodes = [];
         this.active = new Set();
         this.landPool = new ObjectPool(
@@ -31,52 +60,49 @@ class TakrawFieldEffects {
     }
 
     createLand() {
-        const T = this.THREE,
-            group = new T.Group();
-        group.visible = false;
-        this.scene.add(group);
-        const material = new T.MeshBasicMaterial({
-            color: this.style.land.color,
-            transparent: true,
-            depthWrite: false,
-        });
+        const T = this.THREE;
         const puffs = [];
-        for (let i = 0; i < this.style.land.puffs; i++) {
-            const mesh = new T.Mesh(this.puffGeometry, material);
-            mesh.rotation.x = -Math.PI / 2;
-            group.add(mesh);
-            puffs.push({ mesh, vx: 0, vz: 0, size: 1, rise: 0 });
-        }
-        const node = { kind: 'land', group, material, puffs, life: this.style.land.life, age: 0 };
+        for (let i = 0; i < this.style.land.puffs; i++)
+            puffs.push({ vx: 0, vz: 0, size: 1, rise: 0, x: 0, y: 0, z: 0, scale: 1 });
+        // group은 위치만 담는다(장면에 올리지 않는다). 퍼프는 인스턴스로 그린다.
+        const group = new T.Group();
+        group.visible = false;
+        const node = {
+            kind: 'land',
+            group,
+            puffs,
+            opacity: 0,
+            life: this.style.land.life,
+            age: 0,
+        };
         this.nodes.push(node);
         return node;
     }
 
     createConfetti() {
-        const T = this.THREE,
-            group = new T.Group();
-        group.visible = false;
-        this.scene.add(group);
-        const materials = this.style.confetti.colors.map(
-            (color) =>
-                new T.MeshBasicMaterial({
-                    color,
-                    side: T.DoubleSide,
-                    transparent: true,
-                    depthWrite: false,
-                }),
-        );
+        const T = this.THREE;
         const pieces = [];
-        for (let i = 0; i < this.style.confetti.count; i++) {
-            const mesh = new T.Mesh(this.confettiGeometry, materials[i % materials.length]);
-            group.add(mesh);
-            pieces.push({ mesh, vx: 0, vy: 0, vz: 0, spinX: 0, spinZ: 0, phase: 0 });
-        }
+        for (let i = 0; i < this.style.confetti.count; i++)
+            pieces.push({
+                vx: 0,
+                vy: 0,
+                vz: 0,
+                spinX: 0,
+                spinZ: 0,
+                phase: 0,
+                x: 0,
+                y: 0,
+                z: 0,
+                rx: 0,
+                rz: 0,
+            });
+        const group = new T.Group();
+        group.visible = false;
         const node = {
             kind: 'confetti',
             group,
-            materials,
             pieces,
+            opacity: 1,
             life: this.style.confetti.life,
             age: 0,
         };
@@ -154,44 +180,76 @@ class TakrawFieldEffects {
         (node.kind === 'land' ? this.landPool : this.confettiPool).release(node);
     }
 
+    /** 경과 시간으로 조각의 위치·투명도를 정한다. 그리기는 draw()가 한다. */
     apply(node, ageMs) {
         const t = Math.max(0, ageMs) / 1000,
             progress = Math.min(1, t / node.life);
         node.group.visible = progress < 1;
         if (node.kind === 'land') {
-            node.material.opacity = (1 - progress) ** 1.5 * 0.55;
+            node.opacity = (1 - progress) ** 1.5 * 0.55;
             for (const puff of node.puffs) {
                 const ease = 1 - (1 - progress) ** 2;
-                puff.mesh.position.set(
-                    puff.vx * ease * 0.9,
-                    puff.rise * ease,
-                    puff.vz * ease * 0.9,
-                );
-                puff.mesh.scale.setScalar(puff.size * (0.6 + ease * 1.8));
+                puff.x = puff.vx * ease * 0.9;
+                puff.y = puff.rise * ease;
+                puff.z = puff.vz * ease * 0.9;
+                puff.scale = puff.size * (0.6 + ease * 1.8);
             }
             return;
         }
-        const fade = progress > 0.75 ? 1 - (progress - 0.75) / 0.25 : 1;
-        for (const material of node.materials) material.opacity = fade;
+        node.opacity = progress > 0.75 ? 1 - (progress - 0.75) / 0.25 : 1;
         for (const piece of node.pieces) {
             // 포물선으로 올랐다가 공기 저항으로 천천히 흔들리며 떨어진다.
             const y = Math.max(0, piece.vy * t - 2.6 * t * t),
                 sway = Math.sin(t * 5 + piece.phase) * 0.12 * Math.min(1, t * 2);
-            piece.mesh.position.set(
-                piece.vx * t * (1 - progress * 0.4) + sway,
-                y,
-                piece.vz * t * (1 - progress * 0.4),
-            );
-            piece.mesh.rotation.set(piece.spinX * t, 0, piece.spinZ * t);
+            piece.x = piece.vx * t * (1 - progress * 0.4) + sway;
+            piece.y = y;
+            piece.z = piece.vz * t * (1 - progress * 0.4);
+            piece.rx = piece.spinX * t;
+            piece.rz = piece.spinZ * t;
         }
     }
 
-    dispose() {
-        for (const node of this.nodes) {
-            this.scene.remove(node.group);
-            if (node.material) node.material.dispose();
-            if (node.materials) for (const material of node.materials) material.dispose();
+    /** 프레임마다 한 번: 살아 있는 노드의 퍼프·색종이를 인스턴스 버퍼에 쓴다. 드로우콜은 조각 수와 무관하다. */
+    draw() {
+        const { puffs, confetti, position, scale, quaternion, matrix } = this;
+        puffs.begin();
+        confetti.begin();
+        for (const node of this.active) {
+            if (!node.group.visible) continue;
+            const origin = node.group.position;
+            if (node.kind === 'land') {
+                for (const puff of node.puffs) {
+                    position.set(puff.x + origin.x, puff.y + origin.y, puff.z + origin.z);
+                    scale.setScalar(puff.scale);
+                    matrix.compose(position, this.flat, scale);
+                    puffs.add(matrix, this.tint, node.opacity);
+                }
+                continue;
+            }
+            scale.set(1, 1, 1);
+            node.pieces.forEach((piece, index) => {
+                position.set(piece.x + origin.x, piece.y + origin.y, piece.z + origin.z);
+                quaternion.setFromEuler(this.euler.set(piece.rx, 0, piece.rz));
+                matrix.compose(position, quaternion, scale);
+                confetti.add(matrix, this.palette[index % this.palette.length], node.opacity);
+            });
         }
+        puffs.end();
+        confetti.end();
+    }
+
+    /** 로딩 단계에서 컴파일·그리기가 되도록 레이어를 켜 둔다(DEV-032). 이어서 draw()가 실제 상태로 되돌린다. */
+    warmLayers() {
+        this.puffs.warm();
+        this.confetti.warm();
+    }
+
+    dispose() {
+        this.scene.remove(this.puffs.mesh, this.confetti.mesh);
+        this.puffs.dispose();
+        this.confetti.dispose();
+        this.puffMaterial.dispose();
+        this.confettiMaterial.dispose();
         this.puffGeometry.dispose();
         this.confettiGeometry.dispose();
         this.active.clear();

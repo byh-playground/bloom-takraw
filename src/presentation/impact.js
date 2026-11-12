@@ -2,8 +2,10 @@ import { ObjectPool } from '@bloom-gamekit/object-pool';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { takrawEventUnits } from '../simulation/random.js';
 import { TAKRAW_CONFIG, TAKRAW_TIMING_GRADES } from '../config/game.js';
+import { TakrawParticleCloud } from './instanced-effects.js';
 
 const FOOT_PART = /^(foot|lowerLeg)/;
+const RIM_OPACITY = 0.85; // 입자 테두리의 불투명도(본체는 1)
 
 /**
  * 접촉의 종류(표시 전용). 시뮬레이션 이벤트와 그 스텝 뒤 경기 상태(touches·play)만 읽는다.
@@ -37,22 +39,6 @@ function impactStyleKey(styles, payload) {
     return TAKRAW_TIMING_GRADES.normal;
 }
 
-// 입자(속성 구름) 조각 셰이더에 끼우는 공 가림 방지: 화면에서 공 원판 안은 그리지 않는다(uBallMask = 중심 x·y, 반지름, 그리는 버퍼 픽셀).
-// 어느 카메라에서도 공이 구름에 가려지지 않는다. 깊이·그리는 순서와 무관하다.
-const BALL_MASK_KEY = 'ball-mask';
-function maskBall(material, mask) {
-    material.onBeforeCompile = (shader) => {
-        shader.uniforms.uBallMask = mask;
-        shader.fragmentShader = shader.fragmentShader
-            .replace('void main() {', 'uniform vec3 uBallMask;\nvoid main() {')
-            .replace(
-                '#include <clipping_planes_fragment>',
-                '#include <clipping_planes_fragment>\n    if (distance(gl_FragCoord.xy, uBallMask.xy) < uBallMask.z) discard;',
-            );
-    };
-    material.customProgramCacheKey = () => BALL_MASK_KEY;
-}
-
 /**
  * 접촉 효과의 단일 소유자: 쇼크웨이브 파동 값, 공 눌림, 반짝임·그림자·히트스톱 값, 카메라 진동량, 스파이크 속성 입자 구름.
  * - 수명과 모양은 presentation-events 저널이 알려 주는 경과 시간(ageMs)의 함수다.
@@ -79,6 +65,20 @@ class TakrawImpactEffects {
         this.elementConfig = config.visual.impactElements;
         this.elements = []; // 팀 번호 → 속성 id. 뷰가 학교를 정할 때 setElements로 채운다.
         this.shapeGeometries = this.createShapeGeometries();
+        // 구름은 모양·속성과 무관하게 인스턴스 레이어 한 쌍(테두리·본체)으로 그린다(DEV-034). 칸은 노드 8개가 동시에 겹쳐도 넘치지 않는 수다.
+        this.cloud = new TakrawParticleCloud({
+            THREE,
+            scene,
+            geometries: this.shapeGeometries,
+            mask: this.ballMask,
+            capacity: this.elementConfig.maxParticles * 8,
+        });
+        this.quaternion = new THREE.Quaternion();
+        this.spin = new THREE.Quaternion();
+        this.bodyMatrix = new THREE.Matrix4();
+        this.rimMatrix = new THREE.Matrix4();
+        this.position = new THREE.Vector3();
+        this.scale = new THREE.Vector3();
         this.nodes = [];
         this.active = new Set();
         this.pool = new ObjectPool(
@@ -90,42 +90,14 @@ class TakrawImpactEffects {
 
     createNode() {
         const T = this.THREE;
+        // 위치만 담는 그룹(장면에 올리지 않는다). 입자는 장면 객체가 아니라 cloud의 인스턴스로 그린다.
         const group = new T.Group();
         group.visible = false;
-        this.scene.add(group);
-        const elementMaterials = Array.from(
-            { length: 4 },
-            () =>
-                new T.MeshBasicMaterial({
-                    color: 0xffffff,
-                    transparent: true,
-                    depthWrite: false,
-                    side: T.DoubleSide,
-                }),
-        );
-        const edgeMaterial = new T.MeshBasicMaterial({
-            color: 0x000000,
-            transparent: true,
-            depthWrite: false,
-            side: T.DoubleSide,
-        });
-        for (const material of [...elementMaterials, edgeMaterial])
-            maskBall(material, this.ballMask);
         const particles = [];
         for (let i = 0; i < this.elementConfig.maxParticles; i++) {
-            // rim: 같은 모양을 조금 크게 뒤에 깔아 어두운 테두리로 보이게 한다(밝은 배경에서 윤곽이 보인다).
-            const rim = new T.Mesh(this.shapeGeometries.dot, edgeMaterial);
-            rim.visible = false;
-            rim.renderOrder = 1;
-            group.add(rim);
-            const mesh = new T.Mesh(this.shapeGeometries.dot, elementMaterials[0]);
-            mesh.visible = false;
-            mesh.renderOrder = 2;
-            group.add(mesh);
             particles.push({
-                mesh,
-                rim,
                 shape: 'dot',
+                color: 0,
                 angle: 0,
                 vx: 0,
                 vy: 0,
@@ -147,8 +119,9 @@ class TakrawImpactEffects {
         const node = {
             group,
             particles,
-            elementMaterials,
-            edgeMaterial,
+            colors: Array.from({ length: 4 }, () => new T.Color()),
+            edge: new T.Color(),
+            particleTime: 0,
             particleCount: 0,
             style: null,
             strength: 1,
@@ -298,15 +271,14 @@ class TakrawImpactEffects {
             ? this.elementConfig.byElement[this.elements[payload.team === 1 ? 1 : 0]]
             : null;
         node.particleCount = 0;
-        for (const particle of node.particles) particle.mesh.visible = particle.rim.visible = false;
         if (!element) return;
         const f = payload.footVelocity,
             fl = f ? Math.hypot(f.x, f.y, f.z) : 0;
         // 방향이 없으면 위쪽을 앞으로 본다.
         if (fl > 0.5) node.elementForward.set(f.x / fl, f.y / fl, f.z / fl);
         else node.elementForward.set(0, 1, 0);
-        node.edgeMaterial.color.setHex(element.edge);
-        element.colors.forEach((color, index) => node.elementMaterials[index].color.setHex(color));
+        node.edge.setHex(element.edge);
+        element.colors.forEach((color, index) => node.colors[index].setHex(color));
         let index = 0;
         for (const part of element.parts) {
             const count = reduced ? Math.floor(part.n * 0.4) : part.n;
@@ -317,9 +289,7 @@ class TakrawImpactEffects {
                 const speed = part.speed * (0.6 + unit() * 0.8),
                     up = part.dir === 'flat' ? 0 : part.up * (0.4 + lift * 0.8);
                 particle.shape = part.shape;
-                particle.mesh.geometry = particle.rim.geometry = this.shapeGeometries[part.shape];
-                particle.mesh.material = node.elementMaterials[part.c];
-                particle.mesh.visible = true;
+                particle.color = part.c;
                 particle.angle = angle;
                 particle.vx = Math.cos(angle) * speed;
                 particle.vz = Math.sin(angle) * speed;
@@ -351,38 +321,42 @@ class TakrawImpactEffects {
         node.particleCount = index;
     }
 
-    /** 경과 시간으로 입자 구름의 모양을 정한다. 정지 구간(hold)에는 첫 모습을 유지한다. */
+    /** 경과 시간으로 입자 구름이 보이는지와 그 시각을 정한다. 정지 구간(hold)에는 첫 모습을 유지한다. 입자는 drawCloud가 그린다. */
     apply(node, ageMs) {
         if (!node.style) return;
         const t = Math.max(0, ageMs - node.hold * 1000) / 1000;
         node.group.visible = node.particleCount > 0 && t < this.elementConfig.life;
-        this.applyParticles(node, t);
+        node.particleTime = t;
     }
 
-    /** 속성 입자의 위치·크기를 경과 시간 t(초)로 정한다. 시작 전과 끝난 뒤에는 보이지 않는다. */
-    applyParticles(node, t) {
-        if (!node.particleCount) return;
-        node.elementMaterials.forEach((material) => {
-            material.opacity = 1;
-        });
-        node.edgeMaterial.opacity = 0.85;
+    /** 프레임마다 한 번: 보이는 노드의 입자를 모양별 인스턴스 버퍼에 쓴다. 드로우콜은 입자 수와 무관하다. */
+    drawCloud() {
+        const cloud = this.cloud;
+        cloud.begin();
+        for (const node of this.active)
+            if (node.group.visible && node.particleCount)
+                this.writeParticles(node, node.particleTime);
+        cloud.end();
+    }
+
+    /** 속성 입자의 위치·크기·방향을 경과 시간 t(초)로 정해 인스턴스에 쓴다. 시작 전과 끝난 뒤에는 쓰지 않는다. */
+    writeParticles(node, t) {
         const cloud = this.elementConfig.cloud,
             margin = this.elementConfig.ballMargin,
-            forward = node.elementForward;
+            grow = this.elementConfig.rim,
+            forward = node.elementForward,
+            origin = node.group.position,
+            { position, scale, quaternion, spin } = this;
         for (let i = 0; i < node.particleCount; i++) {
             const particle = node.particles[i],
                 local = t - particle.start,
-                progress = local / particle.life,
-                mesh = particle.mesh;
+                progress = local / particle.life;
             if (
                 local < 0 ||
                 progress >= 1 ||
                 (particle.flicker && Math.floor(local * 32 + i) % 3 === 0)
-            ) {
-                mesh.visible = particle.rim.visible = false;
+            )
                 continue;
-            }
-            mesh.visible = particle.rim.visible = true;
             let x = particle.vx * local + Math.cos(particle.angle) * margin,
                 z = particle.vz * local + Math.sin(particle.angle) * margin;
             if (particle.swirl) {
@@ -393,39 +367,52 @@ class TakrawImpactEffects {
                 z = Math.sin(a) * (r + margin);
             }
             const y = particle.vy * local - 0.5 * particle.g * local * local;
-            mesh.position.set(x, y, z);
+            position.set(x, y, z);
             // 구름 크기·거리를 줄이되 공 표면에서 시작하는 간격(ballMargin)은 지키고, 공이 나가는 쪽으로 간 입자는 반대편으로 접어 넣는다.
-            const length = mesh.position.length() || 1;
-            mesh.position.multiplyScalar(cloud + (margin * (1 - cloud)) / length);
-            const ahead = mesh.position.dot(forward);
-            if (ahead > 0) mesh.position.addScaledVector(forward, -2 * ahead);
+            const length = position.length() || 1;
+            position.multiplyScalar(cloud + (margin * (1 - cloud)) / length);
+            const ahead = position.dot(forward);
+            if (ahead > 0) position.addScaledVector(forward, -2 * ahead);
             let direction = particle.direction;
             if (direction.dot(forward) > 0) {
                 direction = this.cloudDirection.copy(direction);
                 direction.addScaledVector(forward, -2 * direction.dot(forward));
             }
-            const scale =
-                particle.size *
-                cloud *
-                (1 + (particle.grow - 1) * progress) *
-                (1 - progress * progress);
-            if (particle.shape === 'streak' || particle.shape === 'bolt') {
+            position.add(origin);
+            const lengthwise = particle.shape === 'streak' || particle.shape === 'bolt';
+            let size;
+            if (lengthwise) {
                 // 길이 방향(z)으로 뻗는 모양: 머리가 먼저 나가고 꼬리가 줄어든다.
-                mesh.scale.set(1, 1, Math.max(0.001, particle.length * cloud * (1 - progress)));
-                mesh.quaternion.setFromUnitVectors(this.axisZ, direction);
+                size = Math.max(0.001, particle.length * cloud * (1 - progress));
+                scale.set(1, 1, size);
+                quaternion.setFromUnitVectors(this.axisZ, direction);
             } else {
-                mesh.scale.setScalar(Math.max(0.001, scale));
-                if (this.camera) mesh.quaternion.copy(this.camera.quaternion);
-                mesh.rotateZ(particle.roll + particle.spin * local);
+                size = Math.max(
+                    0.001,
+                    particle.size *
+                        cloud *
+                        (1 + (particle.grow - 1) * progress) *
+                        (1 - progress * progress),
+                );
+                scale.setScalar(size);
+                if (this.camera) quaternion.copy(this.camera.quaternion);
+                else quaternion.identity();
+                spin.setFromAxisAngle(this.axisZ, particle.roll + particle.spin * local);
+                quaternion.multiply(spin);
             }
+            this.bodyMatrix.compose(position, quaternion, scale);
             // 테두리: 본체와 같은 위치·방향에서 모양만 rim 배율로 키운다. 길이 방향 모양은 굵기만 키운다.
-            const rim = particle.rim,
-                grow = this.elementConfig.rim;
-            rim.position.copy(mesh.position);
-            rim.quaternion.copy(mesh.quaternion);
-            if (particle.shape === 'streak' || particle.shape === 'bolt')
-                rim.scale.set(grow * 2, grow * 2, mesh.scale.z * 1.06);
-            else rim.scale.setScalar(mesh.scale.x * grow);
+            if (lengthwise) scale.set(grow * 2, grow * 2, size * 1.06);
+            else scale.setScalar(size * grow);
+            this.rimMatrix.compose(position, quaternion, scale);
+            this.cloud.add(
+                particle.shape,
+                this.bodyMatrix,
+                this.rimMatrix,
+                node.colors[particle.color],
+                node.edge,
+                RIM_OPACITY,
+            );
         }
     }
 
@@ -650,11 +637,7 @@ class TakrawImpactEffects {
     }
 
     dispose() {
-        for (const node of this.nodes) {
-            this.scene.remove(node.group);
-            node.edgeMaterial.dispose();
-            for (const material of node.elementMaterials) material.dispose();
-        }
+        this.cloud.dispose();
         for (const [id, geometry] of Object.entries(this.shapeGeometries))
             if (id !== 'streak') geometry.dispose();
         this.streakGeometry.dispose();

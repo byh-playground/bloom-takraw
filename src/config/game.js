@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.17.1';
+const TAKRAW_VERSION = '0.17.2';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -33,6 +33,30 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
     );
 }
 
+/**
+ * 접촉 타이밍 등급 이름. 판정(simulation/timing.js)·킥 소리(config/runtime.js)·접촉 효과(visual.impact)·HUD 등급 표시가 이 이름을 쓴다.
+ * perfect·good은 창(timing.windows) 이름이기도 하고, 모든 창 밖이면 normal이다. CSS(.timing-badge[data-grade])도 같은 글자를 쓴다.
+ */
+const TAKRAW_TIMING_GRADES = Object.freeze({ perfect: 'perfect', good: 'good', normal: 'normal' });
+
+/**
+ * 선수 역할 id와 팀 안 순서(슬롯 0 리시버, 1 세터, 2 공격수)의 단일 출처. 선수 id 배치(simulation/roster.js)·
+ * AI 학교 선수(config/schools.js)·팀 편성(club/club.js)·화면이 이 목록을 읽고, 역할별 판단(AI·토스·물리)과 선호 역할 데이터는
+ * TAKRAW_ROLE의 이름으로 가리킨다. 값(글자)은 스냅샷·저장의 player.role·preferredRole에 그대로 들어가므로 바꾸지 않는다.
+ */
+const TAKRAW_ROLE = Object.freeze({ receiver: 'receiver', setter: 'setter', attacker: 'attacker' });
+const TAKRAW_ROLES = Object.freeze([
+    TAKRAW_ROLE.receiver,
+    TAKRAW_ROLE.setter,
+    TAKRAW_ROLE.attacker,
+]);
+/** 역할의 표시 이름(TextPair). 팀 편성(club.js roles)과 화면 문구(i18n SHARED.attacker)가 읽는다. */
+const TAKRAW_ROLE_NAMES = Object.freeze({
+    receiver: Object.freeze({ ko: '리시버', en: 'Receiver' }),
+    setter: Object.freeze({ ko: '세터', en: 'Setter' }),
+    attacker: Object.freeze({ ko: '공격수', en: 'Attacker' }),
+});
+
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
@@ -54,7 +78,10 @@ const TAKRAW_CONFIG = Object.freeze({
     // 헤드리스 실측에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
     // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.
     // maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
-    timing: { windows: { perfect: 0.02, good: 0.04 }, maxAge: 1.2 },
+    timing: {
+        windows: { [TAKRAW_TIMING_GRADES.perfect]: 0.02, [TAKRAW_TIMING_GRADES.good]: 0.04 },
+        maxAge: 1.2,
+    },
     // base: 기본 능력치, max: 효과 비율 1이 되는 능력치(이 위는 overflow × log2(v/max)만큼 더 늘어남), maxEffect: 효과 값의 상한(수비는 1 - 효과라 1 미만이어야 한다).
     athletes: {
         base: 50,
@@ -205,7 +232,7 @@ const TAKRAW_CONFIG = Object.freeze({
         // fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구.
         // spike는 payload.spike가 참일 때 등급보다 먼저 고른다.
         impact: {
-            normal: {
+            [TAKRAW_TIMING_GRADES.normal]: {
                 life: 0.25,
                 ringScale: 2.1,
                 dots: 6,
@@ -220,7 +247,7 @@ const TAKRAW_CONFIG = Object.freeze({
                 squash: 0.12,
                 pop: null,
             },
-            good: {
+            [TAKRAW_TIMING_GRADES.good]: {
                 life: 0.32,
                 ringScale: 2.8,
                 dots: 8,
@@ -235,7 +262,7 @@ const TAKRAW_CONFIG = Object.freeze({
                 squash: 0.17,
                 pop: null,
             },
-            perfect: {
+            [TAKRAW_TIMING_GRADES.perfect]: {
                 life: 0.45,
                 ringScale: 3.6,
                 dots: 10,
@@ -722,5 +749,9 @@ export {
     TAKRAW_DIAGNOSTIC_NAME,
     TAKRAW_ID,
     TAKRAW_CONFIG,
+    TAKRAW_ROLE,
+    TAKRAW_ROLES,
+    TAKRAW_ROLE_NAMES,
+    TAKRAW_TIMING_GRADES,
     takrawAthleteEffects,
 };

@@ -1,4 +1,5 @@
 import { TAKRAW_ELEMENTS, takrawOpponents, takrawSchool } from '../../config/schools.js';
+import { TAKRAW_ROLES } from '../../config/game.js';
 import { say, escape } from '../markup.js';
 import { UI } from '../../i18n/messages/ui.js';
 
@@ -34,12 +35,10 @@ class TakrawCampaignScreen {
         const intro = this.intro,
             step = intro.step,
             element = (school) => say(this.schoolElement(school));
-        const names = ['receiver', 'setter', 'attacker']
-            .map(
-                (role) =>
-                    this.club().roster.find((player) => player.id === this.club().lineup?.[role])
-                        ?.name,
-            )
+        const names = TAKRAW_ROLES.map(
+            (role) =>
+                this.club().roster.find((player) => player.id === this.club().lineup?.[role])?.name,
+        )
             .filter(Boolean)
             .map(say);
         const pages = [

@@ -1,3 +1,5 @@
+import { TAKRAW_ROLE } from '../config/game.js';
+
 /**
  * AI 선수 한 명의 행동 상태머신.
  *
@@ -124,8 +126,8 @@ class CoverState extends AiState {
     }
     target(ctx, record) {
         const { player, game, ball, defense, temperament } = ctx;
-        if (player.role === 'attacker') return stepAsideFromBall(ctx, stanceTarget(ctx));
-        if (player.role !== 'setter')
+        if (player.role === TAKRAW_ROLE.attacker) return stepAsideFromBall(ctx, stanceTarget(ctx));
+        if (player.role !== TAKRAW_ROLE.setter)
             return stepAsideFromBall(ctx, game.receiveCover(player, defense));
         const limit = game.config.court.halfWidth - 0.25,
             x = stanceTarget(ctx).x;

@@ -82,7 +82,7 @@ GameKit dist 커밋 `0a0e5e216c45096dd4008e844adb7c3a3f44df3e`(v0.57.0), Three.j
 | 이벤트                                          | 성격           | 지점                                                                                                                |
 | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `fault:simulation:fail`                         | 게임 결함 의심 | 시뮬레이션·루프 예외(`simulationFailed`). 세션 단계가 던진 예외(`fatal`)도 감싸지 않고 원래 예외 그대로 여기로 온다 |
-| `fault:desync:fail`                             | 게임 결함 의심 | 세션 이벤트 `desync-unrecoverable`                                                                                  |
+| `fault:desync:fail`                             | 게임 결함 의심 | 세션 이벤트 `desync-unrecoverable`. 같은 실패의 연결 카드 분류(`desync`)는 지표를 다시 보내지 않는다(v0.17.2~)      |
 | `fault:sync:fail` `{ phase }`                   | 게임 결함 의심 | 연결 중 경기 상태 검사(부트스트랩·체크포인트·스냅샷) 실패                                                           |
 | `network:relay:fail` `{ phase }`                | 연결 사정      | 중계 서버(Nostr)에 닿지 못함                                                                                        |
 | `network:peer:fail` `{ phase }`                 | 연결 사정      | 친구와 직접 연결(WebRTC·ICE) 실패                                                                                   |
@@ -92,7 +92,7 @@ GameKit dist 커밋 `0a0e5e216c45096dd4008e844adb7c3a3f44df3e`(v0.57.0), Three.j
 | `unsupported:version:block` `{ phase }`         | 환경           | 두 게임 버전이 달라 맞출 수 없음(새로고침으로 같은 버전을 받으면 해소)                                              |
 | `unsupported:browser:block`                     | 환경           | 보안 연결·암호화·WebSocket·WebRTC 중 하나가 없는 브라우저                                                           |
 
-`phase`는 `connect`(방 만들기·입장 중)·`session`(온라인 세션 중)·`handshake`(시간 초과)입니다. 원인은 화면 오류 문구·단계 이름과 같은 분류(`connectionCause`) `secure`·`sync`·`version`·`relay`·`peer`·`other`이고, 지표는 원인의 성격(결함 의심·연결 사정·환경)으로 나눠 보냅니다. `version`은 게임 결함도 연결 사정도 아니라 이 두 사람의 버전 조합 문제라 `unsupported`로 둡니다. v0.15.6~0.15.7 빌드는 같은 지점을 `error:<kind>:fail`로 보냈습니다(D1에는 원본 그대로 남음). 놀이가 계속되는 실패(소리·저장·보상·PWA)와 부팅 실패(지표 생성 전)는 보내지 않습니다.
+`phase`는 `connect`(방 만들기·입장 중)·`session`(온라인 세션 중)·`handshake`(시간 초과)입니다. 원인은 화면 오류 문구·단계 이름과 같은 분류(`connectionCause`) `secure`·`sync`·`desync`·`game`·`version`·`relay`·`peer`·`other`이고(gamekit 실패 코드가 있으면 코드로 먼저 정한다), 지표는 원인의 성격(결함 의심·연결 사정·환경)으로 나눠 보냅니다. `version`은 게임 결함도 연결 사정도 아니라 이 두 사람의 버전 조합 문제라 `unsupported`로 둡니다. v0.15.6~0.15.7 빌드는 같은 지점을 `error:<kind>:fail`로 보냈습니다(D1에는 원본 그대로 남음). 놀이가 계속되는 실패(소리·저장·보상·PWA)와 부팅 실패(지표 생성 전)는 보내지 않습니다.
 
 경기 기록은 `match`(도장깨기·AI 대전)·`local`(2인)·`online` 경기가 끝날 때 하나씩 남깁니다(관전·연습 제외). rollback `RoomSession`의 `recordReplay` 기록(`SessionReplayRecorder`)이라 같은 게임 버전에서 `playReplay`로 다시 계산할 수 있습니다. 온라인은 예측한 끝이 확정된 뒤에 남기고, 두 사람이 같은 `matchId`(`방 세션:roster 세대:그 세대의 순번`)를 보내 한 행만 남습니다.
 

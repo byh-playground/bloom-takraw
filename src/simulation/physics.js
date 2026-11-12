@@ -1,4 +1,4 @@
-import { takrawAthleteEffects } from '../config/game.js';
+import { TAKRAW_ROLE, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
 import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
@@ -13,6 +13,39 @@ function takrawPhysicsSettings(config) {
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
 }
+
+/** 스냅샷 검사: x·y·z가 모두 유한한 벡터인지. */
+const snapshotVector = (value) =>
+    value && ['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]));
+/** 스냅샷 검사: 받기 기록이 없거나(null) 올바른 받기 기록인지. */
+const snapshotReceive = (value) =>
+    value === null ||
+    (value &&
+        ['cushion', 'lunge', 'slide'].includes(value.mode) &&
+        ['prepare', 'contact', 'recover'].includes(value.phase) &&
+        snapshotVector(value.point) &&
+        snapshotVector(value.direction) &&
+        value.committed === true &&
+        Number.isFinite(value.startedAt) &&
+        value.startedAt >= 0 &&
+        Number.isFinite(value.contactAt) &&
+        value.contactAt >= value.startedAt &&
+        Number.isFinite(value.until) &&
+        value.until >= value.contactAt &&
+        (value.hitAt === null ||
+            (Number.isFinite(value.hitAt) && value.hitAt >= value.startedAt)) &&
+        (!Object.hasOwn(value, 'launch') || (Number.isFinite(value.launch) && value.launch >= 0)));
+/** 스냅샷 검사: 신체 형상(상자 반길이, 공·캡슐 반지름·반높이)이 모양에 맞는지. */
+const snapshotGeometry = (value, shape) =>
+    value &&
+    (shape === 'box'
+        ? Object.keys(value).length === 1 &&
+          snapshotVector(value.halfExtents) &&
+          ['x', 'y', 'z'].every((axis) => value.halfExtents[axis] > 0)
+        : Object.keys(value).length === (shape === 'capsule' ? 2 : 1) &&
+          Number.isFinite(value.radius) &&
+          value.radius > 0 &&
+          (shape !== 'capsule' || (Number.isFinite(value.halfHeight) && value.halfHeight >= 0)));
 
 /**
  * Articulated, force-driven players. Rendering never writes back into this world.
@@ -1387,7 +1420,7 @@ class TakrawPhysics {
         // After the attacker stops walking, brake the whole articulated body's
         // momentum before takeoff. Receivers/setters retain their planted-pass
         // controller, as do ground kicks and recovery.
-        if (p.role !== 'attacker' || airborne || fallen || mode === 'ground')
+        if (p.role !== TAKRAW_ROLE.attacker || airborne || fallen || mode === 'ground')
             p.locomotionActive = false;
         else if (moving > p.settings.drive.gaitInput) p.locomotionActive = true;
         if (p.grounded || fallen || receiving)
@@ -1395,14 +1428,20 @@ class TakrawPhysics {
         else this._driveAirStance(p, body, intent, action, targetMap, dt);
     }
 
+    /** 지상 자세: 몸 세우기와 뜨는 힘 → 수평 이동 → 두 다리(차는 다리는 _driveKick이 맡는다). */
     _driveGroundStance(p, body, intent, action, targetMap, dt) {
+        this._groundSupport(p, body, action, dt);
+        this._groundMovement(p, body, intent, action, dt);
+        this._groundLegs(p, body, intent, action, targetMap, dt);
+    }
+
+    /** 몸통을 세우고 서 있는(받기 자세면 낮춘) 높이로 뜨는 힘을 건다. */
+    _groundSupport(p, body, action, dt) {
         const s = p.settings,
             stance = s.drive.stance,
-            gait = s.drive.gait,
             root = p.root;
-        const { pos, vel, rootRotation, up, muscleResponse, balanceResponse } = body;
-        const { move, moving } = intent;
-        const { receive, motion, receiveBlend, fallen, kicking, recovery } = action;
+        const { pos, vel, up, balanceResponse } = body;
+        const { receive, motion, receiveBlend, fallen, recovery } = action;
         this._orientRoot(
             p,
             dt,
@@ -1423,6 +1462,16 @@ class TakrawPhysics {
             p.mass * s.gravity * (fallen ? stance.fallenMaxGravity : stance.maxGravity),
         );
         root.applyImpulse({ x: 0, y: lift * dt * balanceResponse * recovery, z: 0 }, true);
+    }
+
+    /** 목표 이동 속도와 지금 속도(걷는 중이면 몸 전체 질량 중심 속도)의 차이로 수평 힘을 건다. */
+    _groundMovement(p, body, intent, action, dt) {
+        const s = p.settings,
+            stance = s.drive.stance,
+            root = p.root;
+        const { pos, vel, muscleResponse } = body;
+        const { move, moving } = intent;
+        const { receive, fallen } = action;
         const targetV = this._mul(
             move,
             s.movementSpeed *
@@ -1456,6 +1505,15 @@ class TakrawPhysics {
             { x: pos.x, y: stance.pushHeight, z: pos.z },
             true,
         );
+    }
+
+    /** 걸음 위상을 진행하고 두 다리의 발 목표·관절 목표를 정한다. 차는 다리는 건너뛴다. */
+    _groundLegs(p, body, intent, action, targetMap, dt) {
+        const s = p.settings,
+            gait = s.drive.gait;
+        const { pos, rootRotation, muscleResponse } = body;
+        const { move, moving } = intent;
+        const { receive, motion, receiveBlend, fallen, kicking } = action;
         p.gait += dt * (moving > s.drive.gaitInput ? gait.rate : 0);
         const facing = this._yaw(p.desiredYaw);
         for (const [suffix, side] of [
@@ -1477,19 +1535,7 @@ class TakrawPhysics {
                 z: pos.z + spread.z + move.z * Math.sin(phase) * gait.stride + planted.z,
             };
             const pose = this._legTargets(p, suffix, target, 1, pos, rootRotation);
-            if (motion) {
-                const length =
-                    p.byName['upperLeg' + suffix].restLength +
-                    p.byName['lowerLeg' + suffix].restLength;
-                const bend =
-                    Math.min(
-                        2.45,
-                        2 * Math.acos(this._clamp((motion.height - 0.14) / length, 0, 1)),
-                    ) * receiveBlend;
-                pose.hip[0] -= bend * 0.5;
-                pose.knee[0] = Math.max(pose.knee[0], bend);
-                pose.ankle[0] = -(pose.hip[0] + pose.knee[0]) * s.drive.ankleCompensation;
-            }
+            if (motion) this._receiveCrouch(p, suffix, motion, receiveBlend, pose);
             targetMap['hip' + suffix] = pose.hip;
             targetMap['knee' + suffix] = pose.knee;
             targetMap['ankle' + suffix] = pose.ankle;
@@ -1504,6 +1550,19 @@ class TakrawPhysics {
                 gait.velocityGain * muscleResponse,
             );
         }
+    }
+
+    /** 받기 자세에서 받기 높이에 맞춰 무릎을 굽히고 엉덩이·발목을 맞춘다. */
+    _receiveCrouch(p, suffix, motion, receiveBlend, pose) {
+        const s = p.settings;
+        const length =
+            p.byName['upperLeg' + suffix].restLength + p.byName['lowerLeg' + suffix].restLength;
+        const bend =
+            Math.min(2.45, 2 * Math.acos(this._clamp((motion.height - 0.14) / length, 0, 1))) *
+            receiveBlend;
+        pose.hip[0] -= bend * 0.5;
+        pose.knee[0] = Math.max(pose.knee[0], bend);
+        pose.ankle[0] = -(pose.hip[0] + pose.knee[0]) * s.drive.ankleCompensation;
     }
 
     _driveAirStance(p, body, intent, action, targetMap, dt) {
@@ -1592,8 +1651,7 @@ class TakrawPhysics {
 
     /** 차는 발을 목표 위치·속도로 끌고 접촉면 방향을 맞춘다. 발 방향을 제어한 발('L'|'R'|'')을 돌려준다. */
     _driveKick(p, input, body, action, targetMap, dt) {
-        const s = p.settings,
-            root = p.root;
+        const root = p.root;
         const { pos, rootRotation, muscleResponse } = body;
         const { fallen, kicking, mode, airTarget } = action;
         let orientedFoot = '';
@@ -1606,45 +1664,21 @@ class TakrawPhysics {
             // into the current leg workspace. Ground reception keeps its own path.
             if (mode !== 'air') this._limitGroundKickReach(p, suffix, foot, hip, command, dt);
             const target = command.target,
-                groundAcceleration = command.groundAcceleration,
                 contactNormal = command.contactNormal,
                 contactForward = command.contactForward,
-                groundContactDrive = command.groundContactDrive,
                 footControl = command.footControl;
             let targetVelocity = command.targetVelocity;
             // Controlled contacts drive the actual ankle. Convert the planned foot
             // centre to that anchor, cancelling _legTargets' standing COM offset.
-            const ikTarget =
-                mode === 'air'
-                    ? this._add(airTarget.ankle, this._rotate(rootRotation, this._v(0, 0, 0.055)))
-                    : contactNormal
-                      ? this._add(
-                            this._add(target, this._mul(contactNormal, 0.065)),
-                            this._add(
-                                this._mul(contactForward, -0.085),
-                                this._rotate(rootRotation, this._v(0, 0, 0.055)),
-                            ),
-                        )
-                      : target;
-            const pose = this._legTargets(p, suffix, ikTarget, 1, pos, rootRotation);
-            targetMap['hip' + suffix] = pose.hip;
-            targetMap['knee' + suffix] = pose.knee;
-            if (mode === 'air') {
-                const motion = p.kick.airPlan.motion;
-                const geometryWeight =
-                    p.kick.airPlan.phase === 'lift' ? s.airKick.motion.liftGeometryWeight : 1;
-                targetMap['knee' + suffix] = [
-                    this._clamp(
-                        motion.pose.activeKnee[0] * (1 - geometryWeight) +
-                            pose.knee[0] * geometryWeight,
-                        0,
-                        2.45,
-                    ),
-                    0,
-                    0,
-                ];
-            }
-            targetMap['ankle' + suffix] = pose.ankle;
+            const ikTarget = this._kickIkTarget(
+                mode,
+                airTarget,
+                target,
+                contactNormal,
+                contactForward,
+                rootRotation,
+            );
+            this._setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap);
             if (contactNormal) orientedFoot = suffix;
             const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
             const forcePoint = ankleDriven
@@ -1654,52 +1688,26 @@ class TakrawPhysics {
                 mode !== 'air' && ankleDriven
                     ? this._sub(ikTarget, this._rotate(rootRotation, this._v(0, 0, 0.055)))
                     : target;
-            if (mode === 'ground' && ankleDriven) {
-                const plan = p.kick.receivePlan,
-                    toss = this.settings.groundToss;
-                const terminal = this._clamp(
-                    (this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) /
-                        toss.strokeTime,
-                    0,
-                    1,
+            if (mode === 'ground' && ankleDriven)
+                targetVelocity = this._groundStrokeVelocity(
+                    p,
+                    foot,
+                    forcePoint,
+                    targetVelocity,
+                    dt,
                 );
-                const instep = this._point(foot.body, this._v(0, 0.055, toss.forefoot));
-                const rotationVelocity = this._sub(
-                    foot.body.velocityAtPoint(instep),
-                    foot.body.velocityAtPoint(forcePoint),
-                );
-                targetVelocity = this._sub(targetVelocity, this._mul(rotationVelocity, terminal));
-            }
             // Both controls read the same solved state. A point impulse temporarily
             // changes free-body omega before the ankle joint is solved again.
             const angularVelocity = ankleDriven ? foot.body.angvel() : null;
-            this._footDrive(
-                p,
-                foot,
+            this._driveKickFoot(p, foot, command, {
+                mode,
+                airTarget,
                 driveTarget,
                 targetVelocity,
-                (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
-                dt,
-                (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
-                (footControl === this.settings.groundToss
-                    ? 2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass)
-                    : footControl
-                      ? footControl.velocityGain
-                      : s.footVelocityGain) * muscleResponse,
                 forcePoint,
-                mode === 'air' && airTarget.acceleration
-                    ? this._mul(
-                          this._add(airTarget.acceleration, this._v(0, s.gravity, 0)),
-                          s.airKick.trackingMass * muscleResponse,
-                      )
-                    : groundAcceleration
-                      ? this._mul(
-                            this._add(groundAcceleration, this._v(0, s.gravity, 0)),
-                            this.settings.groundToss.accelerationMass * muscleResponse,
-                        )
-                      : null,
-                mode === 'air' ? airTarget.contactDrive : groundContactDrive,
-            );
+                muscleResponse,
+                dt,
+            });
             if (contactNormal)
                 this._orientFootNormal(
                     p,
@@ -1713,6 +1721,100 @@ class TakrawPhysics {
                 );
         }
         return orientedFoot;
+    }
+
+    /** 차는 발의 IK 목표(발목 기준점). 공중은 공중 계획 발목, 지상 접촉은 발 중심에서 발목으로 옮긴 점, 그 밖은 목표 그대로다. */
+    _kickIkTarget(mode, airTarget, target, contactNormal, contactForward, rootRotation) {
+        return mode === 'air'
+            ? this._add(airTarget.ankle, this._rotate(rootRotation, this._v(0, 0, 0.055)))
+            : contactNormal
+              ? this._add(
+                    this._add(target, this._mul(contactNormal, 0.065)),
+                    this._add(
+                        this._mul(contactForward, -0.085),
+                        this._rotate(rootRotation, this._v(0, 0, 0.055)),
+                    ),
+                )
+              : target;
+    }
+
+    /** 차는 다리의 엉덩이·무릎·발목 목표. 공중은 들어 올리는 동안 동작 클립 무릎과 기하 무릎을 섞는다. */
+    _setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap) {
+        const s = p.settings;
+        const pose = this._legTargets(p, suffix, ikTarget, 1, pos, rootRotation);
+        targetMap['hip' + suffix] = pose.hip;
+        targetMap['knee' + suffix] = pose.knee;
+        if (mode === 'air') {
+            const motion = p.kick.airPlan.motion;
+            const geometryWeight =
+                p.kick.airPlan.phase === 'lift' ? s.airKick.motion.liftGeometryWeight : 1;
+            targetMap['knee' + suffix] = [
+                this._clamp(
+                    motion.pose.activeKnee[0] * (1 - geometryWeight) +
+                        pose.knee[0] * geometryWeight,
+                    0,
+                    2.45,
+                ),
+                0,
+                0,
+            ];
+        }
+        targetMap['ankle' + suffix] = pose.ankle;
+    }
+
+    /** 지상 토스 마무리 구간: 발등과 힘점의 회전 속도 차이를 목표 속도에서 뺀다(구간 끝으로 갈수록 크게). */
+    _groundStrokeVelocity(p, foot, forcePoint, targetVelocity, dt) {
+        const plan = p.kick.receivePlan,
+            toss = this.settings.groundToss;
+        const terminal = this._clamp(
+            (this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) / toss.strokeTime,
+            0,
+            1,
+        );
+        const instep = this._point(foot.body, this._v(0, 0.055, toss.forefoot));
+        const rotationVelocity = this._sub(
+            foot.body.velocityAtPoint(instep),
+            foot.body.velocityAtPoint(forcePoint),
+        );
+        return this._sub(targetVelocity, this._mul(rotationVelocity, terminal));
+    }
+
+    /** 차는 발에 힘을 건다. 공중·지상과 발 제어 설정(footControl)에 따라 힘·위치·속도 이득과 가속 보상이 달라진다. */
+    _driveKickFoot(
+        p,
+        foot,
+        command,
+        { mode, airTarget, driveTarget, targetVelocity, forcePoint, muscleResponse, dt },
+    ) {
+        const s = p.settings;
+        const { groundAcceleration, groundContactDrive, footControl } = command;
+        this._footDrive(
+            p,
+            foot,
+            driveTarget,
+            targetVelocity,
+            (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
+            dt,
+            (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
+            (footControl === this.settings.groundToss
+                ? 2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass)
+                : footControl
+                  ? footControl.velocityGain
+                  : s.footVelocityGain) * muscleResponse,
+            forcePoint,
+            mode === 'air' && airTarget.acceleration
+                ? this._mul(
+                      this._add(airTarget.acceleration, this._v(0, s.gravity, 0)),
+                      s.airKick.trackingMass * muscleResponse,
+                  )
+                : groundAcceleration
+                  ? this._mul(
+                        this._add(groundAcceleration, this._v(0, s.gravity, 0)),
+                        this.settings.groundToss.accelerationMass * muscleResponse,
+                    )
+                  : null,
+            mode === 'air' ? airTarget.contactDrive : groundContactDrive,
+        );
     }
 
     /** 차는 발의 목표: 공중은 공중 발 계획, 지상 토스는 받기 계획, 그 밖의 지상 발차기는 공을 위로 차 올리는 방향. */
@@ -2233,13 +2335,10 @@ class TakrawPhysics {
         return this._recordAirPlan(p, plan, aim.contact, geometry, path, limit);
     }
 
-    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
-    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference) {
-        const s = this.settings,
-            kick = s.airKick,
-            root = p.root,
-            settings = kick.motion;
-        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
+    /** 공격 평면의 축: 팀 방향(toward)과 접촉점의 옆 치우침(lateral, 상한 있음). */
+    _airPlanAxis(p, contact) {
+        const kick = this.settings.airKick,
+            root = p.root;
         const lateral = this._clamp(
             (contact.impact.z - root.translation().z) /
                 Math.max(
@@ -2249,7 +2348,12 @@ class TakrawPhysics {
             -kick.lateral.max,
             kick.lateral.max,
         );
-        const axis = this._unit(this._v(p.toward, 0, lateral));
+        return this._unit(this._v(p.toward, 0, lateral));
+    }
+
+    /** 두 발 앞꿈치에서 접촉점까지의 거리(찰 발 고르기용). */
+    _airFootDistances(p, contact) {
+        const kick = this.settings.airKick;
         const distances = {};
         for (const side of ['L', 'R']) {
             const sole = this._point(
@@ -2258,9 +2362,12 @@ class TakrawPhysics {
             );
             distances[side] = this._length(this._sub(contact.impact, sole));
         }
-        if (!continuingGroundKick) p.kick.side = this._airSide(distances);
-        const preheld = continuingGroundKick,
-            mirror = p.kick.side === 'L' ? -1 : 1;
+        return distances;
+    }
+
+    /** 동작 클립과 시작 위상을 고르고, 시작 위상을 접촉 위상 앞(phaseMargin)으로 당긴 자세를 다시 읽는다. */
+    _selectAirMotion(p, axis, preheld, preference) {
+        const settings = this.settings.airKick.motion;
         const query = this._motionQuery(p, axis, preheld);
         const selection = this.motionMatcher.select(query, preference);
         let pose = this.motionMatcher.sample(selection.id, selection.phase);
@@ -2269,6 +2376,11 @@ class TakrawPhysics {
             Math.max(0, pose.contactPhase - settings.phaseMargin),
         );
         pose = this.motionMatcher.sample(selection.id, selection.phase);
+        return { query, selection, pose };
+    }
+
+    /** 동작 클립 몸 회전축(찰 발 쪽으로 거울)과 시작 각도, 시작 각도를 되돌리는 회전. */
+    _airPlanRotation(pose, mirror, axis) {
         const rotationAxis = this._unit(
             this._motionVector(
                 {
@@ -2284,6 +2396,23 @@ class TakrawPhysics {
             ...this._mul(rotationAxis, -Math.sin(initialAngle / 2)),
             w: Math.cos(initialAngle / 2),
         };
+        return { rotationAxis, initialAngle, unrotate };
+    }
+
+    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
+    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference) {
+        const s = this.settings,
+            kick = s.airKick,
+            root = p.root,
+            settings = kick.motion;
+        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
+        const axis = this._airPlanAxis(p, contact);
+        const distances = this._airFootDistances(p, contact);
+        if (!continuingGroundKick) p.kick.side = this._airSide(distances);
+        const preheld = continuingGroundKick,
+            mirror = p.kick.side === 'L' ? -1 : 1;
+        const { query, selection, pose } = this._selectAirMotion(p, axis, preheld, preference);
+        const { rotationAxis, initialAngle, unrotate } = this._airPlanRotation(pose, mirror, axis);
         const ankle = this._point(p.byName['foot' + p.kick.side].body, this._v(0, 0.065, -0.085));
         p.kick.airPlan = {
             phase: preheld ? 'align' : 'lift',
@@ -3114,6 +3243,9 @@ class TakrawPhysics {
 
     step(dt, inputs = []) {
         this.restoredSnapshotBytes = null;
+        // 1/60은 tickRate가 아니라 Rapier 한 번 적분에 허용하는 가장 긴 시간이다(큰 dt가 와도 한 걸음을 이보다 길게 적분하지 않는 안전장치).
+        // 게임은 1/(tickRate·substeps) = 1/120을 넘기므로 지금은 닿지 않지만, tickRate를 낮춰도 이 상한은 따라 커지면 안 된다.
+        // 잘못된 dt(0·NaN)일 때의 1/120은 그때 쓸 기본 한 걸음이다.
         const h = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 1 / 60) : 1 / 120;
         this.world.integrationParameters.dt = h;
         for (const p of this.players) this._drivePlayer(p, inputs[p.id] || {}, h);
@@ -3519,37 +3651,6 @@ class TakrawPhysics {
 
     /** 스냅샷의 모양(version 3, 선수 6명의 리시브·다리·신체·관절 기록)을 검사한다. 틀리면 아무것도 바꾸지 않고 던진다. */
     _validateSnapshot(data) {
-        const vector = (value) =>
-            value && ['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]));
-        const receive = (value) =>
-            value === null ||
-            (value &&
-                ['cushion', 'lunge', 'slide'].includes(value.mode) &&
-                ['prepare', 'contact', 'recover'].includes(value.phase) &&
-                vector(value.point) &&
-                vector(value.direction) &&
-                value.committed === true &&
-                Number.isFinite(value.startedAt) &&
-                value.startedAt >= 0 &&
-                Number.isFinite(value.contactAt) &&
-                value.contactAt >= value.startedAt &&
-                Number.isFinite(value.until) &&
-                value.until >= value.contactAt &&
-                (value.hitAt === null ||
-                    (Number.isFinite(value.hitAt) && value.hitAt >= value.startedAt)) &&
-                (!Object.hasOwn(value, 'launch') ||
-                    (Number.isFinite(value.launch) && value.launch >= 0)));
-        const geometry = (value, shape) =>
-            value &&
-            (shape === 'box'
-                ? Object.keys(value).length === 1 &&
-                  vector(value.halfExtents) &&
-                  ['x', 'y', 'z'].every((axis) => value.halfExtents[axis] > 0)
-                : Object.keys(value).length === (shape === 'capsule' ? 2 : 1) &&
-                  Number.isFinite(value.radius) &&
-                  value.radius > 0 &&
-                  (shape !== 'capsule' ||
-                      (Number.isFinite(value.halfHeight) && value.halfHeight >= 0)));
         if (
             !data ||
             data.version !== 3 ||
@@ -3558,63 +3659,85 @@ class TakrawPhysics {
             data.time < 0 ||
             !Array.isArray(data.players) ||
             data.players.length !== 6 ||
-            Array.from(data.players).some(
-                (saved, id) =>
-                    !saved ||
-                    saved.id !== id ||
-                    !receive(saved.receive) ||
-                    !Array.isArray(saved.contacts) ||
-                    !saved.jump ||
-                    !saved.kick ||
-                    !saved.legs ||
-                    ['L', 'R'].some((suffix) => {
-                        const leg = saved.legs[suffix];
-                        return (
-                            !leg ||
-                            ['scale', 'targetScale'].some(
-                                (key) =>
-                                    !Number.isFinite(leg[key]) ||
-                                    leg[key] < 1 ||
-                                    leg[key] > this.settings.legStretch.maxScale + 1e-10,
-                            )
-                        );
-                    }) ||
-                    !Array.isArray(saved.partHandles) ||
-                    saved.partHandles.length !== this.players[id].parts.length ||
-                    new Set(saved.partHandles.map((part) => part?.name)).size !==
-                        saved.partHandles.length ||
-                    Array.from(saved.partHandles).some(
-                        (part) =>
-                            !part ||
-                            !this.players[id].parts.some(
-                                (item) => item.name === part.name && item.shape === part.shape,
-                            ) ||
-                            !Number.isFinite(part.body) ||
-                            !Number.isFinite(part.collider) ||
-                            !geometry(part.geometry, part.shape) ||
-                            !geometry(part.restGeometry, part.shape),
-                    ) ||
-                    !Array.isArray(saved.joints) ||
-                    saved.joints.length !== this.players[id].joints.length ||
-                    new Set(saved.joints.map((joint) => joint?.name)).size !==
-                        saved.joints.length ||
-                    Array.from(saved.joints).some(
-                        (joint) =>
-                            !joint ||
-                            !this.players[id].joints.some((item) => item.name === joint.name) ||
-                            !Number.isFinite(joint.handle) ||
-                            !Array.isArray(joint.target) ||
-                            joint.target.length !== 3 ||
-                            !Array.from(joint.target).every(Number.isFinite) ||
-                            !vector(joint.restAnchor1) ||
-                            !vector(joint.restAnchor2),
-                    ),
-            )
+            Array.from(data.players).some((saved, id) => this._savedPlayerInvalid(saved, id))
         ) {
             throw new Error(
                 '올바르지 않은 물리 스냅샷 (선수와 리시브 상태가 포함된 version 3 필요)',
             );
         }
+    }
+
+    /** 저장된 선수 하나의 모양이 틀렸는지(id·리시브·접촉·점프·발차기·다리·신체·관절 순서로 본다). */
+    _savedPlayerInvalid(saved, id) {
+        return (
+            !saved ||
+            saved.id !== id ||
+            !snapshotReceive(saved.receive) ||
+            !Array.isArray(saved.contacts) ||
+            !saved.jump ||
+            !saved.kick ||
+            !saved.legs ||
+            this._savedLegsInvalid(saved) ||
+            this._savedPartsInvalid(saved, id) ||
+            this._savedJointsInvalid(saved, id)
+        );
+    }
+
+    /** 다리 늘이기 배율(scale·targetScale)이 1 이상 최대 배율 이하인지 본다. 틀리면 true. */
+    _savedLegsInvalid(saved) {
+        return ['L', 'R'].some((suffix) => {
+            const leg = saved.legs[suffix];
+            return (
+                !leg ||
+                ['scale', 'targetScale'].some(
+                    (key) =>
+                        !Number.isFinite(leg[key]) ||
+                        leg[key] < 1 ||
+                        leg[key] > this.settings.legStretch.maxScale + 1e-10,
+                )
+            );
+        });
+    }
+
+    /** 신체 기록(이름 중복 없음, 모양·핸들·형상)이 지금 선수의 신체와 맞는지 본다. 틀리면 true. */
+    _savedPartsInvalid(saved, id) {
+        return (
+            !Array.isArray(saved.partHandles) ||
+            saved.partHandles.length !== this.players[id].parts.length ||
+            new Set(saved.partHandles.map((part) => part?.name)).size !==
+                saved.partHandles.length ||
+            Array.from(saved.partHandles).some(
+                (part) =>
+                    !part ||
+                    !this.players[id].parts.some(
+                        (item) => item.name === part.name && item.shape === part.shape,
+                    ) ||
+                    !Number.isFinite(part.body) ||
+                    !Number.isFinite(part.collider) ||
+                    !snapshotGeometry(part.geometry, part.shape) ||
+                    !snapshotGeometry(part.restGeometry, part.shape),
+            )
+        );
+    }
+
+    /** 관절 기록(이름 중복 없음, 핸들·목표 3개·기준점)이 지금 선수의 관절과 맞는지 본다. 틀리면 true. */
+    _savedJointsInvalid(saved, id) {
+        return (
+            !Array.isArray(saved.joints) ||
+            saved.joints.length !== this.players[id].joints.length ||
+            new Set(saved.joints.map((joint) => joint?.name)).size !== saved.joints.length ||
+            Array.from(saved.joints).some(
+                (joint) =>
+                    !joint ||
+                    !this.players[id].joints.some((item) => item.name === joint.name) ||
+                    !Number.isFinite(joint.handle) ||
+                    !Array.isArray(joint.target) ||
+                    joint.target.length !== 3 ||
+                    !Array.from(joint.target).every(Number.isFinite) ||
+                    !snapshotVector(joint.restAnchor1) ||
+                    !snapshotVector(joint.restAnchor2),
+            )
+        );
     }
 
     /**

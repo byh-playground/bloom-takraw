@@ -1,4 +1,5 @@
 import { TAKRAW_CLUB_RULES, takrawTrainingFactor } from '../../club/club.js';
+import { TAKRAW_HUMAN_ROLE } from '../../simulation/roster.js';
 import { say, escape } from '../markup.js';
 import { UI, clubText } from '../../i18n/messages/ui.js';
 
@@ -241,6 +242,11 @@ class TakrawClubScreen {
         if (focus) this.selection.focus = focus;
     }
 
+    /** 헤더의 뒤로 버튼(#dialog-back)은 선수 상세가 그려져 있을 때만 보인다(대화상자를 처음 열 때와 다시 그릴 때). */
+    syncBack() {
+        this.back.hidden = !document.getElementById('club-detail');
+    }
+
     restore() {
         for (const [id, scroll] of Object.entries(this.selection.scroll)) {
             const node = id === 'dialog' ? this.node : document.getElementById(id);
@@ -280,7 +286,7 @@ class TakrawClubScreen {
                 : null;
         if (name) this.selection.nameDraft = name.value;
         this.node.innerHTML = this.content();
-        this.back.hidden = !document.getElementById('club-detail');
+        this.syncBack();
         const nextName = document.getElementById('club-name');
         if (caret && nextName && !nextName.disabled) {
             nextName.focus({ preventScroll: true });
@@ -323,7 +329,7 @@ class TakrawClubScreen {
                 const note =
                     picked && !current
                         ? `${recommended ? `<span class="club-chip">${escape(UI.recommended())}</span>` : ''}${clubDelta(picked, starter)}`
-                        : `<span>${escape(current ? UI.starting() : role.id === 'attacker' ? UI.directControl() : UI.teammate())}</span>`;
+                        : `<span>${escape(current ? UI.starting() : role.id === TAKRAW_HUMAN_ROLE ? UI.directControl() : UI.teammate())}</span>`;
                 // 선발 칸에도 선수 카드와 같은 ⓘ가 있다. 칸 자체는 자리 선택 버튼이라 ⓘ는 그 옆에 따로 둔다.
                 return `<div class="club-slot"><button type="button" class="${selected ? 'selected' : ''} ${recommended ? 'recommended' : ''}" ${current ? 'disabled' : ''} aria-pressed="${selected}" data-club-action="slot" data-value="${role.id}" data-club-focus="lineup-${role.id}"><small>${escape(say(role.name))}</small><strong>${escape(say(starter.name))}</strong><span class="club-slot-note">${note}</span></button><button type="button" class="club-info" data-club-action="info" data-value="${starter.id}" data-club-focus="lineup-info-${role.id}" aria-label="${escape(UI.infoLabel({ name: say(starter.name) }))}">ⓘ</button></div>`;
             })

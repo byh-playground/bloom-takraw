@@ -1,3 +1,5 @@
+import { TAKRAW_TIMING_GRADES } from '../config/game.js';
+
 /**
  * 점프·발차기 입력 타이밍 오차의 단일 소유자.
  * 오차 단위는 초이며 음수는 이상적인 시점보다 빠름, 양수는 늦음이다.
@@ -39,11 +41,16 @@ class TakrawTimingJudge {
         records[team][kind] = { at: time, error };
     }
 
-    /** 오차 크기로 등급을 정한다. 창은 config.timing.windows가 소유한다. */
+    /** 오차 크기로 등급을 정한다. 창은 config.timing.windows가, 등급 이름은 TAKRAW_TIMING_GRADES가 소유한다. */
     grade(error) {
-        const { perfect, good } = this.settings.windows;
+        const { windows } = this.settings,
+            grades = TAKRAW_TIMING_GRADES;
         const size = Math.abs(error);
-        return size <= perfect ? 'perfect' : size <= good ? 'good' : 'normal';
+        return size <= windows[grades.perfect]
+            ? grades.perfect
+            : size <= windows[grades.good]
+              ? grades.good
+              : grades.normal;
     }
 
     /**

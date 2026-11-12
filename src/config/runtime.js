@@ -1,4 +1,4 @@
-import { TAKRAW_ID } from './game.js';
+import { TAKRAW_ID, TAKRAW_TIMING_GRADES } from './game.js';
 
 // 발차기 한 번은 네 층이다. 낮은 쿵(thump)은 무게를, 중음 몸통(body, 삼각파)은 작은 스피커에서도 들리는 울림을,
 // 슬랩(slap)과 클릭(click)은 발이 공에 닿는 순간의 "탁"을 맡는다. 공 속도가 세질수록 모든 층이 커지고 길어지고 밝아진다.
@@ -35,15 +35,15 @@ const KICK_LEVELS = {
     },
 };
 
-// 타이밍 등급이 높을수록 같은 단계 위에 높은 음을 더한다. timing: 접촉 타이밍 판정의 등급 이름(없으면 등급 없는 기본 소리).
+// 타이밍 등급이 높을수록 같은 단계 위에 높은 음을 더한다. timing: 접촉 타이밍 판정의 등급 이름(TAKRAW_TIMING_GRADES, 없으면 등급 없는 기본 소리).
 const KICK_GRADES = {
     '': { timing: undefined, layers: [] },
     Good: {
-        timing: 'good',
+        timing: TAKRAW_TIMING_GRADES.good,
         layers: [{ kind: 'tone', hz: 880, end: 880, ms: 70, gain: 0.22, type: 'sine', delay: 20 }],
     },
     Perfect: {
-        timing: 'perfect',
+        timing: TAKRAW_TIMING_GRADES.perfect,
         layers: [
             { kind: 'tone', hz: 988, end: 1319, ms: 90, gain: 0.28, type: 'sine', delay: 15 },
             { kind: 'tone', hz: 1760, end: 1760, ms: 140, gain: 0.18, type: 'sine', delay: 70 },
@@ -84,6 +84,67 @@ const POINT_LAYERS = [
     { kind: 'tone', hz: 285, end: 365, ms: 340, gain: 0.17, type: 'triangle', delay: 105 },
 ];
 
+/**
+ * 경기 모드별 runtime·화면 정책의 단일 출처. runtime·presentation은 모드 이름을 비교하지 않고 이 표나
+ * 시뮬레이션 프로필(simulation/modes.js TAKRAW_MODES)의 플래그를 읽는다. 시뮬레이션 규칙과 같은 지식(사람 입력·한 기기 2인·
+ * 상대 대기·연습·득점)은 프로필을 읽고, 여기에는 runtime·화면에만 있는 뜻을 둔다. 플래그 하나는 한 가지 뜻이다.
+ * 어느 분기가 어느 플래그를 읽는지는 docs/architecture.md 「모드 정책」 표가 정리한다. 모드가 없으면(처음 화면) 표에 없으므로 `?.`로 읽는다.
+ *
+ * - clubTeam: 내 팀 편성(팀 관리 선수)으로 경기한다. 팀 저장이 준비돼야 시작할 수 있다.
+ * - ownSchool: 내 학교(팀 관리에서 고른 학교)로 경기한다. 아니면 기본 학교다.
+ * - opponentSchool: 상대가 도장깨기 학교(학교 AI 선수·성향)다. 경기 기록에 학교 id가 붙는다.
+ * - watchSeed: 관전 시드 하나가 두 학교·시드·HUD 팀 이름과 색을 정한다(시드 입력칸).
+ * - loopsFirstPoint: 첫 1점 뒤 같은 시드를 처음부터 다시 연다.
+ * - room: 온라인 방 세션이다(롤백·연결 카드·내 팀 번호·방 코드 시드).
+ * - announcesTeam: 두 사람이 모이면 팀 이름·학교를 서로 알리고, 그 학교로 색·모델을 칠한다.
+ * - namedTeams: 점수판 팀 이름이 학교·팀 이름이다(색 점, 「○○ 승리」 결과).
+ * - holdsSimulation: 이 기기가 시뮬레이션을 멈출 수 있다(일시 정지·리플레이 동안 진행을 멈춘다).
+ * - restart: 다시 시작의 방법. 'command'는 같은 세션에 재시작 명령, 'hostCommand'는 방장만 재시작 명령, 'reopen'은 세션을 새로 연다.
+ * - rewards: 경기 결과로 팀 보상을 저장한다.
+ * - replay: 득점 리플레이를 보여 준다.
+ * - recorded: 게임 지표에 경기 기록을 남긴다.
+ * - scoreMotion: 결정타 득점 연출(점수 모션)을 한다.
+ */
+const MODE_POLICY_DEFAULTS = Object.freeze({
+    clubTeam: false,
+    ownSchool: false,
+    opponentSchool: false,
+    watchSeed: false,
+    loopsFirstPoint: false,
+    room: false,
+    announcesTeam: false,
+    namedTeams: false,
+    holdsSimulation: true,
+    restart: 'reopen',
+    rewards: false,
+    replay: false,
+    recorded: false,
+    scoreMotion: false,
+});
+const definePolicy = (policy) => Object.freeze({ ...MODE_POLICY_DEFAULTS, ...policy });
+const TAKRAW_MODE_POLICY = Object.freeze({
+    match: definePolicy({
+        clubTeam: true,
+        ownSchool: true,
+        opponentSchool: true,
+        rewards: true,
+        replay: true,
+        recorded: true,
+        scoreMotion: true,
+    }),
+    local: definePolicy({ ownSchool: true, replay: true, recorded: true }),
+    online: definePolicy({
+        room: true,
+        announcesTeam: true,
+        namedTeams: true,
+        holdsSimulation: false,
+        restart: 'hostCommand',
+        recorded: true,
+    }),
+    watch: definePolicy({ watchSeed: true, loopsFirstPoint: true, namedTeams: true }),
+    training: definePolicy({ clubTeam: true, ownSchool: true, restart: 'command' }),
+});
+
 const TAKRAW_RUNTIME = Object.freeze({
     // 관전: 같은 시드는 같은 AI 대 AI 경기를 만든다. showcaseSeed는 소개영상의 명경기다.
     watch: {
@@ -107,13 +168,12 @@ const TAKRAW_RUNTIME = Object.freeze({
     // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailTicks에서 경기를 멈추고 그 장면을 다시 그린다.
     // 구간은 끝에서 leadTouches번째 터치의 leadTicks 앞부터(최대 maxSeconds초)다. 스파이크 앞 slowBefore~뒤 slowAfter 틱은 slowRate 배속이다.
     // 카메라는 측면 중계 각도(yaw·pitch, 라디안)다. 온라인은 상대와 시계를 맞춰야 하므로 멈출 수 없어 제외한다.
-    // 게임 지표(gamekit metrics). 경기 기록은 modes의 경기만 남긴다(관전·훈련 제외). 키 표는 README "게임 지표".
+    // 게임 지표(gamekit metrics). 경기 기록은 TAKRAW_MODE_POLICY의 recorded 모드만 남긴다(관전·훈련 제외). 키 표는 README "게임 지표".
     metrics: {
         endpoint: 'https://bloom-metrics.byh-playground.workers.dev',
-        modes: ['match', 'local', 'online'],
     },
+    // 리플레이 대상 모드는 TAKRAW_MODE_POLICY의 replay다.
     highlight: {
-        modes: ['match', 'local'],
         longRallyTouches: 10,
         leadTouches: 3,
         leadTicks: 15,
@@ -319,4 +379,4 @@ const TAKRAW_RUNTIME = Object.freeze({
     },
 });
 
-export { TAKRAW_RUNTIME, TAKRAW_KICK_SOUND };
+export { TAKRAW_RUNTIME, TAKRAW_KICK_SOUND, TAKRAW_MODE_POLICY };

@@ -1,5 +1,5 @@
 import { SessionReplayRecorder } from '@bloom-gamekit/metrics';
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 
 /**
  * 끝난 경기 하나를 지표(경기 기록)로 남긴다. 기록 중인 세션의 경기 관측 { ordinal, finishedAt, recorded }을 소유한다.
@@ -16,7 +16,7 @@ class MatchRecord {
 
     /** 세션 하나를 연다. 기록하지 않는 모드(관전·연습)는 관측하지 않는다. 기록 여부를 돌려준다. */
     begin(mode) {
-        const recorded = TAKRAW_RUNTIME.metrics.modes.includes(mode);
+        const recorded = Boolean(TAKRAW_MODE_POLICY[mode]?.recorded);
         this.track = recorded ? { ordinal: 0, finishedAt: null, recorded: false } : null;
         return recorded;
     }
@@ -39,7 +39,8 @@ class MatchRecord {
         track.finishedAt ??= session.tick;
         if (session.resimulating || session.confirmedTick + 1 < track.finishedAt) return;
         track.recorded = true;
-        const online = mode === 'online';
+        const policy = TAKRAW_MODE_POLICY[mode];
+        const online = policy.room;
         const recorder = new SessionReplayRecorder({
             session,
             mode,
@@ -55,7 +56,7 @@ class MatchRecord {
                 score: [...state.score],
                 ticks: state.tick,
                 seed: state.seed,
-                ...(mode === 'match' ? { schoolId: schoolId() ?? null } : {}),
+                ...(policy.opponentSchool ? { schoolId: schoolId() ?? null } : {}),
                 ...(online ? { localTeam: localTeam() } : {}),
             });
         } catch (error) {

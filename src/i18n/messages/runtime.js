@@ -78,6 +78,7 @@ const RUNTIME = LOCALE.messages({
     phasePeerFailed: { ko: '직접 연결 실패', en: 'Direct connection failed' },
     phaseSyncFailed: { ko: '게임 상태 불일치', en: 'Game state mismatch' },
     phaseVersionFailed: { ko: '게임 버전 불일치', en: 'Version mismatch' },
+    phaseGameFailed: { ko: '게임 실행 오류', en: 'Game error' },
     phaseReconnecting: { ko: '재접속 중', en: 'Reconnecting' },
     phaseSyncing: { ko: '경기 동기화 중', en: 'Syncing the match' },
     phaseWaitingPeer: { ko: '상대 연결 중', en: 'Connecting to your friend' },
@@ -175,6 +176,12 @@ const RUNTIME = LOCALE.messages({
             `두 게임의 경기 상태가 달라 검사에 실패했어요. 게임 쪽 문제일 수 있어요. 두 분 모두 새로고침해 같은 버전으로 다시 연결해 주세요. (진단: ${detail})`,
         en: ({ detail }) =>
             `The two games’ match states didn’t agree, so the check failed. This may be a problem in the game. Both players should reload to the same version and reconnect. (Diagnostic: ${detail})`,
+    },
+    errGame: {
+        ko: ({ detail }) =>
+            `게임 실행 중 문제가 생겨 경기를 계속할 수 없어요. 연결 문제가 아니라 게임 쪽 문제예요. 방을 닫고 새로고침해 다시 시작해 주세요. (진단: ${detail})`,
+        en: ({ detail }) =>
+            `Something went wrong in the game, so the match can’t continue. This isn’t a connection problem — it’s the game. Close the room, reload, and start again. (Diagnostic: ${detail})`,
     },
     errVersion: {
         ko: ({ version, detail }) =>

@@ -1,4 +1,5 @@
 import { TAKRAW_VERSION } from '../config/game.js';
+import { TAKRAW_MODES } from '../simulation/modes.js';
 import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { createNavigation } from '@bloom-gamekit/navigation';
 import { takrawRoute } from './routes.js';
@@ -25,6 +26,7 @@ class TakrawUI {
         this.dialog = '';
         this.controller = new AbortController();
         this.previousFocus = null;
+        this.diagnosticTimer = null; // 진단 복사 버튼 글을 되돌리는 타이머
         this.homeShown = false;
         this.nodes = {};
         for (const id of [
@@ -293,8 +295,13 @@ class TakrawUI {
         this.touch.sync(false, this.mode, this.showcase);
         this.nodes['connection-indicator'].hidden = true;
         // 소개영상 호스트는 부팅 직후 이 주소를 읽어 소개를 연다. 호스트가 붙기 전에 지우지 않는다.
+        // 처음 표시 전에 연 팀 관리 화면은 선수 상세(#/club/<선수 id>)까지 주소에 남긴다.
         if (this.routes.snapshot().screen !== 'showcase')
-            this.setRoute(initialDialog || this.home.route(), true);
+            this.setRoute(
+                initialDialog || this.home.route(),
+                true,
+                initialDialog === 'club' ? this.screens.club.detail : null,
+            );
         if (initialDialog) this.openDialog(initialDialog);
     }
 
@@ -378,7 +385,10 @@ class TakrawUI {
         this.nodes['dialog-content'].innerHTML = screen.content();
         this.nodes['dialog-content'].scrollTop = 0;
         if (route === 'network') this.screens.network.render();
-        if (route === 'club') this.screens.club.restore();
+        if (route === 'club') {
+            this.screens.club.syncBack();
+            this.screens.club.restore();
+        }
         queueMicrotask(() => {
             if (route !== 'club' || !this.screens.club.restoreFocus())
                 document.getElementById('dialog-close').focus({ preventScroll: true });
@@ -478,11 +488,16 @@ class TakrawUI {
         });
         area.hidden = result.copied;
         button.textContent = result.copied ? UI.copied() : UI.copyManually();
-        if (this.diagnosticTimer) window.clearTimeout(this.diagnosticTimer);
+        this.clearDiagnosticTimer();
         this.diagnosticTimer = window.setTimeout(() => {
             if (button.isConnected) button.textContent = label;
             this.diagnosticTimer = null;
         }, 1800);
+    }
+
+    clearDiagnosticTimer() {
+        if (this.diagnosticTimer) window.clearTimeout(this.diagnosticTimer);
+        this.diagnosticTimer = null;
     }
 
     /** runtime이 연결 상태를 넘긴다. 화면 위 연결 표시와 열린 친구와 하기 창을 갱신한다. */
@@ -516,13 +531,14 @@ class TakrawUI {
         if (!hud) return;
         this.hud.update(hud, this.mode);
         this.touch.update(hud, this.showcase);
-        if (this.mode === 'training' && hud.training) this.training.update(hud.training);
+        if (TAKRAW_MODES[this.mode]?.drill && hud.training) this.training.update(hud.training);
     }
 
     dispose() {
         this.touch.release();
         this.drawStage.dispose();
         this.screens.network.clearCopyTimer();
+        this.clearDiagnosticTimer();
         this.controller.abort();
         this.routes.dispose();
     }

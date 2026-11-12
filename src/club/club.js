@@ -5,6 +5,7 @@
 import { takrawGenerateCard, takrawCardTag } from './generator.js';
 import { TAKRAW_NAMES } from './names.js';
 import { takrawOpponents, takrawPickHome, takrawSchool } from '../config/schools.js';
+import { TAKRAW_ROLE, TAKRAW_ROLES, TAKRAW_ROLE_NAMES } from '../config/game.js';
 
 const TAKRAW_CLUB_RULES = Object.freeze({
     initial: { credits: 600, trainingPoints: 6 },
@@ -54,11 +55,7 @@ const TAKRAW_CLUB_RULES = Object.freeze({
         win: { credits: 180, trainingPoints: 3 },
         loss: { credits: 100, trainingPoints: 2 },
     },
-    roles: [
-        { id: 'receiver', name: { ko: '리시버', en: 'Receiver' } },
-        { id: 'setter', name: { ko: '세터', en: 'Setter' } },
-        { id: 'attacker', name: { ko: '공격수', en: 'Attacker' } },
-    ],
+    roles: TAKRAW_ROLES.map((id) => ({ id, name: TAKRAW_ROLE_NAMES[id] })),
     stats: [
         {
             id: 'mobility',
@@ -124,7 +121,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         rarity: 'common',
         name: TAKRAW_NAMES.get('한결'),
         tag: { ko: '든든한 수비', en: 'Solid defense' },
-        preferredRole: 'receiver',
+        preferredRole: TAKRAW_ROLE.receiver,
         stats: takrawClubStats({ defense: 74, recovery: 68 }),
     },
     {
@@ -133,7 +130,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         rarity: 'common',
         name: TAKRAW_NAMES.get('윤서'),
         tag: { ko: '차분한 연결', en: 'Calm link-up' },
-        preferredRole: 'setter',
+        preferredRole: TAKRAW_ROLE.setter,
         stats: takrawClubStats({ defense: 58, recovery: 62 }),
     },
     {
@@ -142,7 +139,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         rarity: 'common',
         name: TAKRAW_NAMES.get('이든'),
         tag: { ko: '균형 잡힌 공격', en: 'Balanced attack' },
-        preferredRole: 'attacker',
+        preferredRole: TAKRAW_ROLE.attacker,
         stats: takrawClubStats({}),
     },
     {
@@ -150,7 +147,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         rarity: 'common',
         name: TAKRAW_NAMES.get('하린'),
         tag: { ko: '빠른 공간 커버', en: 'Quick court coverage' },
-        preferredRole: 'attacker',
+        preferredRole: TAKRAW_ROLE.attacker,
         stats: takrawClubStats({ mobility: 84, flexibility: 78, defense: 58, recovery: 60 }),
     },
     {
@@ -158,7 +155,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         rarity: 'common',
         name: TAKRAW_NAMES.get('도윤'),
         tag: { ko: '높은 타점', en: 'High contact point' },
-        preferredRole: 'attacker',
+        preferredRole: TAKRAW_ROLE.attacker,
         stats: takrawClubStats({ mobility: 54, jump: 78, power: 78, defense: 52, recovery: 56 }),
     },
     {
@@ -166,14 +163,14 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         rarity: 'common',
         name: TAKRAW_NAMES.get('시온'),
         tag: { ko: '힘 있는 토스', en: 'Powerful sets' },
-        preferredRole: 'setter',
+        preferredRole: TAKRAW_ROLE.setter,
         stats: takrawClubStats({ mobility: 62, setting: 84, defense: 72, recovery: 62 }),
     },
     {
         id: 'na-rae',
         name: TAKRAW_NAMES.get('나래'),
         tag: { ko: '넓은 수비 범위', en: 'Wide defensive range' },
-        preferredRole: 'receiver',
+        preferredRole: TAKRAW_ROLE.receiver,
         rarity: 'rare',
         stats: takrawClubStats({
             mobility: 76,
@@ -187,7 +184,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         id: 'tae-o',
         name: TAKRAW_NAMES.get('태오'),
         tag: { ko: '강력한 공중 타격', en: 'Powerful air strikes' },
-        preferredRole: 'attacker',
+        preferredRole: TAKRAW_ROLE.attacker,
         rarity: 'hero',
         stats: takrawClubStats({
             mobility: 58,
@@ -201,7 +198,7 @@ const TAKRAW_CLUB_PLAYERS = Object.freeze([
         id: 'ra-on',
         name: TAKRAW_NAMES.get('라온'),
         tag: { ko: '빠른 세팅', en: 'Quick setting' },
-        preferredRole: 'setter',
+        preferredRole: TAKRAW_ROLE.setter,
         rarity: 'rare',
         stats: takrawClubStats({
             mobility: 74,

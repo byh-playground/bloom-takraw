@@ -17,7 +17,7 @@ import { NetworkLink } from './runtime/network.js';
 import { MatchSession } from './runtime/match-session.js';
 import { RenderLoop } from './runtime/render-loop.js';
 import { BootStatus } from './runtime/boot-status.js';
-import { TAKRAW_RUNTIME } from './config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from './config/runtime.js';
 import { TakrawClub } from './club/club.js';
 import { TakrawGame } from './simulation/game.js';
 import { TAKRAW_TRAINING_LESSONS, TAKRAW_TRAINING_TEMPOS } from './simulation/training.js';
@@ -35,6 +35,167 @@ import { RUNTIME } from './i18n/messages/runtime.js';
  * 이 함수가 직접 소유하는 상태는 disposed, club 참조(확인용 장면이 바꿔 끼운다), 부팅 중 만든 자원(game·view·codec·audio·input·intro·pwa)뿐이다.
  * 경기 상태는 MatchSession, 연결은 NetworkLink, 그리기 주기는 RenderLoop, 부팅 단계는 BootStatus가 소유한다(docs/architecture.md).
  */
+/**
+ * 화면(TakrawUI)이 부르는 콜백 묶음. 화면은 부팅 초기에 만들어지고 오디오·뷰·입력은 그 뒤에 생기므로 조회 함수(get*)로 읽는다.
+ * 클럽은 확인용 장면이 바꿔 끼울 수 있어 역시 조회 함수로 읽는다.
+ */
+function takrawUiCallbacks({
+    match,
+    net,
+    metrics,
+    rewards,
+    clubAction,
+    resetCamera,
+    installPwa,
+    diagnosticReport,
+    getClub,
+    getAudio,
+    getView,
+    getInput,
+}) {
+    return {
+        canStart: (nextMode) => match.canStart(nextMode),
+        onStart(nextMode) {
+            metrics.track('menu', nextMode, 'click');
+            match.clearCampaign();
+            const policy = TAKRAW_MODE_POLICY[nextMode];
+            if (policy.watchSeed) {
+                match.startWatch(match.watchSeed);
+                return;
+            }
+            if (policy.room) {
+                net.set({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
+            } else match.startLocal(nextMode);
+        },
+        onRestart: () => match.restart(),
+        diagnosticText: diagnosticReport,
+        onWatch: (seed) => {
+            metrics.track('menu', 'watch_seed', 'click');
+            match.clearCampaign();
+            match.startWatch(seed);
+        },
+        onCampaign(schoolId) {
+            metrics.track('menu', 'campaign', 'click', { schoolId });
+            const { home, cleared } = getClub().getView().campaign,
+                index = home
+                    ? takrawOpponents(home).findIndex((school) => school.id === schoolId)
+                    : -1;
+            if (index < 0 || index > cleared.length || !match.canStart('match')) return;
+            match.startCampaign(schoolId);
+        },
+        onClubAction(action, payload) {
+            if (action !== 'refresh') metrics.track('club', action, 'click');
+            return clubAction(action, payload);
+        },
+        onRewardRetry: () => rewards.retry(),
+        onTrainingLesson(lesson) {
+            const option = TAKRAW_TRAINING_LESSONS.find((item) => item.id === lesson);
+            if (option) match.trainingCommand(option.command);
+        },
+        onTrainingTempo(tempo) {
+            const option = TAKRAW_TRAINING_TEMPOS.find((item) => item.id === tempo);
+            if (option) match.trainingCommand(option.command);
+        },
+        onCameraReset: resetCamera,
+        onInstall: installPwa,
+        onPause: (value) => match.setPaused(value),
+        onReplaySkip: () => match.skipReplay(),
+        onQuit: () => match.quit(),
+        onSetting(key, value) {
+            if (key === 'sound') getAudio()?.setMuted(!value);
+            if (key === 'quality') getView()?.setQuality(value);
+        },
+        onNetwork: (action, code, resuming) => match.connect(action, code, resuming),
+        onTouch(action, source, down) {
+            const input = getInput();
+            if (!input || !['jump', 'kick'].includes(action)) return;
+            if (down && !match.controlsAllowed()) return;
+            input.setTouch(action, source, down);
+            if (down) getAudio().unlock();
+            match.observeSoon();
+        },
+        onAxis(x, z) {
+            getInput()?.setAxis(x, z, match.controlsAllowed());
+            match.observeSoon();
+        },
+    };
+}
+
+/** 확인용 주소(`?debug=1&scene=…`)일 때만 불러와 장면을 연결한다. 실시간 구동을 멈추고 가상 시계로 틱을 직접 진행한다. */
+async function installTakrawDebugScenes({
+    config,
+    match,
+    renderLoop,
+    ui,
+    game,
+    view,
+    codec,
+    getClub,
+    setClub,
+    publishClub,
+    openClubSave,
+    clubName,
+    recordError,
+}) {
+    const [{ installDebugHost }, { createDebugScenes }] = await Promise.all([
+        import('@bloom-gamekit/debug-tools'),
+        import('./debug-scenes.js'),
+    ]);
+    installDebugHost({
+        scenes: createDebugScenes({
+            config,
+            openWatch(seed) {
+                // 관전의 첫 1점 반복(다시 열기)을 끈다. 다시 열면 요청한 tick이 아니라 tick 0을 보고하게 된다.
+                if (!match.startWatch(seed, { repeat: false })) return false;
+                renderLoop.stop();
+                match.freezeRealtime();
+                return true;
+            },
+            pulse: (now) => match.pulse(now),
+            render: (now) => match.render(now),
+            renderFrom: (camera) => view.renderFrom(camera),
+            ballPosition: () => view.ballPosition(),
+            read: () => ({
+                mode: match.mode,
+                // 지금 경기의 시드. 관전은 관전 시드와 같고, 확인용 AI 대전(scene=match)은 고정한 시드다.
+                seed: game.state.seed,
+                tick: game.state.tick,
+                score: [...game.state.score],
+            }),
+            stateHash: () => deterministic.hashBytes(codec.encode(game.save())),
+            async openClub(seed, stored = null) {
+                // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
+                // stored가 있으면 메모리 저장에 그 레코드가 이미 있는 것으로 시작한다(읽지 못하는 저장의 화면 확인용).
+                getClub().dispose();
+                const club = new TakrawClub({
+                    onChange: publishClub,
+                    openSave: stored
+                        ? (options) =>
+                              createSave({
+                                  ...options,
+                                  adapter: memoryAdapter({ [options.key]: stored }),
+                              })
+                        : openClubSave,
+                    defaultName: clubName,
+                    random: takrawUnitStream(new deterministic.SeededPRNG(seed)),
+                });
+                setClub(club);
+                await club.load().catch((error) => {
+                    if (!stored) throw error;
+                    recordError(error, 'club-load');
+                });
+                return club;
+            },
+            showClub() {
+                renderLoop.stop();
+                ui.navigate('club');
+            },
+            openMatch: (seed, every) => match.openDebugMatch(seed, every),
+            readReplay: () => match.replayState(),
+        }),
+    });
+}
+
 async function bootTakraw() {
     const config = TAKRAW_CONFIG;
     const dependencyState = Object.fromEntries(
@@ -303,70 +464,20 @@ async function bootTakraw() {
     window.__takraw = runtime;
 
     ui = new TakrawUI(
-        {
-            canStart: (nextMode) => match.canStart(nextMode),
-            onStart(nextMode) {
-                metrics.track('menu', nextMode, 'click');
-                match.clearCampaign();
-                if (nextMode === 'watch') {
-                    match.startWatch(match.watchSeed);
-                    return;
-                }
-                if (nextMode === 'online') {
-                    net.set({ state: 'idle', count: 0, message: RUNTIME.netChoose() });
-                } else match.startLocal(nextMode);
-            },
-            onRestart: () => match.restart(),
-            diagnosticText: diagnosticReport,
-            onWatch: (seed) => {
-                metrics.track('menu', 'watch_seed', 'click');
-                match.clearCampaign();
-                match.startWatch(seed);
-            },
-            onCampaign(schoolId) {
-                metrics.track('menu', 'campaign', 'click', { schoolId });
-                const { home, cleared } = club.getView().campaign,
-                    index = home
-                        ? takrawOpponents(home).findIndex((school) => school.id === schoolId)
-                        : -1;
-                if (index < 0 || index > cleared.length || !match.canStart('match')) return;
-                match.startCampaign(schoolId);
-            },
-            onClubAction(action, payload) {
-                if (action !== 'refresh') metrics.track('club', action, 'click');
-                return clubAction(action, payload);
-            },
-            onRewardRetry: () => rewards.retry(),
-            onTrainingLesson(lesson) {
-                const option = TAKRAW_TRAINING_LESSONS.find((item) => item.id === lesson);
-                if (option) match.trainingCommand(option.command);
-            },
-            onTrainingTempo(tempo) {
-                const option = TAKRAW_TRAINING_TEMPOS.find((item) => item.id === tempo);
-                if (option) match.trainingCommand(option.command);
-            },
-            onCameraReset: resetCamera,
-            onInstall: installPwa,
-            onPause: (value) => match.setPaused(value),
-            onReplaySkip: () => match.skipReplay(),
-            onQuit: () => match.quit(),
-            onSetting(key, value) {
-                if (key === 'sound') audio?.setMuted(!value);
-                if (key === 'quality') view?.setQuality(value);
-            },
-            onNetwork: (action, code, resuming) => match.connect(action, code, resuming),
-            onTouch(action, source, down) {
-                if (!input || !['jump', 'kick'].includes(action)) return;
-                if (down && !match.controlsAllowed()) return;
-                input.setTouch(action, source, down);
-                if (down) audio.unlock();
-                match.observeSoon();
-            },
-            onAxis(x, z) {
-                input?.setAxis(x, z, match.controlsAllowed());
-                match.observeSoon();
-            },
-        },
+        takrawUiCallbacks({
+            match,
+            net,
+            metrics,
+            rewards,
+            clubAction,
+            resetCamera,
+            installPwa,
+            diagnosticReport,
+            getClub: () => club,
+            getAudio: () => audio,
+            getView: () => view,
+            getInput: () => input,
+        }),
         net.snapshot,
     );
     const clubName = LOCALE.text({ ko: '블룸 클럽', en: 'Bloom Club' }); // 새 클럽의 이름. 처음 만든 언어로 저장되고, 이후 사용자가 바꾼다.
@@ -452,64 +563,24 @@ async function bootTakraw() {
         const query = new URLSearchParams(location.search),
             watchParam = query.get(TAKRAW_RUNTIME.watch.param);
         if (watchParam !== null && /^\d+$/.test(watchParam)) match.startWatch(watchParam);
-        if (TAKRAW_LAUNCH.debug) {
-            // 확인용 주소(`?debug=1&scene=…`)일 때만 불러온다. 실시간 구동을 멈추고 가상 시계로 틱을 직접 진행한다.
-            const [{ installDebugHost }, { createDebugScenes }] = await Promise.all([
-                import('@bloom-gamekit/debug-tools'),
-                import('./debug-scenes.js'),
-            ]);
-            installDebugHost({
-                scenes: createDebugScenes({
-                    config,
-                    openWatch(seed) {
-                        if (!match.startWatch(seed)) return false;
-                        renderLoop.stop();
-                        match.freezeRealtime();
-                        return true;
-                    },
-                    pulse: (now) => match.pulse(now),
-                    render: (now) => match.render(now),
-                    renderFrom: (camera) => view.renderFrom(camera),
-                    ballPosition: () => view.ballPosition(),
-                    read: () => ({
-                        mode: match.mode,
-                        // 지금 경기의 시드. 관전은 관전 시드와 같고, 확인용 AI 대전(scene=match)은 고정한 시드다.
-                        seed: game.state.seed,
-                        tick: game.state.tick,
-                        score: [...game.state.score],
-                    }),
-                    stateHash: () => deterministic.hashBytes(codec.encode(game.save())),
-                    async openClub(seed, stored = null) {
-                        // 시드에서 나온 난수로 새 클럽을 메모리 저장에 만든다(내 학교·뽑기 결과가 시드로 정해진다).
-                        // stored가 있으면 메모리 저장에 그 레코드가 이미 있는 것으로 시작한다(읽지 못하는 저장의 화면 확인용).
-                        club.dispose();
-                        club = new TakrawClub({
-                            onChange: publishClub,
-                            openSave: stored
-                                ? (options) =>
-                                      createSave({
-                                          ...options,
-                                          adapter: memoryAdapter({ [options.key]: stored }),
-                                      })
-                                : openClubSave,
-                            defaultName: clubName,
-                            random: takrawUnitStream(new deterministic.SeededPRNG(seed)),
-                        });
-                        await club.load().catch((error) => {
-                            if (!stored) throw error;
-                            recordError(error, 'club-load');
-                        });
-                        return club;
-                    },
-                    showClub() {
-                        renderLoop.stop();
-                        ui.navigate('club');
-                    },
-                    openMatch: (seed, every) => match.openDebugMatch(seed, every),
-                    readReplay: () => match.replayState(),
-                }),
+        if (TAKRAW_LAUNCH.debug)
+            await installTakrawDebugScenes({
+                config,
+                match,
+                renderLoop,
+                ui,
+                game,
+                view,
+                codec,
+                getClub: () => club,
+                setClub: (next) => {
+                    club = next;
+                },
+                publishClub,
+                openClubSave,
+                clubName,
+                recordError,
             });
-        }
         if (!demo) {
             // 소개영상이 열려 있는 동안 뒤의 경기는 멈춘다(호스트 요구). 닫으면 이전 상태로 돌아간다.
             let resume = false;

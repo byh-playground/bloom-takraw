@@ -1,6 +1,6 @@
 // 학교 이름(TextPair)·색상은 출시 전 임시값입니다. 학교(외형·속성)와 도전 단계(AI 난이도)의 단일 출처입니다.
 // 학교는 이름·색·속성만 가지고, 난이도는 도전 단계(TAKRAW_LADDER)가 정합니다. 내 학교는 처음 저장할 때 한 번 정해지고 상대 목록에서 빠집니다.
-import { TAKRAW_CONFIG, TAKRAW_GAME_NAME } from './game.js';
+import { TAKRAW_CONFIG, TAKRAW_GAME_NAME, TAKRAW_ROLES } from './game.js';
 
 /** 속성의 단일 목록. 학교의 element와 스파이크 연출(game.js visual.impact.elements)이 이 id를 쓴다. */
 const TAKRAW_ELEMENTS = Object.freeze(
@@ -28,7 +28,7 @@ const ai = (reaction, clearance, depth, lateral, ability, stableControl = false)
             lateral,
         }),
         players: Object.freeze(
-            ['receiver', 'setter', 'attacker'].map((role, index) =>
+            TAKRAW_ROLES.map((role, index) =>
                 Object.freeze({
                     role,
                     stats: Object.freeze(

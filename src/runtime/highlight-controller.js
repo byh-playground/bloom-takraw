@@ -1,4 +1,4 @@
-import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TakrawHighlight } from '../presentation/highlight.js';
 
 /**
@@ -35,7 +35,7 @@ class HighlightController {
      * 실제 경기도 같은 바이트에서 되살려 두 경기를 같은 출발점에 둔다(락스텝 합류와 같은 방식). 세션이 상태를 불러오거나 바꾸면 다시 잡는다.
      */
     anchorIfNeeded(game, codec, mode) {
-        if (!TAKRAW_RUNTIME.highlight.modes.includes(mode) || this.highlight.anchored) return;
+        if (!TAKRAW_MODE_POLICY[mode]?.replay || this.highlight.anchored) return;
         const start = codec.encode(game.save()).slice();
         game.load(codec.decode(start));
         this.highlight.anchor(start);
@@ -47,8 +47,7 @@ class HighlightController {
 
     /** 꼬리 구간까지 기록된 명장면이 있으면 재생을 시작한다(onAdvance에서 호출). */
     tryBegin(mode) {
-        if (!TAKRAW_RUNTIME.highlight.modes.includes(mode) || this.shown || !this.highlight.begin())
-            return;
+        if (!TAKRAW_MODE_POLICY[mode]?.replay || this.shown || !this.highlight.begin()) return;
         this.shown = true;
         this.onPlaybackChange(true);
         this.playedAt = performance.now();

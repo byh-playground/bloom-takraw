@@ -1,11 +1,14 @@
+import { TAKRAW_ROLE, TAKRAW_ROLES } from '../config/game.js';
+
 /**
- * 선수 id 배치의 단일 출처. 팀 t의 선수는 id t*3 .. t*3+2이고, 슬롯 순서는 리시버·세터·공격수다.
+ * 선수 id 배치의 단일 출처. 팀 t의 선수는 id t*3 .. t*3+2이고, 슬롯 순서는 역할 목록(config/game.js TAKRAW_ROLES) 순서다.
  * 사람이 직접 조종하는 선수는 각 팀의 공격수다(경기 시작 때 선택 선수 [2, 5]).
  * 시뮬레이션·물리·화면이 id에서 팀·슬롯을 읽을 때 이 함수를 쓴다.
  */
-const TAKRAW_ROLES = Object.freeze(['receiver', 'setter', 'attacker']);
 const TAKRAW_TEAM_SIZE = TAKRAW_ROLES.length;
-const TAKRAW_ATTACKER_SLOT = TAKRAW_ROLES.indexOf('attacker');
+/** 사람이 직접 조종하는 역할(편성 화면의 「직접 조종」, HUD의 조종 선수 이름이 없을 때의 역할 이름). */
+const TAKRAW_HUMAN_ROLE = TAKRAW_ROLE.attacker;
+const TAKRAW_ATTACKER_SLOT = TAKRAW_ROLES.indexOf(TAKRAW_HUMAN_ROLE);
 
 /** 팀의 슬롯(0 리시버, 1 세터, 2 공격수)에 있는 선수 id. */
 const takrawPlayerId = (team, slot) => team * TAKRAW_TEAM_SIZE + slot;
@@ -18,7 +21,7 @@ const TAKRAW_TEAM_PLAYER_IDS = Object.freeze(
     ),
 );
 /** 스파이크 연습에서 토스를 올려 주는 선수: 사람 팀(0)의 세터. */
-const TAKRAW_TRAINING_SETTER_ID = takrawPlayerId(0, TAKRAW_ROLES.indexOf('setter'));
+const TAKRAW_TRAINING_SETTER_ID = takrawPlayerId(0, TAKRAW_ROLES.indexOf(TAKRAW_ROLE.setter));
 /** 공격수인 선수인가. */
 const takrawIsAttacker = (playerId) => takrawSlotOf(playerId) === TAKRAW_ATTACKER_SLOT;
 /** 사람이 조종하는 선수(팀의 공격수) id. */
@@ -28,6 +31,7 @@ const takrawHumanPlayerIds = () => [takrawHumanPlayerId(0), takrawHumanPlayerId(
 
 export {
     TAKRAW_ROLES,
+    TAKRAW_HUMAN_ROLE,
     TAKRAW_TEAM_SIZE,
     TAKRAW_TEAM_PLAYER_IDS,
     TAKRAW_TRAINING_SETTER_ID,

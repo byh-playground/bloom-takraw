@@ -1,11 +1,12 @@
 import { ObjectPool } from '@bloom-gamekit/object-pool';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { takrawEventUnits } from '../simulation/random.js';
+import { TAKRAW_TIMING_GRADES } from '../config/game.js';
 
 /** 접촉 payload가 쓰는 연출 등급 이름. 스파이크가 타이밍 등급보다 먼저다. 런타임의 이벤트 수명 계산도 이 함수를 쓴다. */
 function impactStyleKey(styles, payload) {
     if (payload?.spike && styles.spike) return 'spike';
-    return styles[payload?.timing?.grade] ? payload.timing.grade : 'normal';
+    return styles[payload?.timing?.grade] ? payload.timing.grade : TAKRAW_TIMING_GRADES.normal;
 }
 
 /**

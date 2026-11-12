@@ -34,7 +34,10 @@ export function createDebugScenes({
 }) {
     const QUANTUM = 1000 / config.simulation.tickRate;
     const scenes = {
-        /** 시드 하나의 AI 대 AI 경기를 debug-tools 가상 시계로 틱 단위로 진행한다. */
+        /**
+         * 시드 하나의 AI 대 AI 경기를 debug-tools 가상 시계로 틱 단위로 진행한다. 시드는 관전 범위(0~maxSeed) 안의 아무 정수다.
+         * 일반 관전과 달리 첫 1점 뒤에 다시 열지 않으므로 state()의 tick은 요청한 tick이다(득점 뒤에도 경기가 이어진다).
+         */
         watch({ seed }, { freezeClock }) {
             if (!openWatch(seed)) throw new Error(`watch needs an integer seed in range: ${seed}`);
             // 표시·연출이 읽는 시계도 틱에서 나오게 해, 같은 주소가 항상 같은 장면을 만든다. 시계는 호스트가 되돌린다.

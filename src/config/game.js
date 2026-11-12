@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.18.0';
+const TAKRAW_VERSION = '0.19.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -62,10 +62,10 @@ const TAKRAW_CONFIG = Object.freeze({
     status: 'Candidate',
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
     simulation: { tickRate: 60, substeps: 2, aiRate: 15, fixedSeed: 7 },
-    // 매 틱 입력 바이트열: [x, z, 버튼, 조준] × 2명(1P·2P, 한 명당 stride바이트). runtime/input.js가 쓰고 game.js decode가 읽는다.
-    // x·z는 -1..1을 axisScale배 한 부호 있는 바이트. 조준은 발차기 버튼 원 안에서 누른 지점(가로 오른쪽 +, 세로 위 +, -1..1)을
-    // 각각 -aimSteps..aimSteps 정수로 양자화해 4비트씩(상위 가로, 하위 세로, 2의 보수) 담는다. 발차기를 누르지 않으면 0(가운데)이다.
-    input: { size: 8, stride: 4, axisScale: 127, aimSteps: 4 },
+    // 매 틱 입력 바이트열: [x, z, 버튼, 조준x, 조준y] × 2명(1P·2P, 한 명당 stride바이트). runtime/input.js가 쓰고 game.js decode가 읽는다.
+    // x·z와 조준 x·y는 모두 -1..1을 axisScale배 한 부호 있는 바이트다. 조준은 발차기 버튼 원 안에서 누른 지점(가로 오른쪽 +, 세로 위 +)이고
+    // 단계로 나누지 않는다. 발차기를 누르지 않으면 0(가운데)이다.
+    input: { size: 10, stride: 5, axisScale: 127 },
     // 코트·네트 치수의 단일 출처. 물리(네트 충돌체)·판정·AI·화면이 모두 이 값을 읽는다.
     court: { halfLength: 6.7, halfWidth: 3.05, netHeight: 1.52 },
     // Team 0 coordinates; team 1 mirrors X/Z: receive, central set, front attack.

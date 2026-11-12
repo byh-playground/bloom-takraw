@@ -946,6 +946,23 @@ class TakrawView {
         });
     }
 
+    /** 공 본체(구)와 줄무늬 토러스 6개를 정점 색 geometry 하나로 합친다. */
+    ballGeometry(entity) {
+        const T = this.THREE,
+            radius = entity.radius,
+            parts = new PartList(T);
+        parts.add(this.bodyGeometry(entity), 0xffe3a0);
+        const ribbon = parts.geometry(
+            'ribbon',
+            () => new T.TorusGeometry(radius * 0.995, radius * 0.036, 4, 36),
+        );
+        for (let i = 0; i < 6; i++)
+            parts.add(ribbon, 0xb78d44, {
+                rotation: [(i * Math.PI) / 6, (i * Math.PI) / 3, (i * Math.PI) / 5],
+            });
+        return parts.build();
+    }
+
     stretchCapsule(geometry, halfHeight) {
         return {
             geometry,
@@ -1037,21 +1054,12 @@ class TakrawView {
         const skin = skinPalette[playerId % 6];
         const part = entity.part || '';
         if (entity.kind === 'ball') {
-            const radius = entity.radius;
+            // 본체와 줄무늬 6개는 정점 색 geometry 하나다(드로우콜 1). 줄무늬도 본체 재질(roughness 0.66)로 그린다.
             this.mesh(
-                this.bodyGeometry(entity),
-                this.material(0xffe3a0, { roughness: 0.66 }),
+                this.geometry(`ball:${entity.radius}`, () => this.ballGeometry(entity)),
+                this.material(0xffffff, { roughness: 0.66, vertexColors: true }),
                 group,
             );
-            const ribbon = this.geometry(
-                `ball-ribbon:${radius}`,
-                () => new T.TorusGeometry(radius * 0.995, radius * 0.036, 4, 36),
-            );
-            const ribbonMaterial = this.material(0xb78d44, { roughness: 0.9 });
-            for (let i = 0; i < 6; i++) {
-                const band = this.mesh(ribbon, ribbonMaterial, group);
-                band.rotation.set((i * Math.PI) / 6, (i * Math.PI) / 3, (i * Math.PI) / 5);
-            }
         } else {
             let surface = skin;
             if (part === 'torso' || part.startsWith('upperArm')) surface = color;

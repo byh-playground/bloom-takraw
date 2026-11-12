@@ -204,6 +204,18 @@ class TakrawImpactEffects {
         return node;
     }
 
+    /**
+     * 득점 리플레이용 시작: 화면 이펙트(파동·명암, 반짝임, 눌림, 속성 구름)만 켜고 표시 히트스톱·진동·화면 확대는 끈다.
+     * 경과 시간은 호출자가 재생 시각으로 update에 넘긴다.
+     */
+    startReplay(payload) {
+        const node = this.start(payload);
+        node.displayHold = 0;
+        node.shake = null;
+        node.fov = 0;
+        return node;
+    }
+
     /** 같은 이벤트가 재실행으로 다시 확정될 때 호출한다. 경과 시간은 유지하고 모양만 갱신한다. */
     reconcile(node, payload) {
         this.configure(node, payload);

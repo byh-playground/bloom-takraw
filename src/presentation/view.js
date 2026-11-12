@@ -9,6 +9,7 @@ import { TakrawReplayImpacts } from './replay-impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
+import { TakrawRenderStats } from './render-stats.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
@@ -113,6 +114,7 @@ class TakrawView {
         this.replayImpacts = new TakrawReplayImpacts({ impacts: this.impacts, config });
         this.impacts.setElements(this.schools.map((school) => school.element));
         this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
+        this.renderStats = new TakrawRenderStats(this.renderer);
         this.field = new TakrawFieldEffects({
             THREE,
             scene: this.scene,
@@ -1314,6 +1316,7 @@ class TakrawView {
 
     render(presentationFrame, viewData, nowMs, context = {}) {
         if (!viewData) return;
+        this.renderStats.begin();
         const dt = Math.min(0.05, Math.max(0, (nowMs - this.lastMs) / 1000));
         this.lastMs = nowMs;
         for (const entity of viewData.entities)
@@ -1456,6 +1459,7 @@ class TakrawView {
         this.applyHitFlash();
         if (ball) this.updateBallMask(ball);
         this.shockWave.render(this.scene, this.camera, this.impacts);
+        this.renderStats.end();
     }
 
     /**
@@ -1751,6 +1755,34 @@ class TakrawView {
         this.renderer.shadowMap.enabled = this.quality === 'high';
         this.sun.castShadow = this.quality === 'high';
         this.resize();
+        // 품질을 바꾸면 그림자 유무가 프로그램 변종 키에 들어가 다시 컴파일되므로, 경기 밖인 이 설정 순간에 미리 해 둔다.
+        if (this.warmed) this.warmUp();
+    }
+
+    /**
+     * 경기 중 처음 쓰는 순간에 일어날 GPU 일을 로딩 단계에서 미리 한다(DEV-032).
+     * 숨겨 둔 것(접촉 입자·색종이·먼지·안내 표시)까지 모두 보이게 한 장면을 실제 경기와 같은 카메라·조명·그림자·안개·톤 매핑으로
+     * 한 번 그려 셰이더 프로그램을 컴파일·링크하고, 쇼크웨이브 패스의 셰이더와 복사 텍스처도 이때 만든다. 그린 결과는 곧 다음 프레임이 덮는다.
+     * 장면 크기(화면 크기)가 바뀌면 복사 텍스처만 다시 만들어진다(경기 밖 동작).
+     */
+    warmUp() {
+        const warm = this.config.visual.warm;
+        this.impacts.warm(warm.impacts);
+        this.field.warm(warm);
+        const saved = [];
+        this.scene.traverse((object) => {
+            if (object.visible) return;
+            saved.push(object);
+            object.visible = true;
+        });
+        try {
+            this.camera.updateMatrixWorld();
+            this.renderer.compile(this.scene, this.camera);
+            this.shockWave.warm(this.scene, this.camera);
+        } finally {
+            for (const object of saved) object.visible = false;
+        }
+        this.warmed = true;
     }
 
     dispose() {

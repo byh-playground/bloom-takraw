@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.17.7';
+const TAKRAW_VERSION = '0.17.8';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -191,6 +191,8 @@ const TAKRAW_CONFIG = Object.freeze({
     visual: {
         // 접촉·착지 효과의 변주(무늬·방향)를 이벤트에서 뽑는 난수의 시드. 표시 전용이라 경기에 영향이 없다.
         effectSeed: 7,
+        // 로딩 단계에서 미리 만들어 두는 효과 노드 수(DEV-032): 동시에 겹치는 접촉·착지·득점 연출을 넉넉히 덮는다.
+        warm: { impacts: 4, land: 3, confetti: 2 },
         receiveGuide: {
             groundHeight: 0.07,
             contactRadius: 0.1,

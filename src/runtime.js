@@ -341,6 +341,7 @@ async function bootTakraw() {
         return diagnostics.report({
             stateLines: [
                 `mode=${match.mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${match.session?.tick ?? latestView?.state.tick ?? 0}`,
+                view?.renderStats.line() ?? 'render: not ready',
             ],
             networkHistory: net.history(),
         });
@@ -436,6 +437,7 @@ async function bootTakraw() {
                 rewards: rewards.diagnostics(),
                 simulation: match.simulationDiagnostics(),
                 lastContact: match.lastContact,
+                render: view?.renderStats.snapshot() ?? null,
                 highlight: match.highlightDiagnostics(),
                 errors: diagnostics.errors(),
             };
@@ -556,6 +558,9 @@ async function bootTakraw() {
         });
         listen(window, 'resize', () => view.resize());
         match.showIdleCourt();
+        // 로딩 단계에서 처음 화면을 한 번 그려 선수·공을 만들고, 경기 중 처음 쓰일 셰이더·복사 텍스처를 미리 만든다(DEV-032).
+        match.render();
+        view.warmUp();
         boot.advance('ready');
         boot.show('', false);
         ui.showHome();

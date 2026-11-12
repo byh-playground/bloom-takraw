@@ -1043,8 +1043,10 @@ class TakrawGame {
         // A normal attacking set keeps its recipient and the existing jump/kick
         // meaning. Only an observed mishit or a missed reception becomes a save.
         if (pass.to === this.state.selected[team] || pass.pending) return false;
-        const recipient = this.physics.players[pass.to],
-            position = recipient.root.translation();
+        const recipient = this.physics.players[pass.to];
+        // 서브의 토스 기록은 받을 동료가 없다(to=-1, kickIntent의 서브 목표). 공이 네트를 넘지 못하고 우리 코트로 돌아오면 지킬 동료가 없으니 일반 받기다.
+        if (!recipient) return true;
+        const position = recipient.root.translation();
         const reach =
             recipient.settings.movementSpeed * Math.max(0, intercept.time - 0.1) +
             recipient.settings.receive.lungeReach;

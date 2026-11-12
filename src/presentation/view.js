@@ -1,5 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
-import { takrawHumanPlayerIds, takrawSlotOf } from '../simulation/roster.js';
+import { takrawHumanPlayerIds } from '../simulation/roster.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
 import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 import { takrawNetShape } from '../config/physics.js';
@@ -12,6 +12,7 @@ import { TakrawShockWave } from './shock-wave.js';
 import { TakrawRenderStats } from './render-stats.js';
 import { PartList } from './merge-geometry.js';
 import { TakrawMarkers } from './markers.js';
+import { TakrawPlayerBatch } from './player-batch.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
@@ -94,7 +95,7 @@ class TakrawView {
         this.ballScreenStretch = { along: 1, angle: 0 };
         this.ballExtent = 1;
         this.poseHoldValue = 0;
-        // 공·닿은 부위 반짝임(표시 전용): 밝아진 물체 이름과 재질 복제본.
+        // 공·닿은 부위 반짝임(표시 전용): 밝아진 물체 이름과 공 재질 복제본. 선수 부위는 자세 텍스처의 반짝임 값이다.
         this.lit = new Set();
         this.litKeys = new Set();
         this.litMaterials = new Map();
@@ -106,6 +107,13 @@ class TakrawView {
         this.makeVenueBanners();
         this.applyVenue();
         this.makeMarkers();
+        // 선수 6명 전체: 본체 1 draw + 등번호 1 draw(그림자 패스는 본체 1). 부위 자세는 view.meshes의 보관 객체에서 읽는다.
+        this.players = new TakrawPlayerBatch({
+            THREE,
+            scene: this.scene,
+            shapeGeometry: (entity) => this.bodyGeometry(entity),
+            glow: config.visual.impact.flash.glow,
+        });
         this.impacts = new TakrawImpactEffects({
             THREE,
             scene: this.scene,
@@ -257,34 +265,6 @@ class TakrawView {
         const geometry = this.geometry(
             `box:${width}:${height}:${depth}`,
             () => new this.THREE.BoxGeometry(width, height, depth),
-        );
-        const mesh = this.mesh(
-            geometry,
-            typeof color === 'object' ? color : this.material(color),
-            parent,
-        );
-        mesh.position.set(x, y, z);
-        return mesh;
-    }
-
-    sphere(radius, color, x = 0, y = 0, z = 0, parent = this.scene, segments = 12) {
-        const geometry = this.geometry(
-            `sphere:${radius}:${segments}`,
-            () => new this.THREE.SphereGeometry(radius, segments, 10),
-        );
-        const mesh = this.mesh(
-            geometry,
-            typeof color === 'object' ? color : this.material(color),
-            parent,
-        );
-        mesh.position.set(x, y, z);
-        return mesh;
-    }
-
-    cylinder(radius, height, color, x, y, z, parent = this.scene, top = radius) {
-        const geometry = this.geometry(
-            `cylinder:${radius}:${top}:${height}`,
-            () => new this.THREE.CylinderGeometry(top, radius, height, 12),
         );
         const mesh = this.mesh(
             geometry,
@@ -682,40 +662,9 @@ class TakrawView {
         return parts.build();
     }
 
-    stretchCapsule(geometry, halfHeight) {
-        return {
-            geometry,
-            baseHalfHeight: halfHeight,
-            halfHeight,
-            basePositions: geometry.getAttribute('position').array.slice(),
-        };
-    }
-
-    updateCapsuleLength(capsule, halfHeight) {
-        if (Math.abs(capsule.halfHeight - halfHeight) < 1e-9) return;
-        const position = capsule.geometry.getAttribute('position');
-        const base = capsule.baseHalfHeight,
-            delta = halfHeight - base;
-        for (let i = 1; i < position.array.length; i += 3) {
-            const y = capsule.basePositions[i];
-            // Translate the hemispherical caps without stretching their radius.
-            position.array[i] =
-                y > base ? y + delta : y < -base ? y - delta : (y * halfHeight) / base;
-        }
-        position.needsUpdate = true;
-        capsule.geometry.computeBoundingBox();
-        capsule.geometry.computeBoundingSphere();
-        capsule.halfHeight = halfHeight;
-    }
-
-    updateLegGeometry(group, halfHeight) {
-        const leg = group.userData.legGeometry;
-        if (!leg || !Number.isFinite(halfHeight) || halfHeight <= 0) return;
-        this.updateCapsuleLength(leg.body, halfHeight);
-        if (leg.sock) {
-            this.updateCapsuleLength(leg.sock, halfHeight * 0.3);
-            leg.sockMesh.position.y = -halfHeight * 0.6;
-        }
+    /** 부위의 표시 반길이(다리 늘어남)를 보관 객체에 적는다. 값이 없거나 0 이하이면 이전 값을 둔다. 다리가 아닌 부위의 값은 셰이더가 쓰지 않는다. */
+    stretchPart(holder, halfHeight) {
+        if (Number.isFinite(halfHeight) && halfHeight > 0) holder.userData.halfHeight = halfHeight;
     }
 
     setSchools(schools) {
@@ -723,155 +672,27 @@ class TakrawView {
         this.schools = schools;
         this.impacts?.setElements(schools.map((school) => school.element));
         this.applyVenue();
-        // 다음 pose publish가 같은 ID로 새 외형을 연결합니다.
-        for (const group of this.meshes.values()) group.removeFromParent();
-        this.meshes.clear();
-        for (const [key, geometry] of this.geometries)
-            if (key.startsWith('elastic:')) {
-                geometry.dispose();
-                this.geometries.delete(key);
-            }
+        // 정점 색·머리 모양·등번호 아틀라스를 새 학교로 다시 쓴다. 부위 보관 객체(포즈)는 그대로다.
+        this.players.paint(schools);
     }
 
-    numberMaterial(number, color) {
-        const key = `number:${number}:${color}`;
-        if (!this.materials.has(key)) {
-            const canvas = document.createElement('canvas');
-            canvas.width = canvas.height = 64;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-            ctx.font = 'bold 52px sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(String(number), 32, 34);
-            const texture = new this.THREE.CanvasTexture(canvas);
-            texture.colorSpace = this.THREE.SRGBColorSpace;
-            this.textures.set(key, texture);
-            this.materials.set(
-                key,
-                new this.THREE.MeshBasicMaterial({
-                    map: texture,
-                    transparent: true,
-                    depthWrite: false,
-                }),
-            );
-        }
-        return this.materials.get(key);
+    /** 처음 보는 물리 부위가 있으면 선수 6명 전부를 한 번에 만들고 부위 보관 객체를 meshes에 등록한다. */
+    addPlayers(entities) {
+        const bodies = entities.filter((entity) => entity.kind === 'body');
+        for (const [id, holder] of this.players.build(bodies, this.schools))
+            this.meshes.set(id, holder);
     }
 
-    createEntity(entity) {
-        const T = this.THREE,
-            group = new T.Group();
+    createBall(entity) {
+        const group = new this.THREE.Group();
         this.scene.add(group);
         group.userData.entity = entity;
-        const team = entity.team === 1 ? 1 : 0;
-        const school = this.schools[team],
-            { uniform, hair: hairstyle } = school;
-        const color = uniform.primary;
-        const playerId = Number((entity.id.match(/^p(\d+):/) || [0, 0])[1]);
-        const skinPalette = [0xe9c49e, 0xd0a77f, 0xf1d2ac, 0xe1b88e, 0xb98a65, 0xf0c6a1];
-        const skin = skinPalette[playerId % 6];
-        const part = entity.part || '';
-        if (entity.kind === 'ball') {
-            // 본체와 줄무늬 6개는 정점 색 geometry 하나다(드로우콜 1). 줄무늬도 본체 재질(roughness 0.66)로 그린다.
-            this.mesh(
-                this.geometry(`ball:${entity.radius}`, () => this.ballGeometry(entity)),
-                this.material(0xffffff, { roughness: 0.66, vertexColors: true }),
-                group,
-            );
-        } else {
-            let surface = skin;
-            if (part === 'torso' || part.startsWith('upperArm')) surface = color;
-            if (part === 'pelvis' || part.startsWith('upperLeg')) surface = uniform.stripe;
-            if (part.startsWith('foot')) surface = 0xfcf4d9;
-            if (/^(upperLeg|lowerLeg)/.test(part)) {
-                const rest = { ...entity, halfHeight: entity.restHalfHeight };
-                const geometry = this.bodyGeometry(rest).clone();
-                this.geometries.set(`elastic:${entity.id}:body`, geometry);
-                this.mesh(geometry, this.material(surface), group);
-                group.userData.legGeometry = {
-                    body: this.stretchCapsule(geometry, rest.halfHeight),
-                };
-            } else this.mesh(this.bodyGeometry(entity), this.material(surface), group);
-            if (part === 'head') {
-                const r = entity.radius;
-                const shape = hairstyle.shape;
-                const hair = this.geometry(
-                    `hair:${r}:${shape}`,
-                    () =>
-                        new T.SphereGeometry(
-                            r * 1.025,
-                            14,
-                            8,
-                            0,
-                            Math.PI * 2,
-                            0,
-                            Math.PI * (shape === 'bob' ? 0.61 : 0.45),
-                        ),
-                );
-                this.mesh(hair, this.material(hairstyle.color), group);
-                if (shape === 'crest')
-                    this.box(r * 0.55, r * 0.65, r * 1.3, hairstyle.color, 0, r * 0.85, 0, group);
-                for (const side of [-1, 1])
-                    this.sphere(r * 0.105, 0x2d3c33, side * r * 0.38, r * 0.05, r * 0.93, group, 8);
-                const nose = this.sphere(r * 0.14, skin, 0, -r * 0.1, r * 0.99, group, 8);
-                nose.scale.y = 0.8;
-                this.box(r * 0.24, r * 0.035, r * 0.025, 0x9d7054, 0, -r * 0.34, r * 0.93, group);
-            }
-            if (part === 'torso') {
-                const { x, y, z } = entity.halfExtents;
-                for (const side of [-1, 1])
-                    this.box(
-                        x * 1.85,
-                        y * 0.22,
-                        0.014,
-                        uniform.secondary,
-                        0,
-                        -y * 0.72,
-                        side * (z + 0.005),
-                        group,
-                    );
-                const number = this.mesh(
-                    this.geometry('backnumber', () => new T.PlaneGeometry(0.19, 0.19)),
-                    this.numberMaterial(
-                        school.backnumber[takrawSlotOf(playerId)],
-                        uniform.secondary,
-                    ),
-                    group,
-                );
-                number.position.set(0, y * 0.12, -z - 0.015);
-                number.rotation.y = Math.PI;
-                number.castShadow = number.receiveShadow = false;
-            }
-            if (part.startsWith('lowerLeg')) {
-                const rest = entity.restHalfHeight;
-                const sock = this.geometry(
-                    `sock:${entity.radius}:${rest}`,
-                    () => new T.CapsuleGeometry(entity.radius * 1.025, rest * 0.6, 3, 10),
-                ).clone();
-                this.geometries.set(`elastic:${entity.id}:sock`, sock);
-                const leg = group.userData.legGeometry;
-                leg.sockMesh = this.mesh(sock, this.material(uniform.sock), group);
-                leg.sock = this.stretchCapsule(sock, rest * 0.3);
-            }
-            if (part.startsWith('foot')) {
-                const { x, y, z } = entity.halfExtents;
-                this.box(x * 1.94, y * 0.28, z * 1.92, uniform.stripe, 0, -y * 0.78, 0, group);
-                this.box(x * 1.76, y * 0.8, z * 0.22, color, 0, y * 0.12, -z * 0.77, group);
-                for (let i = 0; i < 2; i++)
-                    this.box(
-                        x * 0.9,
-                        0.006,
-                        0.009,
-                        0xbcc2ac,
-                        0,
-                        y + 0.002,
-                        z * (0.05 + i * 0.26),
-                        group,
-                    );
-            }
-        }
-        this.updateLegGeometry(group, entity.halfHeight);
+        // 본체와 줄무늬 6개는 정점 색 geometry 하나다(드로우콜 1). 줄무늬도 본체 재질(roughness 0.66)로 그린다.
+        this.mesh(
+            this.geometry(`ball:${entity.radius}`, () => this.ballGeometry(entity)),
+            this.material(0xffffff, { roughness: 0.66, vertexColors: true }),
+            group,
+        );
         this.meshes.set(entity.id, group);
         return group;
     }
@@ -1052,7 +873,10 @@ class TakrawView {
         const dt = Math.min(0.05, Math.max(0, (nowMs - this.lastMs) / 1000));
         this.lastMs = nowMs;
         for (const entity of viewData.entities)
-            if (!this.meshes.has(entity.id)) this.createEntity(entity);
+            if (!this.meshes.has(entity.id)) {
+                if (entity.kind === 'ball') this.createBall(entity);
+                else this.addPlayers(viewData.entities);
+            }
         // 득점 리플레이 중이면 재생 시각으로 접촉 화면 이펙트를 진행하고, 재생이 아니면 남은 것을 거둔다.
         this.replayImpacts.sync(viewData.state?.replay ?? null);
         // 표시 전용 히트스톱: 1이면 멈춘 포즈 그대로, 0~1이면 멈춘 포즈에서 지금 포즈로 따라잡는다. 멈추기 시작한 프레임에 지금 포즈를 잡아 둔다.
@@ -1068,7 +892,7 @@ class TakrawView {
             }
             mesh.position.set(model.x, model.y, model.z);
             mesh.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
-            this.updateLegGeometry(mesh, model.halfHeight);
+            this.stretchPart(mesh, model.halfHeight);
         };
         if (presentationFrame)
             this.scoreMotion.apply(
@@ -1140,6 +964,7 @@ class TakrawView {
         }
         this.updateCrowd(nowMs);
         this.applyHitFlash();
+        this.players.update();
         if (ball) this.updateBallMask(ball);
         this.impacts.drawCloud();
         this.field.draw();
@@ -1148,7 +973,8 @@ class TakrawView {
     }
 
     /**
-     * 접촉 순간 공과 닿은 부위를 잠깐 밝게. 덧그림이 아니라 물체 재질이 바뀐다: 재질마다 emissive를 켠 복제본을 한 번 만들어 mesh.material을 바꿔 끼우고 끝나면 되돌린다.
+     * 접촉 순간 공과 닿은 부위를 잠깐 밝게. 덧그림이 아니라 물체가 밝아진다.
+     * 선수 부위는 자세 텍스처의 반짝임 값(셰이더가 emissive에 더함)이고, 공은 emissive를 켠 재질 복제본을 한 번 만들어 바꿔 끼우고 끝나면 되돌린다.
      */
     applyHitFlash() {
         const keys = this.litKeys;
@@ -1167,6 +993,10 @@ class TakrawView {
     }
 
     setLit(id, on) {
+        if (this.players.has(id)) {
+            this.players.setGlow(id, on);
+            return;
+        }
         const group = this.meshes.get(id);
         if (!group) return;
         group.traverse((child) => {
@@ -1281,7 +1111,7 @@ class TakrawView {
         mesh.position.set(model.x, model.y, model.z);
         mesh.position.lerpVectors(held.position, mesh.position, follow);
         mesh.quaternion.slerpQuaternions(held.quaternion, target, follow);
-        if (follow > 0) this.updateLegGeometry(mesh, model.halfHeight);
+        if (follow > 0) this.stretchPart(mesh, model.halfHeight);
     }
 
     /** 공의 표시 속도를 갱신한다. 준비·득점 단계나 한 프레임에 resetDistance보다 멀리 가면(순간이동·롤백·리플레이 시작) 속도를 지운다. */
@@ -1478,6 +1308,7 @@ class TakrawView {
         for (const material of this.litMaterials.values()) material.dispose();
         this.field.dispose();
         this.markers.dispose();
+        this.players.dispose();
         for (const geometry of this.geometries.values()) geometry.dispose();
         for (const material of this.materials.values()) material.dispose();
         for (const texture of this.textures.values()) texture.dispose();

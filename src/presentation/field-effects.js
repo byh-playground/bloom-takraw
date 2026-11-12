@@ -84,6 +84,16 @@ class TakrawFieldEffects {
         return node;
     }
 
+    /** 로딩 단계에서 착지 먼지·득점 색종이 노드를 미리 만들어 장면에 올려 둔다(DEV-032). */
+    warm({ land, confetti }) {
+        const nodes = [
+            ...Array.from({ length: land }, () => this.landPool.acquire()),
+            ...Array.from({ length: confetti }, () => this.confettiPool.acquire()),
+        ];
+        for (const node of nodes)
+            (node.kind === 'land' ? this.landPool : this.confettiPool).release(node);
+    }
+
     reset(node) {
         node.group.visible = false;
         node.age = 0;

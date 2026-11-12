@@ -556,6 +556,9 @@ async function bootTakraw() {
         });
         listen(window, 'resize', () => view.resize());
         match.showIdleCourt();
+        // 로딩 단계에서 처음 화면을 한 번 그려 선수·공을 만들고, 경기 중 처음 쓰일 셰이더·복사 텍스처를 미리 만든다(DEV-032).
+        match.render();
+        view.warmUp();
         boot.advance('ready');
         boot.show('', false);
         ui.showHome();

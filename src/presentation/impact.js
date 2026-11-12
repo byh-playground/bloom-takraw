@@ -175,6 +175,12 @@ class TakrawImpactEffects {
         return node;
     }
 
+    /** 로딩 단계에서 효과 노드(입자·재질)를 미리 만들어 둔다. 동시에 겹치는 접촉 수만큼 만들어 장면에 올린다(DEV-032). */
+    warm(count) {
+        const nodes = Array.from({ length: count }, () => this.pool.acquire());
+        for (const node of nodes) this.pool.release(node);
+    }
+
     resetNode(node) {
         node.group.visible = false;
         node.style = null;

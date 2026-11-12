@@ -134,19 +134,36 @@ class TakrawShockWave {
         renderer.render(scene, camera);
         const count = impacts.waves(this.slots);
         if (!(count > 0 && this.project(count, camera) > 0)) return;
-        const THREE = this.THREE;
+        this.composite();
+    }
+
+    /** 화면을 복사 텍스처에 옮기고 왜곡 패스를 그린다. 복사 텍스처는 화면 크기가 바뀔 때만 다시 만든다. */
+    composite() {
+        const renderer = this.renderer;
         if (
             !this.copy ||
             this.copy.image.width !== this.size.x ||
             this.copy.image.height !== this.size.y
         ) {
             this.copy?.dispose();
-            this.copy = new THREE.FramebufferTexture(this.size.x, this.size.y);
+            this.copy = new this.THREE.FramebufferTexture(this.size.x, this.size.y);
         }
         renderer.copyFramebufferToTexture(this.copy);
         this.uniforms.tScene.value = this.copy;
         this.uniforms.uAspect.value = this.size.x / this.size.y;
         renderer.render(this.pass, this.passCamera);
+    }
+
+    /**
+     * 로딩 단계에서 한 번: 첫 접촉 때 일어날 일(왜곡 패스 셰이더 컴파일, 복사 텍스처 할당)을 미리 한다.
+     * 파동 0개로 그려 패스는 복사한 화면을 그대로 다시 쓰므로 화면이 바뀌지 않는다. DEV-032.
+     */
+    warm(scene, camera) {
+        camera.updateMatrixWorld();
+        this.renderer.getDrawingBufferSize(this.size);
+        this.renderer.render(scene, camera);
+        this.uniforms.uCount.value = 0;
+        this.composite();
     }
 
     dispose() {

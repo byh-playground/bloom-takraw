@@ -1,5 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
-import { takrawHumanPlayerIds, takrawSlotOf, takrawTeamOf } from '../simulation/roster.js';
+import { takrawHumanPlayerIds, takrawSlotOf } from '../simulation/roster.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
 import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 import { takrawNetShape } from '../config/physics.js';
@@ -11,6 +11,7 @@ import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
 import { TakrawRenderStats } from './render-stats.js';
 import { PartList } from './merge-geometry.js';
+import { TakrawMarkers } from './markers.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
@@ -419,7 +420,14 @@ class TakrawView {
         );
         for (const side of [-1, 1]) {
             // 기둥은 물리 캡슐(반지름·길이·높이)과 같은 치수다. 위 끝은 캡슐의 둥근 끝을 구로 그린다.
-            scenery.cylinder(post.radius, post.halfLength * 2, 0xfaf4de, 0, post.centerY, side * post.z);
+            scenery.cylinder(
+                post.radius,
+                post.halfLength * 2,
+                0xfaf4de,
+                0,
+                post.centerY,
+                side * post.z,
+            );
             scenery.cylinder(post.radius * 1.1, 0.36, 0x276e60, 0, 0.18, side * post.z);
             scenery.sphere(post.radius, 0xf7f2dc, 0, post.centerY + post.halfLength, side * post.z);
             scenery.box(0.035, 0.26, 0.035, 0xe69569, 0, net.topY + 0.085, side * net.halfWidth);
@@ -439,7 +447,15 @@ class TakrawView {
             const z = -5.0 - row * 0.58,
                 y = 0.12 + row * 0.25;
             scenery.box(10.4, 0.18, 0.48, row === 0 ? 0xd4d1b9 : 0xdad8c2, -0.3, y, z);
-            scenery.box(10.3, 0.04, 0.35, row === 0 ? 0x92b4a2 : 0xa1baaa, -0.3, y + 0.115, z - 0.04);
+            scenery.box(
+                10.3,
+                0.04,
+                0.35,
+                row === 0 ? 0x92b4a2 : 0xa1baaa,
+                -0.3,
+                y + 0.115,
+                z - 0.04,
+            );
             for (const x of [-4.4, 3.8])
                 scenery.box(0.12, y + 0.25, 0.16, 0xc2c6ad, x, (y + 0.25) / 2 - 0.1, z);
         }
@@ -478,7 +494,8 @@ class TakrawView {
         this.crowdBase = this.crowd.map((mesh) => mesh.instanceMatrix.array.slice());
         this.crowdCheerAt = null;
         // Far-side rail and the low entrance opening.
-        for (let i = -5; i <= 5; i++) scenery.cylinder(0.025, 0.95, 0xb4c3ad, i * 1.05, 0.25, -7.05);
+        for (let i = -5; i <= 5; i++)
+            scenery.cylinder(0.025, 0.95, 0xb4c3ad, i * 1.05, 0.25, -7.05);
         for (const height of [0.18, 0.68]) {
             scenery.cylinder(0.021, 10.5, 0xb4c3ad, 0, height, -7.05, {
                 rotation: [0, 0, Math.PI / 2],
@@ -505,9 +522,13 @@ class TakrawView {
         for (let index = 0; index < trees.length; index++) {
             const [x, z, s] = trees[index];
             scenery.cylinder(0.11 * s, 1.6 * s, 0xb1a17d, x, 0.45 * s, z);
-            scenery.sphere(0.78 * s, index % 2 ? 0x9bb792 : 0xa9bd91, x, 1.5 * s, z, { segments: 9 });
+            scenery.sphere(0.78 * s, index % 2 ? 0x9bb792 : 0xa9bd91, x, 1.5 * s, z, {
+                segments: 9,
+            });
             scenery.sphere(0.57 * s, 0xb4c69d, x + 0.4 * s, 1.9 * s, z - 0.1 * s, { segments: 9 });
-            scenery.sphere(0.53 * s, 0x98b28c, x - 0.38 * s, 1.68 * s, z + 0.17 * s, { segments: 9 });
+            scenery.sphere(0.53 * s, 0x98b28c, x - 0.38 * s, 1.68 * s, z + 0.17 * s, {
+                segments: 9,
+            });
         }
         for (const side of [-1, 1]) {
             const sign = new T.Object3D();
@@ -530,73 +551,7 @@ class TakrawView {
 
     makeMarkers() {
         const T = this.THREE;
-        this.playerMarkers = [];
-        const ringGeometry = this.geometry(
-            'selection-ring',
-            () => new T.RingGeometry(0.3, 0.34, 40),
-        );
-        const shadowGeometry = this.geometry('contact-shadow', () => new T.CircleGeometry(0.4, 32));
-        for (let i = 0; i < 6; i++) {
-            const shadowMaterial = new T.MeshBasicMaterial({
-                color: 0x163d2b,
-                transparent: true,
-                opacity: 0.12,
-                depthWrite: false,
-            });
-            this.materials.set(`shadow:${i}`, shadowMaterial);
-            const shadow = this.mesh(shadowGeometry, shadowMaterial);
-            shadow.rotation.x = -Math.PI / 2;
-            shadow.position.y = 0.048;
-            shadow.castShadow = false;
-            shadow.receiveShadow = false;
-            const ringMaterial = new T.MeshBasicMaterial({
-                color: takrawTeamOf(i) === 0 ? 0xd9f1b5 : 0xffddba,
-                transparent: true,
-                opacity: 0.96,
-                depthWrite: false,
-            });
-            this.materials.set(`ring:${i}`, ringMaterial);
-            const ring = this.mesh(ringGeometry, ringMaterial);
-            ring.rotation.x = -Math.PI / 2;
-            ring.position.y = 0.052;
-            ring.castShadow = false;
-            ring.receiveShadow = false;
-            const arrowGeometry = this.geometry(
-                'player-arrow',
-                () => new T.ConeGeometry(0.075, 0.15, 3),
-            );
-            const arrow = this.mesh(
-                arrowGeometry,
-                this.material(takrawTeamOf(i) === 0 ? 0xe2f7b3 : 0xffd6af, { basic: true }),
-            );
-            arrow.rotation.z = Math.PI;
-            arrow.castShadow = false;
-            arrow.receiveShadow = false;
-            this.playerMarkers.push({ shadow, ring, arrow });
-        }
-        const ballShadowMaterial = new T.MeshBasicMaterial({
-            color: 0x263f27,
-            transparent: true,
-            opacity: 0.3,
-            depthWrite: false,
-        });
-        this.materials.set('ballShadow', ballShadowMaterial);
-        this.ballShadow = this.mesh(
-            this.geometry('ballShadow', () => new T.CircleGeometry(0.16, 28)),
-            ballShadowMaterial,
-        );
-        this.ballShadow.rotation.x = -Math.PI / 2;
-        this.ballShadow.position.y = 0.053;
-        this.ballShadow.castShadow = false;
-        this.ballShadow.receiveShadow = false;
-        this.ballLocator = this.mesh(
-            this.geometry('ballLocator', () => new T.RingGeometry(0.24, 0.29, 40)),
-            this.material(0xffe8a7, { opacity: 0.9, basic: true }),
-        );
-        this.ballLocator.rotation.x = -Math.PI / 2;
-        this.ballLocator.position.y = 0.056;
-        this.ballLocator.castShadow = false;
-        this.ballLocator.receiveShadow = false;
+        // 선수·공 표시와 받기·공격 안내는 인스턴스 레이어 셋이다(markers.js). 여기에는 선·궤적만 남는다.
         const heightMaterial = new T.LineDashedMaterial({
             color: 0xffefba,
             transparent: true,
@@ -640,22 +595,6 @@ class TakrawView {
         this.ballHeightTicks.frustumCulled = false;
         this.ballHeightTicks.renderOrder = 3;
         this.scene.add(this.ballHeightTicks);
-        const haloMaterial = new T.MeshBasicMaterial({
-            color: 0x213f37,
-            transparent: true,
-            opacity: 0.85,
-            side: T.DoubleSide,
-            depthWrite: false,
-            depthTest: false,
-        });
-        this.materials.set('ballHalo', haloMaterial);
-        this.ballHalo = this.mesh(
-            this.geometry('ballHalo', () => new T.RingGeometry(0.118, 0.14, 40)),
-            haloMaterial,
-        );
-        this.ballHalo.castShadow = false;
-        this.ballHalo.receiveShadow = false;
-        this.ballHalo.renderOrder = 4;
         this.trailData = new Float32Array(20 * 3);
         this.trailGeometry = new T.BufferGeometry();
         this.trailGeometry.setAttribute('position', new T.BufferAttribute(this.trailData, 3));
@@ -673,232 +612,12 @@ class TakrawView {
         this.scene.add(this.trail);
         this.trailCount = 0;
         this.trailLast = new T.Vector3();
-        this.makeAttackGuides();
-        this.makeReceiveGuides();
-    }
-
-    makeReceiveGuides() {
-        const T = this.THREE,
-            s = this.config.visual.receiveGuide;
-        const actorGeometry = this.geometry(
-            'receiveGuide:actor',
-            () => new T.PlaneGeometry(s.actorWidth * 0.42, 0.028),
-        );
-        const contactGeometry = this.geometry(
-            'receiveGuide:contact',
-            () => new T.PlaneGeometry(s.contactRadius * 1.25, s.contactRadius * 0.19),
-        );
-        this.receiveGuides = [0, 1].map((team) => {
-            const material = new T.MeshBasicMaterial({
-                color: s.colors.ai,
-                transparent: true,
-                opacity: s.opacity.active,
-                depthWrite: false,
-                side: T.DoubleSide,
-            });
-            const contactMaterial = material.clone();
-            contactMaterial.depthTest = false;
-            this.materials.set(`receiveGuide:${team}`, material);
-            this.materials.set(`receiveGuide:${team}:contact`, contactMaterial);
-            const actor = new T.Group(),
-                contact = new T.Group();
-            this.scene.add(actor, contact);
-            actor.visible = contact.visible = false;
-            actor.rotation.x = -Math.PI / 2;
-            // Paired brackets identify the receiver; the airborne diamond is a
-            // predicted contact point, distinct from the current ball's round ring.
-            for (const side of [-1, 1])
-                for (const arm of [-1, 1]) {
-                    const bar = this.mesh(actorGeometry, material, actor);
-                    bar.position.set(side * s.actorWidth, arm * s.actorWidth * 0.13, 0);
-                    bar.rotation.z = (-side * arm * Math.PI) / 4;
-                    bar.castShadow = bar.receiveShadow = false;
-                }
-            for (let i = 0; i < 4; i++) {
-                const bar = this.mesh(contactGeometry, contactMaterial, contact);
-                const angle = Math.PI / 4 + (i * Math.PI) / 2;
-                bar.position.set(
-                    Math.cos(angle) * s.contactRadius * 0.5,
-                    Math.sin(angle) * s.contactRadius * 0.5,
-                    0,
-                );
-                bar.rotation.z = angle + Math.PI / 2;
-                bar.renderOrder = 3;
-                bar.castShadow = bar.receiveShadow = false;
-            }
-            return { actor, contact, material, contactMaterial };
+        this.markers = new TakrawMarkers({
+            THREE: T,
+            scene: this.scene,
+            config: this.config,
+            view: this,
         });
-    }
-
-    updateReceiveGuides(viewData, context) {
-        const s = this.config.visual.receiveGuide;
-        const local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput);
-        for (let team = 0; team < 2; team++) {
-            const marker = this.receiveGuides[team],
-                guide = viewData.receiveGuides?.[team];
-            const body = guide ? this.meshes.get(`p${guide.playerId}:pelvis`) : null;
-            const visible =
-                !!body &&
-                !!guide &&
-                viewData.state?.phase === 'rally' &&
-                (local || team === this.cameraRig.team);
-            marker.actor.visible = visible;
-            marker.contact.visible = visible && !!guide.point && guide.stage !== 'recover';
-            if (!visible) continue;
-            marker.actor.position.set(body.position.x, s.groundHeight, body.position.z);
-            const color = guide.human ? s.colors.human : s.colors.ai;
-            const opacity = guide.reachable ? s.opacity.active : s.opacity.waiting;
-            marker.material.color.set(color);
-            marker.material.opacity = opacity;
-            marker.contactMaterial.color.set(color);
-            marker.contactMaterial.opacity = opacity;
-            if (!marker.contact.visible) continue;
-            marker.contact.position.set(guide.point.x, guide.point.y, guide.point.z);
-            marker.contact.quaternion.copy(this.camera.quaternion);
-            const depth = Math.max(
-                1,
-                -this.temp.vector
-                    .copy(marker.contact.position)
-                    .applyMatrix4(this.camera.matrixWorldInverse).z,
-            );
-            const unitsPerPixel =
-                (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            marker.contact.scale.setScalar(
-                Math.max(1, (s.contactMinPixels * 0.5 * unitsPerPixel) / s.contactRadius),
-            );
-        }
-    }
-
-    makeAttackGuides() {
-        const T = this.THREE,
-            s = this.config.visual.attackGuide;
-        const radius = this.config.ai.toss.attack.positionRadius;
-        const arcGeometry = this.geometry(
-            'attackGuide:arc',
-            () => new T.RingGeometry(radius - 0.018, radius, 16, 1, 0.18, Math.PI / 2 - 0.36),
-        );
-        const footGeometry = this.geometry(
-            'attackGuide:foot',
-            () => new T.BoxGeometry(s.foot.length, 0.005, s.foot.width),
-        );
-        const toeGeometry = this.geometry(
-            'attackGuide:toe',
-            () => new T.CircleGeometry(s.foot.width * 0.5, 12, -Math.PI / 2, Math.PI),
-        );
-        const targetGeometry = this.geometry(
-            'attackGuide:target',
-            () => new T.PlaneGeometry(s.contactRadius * 0.32, s.contactRadius * 0.65),
-        );
-        const readyGeometry = this.geometry(
-            'attackGuide:ready',
-            () => new T.RingGeometry(radius - 0.04, radius - 0.022, 48),
-        );
-        const kickGeometry = this.geometry(
-            'attackGuide:kick',
-            () => new T.RingGeometry(s.contactRadius * 1.05, s.contactRadius * 1.19, 40),
-        );
-        this.attackGuides = [0, 1].map((team) => {
-            const material = new T.MeshBasicMaterial({
-                color: s.colors.approach,
-                transparent: true,
-                opacity: s.opacity.approach,
-                depthWrite: false,
-                side: T.DoubleSide,
-            });
-            const contactMaterial = material.clone();
-            contactMaterial.depthTest = false;
-            this.materials.set(`attackGuide:${team}`, material);
-            this.materials.set(`attackGuide:${team}:contact`, contactMaterial);
-            const outlineMaterial = new T.MeshBasicMaterial({
-                color: 0x213f37,
-                transparent: true,
-                opacity: 0.72,
-                depthWrite: false,
-                depthTest: false,
-                side: T.DoubleSide,
-            });
-            this.materials.set(`attackGuide:${team}:outline`, outlineMaterial);
-            const stance = new T.Group(),
-                contact = new T.Group();
-            this.scene.add(stance, contact);
-            stance.visible = contact.visible = false;
-            stance.position.y = s.groundHeight;
-            stance.rotation.y = team === 0 ? 0 : Math.PI;
-            const flat = (geometry, surface, parent) => {
-                const mesh = this.mesh(geometry, surface, parent);
-                mesh.castShadow = mesh.receiveShadow = false;
-                return mesh;
-            };
-            for (let i = 0; i < 4; i++) {
-                const arc = flat(arcGeometry, material, stance);
-                arc.rotation.set(-Math.PI / 2, 0, (i * Math.PI) / 2);
-                const target = flat(targetGeometry, contactMaterial, contact);
-                const angle = (i * Math.PI) / 2;
-                target.position.set(
-                    Math.sin(angle) * s.contactRadius * 0.72,
-                    Math.cos(angle) * s.contactRadius * 0.72,
-                    0,
-                );
-                target.rotation.z = -angle;
-                target.renderOrder = 3;
-                const outline = flat(targetGeometry, outlineMaterial, contact);
-                outline.position.copy(target.position);
-                outline.rotation.copy(target.rotation);
-                outline.scale.set(1.7, 1.3, 1);
-                outline.renderOrder = 2;
-            }
-            for (const side of [-1, 1]) {
-                flat(footGeometry, material, stance).position.z = side * s.foot.spacing * 0.5;
-                const toe = flat(toeGeometry, material, stance);
-                toe.rotation.x = -Math.PI / 2;
-                toe.position.set(s.foot.length * 0.5, 0.003, side * s.foot.spacing * 0.5);
-            }
-            const ready = flat(readyGeometry, material, stance);
-            ready.rotation.x = -Math.PI / 2;
-            ready.visible = false;
-            const kick = flat(kickGeometry, contactMaterial, contact);
-            kick.visible = false;
-            kick.renderOrder = 3;
-            return { stance, contact, ready, kick, material, contactMaterial };
-        });
-    }
-
-    updateAttackGuides(viewData, context) {
-        const s = this.config.visual.attackGuide;
-        const local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput);
-        for (let team = 0; team < 2; team++) {
-            const marker = this.attackGuides[team],
-                guide = viewData.attackGuides?.[team];
-            const visible =
-                !!guide &&
-                viewData.state?.phase === 'rally' &&
-                (local || team === this.cameraRig.team);
-            marker.stance.visible = marker.contact.visible = visible;
-            if (!visible) continue;
-            marker.stance.position.set(guide.stance.x, s.groundHeight, guide.stance.z);
-            marker.contact.position.set(guide.contact.x, guide.contact.y, guide.contact.z);
-            marker.contact.quaternion.copy(this.camera.quaternion);
-            const depth = Math.max(
-                1,
-                this.temp.vector
-                    .copy(marker.contact.position)
-                    .applyMatrix4(this.camera.matrixWorldInverse).z * -1,
-            );
-            const unitsPerPixel =
-                (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            marker.contact.scale.setScalar(
-                Math.max(1, (s.contactMinPixels * 0.5 * unitsPerPixel) / s.contactRadius),
-            );
-            const ready = guide.stage === 'jump' && guide.jumpWindow;
-            marker.ready.visible = !!ready;
-            marker.kick.visible = !!guide.kickWindow;
-            const color = ready ? s.colors.ready : s.colors.approach,
-                opacity = ready ? s.opacity.ready : s.opacity.approach;
-            marker.material.color.set(color);
-            marker.material.opacity = opacity;
-            marker.contactMaterial.color.set(guide.kickWindow ? s.colors.ready : color);
-            marker.contactMaterial.opacity = guide.kickWindow ? s.opacity.ready : opacity;
-        }
     }
 
     bodyGeometry(entity) {
@@ -1366,46 +1085,10 @@ class TakrawView {
         this.updateCamera(viewData, context, dt);
         this.applyShake();
         this.squashBall(viewData.state?.phase, nowMs);
-        this.updateAttackGuides(viewData, context);
-        this.updateReceiveGuides(viewData, context);
-        const selected = viewData.state?.selected || takrawHumanPlayerIds();
-        for (let i = 0; i < 6; i++) {
-            const body = this.meshes.get(`p${i}:pelvis`),
-                head = this.meshes.get(`p${i}:head`),
-                marker = this.playerMarkers[i];
-            if (!body) {
-                marker.ring.visible = marker.shadow.visible = marker.arrow.visible = false;
-                continue;
-            }
-            const height = Math.max(0, body.position.y - 0.95);
-            marker.shadow.visible = true;
-            marker.shadow.position.x = body.position.x;
-            marker.shadow.position.z = body.position.z;
-            marker.shadow.scale.setScalar(1 + Math.min(1.4, height * 0.15));
-            marker.shadow.material.opacity = 0.13 / (1 + height * 0.3);
-            marker.ring.position.x = body.position.x;
-            marker.ring.position.z = body.position.z;
-            const human =
-                TAKRAW_MODES[viewData.state?.mode]?.secondaryInput ||
-                takrawTeamOf(i) === this.cameraRig.team;
-            marker.ring.visible = human && selected[takrawTeamOf(i)] === i;
-            marker.arrow.visible = marker.ring.visible;
-            if (head)
-                marker.arrow.position.set(head.position.x, head.position.y + 0.3, head.position.z);
-        }
         const ball = this.meshes.get('ball');
+        this.markers.draw(viewData, context, ball);
         if (ball) {
             const height = Math.max(0, ball.position.y);
-            this.ballShadow.position.x = this.ballLocator.position.x = ball.position.x;
-            this.ballShadow.position.z = this.ballLocator.position.z = ball.position.z;
-            const pulse = this.impacts.shadowPulse(),
-                shadow = this.config.visual.impact.shadow;
-            this.ballShadow.scale.setScalar(
-                (1 + Math.min(1, height * 0.1)) * (1 + shadow.scale * pulse),
-            );
-            this.ballShadow.material.opacity =
-                (0.3 / (1 + height * 0.12)) * (1 + shadow.opacity * pulse);
-            this.ballLocator.visible = height > 0.3;
             this.ballHeight.visible = this.ballHeightTicks.visible = height > 0.3;
             this.heightData.set([
                 ball.position.x,
@@ -1436,19 +1119,6 @@ class TakrawView {
             }
             this.heightTickGeometry.attributes.position.needsUpdate = true;
             this.heightTickGeometry.setDrawRange(0, Math.max(0, ticks) * 2);
-            this.ballHalo.position.copy(ball.position);
-            this.ballHalo.quaternion.copy(this.camera.quaternion);
-            const depth = Math.max(
-                1,
-                this.temp.vector.copy(ball.position).applyMatrix4(this.camera.matrixWorldInverse)
-                    .z * -1,
-            );
-            const unitsPerPixel =
-                (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            const haloScale = Math.max(1, (7 * unitsPerPixel) / 0.14),
-                stretch = this.ballScreenStretch;
-            this.ballHalo.scale.set(haloScale * stretch.along, haloScale, haloScale);
-            if (stretch.along !== 1) this.ballHalo.rotateZ(stretch.angle);
             const distance = ball.position.distanceTo(this.trailLast);
             if (distance > 0.055) {
                 if (
@@ -1557,16 +1227,7 @@ class TakrawView {
      * 공 테두리·높이선·받기/공격 안내·선택 표시는 경기 카메라를 향해 놓인 안내라 다른 각도에서는 어긋나 보이므로 이 그림에서만 뺀다.
      */
     renderFrom({ position, target, fov }) {
-        const guides = [
-            this.ballHalo,
-            this.ballHeight,
-            this.ballHeightTicks,
-            this.ballLocator,
-            ...this.playerMarkers.flatMap((marker) => [marker.ring, marker.arrow]),
-            ...[...this.attackGuides, ...this.receiveGuides].flatMap((guide) =>
-                Object.values(guide).filter((value) => value?.isObject3D),
-            ),
-        ];
+        const guides = [this.ballHeight, this.ballHeightTicks];
         const shown = guides.map((guide) => guide.visible);
         for (const guide of guides) guide.visible = false;
         this.camera.position.set(position.x, position.y, position.z);
@@ -1578,7 +1239,9 @@ class TakrawView {
         if (ball) this.updateBallMask(ball);
         this.impacts.drawCloud();
         this.field.draw();
-        this.shockWave.render(this.scene, this.camera, this.impacts);
+        this.markers.withoutGuides(() =>
+            this.shockWave.render(this.scene, this.camera, this.impacts),
+        );
         guides.forEach((guide, index) => {
             guide.visible = shown[index];
         });
@@ -1794,6 +1457,7 @@ class TakrawView {
         });
         this.impacts.cloud.warm();
         this.field.warmLayers();
+        this.markers.warm();
         try {
             this.camera.updateMatrixWorld();
             this.renderer.compile(this.scene, this.camera);
@@ -1803,6 +1467,7 @@ class TakrawView {
             // 켜 둔 인스턴스 레이어를 실제 상태(살아 있는 효과만)로 되돌린다.
             this.impacts.drawCloud();
             this.field.draw();
+            this.markers.clear();
         }
         this.warmed = true;
     }
@@ -1812,6 +1477,7 @@ class TakrawView {
         this.shockWave.dispose();
         for (const material of this.litMaterials.values()) material.dispose();
         this.field.dispose();
+        this.markers.dispose();
         for (const geometry of this.geometries.values()) geometry.dispose();
         for (const material of this.materials.values()) material.dispose();
         for (const texture of this.textures.values()) texture.dispose();

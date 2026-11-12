@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.17.3';
+const TAKRAW_VERSION = '0.17.4';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -226,75 +226,221 @@ const TAKRAW_CONFIG = Object.freeze({
             far: 100,
             orbit: { sensitivity: 0.006, minPitch: 0.14, maxPitch: 1.13 },
         },
-        // 접촉 효과의 등급별 표시 값(타격감 가이드 §3·§6: 국소 hitflash·squash 먼저, 카메라 흔들림은 가장 센 사건 하나만). 등급 이름은 timing.windows와 normal이다.
-        // ringScale: 링 최대 배율, dots: 입자 수, outerRing: 바깥 링 추가, hold: 링·입자를 첫 모습으로 유지하는 시간(초),
-        // shake: 카메라 진동(CSS px, 초), trail: 공 궤적 강조 색과 지속 시간(초), streaks: 속도선 수, flash: 접점 별 섬광 크기(m, 0이면 없음),
-        // fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구.
-        // spike는 payload.spike가 참일 때 등급보다 먼저 고른다.
+        // 접촉 효과(타격감 가이드 §3·§6: 국소 hitflash·squash 먼저, 카메라 흔들림은 가장 센 사건 하나만). 화면에 그림을 덧붙이지 않고 쇼크웨이브 왜곡·명암, 공 눌림·늘어남,
+        // 공·닿은 부위 반짝임, 표시 히트스톱, 기기 진동으로 접촉을 전한다. styles의 이름은 timing.windows와 normal, spike, 접촉 종류(takrawContactKind가 고른다:
+        // serve·receive·save·set·drive·body·ground)다. 연관 수치는 기준값(wave.amount·intensity.referenceSpeed)에서 배율로 파생한다.
         impact: {
-            [TAKRAW_TIMING_GRADES.normal]: {
-                life: 0.25,
-                ringScale: 2.1,
-                dots: 6,
-                ringColor: null,
-                outerRing: false,
-                hold: 0,
-                shake: null,
-                trail: null,
-                streaks: 0,
-                flash: 0.22,
-                fovPunch: 0,
-                squash: 0.12,
-                pop: null,
+            // 쇼크웨이브: 접점에서 퍼지며 뒤 화면을 굴절시키고(왜곡) 띠 앞쪽을 밝게·바로 뒤를 어둡게(명암) 한다. 반지름 = radius × (start + styles.waveScale × reach × 확대 곡선 × √세기),
+            // 확대 곡선 1-(1-q)^growth(4면 수명의 30%에 76%). 시작 반지름 start가 공(반지름 0.095m)보다 바깥이라 공 자체는 일그러지지 않고, 화면 상한에 걸려도 시작 반지름은 줄지 않는다.
+            // 세기 w = styles.wave(1이 기준, 0.75·0.5·0.25·0.1 배율) × 접촉 세기. 왜곡 = amount × w^distortPower(세기에 가파르게 묶여 약한 접촉은 몸이 휘어 보이지 않는다),
+            // 명암 = styles.shade × 접촉 세기(약한 접촉도 코트 바닥에서 읽히도록 약한 파동은 왜곡 배율과 따로 정한다). amount: 세기 1일 때 최대 밀림(화면 높이 비율), maxSlope: 밀림이 띠 폭의 이 비율을 넘지 않는다(상한에 걸려 띠가 좁아져도 화면이 접히지 않는다),
+            // front: 띠 바깥 가장자리의 부드러움(폭 비율), shade: 띠 앞쪽 ×(1+light)·바로 뒤 ×(1-dark), maxScreen: 반지름 상한(화면 짧은 변 비율), minPixels: 띠 폭 하한(px),
+            // lifeShare: 파동 수명 = 효과 수명 × lifeShare, max: 동시 파동 수(넘치면 가장 오래된 것부터 버린다).
+            wave: {
+                radius: 0.13,
+                start: 2.2,
+                reach: 1.2,
+                width: 0.5,
+                amount: 0.02,
+                distortPower: 2,
+                maxSlope: 0.35,
+                fade: 1.6,
+                front: 0.5,
+                growth: 4,
+                lifeShare: 0.6,
+                shade: { light: 0.08, dark: 0.06 },
+                maxScreen: 0.3,
+                minPixels: 6,
+                max: 5,
             },
-            [TAKRAW_TIMING_GRADES.good]: {
-                life: 0.32,
-                ringScale: 2.8,
-                dots: 8,
-                ringColor: 0xfff6d2,
-                outerRing: false,
-                hold: 0,
-                shake: null,
-                trail: null,
-                streaks: 4,
-                flash: 0.32,
-                fovPunch: 0.012,
-                squash: 0.17,
-                pop: null,
+            // 접촉 순간 ms 동안 공과 닿은 부위의 재질을 흰색 glow(emissive 세기)만큼 밝게(몸에 맞은 접촉은 제외).
+            flash: { ms: 75, glow: 0.4 },
+            // 바닥 튕김 직후 life 초 동안 공 그림자가 scale만큼 커지고 opacity만큼 진해졌다 돌아온다.
+            shadow: { life: 0.25, scale: 0.7, opacity: 0.6 },
+            // 사용자 팀 접촉의 기기 진동. byStyle[이름] = { ms: 진동 길이, strong·weak: 게임패드 진동 세기 0~1 }. 동작 줄이기에서는 끈다.
+            rumble: {
+                byStyle: {
+                    normal: { ms: 15, strong: 0.2, weak: 0.2 },
+                    good: { ms: 25, strong: 0.4, weak: 0.3 },
+                    perfect: { ms: 40, strong: 0.7, weak: 0.4 },
+                    spike: { ms: 60, strong: 1, weak: 0.6 },
+                    serve: { ms: 30, strong: 0.5, weak: 0.3 },
+                    receive: { ms: 20, strong: 0.3, weak: 0.5 },
+                    save: { ms: 35, strong: 0.5, weak: 0.5 },
+                    set: { ms: 10, strong: 0.15, weak: 0.1 },
+                    drive: { ms: 30, strong: 0.5, weak: 0.3 },
+                    ground: { ms: 30, strong: 0.4, weak: 0.4 },
+                },
             },
-            [TAKRAW_TIMING_GRADES.perfect]: {
-                life: 0.45,
-                ringScale: 3.6,
-                dots: 10,
-                ringColor: 0xffe27a,
-                outerRing: true,
-                hold: 0.07,
-                shake: { amplitude: 3, duration: 0.2 },
-                trail: { color: 0xffe27a, duration: 0.8 },
-                streaks: 6,
-                flash: 0.45,
-                fovPunch: 0.025,
-                squash: 0.24,
-                pop: null,
-            },
-            spike: {
-                life: 0.62,
-                ringScale: 5.4,
-                dots: 16,
-                ringColor: 0xffffff,
-                outerRing: true,
-                hold: 0.09,
-                shake: { amplitude: 6, duration: 0.3 },
-                trail: { color: 0xff9b54, duration: 1.1 },
-                streaks: 12,
-                flash: 0.8,
-                fovPunch: 0.06,
-                squash: 0.34,
-                pop: 'SPIKE!',
+            // 세기: 원천 속도(m/s, foot은 발 속도 × footWeight) ÷ referenceSpeed를 min~max로 자른 값. 파동 크기·눌림에 곱하고 수명에는 제곱근을 곱한다.
+            intensity: { referenceSpeed: 10, footWeight: 2, min: 0.65, max: 1.5 },
+            // 아슬아슬한 받아내기: 서브가 아닌 발 접촉이 이 높이(m, 공 중심)보다 낮으면 save로 한 단계 강조한다.
+            clutchHeight: 0.5,
+            // 표시 전용 히트스톱 뒤 따라잡기: 멈춘 시간 × catchUp 동안 멈춘 포즈에서 지금 포즈로 섞는다.
+            displayCatchUp: 2,
+            // styles 공통: life(초), wave: 왜곡 세기 배율(없으면 파동 없음), shade: 명암 세기 배율(wave와 함께), waveScale: 파동 최대 크기 배율, hold: 효과를 첫 모습으로 유지하는 시간(초),
+            //   shake: 카메라 진동(CSS px, 초), fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구,
+            //   displayHold: 표시 전용 히트스톱(초, 내 화면의 선수·공 포즈만 멈춘다), intensity: 세기 원천(foot·ball·incoming, 없으면 1).
+            // styles 선택: squashDecay·squashFreq: 눌림 복원 감쇠(1/초)·진동(rad/초, 기본 13·34), squashAxis: 'up'이면 위아래로 눌린다(기본 발 속도 축).
+            styles: {
+                [TAKRAW_TIMING_GRADES.normal]: {
+                    life: 0.25,
+                    wave: 0.5,
+                    shade: 0.5,
+                    waveScale: 2.1,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0.12,
+                    pop: null,
+                },
+                [TAKRAW_TIMING_GRADES.good]: {
+                    life: 0.32,
+                    wave: 0.5,
+                    shade: 0.5,
+                    waveScale: 2.8,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0.012,
+                    squash: 0.17,
+                    pop: null,
+                    intensity: 'foot',
+                },
+                [TAKRAW_TIMING_GRADES.perfect]: {
+                    life: 0.45,
+                    wave: 0.75,
+                    shade: 0.75,
+                    waveScale: 3.6,
+                    hold: 0.07,
+                    shake: { amplitude: 3, duration: 0.2 },
+                    fovPunch: 0.025,
+                    squash: 0.24,
+                    pop: null,
+                    displayHold: 0.07,
+                    intensity: 'foot',
+                },
+                spike: {
+                    life: 0.62,
+                    wave: 1,
+                    shade: 1,
+                    waveScale: 5.4,
+                    hold: 0.09,
+                    shake: { amplitude: 6, duration: 0.3 },
+                    fovPunch: 0.06,
+                    squash: 0.34,
+                    pop: 'SPIKE!',
+                    displayHold: 0.09,
+                    intensity: 'foot',
+                },
+                // 서브 차기: 랠리의 시작. 일반 접촉보다 크고 스파이크보다 작다.
+                serve: {
+                    life: 0.34,
+                    wave: 0.5,
+                    shade: 0.5,
+                    waveScale: 2.6,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0.01,
+                    squash: 0.2,
+                    pop: null,
+                    intensity: 'ball',
+                },
+                // 리시브: 들어온 공을 죽인다. 바깥으로 터지는 파동 대신 깊게 눌렸다 느리게 복원한다.
+                receive: {
+                    life: 0.4,
+                    wave: 0.25,
+                    shade: 1.5,
+                    waveScale: 1.7,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0.34,
+                    squashDecay: 7,
+                    squashFreq: 18,
+                    pop: null,
+                    intensity: 'incoming',
+                },
+                // 아슬아슬한 받아내기(clutchHeight 아래): 리시브보다 한 단계 강하게, 짧게 멈춘다.
+                save: {
+                    life: 0.48,
+                    wave: 0.5,
+                    shade: 1.5,
+                    waveScale: 2.4,
+                    hold: 0.05,
+                    shake: { amplitude: 2.5, duration: 0.16 },
+                    fovPunch: 0.012,
+                    squash: 0.4,
+                    squashDecay: 7,
+                    squashFreq: 18,
+                    pop: null,
+                    displayHold: 0.06,
+                    intensity: 'incoming',
+                },
+                // 토스(세트): 가볍고 또렷한 "톡".
+                set: {
+                    life: 0.24,
+                    wave: 0.1,
+                    shade: 1.5,
+                    waveScale: 1.4,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0.1,
+                    squashDecay: 18,
+                    squashFreq: 42,
+                    pop: null,
+                    intensity: 'ball',
+                },
+                // 스파이크가 아닌 공격성 접촉(세 번째 넘기기·공중 발차기): good 등급 정도.
+                drive: {
+                    life: 0.32,
+                    wave: 0.5,
+                    shade: 0.5,
+                    waveScale: 2.6,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0.008,
+                    squash: 0.18,
+                    pop: null,
+                    intensity: 'foot',
+                },
+                // 발이 아닌 몸(허벅지·몸통·머리): 둔탁하게. 파동·반짝임 없이 공 눌림만.
+                body: {
+                    life: 0.22,
+                    waveScale: 1,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0.1,
+                    squashDecay: 20,
+                    squashFreq: 24,
+                    pop: null,
+                },
+                // 공이 바닥에 닿음: 위아래로 눌리고 약한 파동이 퍼진다.
+                ground: {
+                    life: 0.36,
+                    wave: 0.25,
+                    shade: 1.5,
+                    waveScale: 3.4,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0.3,
+                    squashAxis: 'up',
+                    squashDecay: 15,
+                    squashFreq: 30,
+                    pop: null,
+                    intensity: 'ball',
+                },
             },
         },
-        // 스파이크 속성 연출: 스파이크를 친 팀 학교의 속성(schools.js TAKRAW_ELEMENTS의 id)으로 고른다. 기본 스파이크 연출 위에 입자를 더한다.
-        // life: 속성 입자의 최대 수명(초). colors: 입자 색 4개(0xRRGGBB, 채도 높고 중간 밝기, 흰색은 포인트만), ring: 링 색, trail: 공 궤적 색, edge: 입자 테두리 색.
+        // 공 비행 늘어남(외형만): 표시 속도가 minSpeed 아래면 없고 maxSpeed에서 max배. 나머지 축은 부피 보존으로 줄인다.
+        // smoothing: 속도 평활 시간(초), resetDistance: 한 프레임에 이보다 멀리 가면 끊긴 장면으로 보고 속도를 지운다(m).
+        ball: {
+            stretch: { minSpeed: 5, maxSpeed: 14, max: 1.22, smoothing: 0.03, resetDistance: 1.2 },
+        },
+        // 스파이크 속성 연출: 스파이크를 친 팀 학교의 속성(schools.js TAKRAW_ELEMENTS의 id)으로 고른다. 쇼크웨이브 위에 작은 입자 구름을 공이 나가는 반대쪽에만 더한다.
+        // life: 속성 입자의 최대 수명(초). colors: 입자 색 4개(0xRRGGBB, 채도 높고 중간 밝기, 흰색은 포인트만), edge: 입자 테두리 색.
         // parts: shape(dot·diamond·leaf·shard·crescent·hex·flake·star·bolt·streak), n(개수), c(색 번호), speed(m/s), up(위 방향 가산), g(중력, 음수면 떠오름),
         //   size(m), life(위 life 비율), delay(비율), spin(rad/s), dir(burst 사방·up 위쪽 부채·flat 수평·swirl 접촉점 둘레 회전), grow(끝 배율), flicker(깜빡임).
         // 모든 속성의 입자 합은 maxParticles 이하이고, 입자는 tick·sequence 시드로 배치한다(Math.random 없음).
@@ -302,14 +448,12 @@ const TAKRAW_CONFIG = Object.freeze({
             life: 1.2,
             maxParticles: 40,
             rim: 1.35, // 입자 바깥 어두운 테두리(edge 색) 배율: 밝은 배경에서 윤곽이 보이게 한다
-            ballLife: 0.7, // 속성 연출 동안 공을 입자 위에 평면 원으로 다시 그리는 시간(초). 입자에 가려지지 않게 한다
             ballMargin: 0.16, // 입자가 공 중심에서 이 거리(m) 밖에서 시작한다(공 반지름 .095 + 여유)
-            flash: 0.5, // 속성 연출이 있을 때 기본 별 섬광의 배율(입자가 묻히지 않게 줄인다)
+            cloud: 0.4, // 구름 배율: 입자 크기와 퍼지는 거리를 줄인다(공 표면 간격 ballMargin은 지킨다). 공이 나가는 쪽 입자는 반대편으로 접는다
+            ballMask: 1.15, // 공 화면 반지름의 이 배 안에서는 입자를 그리지 않는다(어느 카메라에서도 공이 구름에 가려지지 않는다)
             byElement: {
                 grass: {
                     colors: [0x00deb1, 0x33ff74, 0x88ff33, 0xffd033],
-                    ring: 0x52ff71,
-                    trail: 0x3dff7b,
                     edge: 0x007059,
                     parts: [
                         {
@@ -340,8 +484,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 fire: {
                     colors: [0xffc633, 0xff8433, 0xff3412, 0xa63011],
-                    ring: 0xffb952,
-                    trail: 0xff8a3d,
                     edge: 0x705100,
                     parts: [
                         {
@@ -387,8 +529,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 water: {
                     colors: [0x003dba, 0x33a2ff, 0x33afff, 0xffffff],
-                    ring: 0x52b9ff,
-                    trail: 0x3da7ff,
                     edge: 0x002570,
                     parts: [
                         {
@@ -419,8 +559,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 lightning: {
                     colors: [0xffcd33, 0xffe333, 0xffffff, 0x0c83ab],
-                    ring: 0xffe752,
-                    trail: 0xffd03d,
                     edge: 0x705500,
                     parts: [
                         {
@@ -452,8 +590,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 moon: {
                     colors: [0x8e5fd0, 0xb48cf0, 0xffd84a, 0xffffff],
-                    ring: 0x9b7ae0,
-                    trail: 0xb48cf0,
                     edge: 0x3a2670,
                     parts: [
                         {
@@ -497,8 +633,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 sun: {
                     colors: [0xff9f1c, 0xffcc33, 0xffd833, 0xffffff],
-                    ring: 0xffde52,
-                    trail: 0xffcf3d,
                     edge: 0x704100,
                     parts: [
                         {
@@ -543,8 +677,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 ice: {
                     colors: [0x33c1ff, 0x33c5ff, 0xffffff, 0x0081c7],
-                    ring: 0x52ceff,
-                    trail: 0x3dcfff,
                     edge: 0x004e70,
                     parts: [
                         {
@@ -588,8 +720,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 earth: {
                     colors: [0x9a6b3a, 0x6b4a2a, 0xc89a4a, 0x4a3a2a],
-                    ring: 0xc89a4a,
-                    trail: 0xc8a15a,
                     edge: 0x3a2616,
                     parts: [
                         {
@@ -633,8 +763,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 wind: {
                     colors: [0x4fb6c8, 0xffffff, 0x2f8fb5, 0x7fd45a],
-                    ring: 0xffffff,
-                    trail: 0x4fb6c8,
                     edge: 0x1f5f7a,
                     parts: [
                         {
@@ -678,8 +806,6 @@ const TAKRAW_CONFIG = Object.freeze({
                 },
                 dark: {
                     colors: [0x2a2238, 0x7a3fd0, 0xa070ff, 0x0e0b14],
-                    ring: 0x9a6cf0,
-                    trail: 0xa070ff,
                     edge: 0x1c0f3a,
                     parts: [
                         {

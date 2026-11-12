@@ -1,16 +1,60 @@
 import { ObjectPool } from '@bloom-gamekit/object-pool';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { takrawEventUnits } from '../simulation/random.js';
-import { TAKRAW_TIMING_GRADES } from '../config/game.js';
+import { TAKRAW_CONFIG, TAKRAW_TIMING_GRADES } from '../config/game.js';
 
-/** 접촉 payload가 쓰는 연출 등급 이름. 스파이크가 타이밍 등급보다 먼저다. 런타임의 이벤트 수명 계산도 이 함수를 쓴다. */
+const FOOT_PART = /^(foot|lowerLeg)/;
+
+/**
+ * 접촉의 종류(표시 전용). 시뮬레이션 이벤트와 그 스텝 뒤 경기 상태(touches·play)만 읽는다.
+ * body: 발·정강이가 아닌 몸, serve: 서브 차기(play.reason), drive: 공격 의도의 접촉(play.kind attack·return),
+ * receive: 공을 가진 팀의 첫 터치, set: 둘째 터치, ground: 공이 바닥에 닿음. 스파이크·타이밍 등급은 impactStyleKey가 먼저 고른다.
+ * 서브가 아닌 발 접촉이 clutchHeight보다 낮으면 clutch(아슬아슬한 받아내기)다.
+ */
+function takrawContactKind(event, state, clutchHeight = TAKRAW_CONFIG.visual.impact.clutchHeight) {
+    if (event.type === 'ground') return { kind: 'ground', clutch: false };
+    if (!FOOT_PART.test(event.part || '')) return { kind: 'body', clutch: false };
+    const play = state?.play;
+    const kind =
+        play?.reason === 'serve'
+            ? 'serve'
+            : play?.kind === 'attack' || play?.kind === 'return'
+              ? 'drive'
+              : state?.touches === 1
+                ? 'receive'
+                : 'set';
+    return { kind, clutch: kind !== 'serve' && event.position.y < clutchHeight };
+}
+
+/** 접촉 payload가 쓰는 연출 이름. 스파이크 > 타이밍 등급 > 바닥 > 접촉 종류(아슬아슬한 받아내기는 save). 런타임의 이벤트 수명 계산도 이 함수를 쓴다. */
 function impactStyleKey(styles, payload) {
     if (payload?.spike && styles.spike) return 'spike';
-    return styles[payload?.timing?.grade] ? payload.timing.grade : TAKRAW_TIMING_GRADES.normal;
+    const grade = payload?.timing?.grade;
+    if (grade && grade !== TAKRAW_TIMING_GRADES.normal && styles[grade]) return grade;
+    if (payload?.kind === 'ground') return 'ground';
+    if (payload?.clutch && payload.kind !== 'body') return 'save';
+    if (styles[payload?.kind]) return payload.kind;
+    return TAKRAW_TIMING_GRADES.normal;
+}
+
+// 입자(속성 구름) 조각 셰이더에 끼우는 공 가림 방지: 화면에서 공 원판 안은 그리지 않는다(uBallMask = 중심 x·y, 반지름, 그리는 버퍼 픽셀).
+// 어느 카메라에서도 공이 구름에 가려지지 않는다. 깊이·그리는 순서와 무관하다.
+const BALL_MASK_KEY = 'ball-mask';
+function maskBall(material, mask) {
+    material.onBeforeCompile = (shader) => {
+        shader.uniforms.uBallMask = mask;
+        shader.fragmentShader = shader.fragmentShader
+            .replace('void main() {', 'uniform vec3 uBallMask;\nvoid main() {')
+            .replace(
+                '#include <clipping_planes_fragment>',
+                '#include <clipping_planes_fragment>\n    if (distance(gl_FragCoord.xy, uBallMask.xy) < uBallMask.z) discard;',
+            );
+    };
+    material.customProgramCacheKey = () => BALL_MASK_KEY;
 }
 
 /**
- * 접촉 효과(링·입자·카메라 진동량·공 강조)의 단일 소유자.
+ * 접촉 효과의 단일 소유자: 쇼크웨이브 파동 값, 공 눌림, 반짝임·그림자·히트스톱 값, 카메라 진동량, 스파이크 속성 입자 구름.
  * - 수명과 모양은 presentation-events 저널이 알려 주는 경과 시간(ageMs)의 함수다.
  *   프레임 간격을 누적하지 않으므로 프레임 속도, 롤백 재확정, 두 피어의 화면에서 같은 모습이 된다.
  * - 입자 방향은 접촉 이벤트의 tick·sequence에서 만든 시드 난수로 정한다. Math.random을 쓰지 않는다.
@@ -20,30 +64,20 @@ class TakrawImpactEffects {
     constructor({ THREE, scene, config, reducedMotion = () => false }) {
         this.THREE = THREE;
         this.scene = scene;
-        this.styles = config.visual.impact;
+        this.impact = config.visual.impact;
+        this.styles = config.visual.impact.styles;
         this.shakeCap = config.visual.shakeCap;
-        this.teamColors = [config.visual.colors.home, config.visual.colors.away];
         this.seed = config.visual.effectSeed;
         this.reducedMotion = reducedMotion;
-        this.ringGeometry = new THREE.TorusGeometry(0.13, 0.009, 4, 20);
-        this.dotGeometry = new THREE.SphereGeometry(0.024, 5, 4);
         this.streakGeometry = new THREE.BoxGeometry(0.026, 0.026, 1);
-        this.flashGeometry = this.createStarGeometry(8);
         this.axisZ = new THREE.Vector3(0, 0, 1);
+        this.axisUp = new THREE.Vector3(0, 1, 0);
+        this.cloudDirection = new THREE.Vector3();
         this.deformation = { axis: new THREE.Vector3(), amount: 0 };
         this.camera = null;
-        this.maxDots = Math.max(...Object.values(this.styles).map((style) => style.dots));
-        this.maxStreaks = Math.max(
-            ...Object.values(this.styles).map((style) => style.streaks || 0),
-        );
+        this.ballMask = { value: new THREE.Vector3() };
         this.elementConfig = config.visual.impactElements;
         this.elements = []; // 팀 번호 → 속성 id. 뷰가 학교를 정할 때 setElements로 채운다.
-        this.elementTrails = Object.fromEntries(
-            Object.entries(this.elementConfig.byElement).map(([id, element]) => [
-                id,
-                { ...this.styles.spike.trail, color: element.trail },
-            ]),
-        );
         this.shapeGeometries = this.createShapeGeometries();
         this.nodes = [];
         this.active = new Set();
@@ -59,49 +93,6 @@ class TakrawImpactEffects {
         const group = new T.Group();
         group.visible = false;
         this.scene.add(group);
-        const dotMaterial = new T.MeshBasicMaterial({
-            color: 0xfff1be,
-            transparent: true,
-            depthWrite: false,
-        });
-        const ringMaterial = new T.MeshBasicMaterial({
-            color: 0xfff1be,
-            transparent: true,
-            depthWrite: false,
-        });
-        const ring = new T.Mesh(this.ringGeometry, ringMaterial),
-            outer = new T.Mesh(this.ringGeometry, ringMaterial);
-        group.add(ring, outer);
-        const dots = [];
-        for (let i = 0; i < this.maxDots; i++) {
-            const mesh = new T.Mesh(this.dotGeometry, dotMaterial);
-            group.add(mesh);
-            dots.push({ mesh, vx: 0, vy: 0, vz: 0 });
-        }
-        const flashMaterial = new T.MeshBasicMaterial({
-            color: 0xffd23f,
-            transparent: true,
-            depthWrite: false,
-            depthTest: false,
-            side: T.DoubleSide,
-        });
-        const flash = new T.Mesh(this.flashGeometry, flashMaterial);
-        flash.visible = false;
-        group.add(flash);
-        const streaks = [];
-        for (let i = 0; i < this.maxStreaks; i++) {
-            const mesh = new T.Mesh(this.streakGeometry, dotMaterial);
-            group.add(mesh);
-            streaks.push({
-                mesh,
-                dx: 0,
-                dy: 0,
-                dz: 1,
-                direction: new T.Vector3(0, 0, 1),
-                length: 1,
-                reach: 1,
-            });
-        }
         const elementMaterials = Array.from(
             { length: 4 },
             () =>
@@ -118,6 +109,8 @@ class TakrawImpactEffects {
             depthWrite: false,
             side: T.DoubleSide,
         });
+        for (const material of [...elementMaterials, edgeMaterial])
+            maskBall(material, this.ballMask);
         const particles = [];
         for (let i = 0; i < this.elementConfig.maxParticles; i++) {
             // rim: 같은 모양을 조금 크게 뒤에 깔아 어두운 테두리로 보이게 한다(밝은 배경에서 윤곽이 보인다).
@@ -153,29 +146,29 @@ class TakrawImpactEffects {
         }
         const node = {
             group,
-            ring,
-            outer,
-            dots,
-            dotMaterial,
-            ringMaterial,
-            flash,
-            flashMaterial,
-            streaks,
             particles,
             elementMaterials,
             edgeMaterial,
             particleCount: 0,
-            trail: null,
-            elementLife: 0,
-            flashScale: 1,
             style: null,
+            strength: 1,
+            life: 1,
             hold: 0,
-            outerRing: false,
+            displayHold: 0,
             shake: null,
-            flashRoll: 0,
             fov: 0,
             squash: 0,
+            squashDecay: 13,
+            squashFreq: 34,
             squashAxis: new T.Vector3(),
+            waveStrength: 0,
+            shadeStrength: 0,
+            waveScale: 1,
+            flashFrames: false,
+            groundPulse: false,
+            playerId: -1,
+            part: '',
+            elementForward: new T.Vector3(),
             age: 0,
         };
         this.nodes.push(node);
@@ -188,12 +181,17 @@ class TakrawImpactEffects {
         node.shake = null;
         node.age = 0;
         node.particleCount = 0;
-        node.trail = null;
+        node.displayHold = 0;
     }
 
     /** 팀 번호별 학교 속성 id를 정한다(스파이크 연출을 고르는 유일한 입력). */
     setElements(ids) {
         this.elements = [...ids];
+    }
+
+    /** 공의 화면 원판(그리는 버퍼 픽셀: 중심 x·y와 반지름)을 알려 준다. 입자 구름은 이 원판 안에 그리지 않는다. */
+    setBallMask(x, y, radius) {
+        this.ballMask.value.set(x, y, radius);
     }
 
     /** 접촉 이벤트 payload로 효과를 시작한다. 반환한 노드를 update·reconcile·release에 전달한다. */
@@ -222,83 +220,75 @@ class TakrawImpactEffects {
         this.pool.release(node);
     }
 
+    /** 접촉 세기(1이 기준): 접촉 속도로 연속 변한다. 세기 원천은 style.intensity가 고른다. */
+    strengthOf(style, payload) {
+        const s = this.impact.intensity;
+        if (!style.intensity) return 1;
+        const foot = payload.footVelocity
+            ? Math.hypot(payload.footVelocity.x, payload.footVelocity.y, payload.footVelocity.z)
+            : 0;
+        const speed =
+            style.intensity === 'incoming'
+                ? payload.incomingSpeed || 0
+                : style.intensity === 'foot'
+                  ? foot * s.footWeight
+                  : payload.speed || 0;
+        return Math.min(s.max, Math.max(s.min, speed / s.referenceSpeed));
+    }
+
     configure(node, payload) {
-        const style = this.styles[impactStyleKey(this.styles, payload)];
+        const key = impactStyleKey(this.styles, payload),
+            style = this.styles[key];
         const reduced = this.reducedMotion();
+        const strength = this.strengthOf(style, payload);
         node.style = style;
-        node.fov = reduced ? 0 : style.fovPunch || 0;
-        node.squash = reduced ? 0 : style.squash || 0;
+        node.strength = strength;
+        node.life = style.life * Math.sqrt(strength);
+        // 물체 자체 반응(표시 전용): 켜진 것만 이 노드에 기록하고 view가 경과 시간으로 읽는다. 동작 줄이기에서는 왜곡·히트스톱·진동·반짝임·눌림을 끈다.
+        node.playerId = payload.playerId ?? -1;
+        node.part = payload.part ?? '';
+        node.flashFrames = !reduced && key !== 'body';
+        node.groundPulse = !reduced && payload.kind === 'ground';
+        node.waveStrength = reduced ? 0 : (style.wave || 0) * strength;
+        node.shadeStrength = reduced ? 0 : (style.shade || 0) * strength;
+        node.waveScale = style.waveScale * this.impact.wave.reach * Math.sqrt(strength);
+        node.fov = reduced ? 0 : (style.fovPunch || 0) * strength;
+        node.squash = reduced ? 0 : Math.min(0.42, (style.squash || 0) * strength);
+        node.squashDecay = style.squashDecay ?? 13;
+        node.squashFreq = style.squashFreq ?? 34;
         const fv0 = payload.footVelocity,
             fl0 = fv0 ? Math.hypot(fv0.x, fv0.y, fv0.z) : 0;
-        node.squashAxis.set(
-            fl0 > 0.5 ? fv0.x / fl0 : 0,
-            fl0 > 0.5 ? fv0.y / fl0 : 0,
-            fl0 > 0.5 ? fv0.z / fl0 : 0,
-        );
+        if (style.squashAxis === 'up') node.squashAxis.copy(this.axisUp);
+        else
+            node.squashAxis.set(
+                fl0 > 0.5 ? fv0.x / fl0 : 0,
+                fl0 > 0.5 ? fv0.y / fl0 : 0,
+                fl0 > 0.5 ? fv0.z / fl0 : 0,
+            );
         node.hold = reduced ? 0 : style.hold;
-        node.outerRing = !!style.outerRing && !reduced;
+        node.displayHold = reduced ? 0 : (style.displayHold || 0) * 1000;
         node.shake = style.shake && !reduced ? style.shake : null;
         node.group.position.set(payload.position.x, payload.position.y, payload.position.z);
         // tick과 sequence가 같으면 두 피어와 재확정에서 같은 방향이 나온다.
         const unit = takrawEventUnits(deterministic, this.seed, payload);
-        node.ring.rotation.set(unit() * Math.PI, unit() * Math.PI, 0);
-        node.outer.rotation.copy(node.ring.rotation);
-        const teamColor = this.teamColors[payload.team === 1 ? 1 : 0];
-        node.dotMaterial.color.setHex(teamColor);
-        node.ringMaterial.color.setHex(style.ringColor ?? teamColor);
-        const speed = Math.min(1.3, 0.4 + (payload.speed || 0) * 0.035);
-        for (const [index, dot] of node.dots.entries()) {
-            const angle = unit() * Math.PI * 2;
-            dot.vx = Math.cos(angle) * speed;
-            dot.vy = unit() * speed + 0.12;
-            dot.vz = Math.sin(angle) * speed;
-            dot.mesh.visible = index < style.dots;
-        }
-        // 속도선: 발의 이동 방향 축 주위로 부채꼴. 발 속도가 없으면 위쪽 축.
-        const fv = payload.footVelocity,
-            fl = fv ? Math.hypot(fv.x, fv.y, fv.z) : 0;
-        const ax = fl > 0.5 ? fv.x / fl : 0,
-            ay = fl > 0.5 ? fv.y / fl : 1,
-            az = fl > 0.5 ? fv.z / fl : 0;
-        const count = reduced ? 0 : style.streaks || 0;
-        for (const [index, streak] of node.streaks.entries()) {
-            streak.mesh.visible = index < count;
-            const dx = ax * 0.55 + (unit() - 0.5) * 1.5,
-                dy = ay * 0.55 + (unit() - 0.5) * 1.5,
-                dz = az * 0.55 + (unit() - 0.5) * 1.5;
-            const size = Math.hypot(dx, dy, dz) || 1;
-            streak.dx = dx / size;
-            streak.dy = dy / size;
-            streak.dz = dz / size;
-            streak.direction.set(streak.dx, streak.dy, streak.dz);
-            streak.length = 0.35 + unit() * 0.5 + Math.min(0.5, (payload.speed || 0) * 0.02);
-            streak.reach = 0.25 + unit() * 0.35;
-        }
-        node.flashRoll = unit() * Math.PI;
-        node.flash.visible = !!style.flash;
         this.configureElement(node, payload, unit, reduced);
     }
 
-    /** 스파이크이고 팀 학교에 속성이 있으면 속성 입자를 시드 난수로 배치한다. */
+    /** 스파이크이고 팀 학교에 속성이 있으면 속성 입자 구름을 시드 난수로 배치한다. 구름은 공이 나가는 쪽(발 속도 방향)의 반대편에만 둔다. */
     configureElement(node, payload, unit, reduced) {
         const element = payload.spike
             ? this.elementConfig.byElement[this.elements[payload.team === 1 ? 1 : 0]]
             : null;
         node.particleCount = 0;
-        node.trail = null;
-        node.flashScale = 1;
         for (const particle of node.particles) particle.mesh.visible = particle.rim.visible = false;
         if (!element) return;
-        // 속성 연출은 팀 색 점·속도선을 대신한다(링·섬광·진동·눌림은 그대로).
-        for (const dot of node.dots) dot.mesh.visible = false;
-        for (const streak of node.streaks) streak.mesh.visible = false;
-        node.flashScale = this.elementConfig.flash;
-        node.trail = this.elementTrails[this.elements[payload.team === 1 ? 1 : 0]];
-        node.ringMaterial.color.setHex(element.ring);
+        const f = payload.footVelocity,
+            fl = f ? Math.hypot(f.x, f.y, f.z) : 0;
+        // 방향이 없으면 위쪽을 앞으로 본다.
+        if (fl > 0.5) node.elementForward.set(f.x / fl, f.y / fl, f.z / fl);
+        else node.elementForward.set(0, 1, 0);
         node.edgeMaterial.color.setHex(element.edge);
         element.colors.forEach((color, index) => node.elementMaterials[index].color.setHex(color));
-        const fv = payload.footVelocity,
-            fl = fv ? Math.hypot(fv.x, fv.y, fv.z) : 0;
         let index = 0;
         for (const part of element.parts) {
             const count = reduced ? Math.floor(part.n * 0.4) : part.n;
@@ -332,9 +322,9 @@ class TakrawImpactEffects {
                     part.dir === 'swirl' ? (2.2 + unit() * 2) * (unit() < 0.5 ? -1 : 1) : 0;
                 particle.radius = part.dir === 'swirl' ? 0.12 + unit() * 0.12 : 0;
                 // 방향이 있는 모양(streak·bolt)은 접촉점에서 바깥으로 향한다. 발 속도가 있으면 그 축 쪽으로 기울인다.
-                const dx = particle.vx + (fl > 0.5 ? fv.x / fl : 0) * 0.6,
-                    dy = particle.vy + (fl > 0.5 ? fv.y / fl : 0) * 0.6,
-                    dz = particle.vz + (fl > 0.5 ? fv.z / fl : 0) * 0.6;
+                const dx = particle.vx + (fl > 0.5 ? f.x / fl : 0) * 0.6,
+                    dy = particle.vy + (fl > 0.5 ? f.y / fl : 0) * 0.6,
+                    dz = particle.vz + (fl > 0.5 ? f.z / fl : 0) * 0.6;
                 const size = Math.hypot(dx, dy, dz) || 1;
                 particle.direction.set(dx / size, dy / size, dz / size);
                 particle.length = part.size * (0.7 + unit() * 0.6);
@@ -343,45 +333,12 @@ class TakrawImpactEffects {
         node.particleCount = index;
     }
 
-    /** 경과 시간으로 모양을 정한다. 정지 구간(hold)에는 첫 모습을 유지한다. */
+    /** 경과 시간으로 입자 구름의 모양을 정한다. 정지 구간(hold)에는 첫 모습을 유지한다. */
     apply(node, ageMs) {
-        const style = node.style;
-        if (!style) return;
+        if (!node.style) return;
         const t = Math.max(0, ageMs - node.hold * 1000) / 1000;
-        const progress = Math.min(1, t / style.life);
-        const alive = progress < 1 || (node.particleCount > 0 && t < this.elementConfig.life);
-        node.group.visible = alive;
-        node.dotMaterial.opacity = node.ringMaterial.opacity = (1 - progress) * 0.8;
-        node.ring.scale.setScalar(0.65 + progress * style.ringScale);
-        node.outer.visible = progress < 1 && node.outerRing;
-        node.outer.scale.setScalar(0.65 + progress * style.ringScale * 1.6);
-        for (const dot of node.dots)
-            dot.mesh.position.set(dot.vx * t, dot.vy * t - t * t, dot.vz * t);
-        // 섬광: 빠르게 커졌다가 사라진다. 정지 구간에도 첫 모습(크게)을 유지한다.
-        const flashProgress = Math.min(1, t / (style.life * 0.32));
-        node.flash.visible = !!style.flash && flashProgress < 1;
-        node.flashMaterial.opacity = (1 - flashProgress) * 0.95;
-        node.flash.scale.setScalar(
-            style.flash * node.flashScale * (0.55 + Math.sqrt(flashProgress) * 0.75),
-        );
-        if (this.camera) node.flash.quaternion.copy(this.camera.quaternion);
-        node.flash.rotateZ(node.flashRoll);
-        // 속도선: 바깥으로 뻗으며 머리가 먼저 나가고 꼬리가 따라온다.
-        const lineProgress = Math.min(1, t / (style.life * 0.7));
+        node.group.visible = node.particleCount > 0 && t < this.elementConfig.life;
         this.applyParticles(node, t);
-        for (const streak of node.streaks) {
-            if (!streak.mesh.visible) continue;
-            const head = streak.reach * Math.sqrt(lineProgress) * 2.2,
-                tail = Math.max(0, head - streak.length * (1 - lineProgress));
-            const length = Math.max(0.001, head - tail);
-            streak.mesh.position.set(
-                (streak.dx * (head + tail)) / 2,
-                (streak.dy * (head + tail)) / 2,
-                (streak.dz * (head + tail)) / 2,
-            );
-            streak.mesh.scale.set(1, 1, length);
-            streak.mesh.quaternion.setFromUnitVectors(this.axisZ, streak.direction);
-        }
     }
 
     /** 속성 입자의 위치·크기를 경과 시간 t(초)로 정한다. 시작 전과 끝난 뒤에는 보이지 않는다. */
@@ -391,6 +348,9 @@ class TakrawImpactEffects {
             material.opacity = 1;
         });
         node.edgeMaterial.opacity = 0.85;
+        const cloud = this.elementConfig.cloud,
+            margin = this.elementConfig.ballMargin,
+            forward = node.elementForward;
         for (let i = 0; i < node.particleCount; i++) {
             const particle = node.particles[i],
                 local = t - particle.start,
@@ -405,7 +365,6 @@ class TakrawImpactEffects {
                 continue;
             }
             mesh.visible = particle.rim.visible = true;
-            const margin = this.elementConfig.ballMargin;
             let x = particle.vx * local + Math.cos(particle.angle) * margin,
                 z = particle.vz * local + Math.sin(particle.angle) * margin;
             if (particle.swirl) {
@@ -417,12 +376,25 @@ class TakrawImpactEffects {
             }
             const y = particle.vy * local - 0.5 * particle.g * local * local;
             mesh.position.set(x, y, z);
+            // 구름 크기·거리를 줄이되 공 표면에서 시작하는 간격(ballMargin)은 지키고, 공이 나가는 쪽으로 간 입자는 반대편으로 접어 넣는다.
+            const length = mesh.position.length() || 1;
+            mesh.position.multiplyScalar(cloud + (margin * (1 - cloud)) / length);
+            const ahead = mesh.position.dot(forward);
+            if (ahead > 0) mesh.position.addScaledVector(forward, -2 * ahead);
+            let direction = particle.direction;
+            if (direction.dot(forward) > 0) {
+                direction = this.cloudDirection.copy(direction);
+                direction.addScaledVector(forward, -2 * direction.dot(forward));
+            }
             const scale =
-                particle.size * (1 + (particle.grow - 1) * progress) * (1 - progress * progress);
+                particle.size *
+                cloud *
+                (1 + (particle.grow - 1) * progress) *
+                (1 - progress * progress);
             if (particle.shape === 'streak' || particle.shape === 'bolt') {
                 // 길이 방향(z)으로 뻗는 모양: 머리가 먼저 나가고 꼬리가 줄어든다.
-                mesh.scale.set(1, 1, Math.max(0.001, particle.length * (1 - progress)));
-                mesh.quaternion.setFromUnitVectors(this.axisZ, particle.direction);
+                mesh.scale.set(1, 1, Math.max(0.001, particle.length * cloud * (1 - progress)));
+                mesh.quaternion.setFromUnitVectors(this.axisZ, direction);
             } else {
                 mesh.scale.setScalar(Math.max(0.001, scale));
                 if (this.camera) mesh.quaternion.copy(this.camera.quaternion);
@@ -437,6 +409,54 @@ class TakrawImpactEffects {
                 rim.scale.set(grow * 2, grow * 2, mesh.scale.z * 1.06);
             else rim.scale.setScalar(mesh.scale.x * grow);
         }
+    }
+
+    /** 접촉 순간(flash.ms 동안) 밝아져야 하는 물체 이름을 keys(Set)에 더한다: 공 'ball'과 닿은 부위 'p{선수}:{부위}'. */
+    collectFlash(keys) {
+        for (const node of this.active) {
+            if (!node.flashFrames || node.age >= this.impact.flash.ms) continue;
+            keys.add('ball');
+            if (node.playerId >= 0 && node.part) keys.add(`p${node.playerId}:${node.part}`);
+        }
+    }
+
+    /** 공 그림자 반응: 바닥 튕김 직후 0→1→0으로 오르내리는 값(여러 개면 가장 큰 값). */
+    shadowPulse() {
+        let best = 0;
+        for (const node of this.active) {
+            if (!node.groundPulse) continue;
+            const q = node.age / 1000 / this.impact.shadow.life;
+            if (q < 1) best = Math.max(best, Math.sin(Math.PI * q));
+        }
+        return best;
+    }
+
+    /**
+     * 지금 퍼지는 쇼크웨이브를 out(미리 만든 { x, y, z, radius, width, distort, shade } 배열)에 채우고 개수를 돌려준다.
+     * 반지름·수명은 visual.impact.wave와 style을 따르고, 세기는 끝으로 갈수록 0이 된다. 넘치면 가장 오래된 것을 버린다.
+     * distort: 밀림(화면 높이 비율, 세기에 가파르게 묶임), shade: 명암 세기(왜곡과 따로 정한다).
+     */
+    waves(out) {
+        const wave = this.impact.wave;
+        let count = 0;
+        for (const node of this.active) {
+            if (node.waveStrength <= 0) continue;
+            const q = node.age / 1000 / (node.life * wave.lifeShare);
+            if (!(q < 1)) continue;
+            const radius =
+                wave.radius * (wave.start + node.waveScale * (1 - (1 - q) ** wave.growth));
+            const fade = 1 - q ** wave.fade,
+                level = node.waveStrength / node.strength; // style.wave(접촉 세기 제외)
+            const slot = out[count++ % out.length];
+            slot.x = node.group.position.x;
+            slot.y = node.group.position.y;
+            slot.z = node.group.position.z;
+            slot.radius = radius;
+            slot.width = radius * wave.width;
+            slot.distort = wave.amount * level ** wave.distortPower * node.strength * fade;
+            slot.shade = node.shadeStrength * fade;
+        }
+        return Math.min(count, out.length);
     }
 
     /**
@@ -481,6 +501,23 @@ class TakrawImpactEffects {
     }
 
     /**
+     * 표시 전용 히트스톱의 포즈 고정 비율(0~1). 1이면 내 화면의 선수·공 포즈를 멈춘 그대로 두고,
+     * 0과 1 사이면 멈춘 포즈에서 지금 포즈로 따라잡는 중이다. 시뮬레이션·입력·네트워크·효과 시계는 멈추지 않는다.
+     */
+    poseHold() {
+        let hold = 0;
+        for (const node of this.active) {
+            if (!node.displayHold) continue;
+            const h = node.displayHold,
+                catchUp = h * this.impact.displayCatchUp;
+            const value =
+                node.age < h ? 1 : node.age < h + catchUp ? (1 - (node.age - h) / catchUp) ** 2 : 0;
+            hold = Math.max(hold, value);
+        }
+        return hold;
+    }
+
+    /**
      * 공의 눌림(squash)을 { axis, amount }로 돌려준다. 가장 센 활성 접촉 하나만 쓴다.
      * amount > 0: axis(맞은 방향)로 눌리고 수직으로 퍼진다. 눌렸다가 살짝 늘어나며 0으로 돌아온다. 외형만 바꾸며 collider·판정은 건드리지 않는다.
      */
@@ -490,7 +527,10 @@ class TakrawImpactEffects {
         for (const node of this.active) {
             if (!node.squash) continue;
             const elapsed = node.age / 1000,
-                amount = node.squash * Math.exp(-elapsed * 13) * Math.cos(elapsed * 34);
+                amount =
+                    node.squash *
+                    Math.exp(-elapsed * node.squashDecay) *
+                    Math.cos(elapsed * node.squashFreq);
             if (Math.abs(amount) > Math.abs(out.amount)) {
                 out.amount = amount;
                 out.axis.copy(node.squashAxis);
@@ -498,24 +538,6 @@ class TakrawImpactEffects {
         }
         if (out.axis.lengthSq() === 0) out.amount = 0;
         return out;
-    }
-
-    /** 속성 연출 중이면 공을 입자 위에 다시 그릴 때 쓸 { edge }를, 아니면 null을 돌려준다(공이 입자에 가려지지 않게 한다). */
-    ballEmphasis() {
-        for (const node of this.active) {
-            if (node.particleCount && node.age / 1000 - node.hold < this.elementConfig.ballLife)
-                return { edge: node.edgeMaterial.color.getHex() };
-        }
-        return null;
-    }
-
-    /** 공 궤적을 강조 중이면 { color, duration }, 아니면 null. */
-    trailBoost() {
-        for (const node of this.active) {
-            const trail = node.trail ?? node.style?.trail;
-            if (trail && node.age < trail.duration * 1000) return trail;
-        }
-        return null;
     }
 
     /** 입자 모양 판(반지름 1, xy 평면). streak·bolt는 길이 1짜리 상자·지그재그 띠로 z축 방향으로 놓는다. */
@@ -595,7 +617,7 @@ class TakrawImpactEffects {
         };
     }
 
-    /** 뾰족한 별 모양 판(반지름 1). 섬광에 쓴다. */
+    /** 뾰족한 별 모양 판(반지름 1). flake·star 입자에 쓴다. */
     createStarGeometry(points) {
         const T = this.THREE,
             shape = new T.Shape();
@@ -612,23 +634,16 @@ class TakrawImpactEffects {
     dispose() {
         for (const node of this.nodes) {
             this.scene.remove(node.group);
-            node.dotMaterial.dispose();
-            node.ringMaterial.dispose();
-            node.flashMaterial.dispose();
             node.edgeMaterial.dispose();
-        }
-        for (const node of this.nodes)
             for (const material of node.elementMaterials) material.dispose();
+        }
         for (const [id, geometry] of Object.entries(this.shapeGeometries))
             if (id !== 'streak') geometry.dispose();
-        this.ringGeometry.dispose();
-        this.dotGeometry.dispose();
         this.streakGeometry.dispose();
-        this.flashGeometry.dispose();
         this.active.clear();
         this.pool.clear();
         this.nodes.length = 0;
     }
 }
 
-export { TakrawImpactEffects, impactStyleKey };
+export { TakrawImpactEffects, impactStyleKey, takrawContactKind };

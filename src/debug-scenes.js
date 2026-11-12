@@ -31,6 +31,7 @@ export function createDebugScenes({
     showClub,
     openMatch,
     readReplay,
+    ballScreen,
 }) {
     const QUANTUM = 1000 / config.simulation.tickRate;
     const scenes = {
@@ -54,7 +55,8 @@ export function createDebugScenes({
                         throw new Error(`step advanced ${read().tick - before} ticks`);
                 },
                 render: () => render(clock.now()),
-                state: read,
+                // screen: 공의 화면 위치(CSS px). 캡처를 공 주변으로 자를 때 쓴다.
+                state: () => ({ ...read(), screen: ballScreen() }),
                 // 경기 전체 상태(game.save())의 해시. 두 체크아웃에서 같은 주소를 열어 결과가 비트 단위로 같은지 본다.
                 hash: stateHash,
             };
@@ -62,12 +64,15 @@ export function createDebugScenes({
         /**
          * watch와 같은 재생을 고정 카메라로 그리고 화면 HUD를 숨긴다(아이콘·공유 이미지용 장면 캡처).
          * camera는 `x,y,z,tx,ty,tz,fov`(카메라 위치, 바라보는 점, 세로 시야각 도)이며 바라보는 점은 공 위치 기준의 상대 좌표다.
+         * aim=world면 바라보는 점이 월드 좌표다(카메라가 공을 따라 돌지 않아 접점 효과의 크기 변화를 그대로 본다).
          */
-        spike({ seed, camera }, context) {
+        spike({ seed, camera, aim }, context) {
             const values = String(camera).split(',').map(Number);
             if (values.length !== 7 || !values.every(Number.isFinite))
                 throw new Error(`spike needs camera=x,y,z,tx,ty,tz,fov: ${camera}`);
             const [x, y, z, tx, ty, tz, fov] = values;
+            if (aim !== undefined && aim !== 'world')
+                throw new Error(`spike aim must be world: ${aim}`);
             const watch = scenes.watch({ seed }, context);
             const style = document.createElement('style');
             style.textContent = '#app > :not(#court-canvas){display:none!important}';
@@ -78,9 +83,10 @@ export function createDebugScenes({
                     watch.render();
                     const ball = ballPosition();
                     if (!ball) throw new Error('spike needs a ball on screen');
+                    const origin = aim === 'world' ? { x: 0, y: 0, z: 0 } : ball;
                     renderFrom({
                         position: { x, y, z },
-                        target: { x: ball.x + tx, y: ball.y + ty, z: ball.z + tz },
+                        target: { x: origin.x + tx, y: origin.y + ty, z: origin.z + tz },
                         fov,
                     });
                 },

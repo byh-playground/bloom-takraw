@@ -7,6 +7,9 @@ import { LOCALE } from '../i18n/locale.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
+import { TakrawShockWave } from './shock-wave.js';
+
+const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
 class TakrawView {
     constructor({ THREE, canvas, config }) {
@@ -65,7 +68,32 @@ class TakrawView {
             vector: new THREE.Vector3(),
             scale: new THREE.Vector3(),
             object: new THREE.Object3D(),
+            quaternion: new THREE.Quaternion(),
+            right: new THREE.Vector3(),
+            up: new THREE.Vector3(),
         };
+        // 표시 속도(보간 포즈의 프레임 간 위치 차를 평활): 공 늘어남의 방향·크기. 끊긴 장면(준비·득점·순간이동)에서는 지운다.
+        this.ballMotion = {
+            last: new THREE.Vector3(),
+            sample: new THREE.Vector3(),
+            velocity: new THREE.Vector3(),
+            lastMs: null,
+        };
+        // 공 변형 행렬(프레임마다 재사용): 접촉 눌림 · 비행 늘어남 · 물리 회전.
+        this.ballTransform = {
+            squash: new THREE.Matrix4(),
+            stretch: new THREE.Matrix4(),
+            rotation: new THREE.Matrix4(),
+            direction: new THREE.Vector3(),
+        };
+        // 화면에서 본 늘어남(공 후광이 공과 같이 늘어나게): along 배율과 화면 각도(rad).
+        this.ballScreenStretch = { along: 1, angle: 0 };
+        this.ballExtent = 1;
+        this.poseHoldValue = 0;
+        // 공·닿은 부위 반짝임(표시 전용): 밝아진 물체 이름과 재질 복제본.
+        this.lit = new Set();
+        this.litKeys = new Set();
+        this.litMaterials = new Map();
         // 네트·기둥의 경계. 물리 충돌체와 같은 값에서 파생한다.
         this.netShape = takrawNetShape(config.court, config.physics);
         this.makeLights();
@@ -82,6 +110,7 @@ class TakrawView {
         });
         this.impacts.camera = this.camera;
         this.impacts.setElements(this.schools.map((school) => school.element));
+        this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
         this.field = new TakrawFieldEffects({
             THREE,
             scene: this.scene,
@@ -602,9 +631,8 @@ class TakrawView {
         this.ballHeightTicks.frustumCulled = false;
         this.ballHeightTicks.renderOrder = 3;
         this.scene.add(this.ballHeightTicks);
-        this.haloBaseColor = 0x213f37;
         const haloMaterial = new T.MeshBasicMaterial({
-            color: this.haloBaseColor,
+            color: 0x213f37,
             transparent: true,
             opacity: 0.85,
             side: T.DoubleSide,
@@ -612,7 +640,6 @@ class TakrawView {
             depthTest: false,
         });
         this.materials.set('ballHalo', haloMaterial);
-        this.haloMaterial = haloMaterial;
         this.ballHalo = this.mesh(
             this.geometry('ballHalo', () => new T.RingGeometry(0.118, 0.14, 40)),
             haloMaterial,
@@ -620,39 +647,15 @@ class TakrawView {
         this.ballHalo.castShadow = false;
         this.ballHalo.receiveShadow = false;
         this.ballHalo.renderOrder = 4;
-        // 속성 스파이크 연출 동안 공을 입자 위에 평면 원(밝은 공 색 + 어두운 테두리)으로 다시 그린다. 깊이 검사는 켜 두어 네트·선수에 가려진다(깊이감 유지).
-        this.ballFrontEdge = new T.MeshBasicMaterial({
-            color: 0x000000,
-            transparent: true,
-            depthWrite: false,
-        });
-        this.ballFront = new T.Group();
-        this.ballFront.visible = false;
-        const frontFill = new T.MeshBasicMaterial({
-            color: 0xffe3a0,
-            transparent: true,
-            depthWrite: false,
-        });
-        const edgeDisc = new T.Mesh(new T.CircleGeometry(1.4, 28), this.ballFrontEdge),
-            fillDisc = new T.Mesh(new T.CircleGeometry(1, 28), frontFill);
-        edgeDisc.renderOrder = 5;
-        fillDisc.renderOrder = 6;
-        this.ballFront.add(edgeDisc, fillDisc);
-        this.scene.add(this.ballFront);
-        this.ballFrontEdgeDisc = edgeDisc;
-        this.ballFrontFillDisc = fillDisc;
-        this.ballFrontMaterials = [this.ballFrontEdge, frontFill];
-        this.ballFrontGeometries = [edgeDisc.geometry, fillDisc.geometry];
         this.trailData = new Float32Array(20 * 3);
         this.trailGeometry = new T.BufferGeometry();
         this.trailGeometry.setAttribute('position', new T.BufferAttribute(this.trailData, 3));
         this.trailGeometry.setDrawRange(0, 0);
         this.geometries.set('ballTrail', this.trailGeometry);
-        this.trailBase = { color: 0xffdf92, opacity: 0.55 };
         this.trailMaterial = new T.LineBasicMaterial({
-            color: this.trailBase.color,
+            color: 0xffdf92,
             transparent: true,
-            opacity: this.trailBase.opacity,
+            opacity: 0.55,
             depthWrite: false,
         });
         this.materials.set('ballTrail', this.trailMaterial);
@@ -1313,9 +1316,17 @@ class TakrawView {
         this.lastMs = nowMs;
         for (const entity of viewData.entities)
             if (!this.meshes.has(entity.id)) this.createEntity(entity);
+        // 표시 전용 히트스톱: 1이면 멈춘 포즈 그대로, 0~1이면 멈춘 포즈에서 지금 포즈로 따라잡는다. 멈추기 시작한 프레임에 지금 포즈를 잡아 둔다.
+        const hold = this.reducedMotion() ? 0 : this.impacts.poseHold(),
+            snapshot = hold > 0 && this.poseHoldValue === 0;
+        this.poseHoldValue = hold;
         const apply = (model, id) => {
             const mesh = this.meshes.get(id);
             if (!mesh) return;
+            if (hold > 0) {
+                this.holdPose(mesh, model, hold, snapshot);
+                return;
+            }
             mesh.position.set(model.x, model.y, model.z);
             mesh.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
             this.updateLegGeometry(mesh, model.halfHeight);
@@ -1334,7 +1345,7 @@ class TakrawView {
             this.resize();
         this.updateCamera(viewData, context, dt);
         this.applyShake();
-        this.squashBall();
+        this.squashBall(viewData.state?.phase, nowMs);
         this.updateAttackGuides(viewData, context);
         this.updateReceiveGuides(viewData, context);
         const selected = viewData.state?.selected || takrawHumanPlayerIds();
@@ -1367,8 +1378,13 @@ class TakrawView {
             const height = Math.max(0, ball.position.y);
             this.ballShadow.position.x = this.ballLocator.position.x = ball.position.x;
             this.ballShadow.position.z = this.ballLocator.position.z = ball.position.z;
-            this.ballShadow.scale.setScalar(1 + Math.min(1, height * 0.1));
-            this.ballShadow.material.opacity = 0.3 / (1 + height * 0.12);
+            const pulse = this.impacts.shadowPulse(),
+                shadow = this.config.visual.impact.shadow;
+            this.ballShadow.scale.setScalar(
+                (1 + Math.min(1, height * 0.1)) * (1 + shadow.scale * pulse),
+            );
+            this.ballShadow.material.opacity =
+                (0.3 / (1 + height * 0.12)) * (1 + shadow.opacity * pulse);
             this.ballLocator.visible = height > 0.3;
             this.ballHeight.visible = this.ballHeightTicks.visible = height > 0.3;
             this.heightData.set([
@@ -1409,26 +1425,10 @@ class TakrawView {
             );
             const unitsPerPixel =
                 (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            const boost = this.impacts.trailBoost();
-            this.ballHalo.scale.setScalar(
-                Math.max(1, (7 * unitsPerPixel) / 0.14) * (boost ? 1.8 : 1),
-            );
-            this.haloMaterial.color.setHex(boost ? boost.color : this.haloBaseColor);
-            const emphasis = this.impacts.ballEmphasis();
-            this.ballFront.visible = !!emphasis;
-            if (emphasis) {
-                this.ballFrontEdge.color.setHex(emphasis.edge);
-                this.ballFront.position.copy(ball.position);
-                this.ballFront.quaternion.copy(this.camera.quaternion);
-                const radius = ball.userData.entity?.radius ?? 0.095,
-                    scale = radius * 1.2; // 월드 크기 고정: 멀어지면 원근대로 작아져 깊이감이 유지된다
-                this.ballFront.scale.setScalar(scale);
-                // 원판을 공 앞면(카메라 쪽)에 붙여 공 자신에게 가려지지 않게 한다. 이 거리 때문에 네트가 공 앞에 있으면 원판이 가려진다.
-                this.ballFrontEdgeDisc.position.z = (radius * 1.04) / scale;
-                this.ballFrontFillDisc.position.z = (radius * 1.08) / scale;
-            }
-            this.trailMaterial.color.setHex(boost ? boost.color : this.trailBase.color);
-            this.trailMaterial.opacity = boost ? 1 : this.trailBase.opacity;
+            const haloScale = Math.max(1, (7 * unitsPerPixel) / 0.14),
+                stretch = this.ballScreenStretch;
+            this.ballHalo.scale.set(haloScale * stretch.along, haloScale, haloScale);
+            if (stretch.along !== 1) this.ballHalo.rotateZ(stretch.angle);
             const distance = ball.position.distanceTo(this.trailLast);
             if (distance > 0.055) {
                 if (
@@ -1449,7 +1449,84 @@ class TakrawView {
             this.trail.visible = (viewData.state?.ballSpeed || 0) > 4 && this.trailCount > 1;
         }
         this.updateCrowd(nowMs);
-        this.renderer.render(this.scene, this.camera);
+        this.applyHitFlash();
+        if (ball) this.updateBallMask(ball);
+        this.shockWave.render(this.scene, this.camera, this.impacts);
+    }
+
+    /**
+     * 접촉 순간 공과 닿은 부위를 잠깐 밝게. 덧그림이 아니라 물체 재질이 바뀐다: 재질마다 emissive를 켠 복제본을 한 번 만들어 mesh.material을 바꿔 끼우고 끝나면 되돌린다.
+     */
+    applyHitFlash() {
+        const keys = this.litKeys;
+        keys.clear();
+        if (!this.reducedMotion()) this.impacts.collectFlash(keys);
+        for (const id of this.lit)
+            if (!keys.has(id)) {
+                this.lit.delete(id);
+                this.setLit(id, false);
+            }
+        for (const id of keys)
+            if (!this.lit.has(id) && this.meshes.has(id)) {
+                this.lit.add(id);
+                this.setLit(id, true);
+            }
+    }
+
+    setLit(id, on) {
+        const group = this.meshes.get(id);
+        if (!group) return;
+        group.traverse((child) => {
+            if (!child.isMesh) return;
+            if (on) {
+                if (!child.material.emissive) return;
+                child.userData.plainMaterial = child.material;
+                if (!this.litMaterials.has(child.material)) {
+                    const lit = child.material.clone();
+                    lit.emissive.setHex(0xffffff);
+                    lit.emissiveIntensity = this.config.visual.impact.flash.glow;
+                    this.litMaterials.set(child.material, lit);
+                }
+                child.material = this.litMaterials.get(child.material);
+            } else if (child.userData.plainMaterial) {
+                child.material = child.userData.plainMaterial;
+                child.userData.plainMaterial = null;
+            }
+        });
+    }
+
+    /**
+     * 공의 화면 원판을 입자 구름에 알린다(그리는 버퍼 픽셀). 구름은 이 원판 안을 그리지 않으므로 어느 카메라에서도 공이 가려지지 않는다.
+     * 반지름은 공 반지름(눌림·늘어남의 가장 긴 축 포함)의 impactElements.ballMask배다. 카메라 뒤이면 0이다.
+     * 같은 자리에서 쇼크웨이브가 공 후광 둘레를 밀지 않게 알린다.
+     */
+    updateBallMask(ball) {
+        const camera = this.camera,
+            point = this.temp.vector.copy(ball.position).applyMatrix4(camera.matrixWorldInverse),
+            depth = -point.z;
+        if (depth < camera.near) {
+            this.impacts.setBallMask(0, 0, 0);
+            this.shockWave.setKeepOut(0, 0, 0);
+            return;
+        }
+        const ratio = this.renderer.getPixelRatio(),
+            radius = ball.userData.entity?.radius ?? 0.095,
+            pixels =
+                ((radius * this.config.visual.impactElements.ballMask * this.ballExtent) /
+                    (2 * depth * Math.tan((camera.fov * Math.PI) / 360))) *
+                this.height *
+                ratio;
+        point.copy(ball.position).project(camera);
+        // 쇼크웨이브가 밀지 않을 둘레: 공 후광(바깥 반지름 0.14m 또는 7px 중 큰 쪽, 늘어남 포함)에 여유를 더한다.
+        const upp = (2 * Math.max(1, depth) * Math.tan((camera.fov * Math.PI) / 360)) / this.height,
+            keep =
+                (Math.max(0.14 / upp, 7) * this.ballScreenStretch.along * 1.25 + 3) / this.height;
+        this.shockWave.setKeepOut((point.x + 1) / 2, (point.y + 1) / 2, keep);
+        this.impacts.setBallMask(
+            ((point.x + 1) / 2) * this.width * ratio,
+            ((point.y + 1) / 2) * this.height * ratio,
+            pixels,
+        );
     }
 
     /**
@@ -1474,10 +1551,23 @@ class TakrawView {
         this.camera.updateProjectionMatrix();
         this.camera.lookAt(target.x, target.y, target.z);
         this.camera.updateMatrixWorld();
-        this.renderer.render(this.scene, this.camera);
+        const ball = this.meshes.get('ball');
+        if (ball) this.updateBallMask(ball);
+        this.shockWave.render(this.scene, this.camera, this.impacts);
         guides.forEach((guide, index) => {
             guide.visible = shown[index];
         });
+    }
+
+    /** 마지막으로 그린 카메라에서 공의 화면 위치(CSS px). 확인용 장면이 캡처를 자를 때 읽는다. */
+    ballScreen() {
+        const ball = this.meshes.get('ball');
+        if (!ball) return null;
+        const point = ball.position.clone().project(this.camera);
+        return {
+            x: Math.round(((point.x + 1) / 2) * this.width),
+            y: Math.round(((1 - point.y) / 2) * this.height),
+        };
     }
 
     /** 화면에 그려진 공의 위치(월드 좌표). 확인용 장면이 카메라를 맞출 때 읽는다. */
@@ -1486,29 +1576,52 @@ class TakrawView {
         return ball ? { x: ball.position.x, y: ball.position.y, z: ball.position.z } : null;
     }
 
-    /**
-     * 맞은 방향으로 공을 눌렀다 되돌린다(외형만). 위치·회전은 물리 값 그대로 두고 월드 축 기준 비균일 스케일만 행렬에 곱한다.
-     * 부피를 보존하도록 수직 방향은 1/sqrt(축 방향 스케일)로 늘린다.
-     */
-    squashBall() {
-        const ball = this.meshes.get('ball');
-        if (!ball) return;
-        const { axis, amount } = this.reducedMotion()
-            ? { axis: null, amount: 0 }
-            : this.impacts.deform();
-        if (!amount) {
-            if (!ball.matrixAutoUpdate) {
-                ball.matrixAutoUpdate = true;
-                ball.matrixWorldNeedsUpdate = true;
-            }
-            return;
+    /** 히트스톱 중 한 물체의 포즈: 잡아 둔 포즈와 지금 포즈를 1-hold 비율로 섞는다(hold 1이면 그대로 멈춤). */
+    holdPose(mesh, model, hold, snapshot) {
+        let held = mesh.userData.heldPose;
+        if (!held) {
+            held = mesh.userData.heldPose = {
+                position: mesh.position.clone(),
+                quaternion: mesh.quaternion.clone(),
+            };
+        } else if (snapshot) {
+            held.position.copy(mesh.position);
+            held.quaternion.copy(mesh.quaternion);
         }
-        const along = Math.max(0.55, 1 - amount),
-            across = 1 / Math.sqrt(along),
+        const follow = 1 - hold,
+            target = this.temp.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
+        mesh.position.set(model.x, model.y, model.z);
+        mesh.position.lerpVectors(held.position, mesh.position, follow);
+        mesh.quaternion.slerpQuaternions(held.quaternion, target, follow);
+        if (follow > 0) this.updateLegGeometry(mesh, model.halfHeight);
+    }
+
+    /** 공의 표시 속도를 갱신한다. 준비·득점 단계나 한 프레임에 resetDistance보다 멀리 가면(순간이동·롤백·리플레이 시작) 속도를 지운다. */
+    updateBallMotion(ball, phase, nowMs) {
+        const motion = this.ballMotion,
+            s = this.config.visual.ball.stretch;
+        const dt = motion.lastMs === null ? 0 : (nowMs - motion.lastMs) / 1000;
+        if (
+            motion.lastMs === null ||
+            phase === 'ready' ||
+            phase === 'point' ||
+            ball.position.distanceTo(motion.last) > s.resetDistance
+        )
+            motion.velocity.set(0, 0, 0);
+        else if (dt > 0) {
+            motion.sample.subVectors(ball.position, motion.last).divideScalar(dt);
+            motion.velocity.lerp(motion.sample, 1 - Math.exp(-dt / s.smoothing));
+        }
+        motion.last.copy(ball.position);
+        motion.lastMs = nowMs;
+    }
+
+    /** 부피 보존 축 스케일: axis 방향 along배, 수직 방향 1/sqrt(along)배. S = across·I + (along - across)·a·aᵀ. */
+    axisScale(out, axis, along) {
+        const across = 1 / Math.sqrt(along),
             k = along - across;
         const { x, y, z } = axis;
-        // S = across·I + (along - across)·a·aᵀ, 이어서 회전 R, 그 뒤 이동 T
-        const s = new this.THREE.Matrix4().set(
+        return out.set(
             across + k * x * x,
             k * x * y,
             k * x * z,
@@ -1526,10 +1639,66 @@ class TakrawView {
             0,
             1,
         );
+    }
+
+    /**
+     * 공의 외형 변형: 맞은 방향으로 눌렸다 되돌아오고(접촉 눌림), 빠르게 날 때 진행 방향으로 늘어난다(비행 늘어남, visual.ball.stretch).
+     * 위치·회전은 물리 값 그대로 두고 월드 축 기준 비균일 스케일만 행렬에 곱한다. 두 변형 모두 부피를 보존하며 collider·판정은 그대로다.
+     */
+    squashBall(phase, nowMs) {
+        const ball = this.meshes.get('ball');
+        if (!ball) return;
+        this.updateBallMotion(ball, phase, nowMs);
+        const reduced = this.reducedMotion();
+        const { axis, amount } = reduced ? NO_DEFORM : this.impacts.deform();
+        const s = this.config.visual.ball.stretch,
+            velocity = this.ballMotion.velocity;
+        const fast = reduced
+            ? 0
+            : Math.min(
+                  1,
+                  Math.max(0, (velocity.length() - s.minSpeed) / (s.maxSpeed - s.minSpeed)),
+              );
+        const along = 1 + (s.max - 1) * fast,
+            squashAlong = amount ? Math.max(0.55, 1 - amount) : 1;
+        // 공 원판의 가장 큰 배율(눌림·늘어남의 가장 긴 축): 입자 구름 가림 방지 원판이 쓴다.
+        this.ballExtent = Math.max(squashAlong, 1 / Math.sqrt(squashAlong)) * along;
+        // 화면 평면에 비친 늘어남: 카메라 쪽으로 날아오면 원근상 덜 늘어나 보인다.
+        const screen = this.ballScreenStretch;
+        screen.along = 1;
+        if (along !== 1) {
+            const right = this.temp.right.set(1, 0, 0).applyQuaternion(this.camera.quaternion),
+                up = this.temp.up.set(0, 1, 0).applyQuaternion(this.camera.quaternion);
+            const x = velocity.dot(right),
+                y = velocity.dot(up),
+                share = Math.hypot(x, y) / Math.max(1e-6, velocity.length());
+            screen.along = 1 + (along - 1) * share;
+            screen.angle = Math.atan2(y, x);
+        }
+        if (!amount && along === 1) {
+            if (!ball.matrixAutoUpdate) {
+                ball.matrixAutoUpdate = true;
+                ball.matrixWorldNeedsUpdate = true;
+            }
+            return;
+        }
+        const transform = this.ballTransform;
+        if (amount) this.axisScale(transform.squash, axis, squashAlong);
+        else transform.squash.identity();
+        if (along !== 1)
+            this.axisScale(
+                transform.stretch,
+                transform.direction.copy(velocity).normalize(),
+                along,
+            );
+        else transform.stretch.identity();
+        transform.rotation.makeRotationFromQuaternion(ball.quaternion);
         ball.matrixAutoUpdate = false;
-        ball.updateMatrix();
-        const rotation = new this.THREE.Matrix4().makeRotationFromQuaternion(ball.quaternion);
-        ball.matrix.copy(s).multiply(rotation).setPosition(ball.position);
+        ball.matrix
+            .copy(transform.squash)
+            .multiply(transform.stretch)
+            .multiply(transform.rotation)
+            .setPosition(ball.position);
         ball.matrixWorldNeedsUpdate = true;
     }
 
@@ -1582,9 +1751,9 @@ class TakrawView {
 
     dispose() {
         this.impacts.dispose();
+        this.shockWave.dispose();
+        for (const material of this.litMaterials.values()) material.dispose();
         this.field.dispose();
-        for (const geometry of this.ballFrontGeometries) geometry.dispose();
-        for (const material of this.ballFrontMaterials) material.dispose();
         for (const geometry of this.geometries.values()) geometry.dispose();
         for (const material of this.materials.values()) material.dispose();
         for (const texture of this.textures.values()) texture.dispose();

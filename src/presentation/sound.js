@@ -5,10 +5,18 @@ import { TAKRAW_KICK_SOUND } from '../config/runtime.js';
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
-/** 접촉 하나의 소리 id. 스파이크 > 발이 아닌 몸 > 발(속도 단계 × 타이밍 등급). */
-function takrawKickSoundId(event, reference) {
+/**
+ * 접촉 하나의 소리 id. 스파이크 > 발이 아닌 몸 > 타이밍 등급이 없는 리시브(낮고 둔한)·토스(가볍고 높은) > 발(속도 단계 × 타이밍 등급).
+ * contact: 접촉 종류(presentation/impact.js takrawContactKind).
+ */
+function takrawKickSoundId(event, reference, contact) {
     if (event.spike) return 'kickSpike';
     if (!String(event.part || '').startsWith('foot')) return 'kickBody';
+    if (!event.timing?.grade) {
+        if (contact.kind === 'receive' || (contact.clutch && contact.kind !== 'serve'))
+            return contact.clutch ? 'kickSave' : 'kickReceive';
+        if (contact.kind === 'set') return 'kickSet';
+    }
     // 단계 이름·기준과 등급 접미사는 소리 정의와 같은 표(config/runtime.js TAKRAW_KICK_SOUND)에서 온다.
     const level = TAKRAW_KICK_SOUND.levels.find(
         (item) => event.speed / reference < item.below,
@@ -34,15 +42,19 @@ function takrawSoundPayload(
         distanceDrop,
         random,
         matchPoint,
+        contact,
     },
 ) {
-    const soundId = {
-        touch: takrawKickSoundId(event, reference),
-        land: 'land',
-        net: 'net',
-        serve: 'serve',
-        point: matchPoint ? 'matchPoint' : 'point',
-    }[event.type];
+    const soundId =
+        event.type === 'touch'
+            ? takrawKickSoundId(event, reference, contact)
+            : {
+                  ground: 'ground',
+                  land: 'land',
+                  net: 'net',
+                  serve: 'serve',
+                  point: matchPoint ? 'matchPoint' : 'point',
+              }[event.type];
     if (!soundId) return null;
     const signal = event.type === 'point' || event.type === 'serve';
     const side = viewTeam === 1 ? -1 : 1;

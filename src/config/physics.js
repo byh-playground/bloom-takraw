@@ -25,7 +25,10 @@ const TAKRAW_PHYSICS = Object.freeze({
     receptionMaxDuration: 0.66,
     solverIterations: 8,
     ccdSubsteps: 3,
+    // 네트(얇은 판)와 기둥(캡슐)의 충돌체 치수. 위치·크기는 takrawNetShape 한 곳에서 court와 합쳐 정하고, 물리와 그림이 그 값을 같이 읽는다.
     netBottom: 0.78,
+    netHalfThickness: 0.025,
+    post: { gap: 0.12, radius: 0.045, halfLength: 0.74, centerY: 0.79 },
     groundToss: {
         contactHeight: 0.75,
         minPlanTime: 0.08,
@@ -228,4 +231,31 @@ const TAKRAW_PHYSICS = Object.freeze({
     legStretch: { maxScale: 1.25, extendRate: 1.0, retractRate: 0.5 },
 });
 
-export { TAKRAW_PHYSICS };
+/**
+ * 네트와 기둥의 충돌체 경계. 물리(simulation/physics.js _buildCourt)가 충돌체를 만들고 그림(presentation/view.js makeCourt)이
+ * 그물·테이프·기둥을 그리는 단일 출처라서, 보이는 그물 면이 곧 공이 막히는 면이다. 값은 court와 physics 설정에서만 파생한다.
+ * net: 얇은 판(x는 중심 ±halfThickness). post: 세로 캡슐이 세로로 centerY ± (halfLength + radius)를 덮고 z는 ±z.
+ */
+function takrawNetShape(court, physics) {
+    const post = physics.post;
+    return {
+        net: {
+            halfThickness: physics.netHalfThickness,
+            halfWidth: court.halfWidth,
+            bottomY: physics.netBottom,
+            topY: court.netHeight,
+            halfHeight: (court.netHeight - physics.netBottom) / 2,
+            centerY: (court.netHeight + physics.netBottom) / 2,
+        },
+        post: {
+            z: court.halfWidth + post.gap,
+            radius: post.radius,
+            halfLength: post.halfLength,
+            centerY: post.centerY,
+            bottomY: post.centerY - post.halfLength - post.radius,
+            topY: post.centerY + post.halfLength + post.radius,
+        },
+    };
+}
+
+export { TAKRAW_PHYSICS, takrawNetShape };

@@ -2,6 +2,7 @@ import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { takrawHumanPlayerIds, takrawSlotOf, takrawTeamOf } from '../simulation/roster.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
 import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
+import { takrawNetShape } from '../config/physics.js';
 import { LOCALE } from '../i18n/locale.js';
 import { TakrawImpactEffects } from './impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
@@ -65,6 +66,8 @@ class TakrawView {
             scale: new THREE.Vector3(),
             object: new THREE.Object3D(),
         };
+        // 네트·기둥의 경계. 물리 충돌체와 같은 값에서 파생한다.
+        this.netShape = takrawNetShape(config.court, config.physics);
         this.makeLights();
         this.makeCourt();
         this.makeSurroundings();
@@ -282,7 +285,7 @@ class TakrawView {
 
     makeCourt() {
         const T = this.THREE,
-            { halfLength: x, halfWidth: z, netHeight } = this.config.court;
+            { halfLength: x, halfWidth: z } = this.config.court;
         this.groundMaterial = this.material(0xe8eee3);
         const ground = this.mesh(new T.PlaneGeometry(160, 160), this.groundMaterial);
         this.geometries.set('ground', ground.geometry);
@@ -333,16 +336,16 @@ class TakrawView {
             }
         }
         this.box(0.025, 0.006, z * 2, line, 0, 0.044, 0);
+        // 그물·테이프·기둥의 경계는 물리 충돌체와 같은 값(takrawNetShape)에서 파생한다. 그물로 보이는 면이 공이 막히는 면이다.
+        const { net, post } = this.netShape;
         const netPositions = [];
-        const netBottom = netHeight - 0.69;
-        const netSpan = z + 0.29;
         for (let i = 0; i <= 50; i++) {
-            const depth = -netSpan + (netSpan * 2 * i) / 50;
-            netPositions.push(0.006, netBottom, depth, 0.006, netHeight, depth);
+            const depth = -net.halfWidth + (net.halfWidth * 2 * i) / 50;
+            netPositions.push(0, net.bottomY, depth, 0, net.topY, depth);
         }
         for (let i = 0; i <= 7; i++) {
-            const y = netBottom + (0.69 * i) / 7;
-            netPositions.push(0.006, y, -netSpan, 0.006, y, netSpan);
+            const y = net.bottomY + ((net.topY - net.bottomY) * i) / 7;
+            netPositions.push(0, y, -net.halfWidth, 0, y, net.halfWidth);
         }
         const netGeometry = new T.BufferGeometry();
         netGeometry.setAttribute('position', new T.Float32BufferAttribute(netPositions, 3));
@@ -354,20 +357,41 @@ class TakrawView {
         this.geometries.set('net', netGeometry);
         this.materials.set('net', netMaterial);
         this.scene.add(new T.LineSegments(netGeometry, netMaterial));
-        this.box(0.035, 0.045, netSpan * 2, 0xffffef, 0, netHeight, 0);
-        this.box(0.018, 0.014, netSpan * 2, 0xe7e8d8, 0, netBottom, 0);
+        // 위·아래 테이프는 그물 경계 안쪽에 앉고, 좌우로는 기둥 면까지 이어진다(그물 끝과 기둥 사이 틈은 공이 지나가지 못할 만큼 좁다).
+        const tapeWidth = (post.z - post.radius) * 2,
+            topTape = { thickness: 0.035, height: 0.045 },
+            bottomTape = { thickness: 0.018, height: 0.014 };
+        this.box(
+            topTape.thickness,
+            topTape.height,
+            tapeWidth,
+            0xffffef,
+            0,
+            net.topY - topTape.height / 2,
+            0,
+        );
+        this.box(
+            bottomTape.thickness,
+            bottomTape.height,
+            tapeWidth,
+            0xe7e8d8,
+            0,
+            net.bottomY + bottomTape.height / 2,
+            0,
+        );
         for (const side of [-1, 1]) {
+            // 기둥은 물리 캡슐(반지름·길이·높이)과 같은 치수다. 위 끝은 캡슐의 둥근 끝을 구로 그린다.
             this.cylinder(
-                0.055,
-                netHeight + 0.25,
+                post.radius,
+                post.halfLength * 2,
                 0xfaf4de,
                 0,
-                (netHeight + 0.25) / 2,
-                side * netSpan,
+                post.centerY,
+                side * post.z,
             );
-            this.cylinder(0.11, 0.36, 0x276e60, 0, 0.18, side * netSpan);
-            this.sphere(0.064, 0xf7f2dc, 0, netHeight + 0.25, side * netSpan);
-            this.box(0.035, 0.26, 0.035, 0xe69569, 0, netHeight + 0.085, side * z);
+            this.cylinder(post.radius * 1.1, 0.36, 0x276e60, 0, 0.18, side * post.z);
+            this.sphere(post.radius, 0xf7f2dc, 0, post.centerY + post.halfLength, side * post.z);
+            this.box(0.035, 0.26, 0.035, 0xe69569, 0, net.topY + 0.085, side * net.halfWidth);
         }
         for (const side of [-1, 1]) {
             this.box(15.2, 0.018, 0.065, 0xc1c7ae, 0, 0.014, side * 4.3);
@@ -1237,11 +1261,7 @@ class TakrawView {
         }
         if (ball) include(ball.position, 0.28);
         for (const side of [-1, 1]) {
-            rig.target.set(
-                0,
-                this.config.court.netHeight,
-                side * (this.config.court.halfWidth + 0.3),
-            );
+            rig.target.set(0, this.config.court.netHeight, side * this.netShape.post.z);
             include(rig.target, 0.1);
         }
         distance = Math.min(s.maxDistance, distance);

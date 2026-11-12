@@ -1,5 +1,6 @@
 import { TAKRAW_ROLE, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
+import { takrawNetShape } from '../config/physics.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
 import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
 
@@ -445,19 +446,20 @@ class TakrawPhysics {
         );
         this.floorHandle = floor.handle;
         this.colliderMeta.set(floor.handle, { kind: 'floor' });
+        const { net: netShape, post: postShape } = takrawNetShape(court, s);
         const net = this.world.createCollider(
-            R.ColliderDesc.cuboid(0.025, (court.netHeight - s.netBottom) / 2, court.halfWidth)
-                .setTranslation(0, (court.netHeight + s.netBottom) / 2, 0)
+            R.ColliderDesc.cuboid(netShape.halfThickness, netShape.halfHeight, netShape.halfWidth)
+                .setTranslation(0, netShape.centerY, 0)
                 .setFriction(0.5)
                 .setRestitution(0.16)
                 .setCollisionGroups(this._groups(1))
                 .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS),
         );
         this.colliderMeta.set(net.handle, { kind: 'net' });
-        for (const z of [-court.halfWidth - 0.12, court.halfWidth + 0.12]) {
+        for (const z of [-postShape.z, postShape.z]) {
             const post = this.world.createCollider(
-                R.ColliderDesc.capsule(0.74, 0.045)
-                    .setTranslation(0, 0.79, z)
+                R.ColliderDesc.capsule(postShape.halfLength, postShape.radius)
+                    .setTranslation(0, postShape.centerY, z)
                     .setFriction(0.6)
                     .setCollisionGroups(this._groups(1))
                     .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS),

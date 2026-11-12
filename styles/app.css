@@ -1760,9 +1760,10 @@ body:not(.is-home) .site-footer .home-only {
     color: #496a55;
     font-size: 10px;
 }
-.training-actions .training-retry span {
-    margin: 0;
-    font-size: 17px;
+.training-actions .training-retry svg {
+    flex: none;
+    width: 17px;
+    height: 17px;
 }
 body[data-mode='training'] .rally-strip {
     display: none;
@@ -3387,8 +3388,12 @@ body[data-mode='training'] .player-panel {
         font-size: 0;
         justify-content: center;
     }
-    body .training-actions .training-retry span {
-        font-size: 18px;
+    body .training-actions .training-retry .training-retry-label {
+        display: none;
+    }
+    body .training-actions .training-retry svg {
+        width: 20px;
+        height: 20px;
     }
     body .training-coach {
         grid-column: 1 / -1;

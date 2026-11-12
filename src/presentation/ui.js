@@ -4,7 +4,6 @@ import { copyDiagnostic } from '@bloom-gamekit/debug-tools';
 import { createNavigation } from '@bloom-gamekit/navigation';
 import { takrawRoute } from './routes.js';
 import { UI } from '../i18n/messages/ui.js';
-import { touchControlText } from '../i18n/messages/match.js';
 import { TakrawTouchControls } from './touch-controls.js';
 import { TakrawMatchHud } from './match-hud.js';
 import { TakrawTrainingPanel } from './training-panel.js';
@@ -151,18 +150,15 @@ class TakrawUI {
                 fn(event);
             });
         };
-        const controlText = (value) => (this.coarse.matches ? touchControlText(value) : value);
         this.hud = new TakrawMatchHud({
             listen: (...args) => this.listen(...args),
             click,
             callbacks: this.callbacks,
-            controlText,
             homeSchool: () => this.screens.club.club.campaign?.home,
         });
         this.training = new TakrawTrainingPanel({
             listen: (...args) => this.listen(...args),
             callbacks: this.callbacks,
-            controlText,
         });
         click('start-match', () => this.start('match'));
         click('start-watch', () => this.start('watch'));

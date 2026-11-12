@@ -12,7 +12,6 @@ const SHARED = Object.freeze({
     modeWatch: Object.freeze({ ko: 'AI 관전', en: 'Watch AI' }),
     copyDiagnostics: Object.freeze({ ko: '진단 복사', en: 'Copy diagnostics' }),
     kick: Object.freeze({ ko: '발차기', en: 'Kick' }),
-    kickHint: Object.freeze({ ko: '누르고 유지', en: 'Press and hold' }),
     toss: Object.freeze({ ko: '공 던지기', en: 'Toss' }),
     attacker: TAKRAW_ROLE_NAMES.attacker,
     rewardRetry: Object.freeze({ ko: '보상 저장 재시도', en: 'Retry saving reward' }),

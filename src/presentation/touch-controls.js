@@ -1,9 +1,14 @@
 import { UI } from '../i18n/messages/ui.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
 
+// 발차기 버튼 배구공 그림(index.html 인라인 SVG)의 좌표: viewBox -4..104(한 변 box), 공 원의 중심·반지름.
+const BALL = Object.freeze({ box: 108, center: 50, radius: 49 });
+
 /**
- * 모바일 터치 조작(이동 패드·점프·발차기 버튼). 눌린 포인터는 이 객체만 가진다.
- * 게임 상태는 생성 때 받은 조회 함수로만 읽고, 입력은 runtime 콜백(onTouch·onAxis·onReplaySkip)으로 보낸다.
+ * 화면 조작(이동 패드·점프·발차기 버튼). 눌린 포인터는 이 객체만 가진다.
+ * 발차기 버튼(공 모양)은 PC(마우스)·터치 모두 쓰고, 이동 패드·점프 버튼은 터치 화면에서만 보인다(PC는 키보드).
+ * 발차기 버튼에서 마지막으로 누른 포인터의 위치가 조준이다(onAim, 버튼 원 기준 -1..1, 위 +). 손가락을 움직이면 따라가고 모두 떼면 가운데다.
+ * 게임 상태는 생성 때 받은 조회 함수로만 읽고, 입력은 runtime 콜백(onTouch·onAxis·onAim·onReplaySkip)으로 보낸다.
  */
 class TakrawTouchControls {
     constructor({ listen, coarse, callbacks, inGame, dialogOpen, replaying }) {
@@ -15,8 +20,16 @@ class TakrawTouchControls {
         this.node = document.getElementById('touch-controls');
         this.pad = document.getElementById('move-pad');
         this.thumb = document.getElementById('move-thumb');
+        this.kick = this.node.querySelector('.touch-kick');
+        this.mark = this.kick.querySelector('.kick-mark');
         this.pointer = null;
         this.active = new Map();
+        this.aimPointers = []; // 발차기 버튼을 누른 포인터(누른 순서). 마지막 것이 조준한다.
+        listen(this.kick, 'pointermove', (event) => {
+            if (event.pointerId !== this.aimPointers.at(-1)) return;
+            event.preventDefault();
+            this.aimAt(event);
+        });
         for (const button of document.querySelectorAll('[data-touch]')) {
             listen(button, 'pointerdown', (event) => {
                 event.preventDefault();
@@ -34,6 +47,11 @@ class TakrawTouchControls {
                     source,
                 });
                 button.classList.add('is-down');
+                // 조준을 먼저 보내 첫 틱의 발차기 바이트에 누른 지점이 들어가게 한다.
+                if (button === this.kick) {
+                    this.aimPointers.push(event.pointerId);
+                    this.aimAt(event);
+                }
                 this.callbacks.onTouch?.(button.dataset.touch, source, true);
             });
             const up = (event) => {
@@ -42,6 +60,7 @@ class TakrawTouchControls {
                 event.preventDefault();
                 this.callbacks.onTouch?.(state.action, state.source, false);
                 this.active.delete(event.pointerId);
+                if (state.button === this.kick) this.dropAim(event.pointerId);
                 state.button.classList.toggle(
                     'is-down',
                     [...this.active.values()].some((item) => item.button === state.button),
@@ -103,6 +122,39 @@ class TakrawTouchControls {
         this.callbacks.onAxis?.(x * scale, z * scale);
     }
 
+    /** 발차기 버튼 위 포인터 위치를 조준(-1..1, 오른쪽·위 +, 공 그림 밖은 테두리로)으로 바꿔 보내고 표시한다. 기준 원은 그려진 공(BALL)이다. */
+    aimAt(event) {
+        const rect = this.kick.getBoundingClientRect(),
+            radius = Math.max(1, (Math.min(rect.width, rect.height) * BALL.radius) / BALL.box);
+        let x = (event.clientX - rect.left - rect.width / 2) / radius,
+            y = (rect.top + rect.height / 2 - event.clientY) / radius;
+        const length = Math.hypot(x, y);
+        if (length > 1) {
+            x /= length;
+            y /= length;
+        }
+        this.callbacks.onAim?.(x, y);
+        this.showAim(x, y);
+    }
+
+    /** 발차기 버튼을 누른 포인터 하나를 뗀다. 남은 포인터가 있으면 그 위치는 다음 움직임에 갱신되고, 없으면 가운데로 돌린다. */
+    dropAim(pointerId) {
+        this.aimPointers = this.aimPointers.filter((id) => id !== pointerId);
+        if (this.aimPointers.length) return;
+        this.callbacks.onAim?.(0, 0);
+        this.showAim(null);
+    }
+
+    /** 누른 지점 표시(공 그림 위 접촉 점). 입력과 무관한 그리기만 한다. null이면 숨긴다. */
+    showAim(x, y) {
+        this.kick.classList.toggle('is-aiming', x !== null);
+        if (x === null) return;
+        this.mark.setAttribute(
+            'transform',
+            `translate(${(BALL.center + x * BALL.radius).toFixed(2)} ${(BALL.center - y * BALL.radius).toFixed(2)})`,
+        );
+    }
+
     /** 눌린 터치 버튼·이동 패드를 모두 놓는다(창 이탈·회전·대화상자 열기). */
     release() {
         const active = [...this.active.entries()],
@@ -111,6 +163,9 @@ class TakrawTouchControls {
         this.pointer = null;
         this.thumb.style.transform = '';
         this.callbacks.onAxis?.(0, 0);
+        this.aimPointers = [];
+        this.callbacks.onAim?.(0, 0);
+        this.showAim(null);
         for (const [id, state] of active) {
             state.button.classList.remove('is-down');
             this.callbacks.onTouch?.(state.action, state.source, false);
@@ -120,12 +175,15 @@ class TakrawTouchControls {
             this.pad.releasePointerCapture(pointer);
     }
 
-    /** 경기 중 터치 기기에서만 보인다. 관전은 소개영상 화면에서만 보인다(영상 속 눌림 표시). */
+    /**
+     * 사람이 조작하는 경기 중에 보인다. 관전은 소개영상 화면에서만 보인다(영상 속 눌림 표시).
+     * 터치가 아닌 화면(PC)은 발차기 버튼만 보이고(CSS) 이동·점프는 키보드다. PC 소개영상은 버튼 대신 표시등(drive-feedback)으로 보여 준다.
+     */
     sync(inGame, mode, showcase) {
         const flags = TAKRAW_MODES[mode];
         this.node.hidden =
             !inGame ||
-            !this.coarse.matches ||
+            (showcase && !this.coarse.matches) ||
             (flags && !flags.humanInput.includes(true) && !showcase);
     }
 
@@ -138,13 +196,11 @@ class TakrawTouchControls {
                     'is-down',
                     button.dataset.touch === 'jump' ? !!hud.jumpHeld : !!hud.kickHeld,
                 );
-        const kickButton = document.querySelector('.touch-kick'),
-            label = hud.tossReady ? [UI.tossThrow(), UI.tossHint()] : [UI.kick(), UI.kickHint()];
-        if (kickButton.dataset.label !== label[0]) {
-            kickButton.dataset.label = label[0];
-            // 버튼의 첫 자식은 HTML 들여쓰기 공백 글자 노드라 이름 칸(span)을 직접 고른다.
-            kickButton.querySelector('span').textContent = label[0];
-            kickButton.querySelector('small').textContent = label[1];
+        const kickButton = this.kick,
+            label = hud.tossReady ? UI.tossThrow() : UI.kick();
+        if (kickButton.dataset.label !== label) {
+            kickButton.dataset.label = label;
+            kickButton.querySelector('.kick-label').textContent = label;
         }
     }
 }

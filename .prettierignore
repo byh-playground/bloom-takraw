@@ -21,6 +21,4 @@ assets/generated/
 package-lock.json
 sw.js
 scripts/vendor/
-reference/
 artifacts/
-.publish/

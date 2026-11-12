@@ -9,6 +9,7 @@ import { TakrawReplayImpacts } from './replay-impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
+import { TakrawRenderStats } from './render-stats.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
@@ -113,6 +114,7 @@ class TakrawView {
         this.replayImpacts = new TakrawReplayImpacts({ impacts: this.impacts, config });
         this.impacts.setElements(this.schools.map((school) => school.element));
         this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
+        this.renderStats = new TakrawRenderStats(this.renderer);
         this.field = new TakrawFieldEffects({
             THREE,
             scene: this.scene,
@@ -1314,6 +1316,7 @@ class TakrawView {
 
     render(presentationFrame, viewData, nowMs, context = {}) {
         if (!viewData) return;
+        this.renderStats.begin();
         const dt = Math.min(0.05, Math.max(0, (nowMs - this.lastMs) / 1000));
         this.lastMs = nowMs;
         for (const entity of viewData.entities)
@@ -1456,6 +1459,7 @@ class TakrawView {
         this.applyHitFlash();
         if (ball) this.updateBallMask(ball);
         this.shockWave.render(this.scene, this.camera, this.impacts);
+        this.renderStats.end();
     }
 
     /**

@@ -341,6 +341,7 @@ async function bootTakraw() {
         return diagnostics.report({
             stateLines: [
                 `mode=${match.mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${match.session?.tick ?? latestView?.state.tick ?? 0}`,
+                view?.renderStats.line() ?? 'render: not ready',
             ],
             networkHistory: net.history(),
         });
@@ -436,6 +437,7 @@ async function bootTakraw() {
                 rewards: rewards.diagnostics(),
                 simulation: match.simulationDiagnostics(),
                 lastContact: match.lastContact,
+                render: view?.renderStats.snapshot() ?? null,
                 highlight: match.highlightDiagnostics(),
                 errors: diagnostics.errors(),
             };

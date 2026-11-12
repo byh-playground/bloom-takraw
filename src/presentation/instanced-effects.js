@@ -45,12 +45,17 @@ function injectInstanceData(shader, shaped) {
 /**
  * 인스턴스 재질 하나: 색·투명도·(모양)은 인스턴스 데이터이고 재질은 레이어들이 공유한다.
  * 프로그램 변종은 side·모양 합본 여부·공 가림 여부로만 갈라지고 모든 변종은 로딩 때 컴파일된다(DEV-032).
+ * opaque면 불투명(깊이를 쓰고 알파를 섞지 않음)이고, depthTest를 끄면 다른 물체에 가려지지 않는 겹쳐 그림이다. 둘 다 프로그램 변종이 아니라 렌더 상태다.
  */
-function createInstanceMaterial(THREE, { side = THREE.FrontSide, shaped = false, mask = null }) {
+function createInstanceMaterial(
+    THREE,
+    { side = THREE.FrontSide, shaped = false, mask = null, opaque = false, depthTest = true },
+) {
     const material = new THREE.MeshBasicMaterial({
         color: 0xffffff,
-        transparent: true,
-        depthWrite: false,
+        transparent: !opaque,
+        depthWrite: opaque,
+        depthTest,
         side,
     });
     // 앞·뒷면이 둘 다 보이는 평면 입자는 한 번에 그린다(그리는 순서는 인스턴스 순서).
@@ -60,7 +65,7 @@ function createInstanceMaterial(THREE, { side = THREE.FrontSide, shaped = false,
         if (mask) injectBallMask(shader, mask);
     };
     material.customProgramCacheKey = () =>
-        `instance-${shaped ? 'shaped' : 'plain'}-${mask ? 'mask' : 'open'}`;
+        `instance-${shaped ? 'shaped' : 'plain'}-${mask ? 'mask' : 'open'}${opaque ? '-solid' : ''}`;
     return material;
 }
 
@@ -232,4 +237,4 @@ class TakrawParticleCloud {
     }
 }
 
-export { InstanceLayer, TakrawParticleCloud, createInstanceMaterial };
+export { InstanceLayer, TakrawParticleCloud, createInstanceMaterial, mergeShapes };

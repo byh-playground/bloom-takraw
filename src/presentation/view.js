@@ -1,5 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
-import { takrawHumanPlayerIds, takrawSlotOf, takrawTeamOf } from '../simulation/roster.js';
+import { takrawHumanPlayerIds, takrawSlotOf } from '../simulation/roster.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
 import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 import { takrawNetShape } from '../config/physics.js';
@@ -10,6 +10,8 @@ import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
 import { TakrawRenderStats } from './render-stats.js';
+import { PartList } from './merge-geometry.js';
+import { TakrawMarkers } from './markers.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
@@ -125,12 +127,13 @@ class TakrawView {
     }
 
     material(color, options = {}) {
-        const key = `${color}:${options.roughness ?? 0.85}:${options.metalness ?? 0}:${options.opacity ?? 1}:${options.basic ?? false}`;
+        const key = `${color}:${options.roughness ?? 0.85}:${options.metalness ?? 0}:${options.opacity ?? 1}:${options.basic ?? false}:${options.vertexColors ?? false}`;
         if (!this.materials.has(key)) {
             const properties = {
                 color,
                 roughness: options.roughness ?? 0.85,
                 metalness: options.metalness ?? 0,
+                vertexColors: options.vertexColors ?? false,
             };
             if (options.opacity !== undefined) {
                 properties.transparent = true;
@@ -319,56 +322,59 @@ class TakrawView {
     makeCourt() {
         const T = this.THREE,
             { halfLength: x, halfWidth: z } = this.config.court;
+        // 정적 구조물은 같은 렌더 상태끼리 정점 색 geometry 하나로 합친다(DEV-034). 학교에 따라 색이 바뀌는 코트·코트 안쪽·선은 색 채널 재질을 그대로 두고 채널마다 하나로 합친다.
+        const scenery = (this.scenery = new PartList(T)),
+            lines = new PartList(T),
+            rings = new PartList(T);
         this.groundMaterial = this.material(0xe8eee3);
         const ground = this.mesh(new T.PlaneGeometry(160, 160), this.groundMaterial);
         this.geometries.set('ground', ground.geometry);
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -0.26;
         ground.castShadow = false;
-        this.box(17.6, 0.22, 10.0, 0xd7d6bc, 0, -0.145, 0);
-        this.box(17.45, 0.055, 9.85, 0xece7d4, 0, -0.02, 0);
-        this.box(x * 2 + 0.28, 0.018, z * 2 + 0.28, 0x2f6257, 0, 0.016, 0);
+        scenery.box(17.6, 0.22, 10.0, 0xd7d6bc, 0, -0.145, 0);
+        scenery.box(17.45, 0.055, 9.85, 0xece7d4, 0, -0.02, 0);
+        scenery.box(x * 2 + 0.28, 0.018, z * 2 + 0.28, 0x2f6257, 0, 0.016, 0);
         this.box(x, 0.018, z * 2, this.venueMaterial('court'), -x / 2, 0.028, 0);
         this.box(x, 0.018, z * 2, this.venueMaterial('courtInset'), x / 2, 0.028, 0);
-        const line = this.venueMaterial('line');
         for (const side of [-1, 1]) {
-            this.box(0.035, 0.007, z * 2, line, side * x, 0.043, 0);
-            this.box(x * 2, 0.007, 0.035, line, 0, 0.043, side * z);
-            const service = this.mesh(
-                this.geometry('serve-ring', () => new T.RingGeometry(0.27, 0.3, 48)),
-                line,
+            lines.box(0.035, 0.007, z * 2, 0xffffff, side * x, 0.043, 0);
+            lines.box(x * 2, 0.007, 0.035, 0xffffff, 0, 0.043, side * z);
+            rings.add(
+                rings.geometry('serve-ring', () => new T.RingGeometry(0.27, 0.3, 48)),
+                0xffffff,
+                { position: [side * 4.25, 0.047, 0], rotation: [-Math.PI / 2, 0, 0] },
             );
-            service.rotation.x = -Math.PI / 2;
-            service.position.set(side * 4.25, 0.047, 0);
-            service.castShadow = false;
             for (const corner of [-1, 1]) {
-                const arc = this.mesh(
-                    this.geometry(
+                const start =
+                    side < 0
+                        ? corner < 0
+                            ? Math.PI
+                            : Math.PI * 0.5
+                        : corner < 0
+                          ? Math.PI * 1.5
+                          : 0;
+                rings.add(
+                    rings.geometry(
                         `quarter:${side}:${corner}`,
-                        () =>
-                            new T.RingGeometry(
-                                0.87,
-                                0.9,
-                                30,
-                                1,
-                                side < 0
-                                    ? corner < 0
-                                        ? Math.PI
-                                        : Math.PI * 0.5
-                                    : corner < 0
-                                      ? Math.PI * 1.5
-                                      : 0,
-                                Math.PI * 0.5,
-                            ),
+                        () => new T.RingGeometry(0.87, 0.9, 30, 1, start, Math.PI * 0.5),
                     ),
-                    line,
+                    0xffffff,
+                    { position: [0, 0.046, corner * z], rotation: [-Math.PI / 2, 0, 0] },
                 );
-                arc.rotation.x = -Math.PI / 2;
-                arc.position.set(0, 0.046, corner * z);
-                arc.castShadow = false;
             }
         }
-        this.box(0.025, 0.006, z * 2, line, 0, 0.044, 0);
+        lines.box(0.025, 0.006, z * 2, 0xffffff, 0, 0.044, 0);
+        // 선 상자는 그림자를 드리우고 서브 원·모서리 호는 드리우지 않아(받기만 한다) 두 묶음으로 나눈다.
+        const lineMaterial = this.venueMaterial('line');
+        for (const [name, list, cast] of [
+            ['court-lines', lines, true],
+            ['court-rings', rings, false],
+        ]) {
+            const geometry = list.build();
+            this.geometries.set(name, geometry);
+            this.mesh(geometry, lineMaterial).castShadow = cast;
+        }
         // 그물·테이프·기둥의 경계는 물리 충돌체와 같은 값(takrawNetShape)에서 파생한다. 그물로 보이는 면이 공이 막히는 면이다.
         const { net, post } = this.netShape;
         const netPositions = [];
@@ -394,7 +400,7 @@ class TakrawView {
         const tapeWidth = (post.z - post.radius) * 2,
             topTape = { thickness: 0.035, height: 0.045 },
             bottomTape = { thickness: 0.018, height: 0.014 };
-        this.box(
+        scenery.box(
             topTape.thickness,
             topTape.height,
             tapeWidth,
@@ -403,7 +409,7 @@ class TakrawView {
             net.topY - topTape.height / 2,
             0,
         );
-        this.box(
+        scenery.box(
             bottomTape.thickness,
             bottomTape.height,
             tapeWidth,
@@ -414,7 +420,7 @@ class TakrawView {
         );
         for (const side of [-1, 1]) {
             // 기둥은 물리 캡슐(반지름·길이·높이)과 같은 치수다. 위 끝은 캡슐의 둥근 끝을 구로 그린다.
-            this.cylinder(
+            scenery.cylinder(
                 post.radius,
                 post.halfLength * 2,
                 0xfaf4de,
@@ -422,27 +428,36 @@ class TakrawView {
                 post.centerY,
                 side * post.z,
             );
-            this.cylinder(post.radius * 1.1, 0.36, 0x276e60, 0, 0.18, side * post.z);
-            this.sphere(post.radius, 0xf7f2dc, 0, post.centerY + post.halfLength, side * post.z);
-            this.box(0.035, 0.26, 0.035, 0xe69569, 0, net.topY + 0.085, side * net.halfWidth);
+            scenery.cylinder(post.radius * 1.1, 0.36, 0x276e60, 0, 0.18, side * post.z);
+            scenery.sphere(post.radius, 0xf7f2dc, 0, post.centerY + post.halfLength, side * post.z);
+            scenery.box(0.035, 0.26, 0.035, 0xe69569, 0, net.topY + 0.085, side * net.halfWidth);
         }
         for (const side of [-1, 1]) {
-            this.box(15.2, 0.018, 0.065, 0xc1c7ae, 0, 0.014, side * 4.3);
+            scenery.box(15.2, 0.018, 0.065, 0xc1c7ae, 0, 0.014, side * 4.3);
             for (let i = 0; i < 6; i++)
-                this.box(0.18, 0.015, 0.05, 0xc1c7ae, -6.8 + i * 2.7, 0.012, side * 4.55);
+                scenery.box(0.18, 0.015, 0.05, 0xc1c7ae, -6.8 + i * 2.7, 0.012, side * 4.55);
         }
     }
 
     makeSurroundings() {
-        const T = this.THREE;
+        const T = this.THREE,
+            scenery = this.scenery;
         // Small bleachers leave the court and ball as the strongest shapes.
         for (let row = 0; row < 3; row++) {
             const z = -5.0 - row * 0.58,
                 y = 0.12 + row * 0.25;
-            this.box(10.4, 0.18, 0.48, row === 0 ? 0xd4d1b9 : 0xdad8c2, -0.3, y, z);
-            this.box(10.3, 0.04, 0.35, row === 0 ? 0x92b4a2 : 0xa1baaa, -0.3, y + 0.115, z - 0.04);
+            scenery.box(10.4, 0.18, 0.48, row === 0 ? 0xd4d1b9 : 0xdad8c2, -0.3, y, z);
+            scenery.box(
+                10.3,
+                0.04,
+                0.35,
+                row === 0 ? 0x92b4a2 : 0xa1baaa,
+                -0.3,
+                y + 0.115,
+                z - 0.04,
+            );
             for (const x of [-4.4, 3.8])
-                this.box(0.12, y + 0.25, 0.16, 0xc2c6ad, x, (y + 0.25) / 2 - 0.1, z);
+                scenery.box(0.12, y + 0.25, 0.16, 0xc2c6ad, x, (y + 0.25) / 2 - 0.1, z);
         }
         const bodyGeometry = this.geometry(
             'crowd-body',
@@ -479,20 +494,22 @@ class TakrawView {
         this.crowdBase = this.crowd.map((mesh) => mesh.instanceMatrix.array.slice());
         this.crowdCheerAt = null;
         // Far-side rail and the low entrance opening.
-        for (let i = -5; i <= 5; i++) this.cylinder(0.025, 0.95, 0xb4c3ad, i * 1.05, 0.25, -7.05);
+        for (let i = -5; i <= 5; i++)
+            scenery.cylinder(0.025, 0.95, 0xb4c3ad, i * 1.05, 0.25, -7.05);
         for (const height of [0.18, 0.68]) {
-            const rail = this.cylinder(0.021, 10.5, 0xb4c3ad, 0, height, -7.05);
-            rail.rotation.z = Math.PI / 2;
+            scenery.cylinder(0.021, 10.5, 0xb4c3ad, 0, height, -7.05, {
+                rotation: [0, 0, Math.PI / 2],
+            });
         }
         for (const side of [-1, 1]) {
             const x = side * 8.7;
-            this.box(1.02, 0.34, 0.38, 0x5b8471, x, 0.03, -3.2);
-            this.box(0.92, 0.03, 0.3, 0xb4c3a9, x, 0.215, -3.2);
-            this.box(0.06, 0.34, 0.06, 0xaebaa0, x - 0.35, -0.06, -3.2);
-            this.box(0.06, 0.34, 0.06, 0xaebaa0, x + 0.35, -0.06, -3.2);
-            this.cylinder(0.035, 3.3, 0xc7cdb6, x, 1.4, -5.5);
-            this.box(0.7, 0.08, 0.25, 0xe5e8d2, x, 3.04, -5.5);
-            this.box(0.63, 0.02, 0.21, 0xffffe6, x, 2.99, -5.5);
+            scenery.box(1.02, 0.34, 0.38, 0x5b8471, x, 0.03, -3.2);
+            scenery.box(0.92, 0.03, 0.3, 0xb4c3a9, x, 0.215, -3.2);
+            scenery.box(0.06, 0.34, 0.06, 0xaebaa0, x - 0.35, -0.06, -3.2);
+            scenery.box(0.06, 0.34, 0.06, 0xaebaa0, x + 0.35, -0.06, -3.2);
+            scenery.cylinder(0.035, 3.3, 0xc7cdb6, x, 1.4, -5.5);
+            scenery.box(0.7, 0.08, 0.25, 0xe5e8d2, x, 3.04, -5.5);
+            scenery.box(0.63, 0.02, 0.21, 0xffffe6, x, 2.99, -5.5);
         }
         const trees = [
             [-10, -7, 1.0],
@@ -504,94 +521,37 @@ class TakrawView {
         ];
         for (let index = 0; index < trees.length; index++) {
             const [x, z, s] = trees[index];
-            this.cylinder(0.11 * s, 1.6 * s, 0xb1a17d, x, 0.45 * s, z);
-            this.sphere(0.78 * s, index % 2 ? 0x9bb792 : 0xa9bd91, x, 1.5 * s, z, this.scene, 9);
-            this.sphere(0.57 * s, 0xb4c69d, x + 0.4 * s, 1.9 * s, z - 0.1 * s, this.scene, 9);
-            this.sphere(0.53 * s, 0x98b28c, x - 0.38 * s, 1.68 * s, z + 0.17 * s, this.scene, 9);
+            scenery.cylinder(0.11 * s, 1.6 * s, 0xb1a17d, x, 0.45 * s, z);
+            scenery.sphere(0.78 * s, index % 2 ? 0x9bb792 : 0xa9bd91, x, 1.5 * s, z, {
+                segments: 9,
+            });
+            scenery.sphere(0.57 * s, 0xb4c69d, x + 0.4 * s, 1.9 * s, z - 0.1 * s, { segments: 9 });
+            scenery.sphere(0.53 * s, 0x98b28c, x - 0.38 * s, 1.68 * s, z + 0.17 * s, {
+                segments: 9,
+            });
         }
         for (const side of [-1, 1]) {
-            const sign = new T.Group();
-            this.scene.add(sign);
+            const sign = new T.Object3D();
             sign.position.set(side * 7.8, 0.2, -5.0);
             sign.rotation.y = side * 0.12;
-            this.box(1.1, 0.55, 0.08, 0xe3dfc8, 0, 0.2, 0, sign);
-            this.box(0.86, 0.36, 0.015, side < 0 ? 0x5b8e78 : 0xb98e70, 0, 0.21, 0.05, sign);
+            sign.updateMatrix();
+            const parent = { parent: sign.matrix };
+            scenery.box(1.1, 0.55, 0.08, 0xe3dfc8, 0, 0.2, 0, parent);
+            scenery.box(0.86, 0.36, 0.015, side < 0 ? 0x5b8e78 : 0xb98e70, 0, 0.21, 0.05, parent);
             for (let i = 0; i < 3; i++)
-                this.box(0.12, 0.035, 0.01, 0xf5f0d9, -0.24 + i * 0.24, 0.21, 0.061, sign);
-            this.box(0.055, 0.6, 0.055, 0xacb39b, -0.35, -0.05, 0, sign);
-            this.box(0.055, 0.6, 0.055, 0xacb39b, 0.35, -0.05, 0, sign);
+                scenery.box(0.12, 0.035, 0.01, 0xf5f0d9, -0.24 + i * 0.24, 0.21, 0.061, parent);
+            scenery.box(0.055, 0.6, 0.055, 0xacb39b, -0.35, -0.05, 0, parent);
+            scenery.box(0.055, 0.6, 0.055, 0xacb39b, 0.35, -0.05, 0, parent);
         }
+        // 위 구조물 전체(코트 바닥 단·테이프·기둥·관중석·난간·출입구·가로등·나무·안내판)가 정점 색 재질 하나, 드로우콜 하나다.
+        const geometry = scenery.build();
+        this.geometries.set('scenery', geometry);
+        this.mesh(geometry, this.material(0xffffff, { vertexColors: true }));
     }
 
     makeMarkers() {
         const T = this.THREE;
-        this.playerMarkers = [];
-        const ringGeometry = this.geometry(
-            'selection-ring',
-            () => new T.RingGeometry(0.3, 0.34, 40),
-        );
-        const shadowGeometry = this.geometry('contact-shadow', () => new T.CircleGeometry(0.4, 32));
-        for (let i = 0; i < 6; i++) {
-            const shadowMaterial = new T.MeshBasicMaterial({
-                color: 0x163d2b,
-                transparent: true,
-                opacity: 0.12,
-                depthWrite: false,
-            });
-            this.materials.set(`shadow:${i}`, shadowMaterial);
-            const shadow = this.mesh(shadowGeometry, shadowMaterial);
-            shadow.rotation.x = -Math.PI / 2;
-            shadow.position.y = 0.048;
-            shadow.castShadow = false;
-            shadow.receiveShadow = false;
-            const ringMaterial = new T.MeshBasicMaterial({
-                color: takrawTeamOf(i) === 0 ? 0xd9f1b5 : 0xffddba,
-                transparent: true,
-                opacity: 0.96,
-                depthWrite: false,
-            });
-            this.materials.set(`ring:${i}`, ringMaterial);
-            const ring = this.mesh(ringGeometry, ringMaterial);
-            ring.rotation.x = -Math.PI / 2;
-            ring.position.y = 0.052;
-            ring.castShadow = false;
-            ring.receiveShadow = false;
-            const arrowGeometry = this.geometry(
-                'player-arrow',
-                () => new T.ConeGeometry(0.075, 0.15, 3),
-            );
-            const arrow = this.mesh(
-                arrowGeometry,
-                this.material(takrawTeamOf(i) === 0 ? 0xe2f7b3 : 0xffd6af, { basic: true }),
-            );
-            arrow.rotation.z = Math.PI;
-            arrow.castShadow = false;
-            arrow.receiveShadow = false;
-            this.playerMarkers.push({ shadow, ring, arrow });
-        }
-        const ballShadowMaterial = new T.MeshBasicMaterial({
-            color: 0x263f27,
-            transparent: true,
-            opacity: 0.3,
-            depthWrite: false,
-        });
-        this.materials.set('ballShadow', ballShadowMaterial);
-        this.ballShadow = this.mesh(
-            this.geometry('ballShadow', () => new T.CircleGeometry(0.16, 28)),
-            ballShadowMaterial,
-        );
-        this.ballShadow.rotation.x = -Math.PI / 2;
-        this.ballShadow.position.y = 0.053;
-        this.ballShadow.castShadow = false;
-        this.ballShadow.receiveShadow = false;
-        this.ballLocator = this.mesh(
-            this.geometry('ballLocator', () => new T.RingGeometry(0.24, 0.29, 40)),
-            this.material(0xffe8a7, { opacity: 0.9, basic: true }),
-        );
-        this.ballLocator.rotation.x = -Math.PI / 2;
-        this.ballLocator.position.y = 0.056;
-        this.ballLocator.castShadow = false;
-        this.ballLocator.receiveShadow = false;
+        // 선수·공 표시와 받기·공격 안내는 인스턴스 레이어 셋이다(markers.js). 여기에는 선·궤적만 남는다.
         const heightMaterial = new T.LineDashedMaterial({
             color: 0xffefba,
             transparent: true,
@@ -635,22 +595,6 @@ class TakrawView {
         this.ballHeightTicks.frustumCulled = false;
         this.ballHeightTicks.renderOrder = 3;
         this.scene.add(this.ballHeightTicks);
-        const haloMaterial = new T.MeshBasicMaterial({
-            color: 0x213f37,
-            transparent: true,
-            opacity: 0.85,
-            side: T.DoubleSide,
-            depthWrite: false,
-            depthTest: false,
-        });
-        this.materials.set('ballHalo', haloMaterial);
-        this.ballHalo = this.mesh(
-            this.geometry('ballHalo', () => new T.RingGeometry(0.118, 0.14, 40)),
-            haloMaterial,
-        );
-        this.ballHalo.castShadow = false;
-        this.ballHalo.receiveShadow = false;
-        this.ballHalo.renderOrder = 4;
         this.trailData = new Float32Array(20 * 3);
         this.trailGeometry = new T.BufferGeometry();
         this.trailGeometry.setAttribute('position', new T.BufferAttribute(this.trailData, 3));
@@ -668,232 +612,12 @@ class TakrawView {
         this.scene.add(this.trail);
         this.trailCount = 0;
         this.trailLast = new T.Vector3();
-        this.makeAttackGuides();
-        this.makeReceiveGuides();
-    }
-
-    makeReceiveGuides() {
-        const T = this.THREE,
-            s = this.config.visual.receiveGuide;
-        const actorGeometry = this.geometry(
-            'receiveGuide:actor',
-            () => new T.PlaneGeometry(s.actorWidth * 0.42, 0.028),
-        );
-        const contactGeometry = this.geometry(
-            'receiveGuide:contact',
-            () => new T.PlaneGeometry(s.contactRadius * 1.25, s.contactRadius * 0.19),
-        );
-        this.receiveGuides = [0, 1].map((team) => {
-            const material = new T.MeshBasicMaterial({
-                color: s.colors.ai,
-                transparent: true,
-                opacity: s.opacity.active,
-                depthWrite: false,
-                side: T.DoubleSide,
-            });
-            const contactMaterial = material.clone();
-            contactMaterial.depthTest = false;
-            this.materials.set(`receiveGuide:${team}`, material);
-            this.materials.set(`receiveGuide:${team}:contact`, contactMaterial);
-            const actor = new T.Group(),
-                contact = new T.Group();
-            this.scene.add(actor, contact);
-            actor.visible = contact.visible = false;
-            actor.rotation.x = -Math.PI / 2;
-            // Paired brackets identify the receiver; the airborne diamond is a
-            // predicted contact point, distinct from the current ball's round ring.
-            for (const side of [-1, 1])
-                for (const arm of [-1, 1]) {
-                    const bar = this.mesh(actorGeometry, material, actor);
-                    bar.position.set(side * s.actorWidth, arm * s.actorWidth * 0.13, 0);
-                    bar.rotation.z = (-side * arm * Math.PI) / 4;
-                    bar.castShadow = bar.receiveShadow = false;
-                }
-            for (let i = 0; i < 4; i++) {
-                const bar = this.mesh(contactGeometry, contactMaterial, contact);
-                const angle = Math.PI / 4 + (i * Math.PI) / 2;
-                bar.position.set(
-                    Math.cos(angle) * s.contactRadius * 0.5,
-                    Math.sin(angle) * s.contactRadius * 0.5,
-                    0,
-                );
-                bar.rotation.z = angle + Math.PI / 2;
-                bar.renderOrder = 3;
-                bar.castShadow = bar.receiveShadow = false;
-            }
-            return { actor, contact, material, contactMaterial };
+        this.markers = new TakrawMarkers({
+            THREE: T,
+            scene: this.scene,
+            config: this.config,
+            view: this,
         });
-    }
-
-    updateReceiveGuides(viewData, context) {
-        const s = this.config.visual.receiveGuide;
-        const local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput);
-        for (let team = 0; team < 2; team++) {
-            const marker = this.receiveGuides[team],
-                guide = viewData.receiveGuides?.[team];
-            const body = guide ? this.meshes.get(`p${guide.playerId}:pelvis`) : null;
-            const visible =
-                !!body &&
-                !!guide &&
-                viewData.state?.phase === 'rally' &&
-                (local || team === this.cameraRig.team);
-            marker.actor.visible = visible;
-            marker.contact.visible = visible && !!guide.point && guide.stage !== 'recover';
-            if (!visible) continue;
-            marker.actor.position.set(body.position.x, s.groundHeight, body.position.z);
-            const color = guide.human ? s.colors.human : s.colors.ai;
-            const opacity = guide.reachable ? s.opacity.active : s.opacity.waiting;
-            marker.material.color.set(color);
-            marker.material.opacity = opacity;
-            marker.contactMaterial.color.set(color);
-            marker.contactMaterial.opacity = opacity;
-            if (!marker.contact.visible) continue;
-            marker.contact.position.set(guide.point.x, guide.point.y, guide.point.z);
-            marker.contact.quaternion.copy(this.camera.quaternion);
-            const depth = Math.max(
-                1,
-                -this.temp.vector
-                    .copy(marker.contact.position)
-                    .applyMatrix4(this.camera.matrixWorldInverse).z,
-            );
-            const unitsPerPixel =
-                (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            marker.contact.scale.setScalar(
-                Math.max(1, (s.contactMinPixels * 0.5 * unitsPerPixel) / s.contactRadius),
-            );
-        }
-    }
-
-    makeAttackGuides() {
-        const T = this.THREE,
-            s = this.config.visual.attackGuide;
-        const radius = this.config.ai.toss.attack.positionRadius;
-        const arcGeometry = this.geometry(
-            'attackGuide:arc',
-            () => new T.RingGeometry(radius - 0.018, radius, 16, 1, 0.18, Math.PI / 2 - 0.36),
-        );
-        const footGeometry = this.geometry(
-            'attackGuide:foot',
-            () => new T.BoxGeometry(s.foot.length, 0.005, s.foot.width),
-        );
-        const toeGeometry = this.geometry(
-            'attackGuide:toe',
-            () => new T.CircleGeometry(s.foot.width * 0.5, 12, -Math.PI / 2, Math.PI),
-        );
-        const targetGeometry = this.geometry(
-            'attackGuide:target',
-            () => new T.PlaneGeometry(s.contactRadius * 0.32, s.contactRadius * 0.65),
-        );
-        const readyGeometry = this.geometry(
-            'attackGuide:ready',
-            () => new T.RingGeometry(radius - 0.04, radius - 0.022, 48),
-        );
-        const kickGeometry = this.geometry(
-            'attackGuide:kick',
-            () => new T.RingGeometry(s.contactRadius * 1.05, s.contactRadius * 1.19, 40),
-        );
-        this.attackGuides = [0, 1].map((team) => {
-            const material = new T.MeshBasicMaterial({
-                color: s.colors.approach,
-                transparent: true,
-                opacity: s.opacity.approach,
-                depthWrite: false,
-                side: T.DoubleSide,
-            });
-            const contactMaterial = material.clone();
-            contactMaterial.depthTest = false;
-            this.materials.set(`attackGuide:${team}`, material);
-            this.materials.set(`attackGuide:${team}:contact`, contactMaterial);
-            const outlineMaterial = new T.MeshBasicMaterial({
-                color: 0x213f37,
-                transparent: true,
-                opacity: 0.72,
-                depthWrite: false,
-                depthTest: false,
-                side: T.DoubleSide,
-            });
-            this.materials.set(`attackGuide:${team}:outline`, outlineMaterial);
-            const stance = new T.Group(),
-                contact = new T.Group();
-            this.scene.add(stance, contact);
-            stance.visible = contact.visible = false;
-            stance.position.y = s.groundHeight;
-            stance.rotation.y = team === 0 ? 0 : Math.PI;
-            const flat = (geometry, surface, parent) => {
-                const mesh = this.mesh(geometry, surface, parent);
-                mesh.castShadow = mesh.receiveShadow = false;
-                return mesh;
-            };
-            for (let i = 0; i < 4; i++) {
-                const arc = flat(arcGeometry, material, stance);
-                arc.rotation.set(-Math.PI / 2, 0, (i * Math.PI) / 2);
-                const target = flat(targetGeometry, contactMaterial, contact);
-                const angle = (i * Math.PI) / 2;
-                target.position.set(
-                    Math.sin(angle) * s.contactRadius * 0.72,
-                    Math.cos(angle) * s.contactRadius * 0.72,
-                    0,
-                );
-                target.rotation.z = -angle;
-                target.renderOrder = 3;
-                const outline = flat(targetGeometry, outlineMaterial, contact);
-                outline.position.copy(target.position);
-                outline.rotation.copy(target.rotation);
-                outline.scale.set(1.7, 1.3, 1);
-                outline.renderOrder = 2;
-            }
-            for (const side of [-1, 1]) {
-                flat(footGeometry, material, stance).position.z = side * s.foot.spacing * 0.5;
-                const toe = flat(toeGeometry, material, stance);
-                toe.rotation.x = -Math.PI / 2;
-                toe.position.set(s.foot.length * 0.5, 0.003, side * s.foot.spacing * 0.5);
-            }
-            const ready = flat(readyGeometry, material, stance);
-            ready.rotation.x = -Math.PI / 2;
-            ready.visible = false;
-            const kick = flat(kickGeometry, contactMaterial, contact);
-            kick.visible = false;
-            kick.renderOrder = 3;
-            return { stance, contact, ready, kick, material, contactMaterial };
-        });
-    }
-
-    updateAttackGuides(viewData, context) {
-        const s = this.config.visual.attackGuide;
-        const local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput);
-        for (let team = 0; team < 2; team++) {
-            const marker = this.attackGuides[team],
-                guide = viewData.attackGuides?.[team];
-            const visible =
-                !!guide &&
-                viewData.state?.phase === 'rally' &&
-                (local || team === this.cameraRig.team);
-            marker.stance.visible = marker.contact.visible = visible;
-            if (!visible) continue;
-            marker.stance.position.set(guide.stance.x, s.groundHeight, guide.stance.z);
-            marker.contact.position.set(guide.contact.x, guide.contact.y, guide.contact.z);
-            marker.contact.quaternion.copy(this.camera.quaternion);
-            const depth = Math.max(
-                1,
-                this.temp.vector
-                    .copy(marker.contact.position)
-                    .applyMatrix4(this.camera.matrixWorldInverse).z * -1,
-            );
-            const unitsPerPixel =
-                (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            marker.contact.scale.setScalar(
-                Math.max(1, (s.contactMinPixels * 0.5 * unitsPerPixel) / s.contactRadius),
-            );
-            const ready = guide.stage === 'jump' && guide.jumpWindow;
-            marker.ready.visible = !!ready;
-            marker.kick.visible = !!guide.kickWindow;
-            const color = ready ? s.colors.ready : s.colors.approach,
-                opacity = ready ? s.opacity.ready : s.opacity.approach;
-            marker.material.color.set(color);
-            marker.material.opacity = opacity;
-            marker.contactMaterial.color.set(guide.kickWindow ? s.colors.ready : color);
-            marker.contactMaterial.opacity = guide.kickWindow ? s.opacity.ready : opacity;
-        }
     }
 
     bodyGeometry(entity) {
@@ -939,6 +663,23 @@ class TakrawView {
             geometry.center();
             return geometry;
         });
+    }
+
+    /** 공 본체(구)와 줄무늬 토러스 6개를 정점 색 geometry 하나로 합친다. */
+    ballGeometry(entity) {
+        const T = this.THREE,
+            radius = entity.radius,
+            parts = new PartList(T);
+        parts.add(this.bodyGeometry(entity), 0xffe3a0);
+        const ribbon = parts.geometry(
+            'ribbon',
+            () => new T.TorusGeometry(radius * 0.995, radius * 0.036, 4, 36),
+        );
+        for (let i = 0; i < 6; i++)
+            parts.add(ribbon, 0xb78d44, {
+                rotation: [(i * Math.PI) / 6, (i * Math.PI) / 3, (i * Math.PI) / 5],
+            });
+        return parts.build();
     }
 
     stretchCapsule(geometry, halfHeight) {
@@ -1032,21 +773,12 @@ class TakrawView {
         const skin = skinPalette[playerId % 6];
         const part = entity.part || '';
         if (entity.kind === 'ball') {
-            const radius = entity.radius;
+            // 본체와 줄무늬 6개는 정점 색 geometry 하나다(드로우콜 1). 줄무늬도 본체 재질(roughness 0.66)로 그린다.
             this.mesh(
-                this.bodyGeometry(entity),
-                this.material(0xffe3a0, { roughness: 0.66 }),
+                this.geometry(`ball:${entity.radius}`, () => this.ballGeometry(entity)),
+                this.material(0xffffff, { roughness: 0.66, vertexColors: true }),
                 group,
             );
-            const ribbon = this.geometry(
-                `ball-ribbon:${radius}`,
-                () => new T.TorusGeometry(radius * 0.995, radius * 0.036, 4, 36),
-            );
-            const ribbonMaterial = this.material(0xb78d44, { roughness: 0.9 });
-            for (let i = 0; i < 6; i++) {
-                const band = this.mesh(ribbon, ribbonMaterial, group);
-                band.rotation.set((i * Math.PI) / 6, (i * Math.PI) / 3, (i * Math.PI) / 5);
-            }
         } else {
             let surface = skin;
             if (part === 'torso' || part.startsWith('upperArm')) surface = color;
@@ -1353,46 +1085,10 @@ class TakrawView {
         this.updateCamera(viewData, context, dt);
         this.applyShake();
         this.squashBall(viewData.state?.phase, nowMs);
-        this.updateAttackGuides(viewData, context);
-        this.updateReceiveGuides(viewData, context);
-        const selected = viewData.state?.selected || takrawHumanPlayerIds();
-        for (let i = 0; i < 6; i++) {
-            const body = this.meshes.get(`p${i}:pelvis`),
-                head = this.meshes.get(`p${i}:head`),
-                marker = this.playerMarkers[i];
-            if (!body) {
-                marker.ring.visible = marker.shadow.visible = marker.arrow.visible = false;
-                continue;
-            }
-            const height = Math.max(0, body.position.y - 0.95);
-            marker.shadow.visible = true;
-            marker.shadow.position.x = body.position.x;
-            marker.shadow.position.z = body.position.z;
-            marker.shadow.scale.setScalar(1 + Math.min(1.4, height * 0.15));
-            marker.shadow.material.opacity = 0.13 / (1 + height * 0.3);
-            marker.ring.position.x = body.position.x;
-            marker.ring.position.z = body.position.z;
-            const human =
-                TAKRAW_MODES[viewData.state?.mode]?.secondaryInput ||
-                takrawTeamOf(i) === this.cameraRig.team;
-            marker.ring.visible = human && selected[takrawTeamOf(i)] === i;
-            marker.arrow.visible = marker.ring.visible;
-            if (head)
-                marker.arrow.position.set(head.position.x, head.position.y + 0.3, head.position.z);
-        }
         const ball = this.meshes.get('ball');
+        this.markers.draw(viewData, context, ball);
         if (ball) {
             const height = Math.max(0, ball.position.y);
-            this.ballShadow.position.x = this.ballLocator.position.x = ball.position.x;
-            this.ballShadow.position.z = this.ballLocator.position.z = ball.position.z;
-            const pulse = this.impacts.shadowPulse(),
-                shadow = this.config.visual.impact.shadow;
-            this.ballShadow.scale.setScalar(
-                (1 + Math.min(1, height * 0.1)) * (1 + shadow.scale * pulse),
-            );
-            this.ballShadow.material.opacity =
-                (0.3 / (1 + height * 0.12)) * (1 + shadow.opacity * pulse);
-            this.ballLocator.visible = height > 0.3;
             this.ballHeight.visible = this.ballHeightTicks.visible = height > 0.3;
             this.heightData.set([
                 ball.position.x,
@@ -1423,19 +1119,6 @@ class TakrawView {
             }
             this.heightTickGeometry.attributes.position.needsUpdate = true;
             this.heightTickGeometry.setDrawRange(0, Math.max(0, ticks) * 2);
-            this.ballHalo.position.copy(ball.position);
-            this.ballHalo.quaternion.copy(this.camera.quaternion);
-            const depth = Math.max(
-                1,
-                this.temp.vector.copy(ball.position).applyMatrix4(this.camera.matrixWorldInverse)
-                    .z * -1,
-            );
-            const unitsPerPixel =
-                (2 * depth * Math.tan((this.camera.fov * Math.PI) / 360)) / this.height;
-            const haloScale = Math.max(1, (7 * unitsPerPixel) / 0.14),
-                stretch = this.ballScreenStretch;
-            this.ballHalo.scale.set(haloScale * stretch.along, haloScale, haloScale);
-            if (stretch.along !== 1) this.ballHalo.rotateZ(stretch.angle);
             const distance = ball.position.distanceTo(this.trailLast);
             if (distance > 0.055) {
                 if (
@@ -1544,16 +1227,7 @@ class TakrawView {
      * 공 테두리·높이선·받기/공격 안내·선택 표시는 경기 카메라를 향해 놓인 안내라 다른 각도에서는 어긋나 보이므로 이 그림에서만 뺀다.
      */
     renderFrom({ position, target, fov }) {
-        const guides = [
-            this.ballHalo,
-            this.ballHeight,
-            this.ballHeightTicks,
-            this.ballLocator,
-            ...this.playerMarkers.flatMap((marker) => [marker.ring, marker.arrow]),
-            ...[...this.attackGuides, ...this.receiveGuides].flatMap((guide) =>
-                Object.values(guide).filter((value) => value?.isObject3D),
-            ),
-        ];
+        const guides = [this.ballHeight, this.ballHeightTicks];
         const shown = guides.map((guide) => guide.visible);
         for (const guide of guides) guide.visible = false;
         this.camera.position.set(position.x, position.y, position.z);
@@ -1565,7 +1239,9 @@ class TakrawView {
         if (ball) this.updateBallMask(ball);
         this.impacts.drawCloud();
         this.field.draw();
-        this.shockWave.render(this.scene, this.camera, this.impacts);
+        this.markers.withoutGuides(() =>
+            this.shockWave.render(this.scene, this.camera, this.impacts),
+        );
         guides.forEach((guide, index) => {
             guide.visible = shown[index];
         });
@@ -1781,6 +1457,7 @@ class TakrawView {
         });
         this.impacts.cloud.warm();
         this.field.warmLayers();
+        this.markers.warm();
         try {
             this.camera.updateMatrixWorld();
             this.renderer.compile(this.scene, this.camera);
@@ -1790,6 +1467,7 @@ class TakrawView {
             // 켜 둔 인스턴스 레이어를 실제 상태(살아 있는 효과만)로 되돌린다.
             this.impacts.drawCloud();
             this.field.draw();
+            this.markers.clear();
         }
         this.warmed = true;
     }
@@ -1799,6 +1477,7 @@ class TakrawView {
         this.shockWave.dispose();
         for (const material of this.litMaterials.values()) material.dispose();
         this.field.dispose();
+        this.markers.dispose();
         for (const geometry of this.geometries.values()) geometry.dispose();
         for (const material of this.materials.values()) material.dispose();
         for (const texture of this.textures.values()) texture.dispose();

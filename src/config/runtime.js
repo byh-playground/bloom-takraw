@@ -258,6 +258,61 @@ const TAKRAW_RUNTIME = Object.freeze({
         },
         sounds: {
             ...KICK_SOUNDS,
+            // 접촉 종류별 소리(src/presentation/sound.js가 고른다).
+            // 리시브: 들어온 공을 받아 죽이는 낮고 둔한 "퍽". 쿵을 길게, 밝은 클릭 대신 낮게 깎은 잡음.
+            kickReceive: {
+                category: 'impact',
+                priority: 3,
+                layers: [
+                    { kind: 'tone', hz: 140, end: 58, ms: 120, gain: 0.5, type: 'sine' },
+                    { kind: 'tone', hz: 230, end: 120, ms: 70, gain: 0.4, type: 'triangle' },
+                    { kind: 'noise', hz: 1100, ms: 55, gain: 0.26 },
+                    { kind: 'noise', hz: 3200, ms: 10, gain: 0.12 },
+                ],
+            },
+            // 아슬아슬한 받아내기: 리시브 위에 짧은 밝은 확인음(살려냈다는 표식).
+            kickSave: {
+                category: 'impact',
+                priority: 4,
+                layers: [
+                    { kind: 'tone', hz: 150, end: 52, ms: 150, gain: 0.6, type: 'sine' },
+                    { kind: 'tone', hz: 240, end: 110, ms: 85, gain: 0.5, type: 'triangle' },
+                    { kind: 'noise', hz: 1300, ms: 70, gain: 0.32 },
+                    { kind: 'noise', hz: 5200, ms: 12, gain: 0.3 },
+                    {
+                        kind: 'tone',
+                        hz: 784,
+                        end: 1046,
+                        ms: 90,
+                        gain: 0.16,
+                        type: 'sine',
+                        delay: 30,
+                    },
+                ],
+            },
+            // 토스: 가볍고 또렷한 "톡". 낮은 쿵을 줄이고 높은 몸통과 짧은 클릭.
+            kickSet: {
+                category: 'impact',
+                priority: 3,
+                layers: [
+                    { kind: 'tone', hz: 330, end: 210, ms: 45, gain: 0.32, type: 'triangle' },
+                    { kind: 'tone', hz: 180, end: 110, ms: 45, gain: 0.18, type: 'sine' },
+                    { kind: 'noise', hz: 4200, ms: 16, gain: 0.22 },
+                    { kind: 'noise', hz: 7600, ms: 6, gain: 0.32 },
+                    { kind: 'tone', hz: 1250, end: 1180, ms: 28, gain: 0.08, type: 'sine' },
+                ],
+            },
+            // 공이 바닥에 닿는 소리: 짧고 둔한 "통". 발차기보다 낮고 클릭이 없다.
+            ground: {
+                category: 'impact',
+                priority: 3,
+                layers: [
+                    { kind: 'tone', hz: 110, end: 48, ms: 110, gain: 0.5, type: 'sine' },
+                    { kind: 'tone', hz: 190, end: 95, ms: 60, gain: 0.35, type: 'triangle' },
+                    { kind: 'noise', hz: 700, ms: 60, gain: 0.3 },
+                    { kind: 'noise', hz: 2400, ms: 14, gain: 0.14 },
+                ],
+            },
             // 발이 아닌 몸(정강이·허벅지·골반·몸통·머리)에 맞은 소리: 둔탁하고 밝은 "탁"이 없다. 낮은 쿵만 있으면 작은 스피커에서 안 들려 중음 몸통을 둔다.
             kickBody: {
                 category: 'impact',

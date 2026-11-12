@@ -2,7 +2,8 @@ import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
-import { impactStyleKey } from '../presentation/impact.js';
+import { impactStyleKey, takrawContactKind } from '../presentation/impact.js';
+import { TakrawRumble } from '../presentation/rumble.js';
 import { winningSpikeScore } from '../presentation/score-motion.js';
 import { takrawMatchStatus } from '../presentation/match-status.js';
 import { takrawSoundPayload } from '../presentation/sound.js';
@@ -12,19 +13,25 @@ function badgeKey(timing) {
     return timing ? `${timing.grade}:${Math.round(timing.error * 1000)}` : '';
 }
 
-/** 접촉 이벤트가 남는 시간(ms). 등급 효과의 정지·궤적 강조와 등급 표시가 끝날 때까지 유지한다. */
+/**
+ * 접촉·바닥 이벤트가 남는 시간(ms). 효과(파동·눌림·표시 히트스톱과 따라잡기)와 등급 표시가 끝날 때까지 유지한다.
+ * 접촉 종류별 연출은 가장 센 세기의 수명까지 남긴다.
+ */
 function contactDuration(payload) {
     const { duration, badge } = TAKRAW_RUNTIME.feedback;
-    const impact =
-        TAKRAW_CONFIG.visual.impact[impactStyleKey(TAKRAW_CONFIG.visual.impact, payload)];
-    if (!payload.timing && !payload.spike) return duration;
+    const { visual } = TAKRAW_CONFIG,
+        impact = visual.impact.styles[impactStyleKey(visual.impact.styles, payload)];
+    const effect = Math.max(
+        (impact.hold + impact.life * Math.sqrt(visual.impact.intensity.max)) * 1000,
+        (impact.displayHold ?? 0) * (1 + visual.impact.displayCatchUp) * 1000,
+    );
+    if (!payload.timing && !payload.spike) return Math.max(duration, effect);
     return Math.max(
         duration,
         badge,
-        (impact.hold + impact.life) * 1000,
-        (impact.trail?.duration ?? 0) * 1000,
+        effect,
         (impact.shake?.duration ?? 0) * 1000,
-        payload.spike ? (impact.hold + TAKRAW_CONFIG.visual.impactElements.life) * 1000 : 0,
+        payload.spike ? (impact.hold + visual.impactElements.life) * 1000 : 0,
     );
 }
 
@@ -42,6 +49,7 @@ class MatchEventJournal {
         this.queue = null;
         this.inRollback = false;
         this.contact = null;
+        this.rumble = new TakrawRumble({ reducedMotion: () => view.reducedMotion() });
     }
 
     /** 마지막 접촉 이벤트(진단·득점 연출 판정). */
@@ -61,10 +69,19 @@ class MatchEventJournal {
         const { view, ui, audio, perspective } = this;
         const showHitPop = (payload) => {
             const text =
-                TAKRAW_CONFIG.visual.impact[impactStyleKey(TAKRAW_CONFIG.visual.impact, payload)]
-                    .pop;
+                TAKRAW_CONFIG.visual.impact.styles[
+                    impactStyleKey(TAKRAW_CONFIG.visual.impact.styles, payload)
+                ].pop;
             return text ? ui.showHitPop(text, payload.team) : null;
         };
+        // 접촉 효과 시작(사용자 조작 팀의 접촉이면 기기 진동도). 반환한 노드를 update·release에 넘긴다.
+        const startImpact = (payload) => {
+            const { mode, team } = perspective();
+            if (TAKRAW_MODES[mode]?.secondaryInput || payload.team === team)
+                this.rumble.play(payload);
+            return view.impacts.start(payload);
+        };
+        const updateImpact = (handle, ageMs) => view.impacts.update(handle.impact, ageMs);
         const showBadge = (payload) => {
             const { mode, team } = perspective();
             return payload.timing && (TAKRAW_MODES[mode]?.secondaryInput || payload.team === team)
@@ -79,15 +96,13 @@ class MatchEventJournal {
                     start(event) {
                         audio.duck('touch');
                         return {
-                            impact: view.impacts.start(event.payload),
+                            impact: startImpact(event.payload),
                             badge: showBadge(event.payload),
                             badgeKey: badgeKey(event.payload.timing),
                             pop: showHitPop(event.payload),
                         };
                     },
-                    update(handle, ageMs) {
-                        view.impacts.update(handle.impact, ageMs);
-                    },
+                    update: updateImpact,
                     // 같은 이벤트의 재확정은 경과 시간을 유지한 채 모양과 등급 표시만 갱신한다.
                     reconcile(handle, event) {
                         view.impacts.reconcile(handle.impact, event.payload);
@@ -102,6 +117,16 @@ class MatchEventJournal {
                         ui.hideTiming(handle.badge);
                         ui.hideHitPop(handle.pop);
                     },
+                },
+                // 공이 바닥에 닿음: 위아래 눌림·약한 파동·그림자 반응·소리. 접촉처럼 추측 이벤트라 롤백되면 사라진다.
+                ground: {
+                    reversible: true,
+                    start: (event) => ({ impact: startImpact(event.payload) }),
+                    update: updateImpact,
+                    reconcile(handle, event) {
+                        view.impacts.reconcile(handle.impact, event.payload);
+                    },
+                    stop: (handle) => view.impacts.release(handle.impact),
                 },
                 // 선수 착지 먼지: 접촉처럼 추측 이벤트라 롤백되면 사라진다.
                 land: {
@@ -158,14 +183,34 @@ class MatchEventJournal {
                 entityId: event.playerId >= 0 ? `player:${event.playerId}` : 'court',
                 generation: 0,
             };
+            // 접촉 종류(표시 전용): 이 스텝 뒤 경기 상태(touches·play)로 고른다. 효과·소리가 같은 값을 쓴다.
+            const contact =
+                event.type === 'touch' || event.type === 'ground'
+                    ? takrawContactKind(event, data.state)
+                    : null;
             if (event.type === 'touch') {
                 this.contact = { ...event, position: { ...event.position } };
+                const payload = { ...event, ...contact, position: { ...event.position } };
                 journal.emit({
                     ...identity,
                     kind: 'contact',
-                    payload: { ...event, position: { ...event.position } },
+                    payload,
                     policy: 'speculative',
-                    durationMs: contactDuration(event),
+                    durationMs: contactDuration(payload),
+                });
+            } else if (event.type === 'ground') {
+                const payload = {
+                    ...event,
+                    ...contact,
+                    speed: data.state.ballSpeed,
+                    position: { ...event.position },
+                };
+                journal.emit({
+                    ...identity,
+                    kind: 'ground',
+                    payload,
+                    policy: 'speculative',
+                    durationMs: contactDuration(payload),
                 });
             }
             const matchPoint =
@@ -204,6 +249,7 @@ class MatchEventJournal {
                 distanceDrop: TAKRAW_RUNTIME.feedback.soundDistanceDrop,
                 random: Math.random,
                 matchPoint,
+                contact,
             });
             if (sound)
                 journal.emit({ ...identity, kind: 'sound', payload: sound, policy: 'confirmed' });

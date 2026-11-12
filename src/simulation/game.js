@@ -216,6 +216,7 @@ class TakrawGame {
             kick: false,
             jumpPressed: false,
             kickPressed: false,
+            aim: { x: 0, y: 0 },
             receive: null,
             intent: null,
             tossTarget: null,
@@ -256,8 +257,12 @@ class TakrawGame {
     }
 
     decode(input, commands, secondary = false) {
-        const offset = secondary ? 3 : 0;
-        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
+        const layout = this.config.input,
+            offset = secondary ? layout.stride : 0;
+        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / layout.axisScale;
+        // 조준 4비트(2의 보수) → -1..1. 범위를 넘는 값(-8, 5..7)은 물리 aimedContact가 상한으로 자른다.
+        const nibble = (n) => ((n & 15) > 7 ? (n & 15) - 16 : n & 15) / layout.aimSteps;
+        const aim = input[offset + 3] || 0;
         const code = secondary ? 10 : 0;
         const has = (n) => commands.some((command) => command.payload?.[0] === n + code);
         return {
@@ -265,6 +270,7 @@ class TakrawGame {
             z: signed(input[offset + 1] || 0),
             jump: !!((input[offset + 2] || 0) & 1),
             kick: !!((input[offset + 2] || 0) & 2),
+            aim: { x: nibble(aim >> 4), y: nibble(aim) },
             jumpPressed: has(1),
             kickPressed: has(2),
             restart: has(4),
@@ -408,6 +414,8 @@ class TakrawGame {
                 kick,
                 jumpPressed: jump && !a.previousJump,
                 kickPressed: kick && !a.previousKick,
+                // AI는 늘 가운데(발이 가던 방향 그대로 공 중심)를 찬다. 사람과 같은 aimedContact를 탄다.
+                aim: { x: 0, y: 0 },
                 receive:
                     this.state.phase === 'rally' && a.active && a.receive
                         ? { ...a.receive, allowSlide: true }
@@ -428,6 +436,7 @@ class TakrawGame {
                 kick: h.kick || h.kickPressed,
                 jumpPressed: h.jumpPressed,
                 kickPressed: h.kickPressed,
+                aim: h.aim,
             };
         }
         // AI 서버: 공을 던질 때까지 자기 자리에 서 있고(이동·점프·발차기 없음), 지상서브는 던진 공이 올라가는 동안 차지 않는다(내려오는 공만 찬다).
@@ -2345,6 +2354,8 @@ class TakrawGame {
             Array.from(data.inputs).every(
                 (input) =>
                     input &&
+                    Number.isFinite(input.aim?.x) &&
+                    Number.isFinite(input.aim?.y) &&
                     (input.receive === null ||
                         (receivePlan(input.receive) &&
                             typeof input.receive.allowSlide === 'boolean')),

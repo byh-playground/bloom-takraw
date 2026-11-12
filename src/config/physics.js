@@ -142,6 +142,10 @@ const TAKRAW_PHYSICS = Object.freeze({
         separation: 0.2,
         netGap: 0.15,
     },
+    // 발 조준(aimedContact): 입력 조준(-1..1)에 maxOffset을 곱한 값이 가상 공 중심의 옆 이동량(공 반지름 비율)이다. 크기는 maxOffset을 넘지 않는다.
+    // maxOffset 0.75 × 공 반지름 0.095 = 0.071 m로, 발등 상자의 반폭 0.075 m(_buildPlayer의 foot halfExtents.x)보다 작다.
+    // 그래서 발 면이 조준 기울기를 다 따라가지 못해도(정면 그대로여도) 발이 가는 선은 발등 면 안에서 공에 닿고 발 모서리로 맞지 않는다.
+    kickAim: { maxOffset: 0.75 },
     // 주발: 기본으로 오른발로 차고, 공이 주발 반대쪽으로 groundOffset(지상, m) 넘거나 반대 발이 airMargin(공중, m) 넘게 가까울 때만 왼발.
     dominantFoot: { side: 'R', groundOffset: 0.25, airMargin: 0.05 },
     airReady: {

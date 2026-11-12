@@ -60,6 +60,12 @@ class TakrawPhysics {
         this.settings = takrawPhysicsSettings(config);
         this.serializer = new RAPIER.SerializationPipeline();
         this._createWorld(Array(6).fill(null));
+        // 조준 상한의 근거(config/physics.js kickAim): 가상 공 중심의 옆 이동이 발등 반폭보다 작아야, 발 면이 덜 기울어도
+        // 발이 가는 선이 발등 면 안에서 공에 닿는다. 몸 치수나 공 크기가 바뀌어 이 조건이 깨지면 설정을 다시 정해야 한다.
+        const footHalfWidth =
+            this.players[0].byName['foot' + this.settings.dominantFoot.side].halfExtents.x;
+        if (this.settings.kickAim.maxOffset * this.settings.ballRadius >= footHalfWidth)
+            throw new RangeError('kickAim.maxOffset reaches the foot edge');
     }
 
     /** 물리 월드 한 벌(코트·선수·공·시계)을 새로 만든다. 생성자와 rebuild()가 같은 경로를 쓴다. */
@@ -114,6 +120,9 @@ class TakrawPhysics {
     }
     _dot(a, b) {
         return a.x * b.x + a.y * b.y + a.z * b.z;
+    }
+    _cross(a, b) {
+        return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
     }
     _length(a) {
         return Math.hypot(a.x, a.y, a.z);
@@ -1326,7 +1335,13 @@ class TakrawPhysics {
         this._updateLegStretch(p, dt);
         const airTarget =
             mode === 'air' && !fallen
-                ? this._airFootTarget(p, dt, continuingGroundKick, input.motionPreference || 'auto')
+                ? this._airFootTarget(
+                      p,
+                      dt,
+                      continuingGroundKick,
+                      input.motionPreference || 'auto',
+                      input.aim,
+                  )
                 : null;
         if (airTarget) p.jump.airKickStarted = true;
         const preparing = !!airTarget && p.kick.airPlan.phase !== 'follow';
@@ -1668,21 +1683,21 @@ class TakrawPhysics {
             const target = command.target,
                 contactNormal = command.contactNormal,
                 contactForward = command.contactForward,
-                footControl = command.footControl;
+                faceControl = command.faceControl;
             let targetVelocity = command.targetVelocity;
+            const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
             // Controlled contacts drive the actual ankle. Convert the planned foot
             // centre to that anchor, cancelling _legTargets' standing COM offset.
             const ikTarget = this._kickIkTarget(
                 mode,
                 airTarget,
                 target,
-                contactNormal,
+                ankleDriven ? contactNormal : null,
                 contactForward,
                 rootRotation,
             );
             this._setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap);
             if (contactNormal) orientedFoot = suffix;
-            const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
             const forcePoint = ankleDriven
                 ? this._point(foot.body, this._v(0, 0.065, -0.085))
                 : null;
@@ -1716,7 +1731,7 @@ class TakrawPhysics {
                     suffix,
                     contactNormal,
                     contactForward,
-                    footControl,
+                    faceControl,
                     dt,
                     muscleResponse,
                     angularVelocity,
@@ -1833,13 +1848,15 @@ class TakrawPhysics {
             contactNormal = null,
             contactForward = null,
             groundContactDrive = null;
-        let footControl = null;
+        let footControl = null,
+            faceControl = null;
         if (mode === 'air') {
             target = airTarget.target;
             targetVelocity = airTarget.velocity;
             contactNormal = airTarget.normal;
             contactForward = airTarget.forward;
             footControl = s.airKick;
+            faceControl = s.airKick;
         } else {
             const teammate = input.tossTarget;
             const tossing = teammate && Number.isFinite(teammate.x) && Number.isFinite(teammate.z);
@@ -1852,6 +1869,7 @@ class TakrawPhysics {
                 contactNormal = receive.normal;
                 contactForward = p.kick.receivePlan.forward;
                 footControl = this.settings.groundToss;
+                faceControl = this.settings.groundToss;
             } else {
                 const horizontal = this._unit(
                     { x: predicted.x - hip.x, y: 0, z: predicted.z - hip.z },
@@ -1862,8 +1880,32 @@ class TakrawPhysics {
                     y: 1,
                     z: horizontal.z * s.drive.groundKick.horizontal,
                 });
-                target = this._add(predicted, this._mul(kickDirection, -s.drive.groundKick.behind));
+                // 엉덩이에서 공 쪽으로 차 올리는 방향이 발이 공으로 향하는 방향이다. 발은 그 방향 그대로 가상 중심(접촉점을 지나는 선)을
+                // 지나가고, 발 면은 조준이 정한 접촉면으로 돌린다(지상 토스와 같은 발 방향 제어).
+                const { normal, surface } = this.aimedContact(
+                    p,
+                    predicted,
+                    kickDirection,
+                    input.aim,
+                );
+                const virtualCenter = this._add(
+                    surface,
+                    this._mul(
+                        kickDirection,
+                        this._dot(this._sub(predicted, surface), kickDirection),
+                    ),
+                );
+                target = this._add(
+                    virtualCenter,
+                    this._mul(kickDirection, -s.drive.groundKick.behind),
+                );
                 targetVelocity = this._mul(kickDirection, s.groundKickSpeed);
+                contactNormal = normal;
+                contactForward = this._unit(
+                    this._sub(horizontal, this._mul(normal, this._dot(horizontal, normal))),
+                    this._v(0, 1, 0),
+                );
+                faceControl = this.settings.groundToss;
             }
         }
         return {
@@ -1874,6 +1916,7 @@ class TakrawPhysics {
             contactForward,
             groundContactDrive,
             footControl,
+            faceControl,
         };
     }
 
@@ -2175,17 +2218,44 @@ class TakrawPhysics {
             : 0;
     }
 
-    _airContact(p, ballPos, ballVel, lead) {
+    /**
+     * 발 조준(사람·AI 공통, 공중·지상 토스·지상 발차기 모든 경로). direction은 발이 공으로 향하는 방향(단위 벡터)이고,
+     * 조준 0은 그 방향 그대로 공 중심을 맞힌다. 조준(aim, -1..1)은 발에서 본 공의 면 위의 점이다: 가로 +는 direction × 위(발 기준 오른쪽),
+     * 세로 +는 그 둘에 수직인 위쪽. 발은 direction 그대로, 공 중심을 그만큼(공 반지름 × kickAim.maxOffset 비율) 옮긴 가상 중심을
+     * 향해 가므로 실제 공에는 그 선이 처음 닿는 면이 닿는다. 그 점에서 발 면이 공을 미는 방향(normal)은 √(1−|k|²)·direction − k이고,
+     * surface는 그 접촉점이다. 공이 나가는 방향은 방향·각도로 환산하지 않고 이 면과 접촉 물리가 정한다.
+     */
+    aimedContact(p, impact, direction, aim) {
+        const s = this.settings,
+            reach = s.kickAim.maxOffset;
+        const right = this._unit(this._cross(direction, this._v(0, 1, 0)), this._v(0, 0, p.toward));
+        const up = this._cross(right, direction);
+        const offset = this._limit(
+            this._add(this._mul(right, aim.x * reach), this._mul(up, aim.y * reach)),
+            reach,
+        );
+        const normal = this._sub(
+            this._mul(direction, Math.sqrt(1 - this._dot(offset, offset))),
+            offset,
+        );
+        return { normal, surface: this._sub(impact, this._mul(normal, s.ballRadius)) };
+    }
+
+    _airContact(p, ballPos, ballVel, lead, aim) {
         const s = this.settings,
             kick = s.airKick;
         const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * lead, z: ballVel.z };
         const impact = this._add(ballPos, this._mul(ballVel, lead));
         impact.y -= 0.5 * s.gravity * lead * lead;
         const shot = kick.contact;
+        // 발이 공으로 향하는 수평 방향은 이 발차기의 공격 평면 축이다(계획이 있으면 그 축, 처음이면 몸에서 공 쪽).
+        // 코트 정면으로 되돌리지 않는다. 서는 자리가 공에 대한 발의 방향을 정한다.
+        const heading = p.kick.airPlan?.axis || this._airPlanAxis(p, { impact });
         // A falling set needs a downward change in velocity for an instep-leading
         // smash. The net clearance constraint below limits how steep it can be.
         const down = Math.max(kick.speed * kick.downward, -incoming.y + shot.downwardGain);
-        const distance = Math.max(0, -impact.x * p.toward);
+        // 그 방향으로 네트까지 가는 거리. 축은 옆으로 lateral.max까지만 기울어 앞 성분이 0이 되지 않는다.
+        const distance = Math.max(0, -impact.x * p.toward) / (heading.x * p.toward);
         const clearance = this.config.court.netHeight + s.ballRadius + shot.netClearance;
         // Solve the time available before this downward shot falls to net height.
         // Only the foot's target face/speed changes: the ball remains solver-owned.
@@ -2201,16 +2271,23 @@ class TakrawPhysics {
             -down,
             (clearance - impact.y) / flight + 0.5 * s.gravity * flight,
         );
-        const wanted = { x: p.toward * forwardSpeed, y: Math.min(kick.speed, verticalSpeed), z: 0 };
-        const delta = this._sub(wanted, incoming);
-        const normal = this._unit(delta, this._v(p.toward, -kick.downward, 0));
-        const vn = this._dot(incoming, normal);
-        const transfer = kick.effectiveFootMass / (kick.effectiveFootMass + s.ballMass);
-        const normalSpeed = vn + this._length(delta) / ((1 + s.ballRestitution) * transfer);
-        const velocity = this._add(
-            this._sub(incoming, this._mul(normal, vn)),
-            this._mul(normal, normalSpeed),
+        // 가운데를 맞혔을 때 공이 이 평면에서 네트를 넘어 내리꽂히는 속도(swing)로 바뀌는 속도 변화가, 발이 공으로 향하는
+        // 방향(approach)과 휘두르는 세기다. 평면이 코트 정면이 아니면 공도 그 평면을 따라 나간다.
+        const swing = {
+            x: heading.x * forwardSpeed,
+            y: Math.min(kick.speed, verticalSpeed),
+            z: heading.z * forwardSpeed,
+        };
+        const delta = this._sub(swing, incoming);
+        const approach = this._unit(
+            delta,
+            this._unit(this._v(heading.x, -kick.downward, heading.z)),
         );
+        const transfer = kick.effectiveFootMass / (kick.effectiveFootMass + s.ballMass);
+        const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
+        const { normal, surface } = this.aimedContact(p, impact, approach, aim);
+        // 발은 조준과 상관없이 approach 방향 그대로 공으로 간다. 조준은 닿는 면(normal·surface)만 바꾼다.
+        const velocity = this._add(incoming, this._mul(approach, strikeSpeed));
         // Choose the in-plane toe direction towards the contact from the hip.
         // This keeps the ankle/shin behind the actual instep. A fixed world-down
         // toe direction can put the shin directly in front of a descending ball.
@@ -2234,7 +2311,7 @@ class TakrawPhysics {
         // Crossing hip height must not suddenly reverse the toes by 180 degrees.
         // Keep the chosen instep hemisphere throughout this physical swing.
         if (previous && this._dot(forward, previous) < 0) forward = this._mul(forward, -1);
-        return { impact, velocity, normal, forward, wanted };
+        return { impact, surface, velocity, normal, approach, forward };
     }
 
     /** 지상 발 선택: 공의 몸 기준 옆 위치(localX, 오른쪽 +)가 주발 반대쪽으로 groundOffset 넘어야 반대 발. */
@@ -2318,14 +2395,14 @@ class TakrawPhysics {
      * 공격 평면 조향 → 타격 전환 → 동작 위상 → 접촉 기하 → 마지막 스트로크 길이 → 발목 궤적 → 다리 길이 제한 →
      * 계획 기록 순으로 계산한다. 이 묶음은 Rapier에 쓰지 않고, 읽기 순서는 하나의 메서드였을 때와 같다.
      */
-    _airFootTarget(p, dt, continuingGroundKick = false, preference = 'auto') {
+    _airFootTarget(p, dt, continuingGroundKick, preference, kickAim) {
         const ballPos = this.ball.translation(),
             ballVel = this.ball.linvel();
         if (!p.kick.airPlan)
-            this._beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference);
+            this._beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference, kickAim);
         const plan = p.kick.airPlan;
         const leg = this._airKickLeg(p);
-        const aim = this._aimAirContact(p, plan, ballPos, ballVel, dt);
+        const aim = this._aimAirContact(p, plan, ballPos, ballVel, dt, kickAim);
         this._steerAirAxis(p, plan, leg.hip, aim.contact, dt);
         const surface = this._enterAirStrike(plan, leg, aim);
         this._advanceAirMotion(p, plan, dt);
@@ -2402,12 +2479,12 @@ class TakrawPhysics {
     }
 
     /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
-    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference) {
+    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference, kickAim) {
         const s = this.settings,
             kick = s.airKick,
             root = p.root,
             settings = kick.motion;
-        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime);
+        const contact = this._airContact(p, ballPos, ballVel, kick.leadTime, kickAim);
         const axis = this._airPlanAxis(p, contact);
         const distances = this._airFootDistances(p, contact);
         if (!continuingGroundKick) p.kick.side = this._airSide(distances);
@@ -2473,7 +2550,7 @@ class TakrawPhysics {
     }
 
     /** 남은 준비 시간을 줄이고 이번 substep의 예상 접촉과 접촉 순간 공 속도를 정한다. 스트로크에 들어서면 고정한다. */
-    _aimAirContact(p, plan, ballPos, ballVel, dt) {
+    _aimAirContact(p, plan, ballPos, ballVel, dt, kickAim) {
         const s = this.settings,
             kick = s.airKick;
         plan.remaining = Math.max(0, plan.remaining - dt);
@@ -2488,7 +2565,7 @@ class TakrawPhysics {
         const contact =
             plan.strokeContact ||
             (plan.phase === 'follow' && plan.contact) ||
-            this._airContact(p, ballPos, ballVel, lead);
+            this._airContact(p, ballPos, ballVel, lead, kickAim);
         const incomingAtImpact = plan.strokeIncoming || {
             x: ballVel.x,
             y: ballVel.y - s.gravity * lead,
@@ -2532,7 +2609,7 @@ class TakrawPhysics {
             kick = s.airKick;
         const { sole, soleVelocity } = leg;
         const { preparingBefore, contact } = aim;
-        const surface = this._add(contact.impact, this._mul(contact.normal, -s.ballRadius));
+        const surface = contact.surface;
         const normalGap = this._dot(this._sub(surface, sole), contact.normal);
         const upwardSpeed = Math.max(0, soleVelocity.y - contact.velocity.y);
         const brakingDistance = Math.min(
@@ -2575,7 +2652,7 @@ class TakrawPhysics {
         motion.angularVelocity = (motion.pose.body.angle - previousPose.body.angle) / dt;
     }
 
-    /** 클립의 접촉 자세, 공 표면에 맞출 발목 위치, 클립 대비 보정량, 접근 속도. */
+    /** 클립의 접촉 자세, 공 표면에 맞출 발목 위치, 클립 대비 보정량, 발이 공으로 가는 방향(approach)의 접근 속도. */
     _airContactGeometry(p, plan, leg, aim, surface) {
         const kick = this.settings.airKick,
             motion = plan.motion,
@@ -2599,7 +2676,7 @@ class TakrawPhysics {
         const strikeVelocity = contact.velocity;
         const closingSpeed = Math.max(
             kick.contact.minClosingSpeed,
-            this._dot(this._sub(strikeVelocity, incomingAtImpact), contact.normal),
+            this._dot(this._sub(strikeVelocity, incomingAtImpact), contact.approach),
         );
         return { contactPose, ankleOffset, desiredContact, correction, closingSpeed };
     }
@@ -2626,7 +2703,7 @@ class TakrawPhysics {
         const relativeEnd = this._sub(desiredContact, futureHip);
         const relativeApproach = this._add(
             this._sub(incomingAtImpact, futureHipVelocity),
-            this._mul(contact.normal, closingSpeed * 0.5),
+            this._mul(contact.approach, closingSpeed * 0.5),
         );
         const qa = this._dot(relativeApproach, relativeApproach);
         const qb = -2 * this._dot(relativeEnd, relativeApproach);
@@ -2673,10 +2750,11 @@ class TakrawPhysics {
         const prepDuration = Math.max(dt, duration - terminal);
         const prepBall = this._sub(contact.impact, this._mul(incomingAtImpact, terminal));
         prepBall.y -= 0.5 * s.gravity * terminal * terminal;
+        // 스트로크 시작점: 그때의 공에서 접촉점(공 반지름만큼 normal 반대)까지 간 뒤, 발이 오는 방향(approach)으로 남은 접근 거리만큼 뒤.
         const prepPoint = this._add(
             this._sub(
-                prepBall,
-                this._mul(contact.normal, s.ballRadius + 0.5 * closingSpeed * terminal),
+                this._sub(prepBall, this._mul(contact.normal, s.ballRadius)),
+                this._mul(contact.approach, 0.5 * closingSpeed * terminal),
             ),
             ankleOffset,
         );
@@ -2766,16 +2844,19 @@ class TakrawPhysics {
             const movingBall = this._sub(contact.impact, this._mul(incomingAtImpact, remaining));
             movingBall.y -= 0.5 * s.gravity * remaining * remaining;
             path.rawAnkle = this._add(
-                this._sub(movingBall, this._mul(contact.normal, s.ballRadius + relativeGap)),
+                this._sub(
+                    this._sub(movingBall, this._mul(contact.normal, s.ballRadius)),
+                    this._mul(contact.approach, relativeGap),
+                ),
                 ankleOffset,
             );
             path.desiredVelocity = this._add(
                 this._add(incomingAtImpact, this._v(0, s.gravity * remaining, 0)),
-                this._mul(contact.normal, closingSpeed * (1 - remaining / terminal)),
+                this._mul(contact.approach, closingSpeed * (1 - remaining / terminal)),
             );
             path.acceleration = this._add(
                 this._v(0, -s.gravity, 0),
-                this._mul(contact.normal, closingSpeed / terminal),
+                this._mul(contact.approach, closingSpeed / terminal),
             );
         } else if (elapsed >= duration) {
             const follow = Math.min(elapsed - duration, kick.contact.strokeTime);
@@ -2867,7 +2948,7 @@ class TakrawPhysics {
                 ? this._instepDrive(
                       p,
                       contact.normal,
-                      closingSpeed,
+                      closingSpeed * this._dot(contact.approach, contact.normal),
                       kick.forefoot,
                       { clearance: kick.clearance, driveMass: kick.contact.driveMass },
                       true,
@@ -2911,11 +2992,16 @@ class TakrawPhysics {
 
     /** 받기 계획: 공 도착 예측, 원하는 패스 속도, 그 속도를 낼 접촉면 방향·발 속도, 발 방향, 시작점. */
     _beginReceivePlan(p, input, ballPos, ballVel) {
-        const s = this.settings,
-            toss = this.settings.groundToss;
+        const toss = this.settings.groundToss;
         const pass = this._predictReceivePass(p, input, ballPos, ballVel);
         const { duration, tracking, incoming, impact, attacking } = pass;
-        const { normal, velocity } = this._receiveStrike(p, pass.wanted, incoming);
+        const { normal, surface, approach, velocity } = this._receiveStrike(
+            p,
+            pass.wanted,
+            incoming,
+            impact,
+            input.aim,
+        );
         // A slide points the toes along the extended leg, leaving the ankle
         // behind the instep. A fixed net-facing foot twists the knee sideways
         // and exposes its narrow edge when the save is far to either side.
@@ -2926,8 +3012,9 @@ class TakrawPhysics {
         const forward = this._unit(
             this._sub(heading, this._mul(normal, this._dot(heading, normal))),
         );
+        // 발 중심: 발등(위로 0.055)이 접촉점에 닿고 앞꿈치(forefoot)가 맞는 자리.
         const point = this._sub(
-            this._add(impact, this._mul(normal, -(s.ballRadius + 0.055))),
+            this._sub(surface, this._mul(normal, 0.055)),
             this._mul(forward, toss.forefoot),
         );
         const foot = p.byName['foot' + p.kick.side].body;
@@ -2942,6 +3029,7 @@ class TakrawPhysics {
             duration,
             startedAt: this.time,
             normal,
+            approach,
             forward,
             point,
             velocity,
@@ -2991,28 +3079,28 @@ class TakrawPhysics {
         return { duration, tracking, incoming, impact, attacking, wanted };
     }
 
-    /** 원하는 공 속도로 바꾸는 접촉면 방향과, 발의 유효 질량·반발로 그 변화를 낼 발 속도. */
-    _receiveStrike(p, wanted, incoming) {
+    /**
+     * 받기·세트·서브의 발: 가운데를 맞혔을 때 공이 목표 선수(또는 서브 목표)로 가는 속도 변화가 발이 공으로 향하는 방향(approach)과
+     * 세기다. 닿는 면은 그 방향과 조준으로 aimedContact가 정하고, 발의 유효 질량·반발로 그 세기를 낼 발 속도를 approach 방향으로 낸다.
+     */
+    _receiveStrike(p, wanted, incoming, impact, aim) {
         const s = this.settings,
             toss = this.settings.groundToss;
         // Precontact foot targets only; no ball impulse or velocity assignment.
         // The estimated collision normal and speed guide the articulated foot;
         // its finite reach, force, orientation and actual collision decide the pass.
         const delta = this._sub(wanted, incoming),
-            normal = this._unit(delta, this._v(0, 1, 0));
-        const vn = this._dot(incoming, normal);
+            approach = this._unit(delta, this._v(0, 1, 0));
         const contactFoot = p.byName['foot' + p.kick.side];
         const mass = contactFoot.body.mass(),
             extent = contactFoot.halfExtents;
         const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
         const contactMass = 1 / (1 / mass + (toss.forefoot * toss.forefoot) / pitchInertia);
         const transfer = contactMass / (contactMass + s.ballMass);
-        const normalSpeed = vn + this._length(delta) / ((1 + s.ballRestitution) * transfer);
-        const velocity = this._add(
-            this._sub(incoming, this._mul(normal, vn)),
-            this._mul(normal, normalSpeed),
-        );
-        return { normal, velocity };
+        const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
+        const { normal, surface } = this.aimedContact(p, impact, approach, aim);
+        const velocity = this._add(incoming, this._mul(approach, strikeSpeed));
+        return { normal, surface, approach, velocity };
     }
 
     /** 따라 차기를 마친 발을 엉덩이 아래 뒤쪽으로 거둔다. */
@@ -3044,11 +3132,12 @@ class TakrawPhysics {
             toss = this.settings.groundToss;
         const elapsed = this.time - plan.startedAt + dt,
             terminal = Math.min(toss.strokeTime, plan.duration * 0.5);
+        // 발은 조준과 상관없이 approach 방향으로 공에 다가간다(조준은 닿는 면만 바꾼다).
         const prepDuration = Math.max(dt, plan.duration - terminal),
-            closing = this._dot(this._sub(plan.velocity, plan.incoming), plan.normal);
+            closing = this._dot(this._sub(plan.velocity, plan.incoming), plan.approach);
         const prep = this._sub(
             this._sub(plan.point, this._mul(plan.incoming, terminal)),
-            this._mul(plan.normal, closing * terminal * 0.5),
+            this._mul(plan.approach, closing * terminal * 0.5),
         );
         prep.y -= 0.5 * s.gravity * terminal * terminal;
         const incoming = this._add(plan.incoming, this._v(0, s.gravity * terminal, 0));
@@ -3080,14 +3169,14 @@ class TakrawPhysics {
             target = this._sub(
                 this._sub(plan.point, this._mul(plan.incoming, remaining)),
                 this._mul(
-                    plan.normal,
+                    plan.approach,
                     closing * remaining - (0.5 * closing * remaining * remaining) / terminal,
                 ),
             );
             target.y -= 0.5 * s.gravity * remaining * remaining;
             velocity = this._add(
                 this._add(plan.incoming, this._v(0, s.gravity * remaining, 0)),
-                this._mul(plan.normal, closing * (1 - remaining / terminal)),
+                this._mul(plan.approach, closing * (1 - remaining / terminal)),
             );
         } else if (elapsed >= plan.duration) {
             const follow = Math.min(elapsed - plan.duration, toss.followThrough),

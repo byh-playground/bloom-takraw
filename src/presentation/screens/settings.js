@@ -55,7 +55,33 @@ class TakrawSettingsScreen {
       <div class="settings-row"><div><strong>${escape(UI.camera())}</strong><small>${escape(this.coarse.matches ? UI.cameraTouch() : UI.cameraMouse())}</small></div><button type="button" class="secondary-small" data-dialog-action="camera-reset">${escape(UI.cameraReset())}</button></div>
       <div class="settings-row"><div><strong>${escape(UI.language())}</strong><small>${escape(this.inGame() ? UI.languageLocked() : UI.languageHint())}</small></div><div class="segmented" role="group" aria-label="${escape(UI.language())}">${languages}</div></div>
       ${this.installable ? `<div class="settings-row"><div><strong>${escape(UI.install())}</strong><small>${escape(UI.installHint())}</small></div><button type="button" class="secondary-small" data-dialog-action="install">${escape(UI.installButton())}</button></div>` : ''}
+      <div class="settings-row"><div><strong>${escape(UI.screenDiagnostics())}</strong><small>${escape(UI.screenDiagnosticsHint())}</small></div><button type="button" class="secondary-small" data-dialog-action="copy-diagnostics">${escape(UI.copyDiagnostics())}</button></div>
+      <textarea id="settings-diagnostic" class="diagnostic-text" readonly hidden rows="6"></textarea>
       <p class="key-tip">${escape(UI.qualityTip())}</p><div class="dialog-actions"><button type="button" class="primary-small" data-dialog-action="close">${escape(UI.done())}</button></div>`;
+    }
+
+    /** 화면 진단(프레임 시간·그리기 횟수·기기 정보·오류 기록)을 클립보드로. 복사가 막히면 글상자를 보여 직접 복사하게 한다. */
+    async copyDiagnostics(button) {
+        const text = this.callbacks.diagnosticText?.() ?? '',
+            label = button.textContent;
+        try {
+            await navigator.clipboard.writeText(text);
+            button.textContent = UI.copied();
+        } catch {
+            const area = document.getElementById('settings-diagnostic');
+            if (area) {
+                area.value = text;
+                area.hidden = false;
+                area.focus();
+                area.select();
+            }
+            button.textContent = UI.copyManually();
+        }
+        if (this.copyTimer) window.clearTimeout(this.copyTimer);
+        this.copyTimer = window.setTimeout(() => {
+            if (button.isConnected) button.textContent = label;
+            this.copyTimer = null;
+        }, 1800);
     }
 
     click(event) {
@@ -69,6 +95,7 @@ class TakrawSettingsScreen {
             this.callbacks.onSetting?.('sound', this.values.sound);
         }
         if (action === 'camera-reset') this.callbacks.onCameraReset?.();
+        if (action === 'copy-diagnostics') this.copyDiagnostics(button);
         if (action === 'install') this.callbacks.onInstall?.();
         if (action === 'locale' && !this.inGame() && button.dataset.value !== LOCALE.locale)
             LOCALE.choose(button.dataset.value);

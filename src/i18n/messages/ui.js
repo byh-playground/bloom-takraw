@@ -435,6 +435,11 @@ const UI = LOCALE.messages({
         en: ({ version }) =>
             `Both players need ${TAKRAW_PRODUCT_NAME.en} ${version}. An HTTPS site is recommended. Some networks restrict WebRTC connections.`,
     },
+    screenDiagnostics: { ko: '화면 진단', en: 'Display diagnostics' },
+    screenDiagnosticsHint: {
+        ko: '버벅일 때 복사해서 알려 주세요',
+        en: 'Copy and send this if the game stutters',
+    },
     diagnostics: { ko: '연결 진단', en: 'Connection diagnostics' },
     networkLog: { ko: '최근 연결 이벤트', en: 'Recent connection events' },
     copyDiagnostics: SHARED.copyDiagnostics,

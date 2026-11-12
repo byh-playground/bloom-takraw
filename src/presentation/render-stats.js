@@ -44,7 +44,7 @@ class TakrawRenderStats {
         if (!s.retainedFrames) return 'render: no frames';
         const f = (v) => Math.round(v * 10) / 10;
         const { drawCalls, triangles, programs, textures } = s.counts;
-        return `render frames=${s.retainedFrames} fps=${f(s.fps ?? 0)} interval ms p50/p95/max=${f(s.intervalMs.p50)}/${f(s.intervalMs.p95)}/${f(s.intervalMs.max)} draws mean/max=${Math.round(drawCalls.mean)}/${drawCalls.max} triangles max=${triangles.max} programs=${programs.max} textures=${textures.max}`;
+        return `render frames=${s.retainedFrames} fps=${f(s.fps ?? 0)} intervalMs p50=${f(s.intervalMs.p50)} p95=${f(s.intervalMs.p95)} max=${f(s.intervalMs.max)} drawCalls mean=${Math.round(drawCalls.mean)} max=${drawCalls.max} triangles max=${triangles.max} programs=${programs.max} textures=${textures.max}`;
     }
 }
 

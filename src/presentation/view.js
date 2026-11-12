@@ -10,6 +10,7 @@ import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
 import { TakrawRenderStats } from './render-stats.js';
+import { PartList } from './merge-geometry.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
@@ -125,12 +126,13 @@ class TakrawView {
     }
 
     material(color, options = {}) {
-        const key = `${color}:${options.roughness ?? 0.85}:${options.metalness ?? 0}:${options.opacity ?? 1}:${options.basic ?? false}`;
+        const key = `${color}:${options.roughness ?? 0.85}:${options.metalness ?? 0}:${options.opacity ?? 1}:${options.basic ?? false}:${options.vertexColors ?? false}`;
         if (!this.materials.has(key)) {
             const properties = {
                 color,
                 roughness: options.roughness ?? 0.85,
                 metalness: options.metalness ?? 0,
+                vertexColors: options.vertexColors ?? false,
             };
             if (options.opacity !== undefined) {
                 properties.transparent = true;
@@ -319,56 +321,59 @@ class TakrawView {
     makeCourt() {
         const T = this.THREE,
             { halfLength: x, halfWidth: z } = this.config.court;
+        // 정적 구조물은 같은 렌더 상태끼리 정점 색 geometry 하나로 합친다(DEV-034). 학교에 따라 색이 바뀌는 코트·코트 안쪽·선은 색 채널 재질을 그대로 두고 채널마다 하나로 합친다.
+        const scenery = (this.scenery = new PartList(T)),
+            lines = new PartList(T),
+            rings = new PartList(T);
         this.groundMaterial = this.material(0xe8eee3);
         const ground = this.mesh(new T.PlaneGeometry(160, 160), this.groundMaterial);
         this.geometries.set('ground', ground.geometry);
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -0.26;
         ground.castShadow = false;
-        this.box(17.6, 0.22, 10.0, 0xd7d6bc, 0, -0.145, 0);
-        this.box(17.45, 0.055, 9.85, 0xece7d4, 0, -0.02, 0);
-        this.box(x * 2 + 0.28, 0.018, z * 2 + 0.28, 0x2f6257, 0, 0.016, 0);
+        scenery.box(17.6, 0.22, 10.0, 0xd7d6bc, 0, -0.145, 0);
+        scenery.box(17.45, 0.055, 9.85, 0xece7d4, 0, -0.02, 0);
+        scenery.box(x * 2 + 0.28, 0.018, z * 2 + 0.28, 0x2f6257, 0, 0.016, 0);
         this.box(x, 0.018, z * 2, this.venueMaterial('court'), -x / 2, 0.028, 0);
         this.box(x, 0.018, z * 2, this.venueMaterial('courtInset'), x / 2, 0.028, 0);
-        const line = this.venueMaterial('line');
         for (const side of [-1, 1]) {
-            this.box(0.035, 0.007, z * 2, line, side * x, 0.043, 0);
-            this.box(x * 2, 0.007, 0.035, line, 0, 0.043, side * z);
-            const service = this.mesh(
-                this.geometry('serve-ring', () => new T.RingGeometry(0.27, 0.3, 48)),
-                line,
+            lines.box(0.035, 0.007, z * 2, 0xffffff, side * x, 0.043, 0);
+            lines.box(x * 2, 0.007, 0.035, 0xffffff, 0, 0.043, side * z);
+            rings.add(
+                rings.geometry('serve-ring', () => new T.RingGeometry(0.27, 0.3, 48)),
+                0xffffff,
+                { position: [side * 4.25, 0.047, 0], rotation: [-Math.PI / 2, 0, 0] },
             );
-            service.rotation.x = -Math.PI / 2;
-            service.position.set(side * 4.25, 0.047, 0);
-            service.castShadow = false;
             for (const corner of [-1, 1]) {
-                const arc = this.mesh(
-                    this.geometry(
+                const start =
+                    side < 0
+                        ? corner < 0
+                            ? Math.PI
+                            : Math.PI * 0.5
+                        : corner < 0
+                          ? Math.PI * 1.5
+                          : 0;
+                rings.add(
+                    rings.geometry(
                         `quarter:${side}:${corner}`,
-                        () =>
-                            new T.RingGeometry(
-                                0.87,
-                                0.9,
-                                30,
-                                1,
-                                side < 0
-                                    ? corner < 0
-                                        ? Math.PI
-                                        : Math.PI * 0.5
-                                    : corner < 0
-                                      ? Math.PI * 1.5
-                                      : 0,
-                                Math.PI * 0.5,
-                            ),
+                        () => new T.RingGeometry(0.87, 0.9, 30, 1, start, Math.PI * 0.5),
                     ),
-                    line,
+                    0xffffff,
+                    { position: [0, 0.046, corner * z], rotation: [-Math.PI / 2, 0, 0] },
                 );
-                arc.rotation.x = -Math.PI / 2;
-                arc.position.set(0, 0.046, corner * z);
-                arc.castShadow = false;
             }
         }
-        this.box(0.025, 0.006, z * 2, line, 0, 0.044, 0);
+        lines.box(0.025, 0.006, z * 2, 0xffffff, 0, 0.044, 0);
+        // 선 상자는 그림자를 드리우고 서브 원·모서리 호는 드리우지 않아(받기만 한다) 두 묶음으로 나눈다.
+        const lineMaterial = this.venueMaterial('line');
+        for (const [name, list, cast] of [
+            ['court-lines', lines, true],
+            ['court-rings', rings, false],
+        ]) {
+            const geometry = list.build();
+            this.geometries.set(name, geometry);
+            this.mesh(geometry, lineMaterial).castShadow = cast;
+        }
         // 그물·테이프·기둥의 경계는 물리 충돌체와 같은 값(takrawNetShape)에서 파생한다. 그물로 보이는 면이 공이 막히는 면이다.
         const { net, post } = this.netShape;
         const netPositions = [];
@@ -394,7 +399,7 @@ class TakrawView {
         const tapeWidth = (post.z - post.radius) * 2,
             topTape = { thickness: 0.035, height: 0.045 },
             bottomTape = { thickness: 0.018, height: 0.014 };
-        this.box(
+        scenery.box(
             topTape.thickness,
             topTape.height,
             tapeWidth,
@@ -403,7 +408,7 @@ class TakrawView {
             net.topY - topTape.height / 2,
             0,
         );
-        this.box(
+        scenery.box(
             bottomTape.thickness,
             bottomTape.height,
             tapeWidth,
@@ -414,35 +419,29 @@ class TakrawView {
         );
         for (const side of [-1, 1]) {
             // 기둥은 물리 캡슐(반지름·길이·높이)과 같은 치수다. 위 끝은 캡슐의 둥근 끝을 구로 그린다.
-            this.cylinder(
-                post.radius,
-                post.halfLength * 2,
-                0xfaf4de,
-                0,
-                post.centerY,
-                side * post.z,
-            );
-            this.cylinder(post.radius * 1.1, 0.36, 0x276e60, 0, 0.18, side * post.z);
-            this.sphere(post.radius, 0xf7f2dc, 0, post.centerY + post.halfLength, side * post.z);
-            this.box(0.035, 0.26, 0.035, 0xe69569, 0, net.topY + 0.085, side * net.halfWidth);
+            scenery.cylinder(post.radius, post.halfLength * 2, 0xfaf4de, 0, post.centerY, side * post.z);
+            scenery.cylinder(post.radius * 1.1, 0.36, 0x276e60, 0, 0.18, side * post.z);
+            scenery.sphere(post.radius, 0xf7f2dc, 0, post.centerY + post.halfLength, side * post.z);
+            scenery.box(0.035, 0.26, 0.035, 0xe69569, 0, net.topY + 0.085, side * net.halfWidth);
         }
         for (const side of [-1, 1]) {
-            this.box(15.2, 0.018, 0.065, 0xc1c7ae, 0, 0.014, side * 4.3);
+            scenery.box(15.2, 0.018, 0.065, 0xc1c7ae, 0, 0.014, side * 4.3);
             for (let i = 0; i < 6; i++)
-                this.box(0.18, 0.015, 0.05, 0xc1c7ae, -6.8 + i * 2.7, 0.012, side * 4.55);
+                scenery.box(0.18, 0.015, 0.05, 0xc1c7ae, -6.8 + i * 2.7, 0.012, side * 4.55);
         }
     }
 
     makeSurroundings() {
-        const T = this.THREE;
+        const T = this.THREE,
+            scenery = this.scenery;
         // Small bleachers leave the court and ball as the strongest shapes.
         for (let row = 0; row < 3; row++) {
             const z = -5.0 - row * 0.58,
                 y = 0.12 + row * 0.25;
-            this.box(10.4, 0.18, 0.48, row === 0 ? 0xd4d1b9 : 0xdad8c2, -0.3, y, z);
-            this.box(10.3, 0.04, 0.35, row === 0 ? 0x92b4a2 : 0xa1baaa, -0.3, y + 0.115, z - 0.04);
+            scenery.box(10.4, 0.18, 0.48, row === 0 ? 0xd4d1b9 : 0xdad8c2, -0.3, y, z);
+            scenery.box(10.3, 0.04, 0.35, row === 0 ? 0x92b4a2 : 0xa1baaa, -0.3, y + 0.115, z - 0.04);
             for (const x of [-4.4, 3.8])
-                this.box(0.12, y + 0.25, 0.16, 0xc2c6ad, x, (y + 0.25) / 2 - 0.1, z);
+                scenery.box(0.12, y + 0.25, 0.16, 0xc2c6ad, x, (y + 0.25) / 2 - 0.1, z);
         }
         const bodyGeometry = this.geometry(
             'crowd-body',
@@ -479,20 +478,21 @@ class TakrawView {
         this.crowdBase = this.crowd.map((mesh) => mesh.instanceMatrix.array.slice());
         this.crowdCheerAt = null;
         // Far-side rail and the low entrance opening.
-        for (let i = -5; i <= 5; i++) this.cylinder(0.025, 0.95, 0xb4c3ad, i * 1.05, 0.25, -7.05);
+        for (let i = -5; i <= 5; i++) scenery.cylinder(0.025, 0.95, 0xb4c3ad, i * 1.05, 0.25, -7.05);
         for (const height of [0.18, 0.68]) {
-            const rail = this.cylinder(0.021, 10.5, 0xb4c3ad, 0, height, -7.05);
-            rail.rotation.z = Math.PI / 2;
+            scenery.cylinder(0.021, 10.5, 0xb4c3ad, 0, height, -7.05, {
+                rotation: [0, 0, Math.PI / 2],
+            });
         }
         for (const side of [-1, 1]) {
             const x = side * 8.7;
-            this.box(1.02, 0.34, 0.38, 0x5b8471, x, 0.03, -3.2);
-            this.box(0.92, 0.03, 0.3, 0xb4c3a9, x, 0.215, -3.2);
-            this.box(0.06, 0.34, 0.06, 0xaebaa0, x - 0.35, -0.06, -3.2);
-            this.box(0.06, 0.34, 0.06, 0xaebaa0, x + 0.35, -0.06, -3.2);
-            this.cylinder(0.035, 3.3, 0xc7cdb6, x, 1.4, -5.5);
-            this.box(0.7, 0.08, 0.25, 0xe5e8d2, x, 3.04, -5.5);
-            this.box(0.63, 0.02, 0.21, 0xffffe6, x, 2.99, -5.5);
+            scenery.box(1.02, 0.34, 0.38, 0x5b8471, x, 0.03, -3.2);
+            scenery.box(0.92, 0.03, 0.3, 0xb4c3a9, x, 0.215, -3.2);
+            scenery.box(0.06, 0.34, 0.06, 0xaebaa0, x - 0.35, -0.06, -3.2);
+            scenery.box(0.06, 0.34, 0.06, 0xaebaa0, x + 0.35, -0.06, -3.2);
+            scenery.cylinder(0.035, 3.3, 0xc7cdb6, x, 1.4, -5.5);
+            scenery.box(0.7, 0.08, 0.25, 0xe5e8d2, x, 3.04, -5.5);
+            scenery.box(0.63, 0.02, 0.21, 0xffffe6, x, 2.99, -5.5);
         }
         const trees = [
             [-10, -7, 1.0],
@@ -504,23 +504,28 @@ class TakrawView {
         ];
         for (let index = 0; index < trees.length; index++) {
             const [x, z, s] = trees[index];
-            this.cylinder(0.11 * s, 1.6 * s, 0xb1a17d, x, 0.45 * s, z);
-            this.sphere(0.78 * s, index % 2 ? 0x9bb792 : 0xa9bd91, x, 1.5 * s, z, this.scene, 9);
-            this.sphere(0.57 * s, 0xb4c69d, x + 0.4 * s, 1.9 * s, z - 0.1 * s, this.scene, 9);
-            this.sphere(0.53 * s, 0x98b28c, x - 0.38 * s, 1.68 * s, z + 0.17 * s, this.scene, 9);
+            scenery.cylinder(0.11 * s, 1.6 * s, 0xb1a17d, x, 0.45 * s, z);
+            scenery.sphere(0.78 * s, index % 2 ? 0x9bb792 : 0xa9bd91, x, 1.5 * s, z, { segments: 9 });
+            scenery.sphere(0.57 * s, 0xb4c69d, x + 0.4 * s, 1.9 * s, z - 0.1 * s, { segments: 9 });
+            scenery.sphere(0.53 * s, 0x98b28c, x - 0.38 * s, 1.68 * s, z + 0.17 * s, { segments: 9 });
         }
         for (const side of [-1, 1]) {
-            const sign = new T.Group();
-            this.scene.add(sign);
+            const sign = new T.Object3D();
             sign.position.set(side * 7.8, 0.2, -5.0);
             sign.rotation.y = side * 0.12;
-            this.box(1.1, 0.55, 0.08, 0xe3dfc8, 0, 0.2, 0, sign);
-            this.box(0.86, 0.36, 0.015, side < 0 ? 0x5b8e78 : 0xb98e70, 0, 0.21, 0.05, sign);
+            sign.updateMatrix();
+            const parent = { parent: sign.matrix };
+            scenery.box(1.1, 0.55, 0.08, 0xe3dfc8, 0, 0.2, 0, parent);
+            scenery.box(0.86, 0.36, 0.015, side < 0 ? 0x5b8e78 : 0xb98e70, 0, 0.21, 0.05, parent);
             for (let i = 0; i < 3; i++)
-                this.box(0.12, 0.035, 0.01, 0xf5f0d9, -0.24 + i * 0.24, 0.21, 0.061, sign);
-            this.box(0.055, 0.6, 0.055, 0xacb39b, -0.35, -0.05, 0, sign);
-            this.box(0.055, 0.6, 0.055, 0xacb39b, 0.35, -0.05, 0, sign);
+                scenery.box(0.12, 0.035, 0.01, 0xf5f0d9, -0.24 + i * 0.24, 0.21, 0.061, parent);
+            scenery.box(0.055, 0.6, 0.055, 0xacb39b, -0.35, -0.05, 0, parent);
+            scenery.box(0.055, 0.6, 0.055, 0xacb39b, 0.35, -0.05, 0, parent);
         }
+        // 위 구조물 전체(코트 바닥 단·테이프·기둥·관중석·난간·출입구·가로등·나무·안내판)가 정점 색 재질 하나, 드로우콜 하나다.
+        const geometry = scenery.build();
+        this.geometries.set('scenery', geometry);
+        this.mesh(geometry, this.material(0xffffff, { vertexColors: true }));
     }
 
     makeMarkers() {

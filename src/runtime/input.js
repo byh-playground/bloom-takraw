@@ -27,7 +27,6 @@ class RuntimeInput {
         this.size = config.input.size;
         this.stride = config.input.stride;
         this.axisScale = config.input.axisScale;
-        this.aimSteps = config.input.aimSteps;
         this.samples = Object.fromEntries(ACTION_NAMES.map((name) => [name, {}]));
         this.axis = { x: 0, z: 0 };
         this.aim = { x: 0, y: 0 };
@@ -77,7 +76,10 @@ class RuntimeInput {
                 ),
             );
             input[2] = (samples.jump.held ? 1 : 0) | (samples.kick.held ? 2 : 0);
-            input[3] = samples.kick.held ? this.encodeAim(this.aim) : 0;
+            if (samples.kick.held) {
+                input[3] = this.encodeAxis(this.aim.x);
+                input[4] = this.encodeAxis(this.aim.y);
+            }
             edges.jump = samples.jump.pressed;
             edges.kick = samples.kick.pressed;
             if (local2p) {
@@ -164,12 +166,6 @@ class RuntimeInput {
 
     encodeAxis(value) {
         return Math.round(Math.max(-1, Math.min(1, value)) * this.axisScale) & 255;
-    }
-
-    /** 조준 한 바이트: 가로·세로를 -aimSteps..aimSteps 정수로 양자화해 상위·하위 4비트(2의 보수)에 담는다. 가운데는 0이다. */
-    encodeAim(aim) {
-        const step = (value) => Math.round(value * this.aimSteps) & 15;
-        return (step(aim.x) << 4) | step(aim.y);
     }
 }
 

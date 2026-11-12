@@ -260,9 +260,6 @@ class TakrawGame {
         const layout = this.config.input,
             offset = secondary ? layout.stride : 0;
         const signed = (b) => (b > INT8_MAX ? b - 256 : b) / layout.axisScale;
-        // 조준 4비트(2의 보수) → -1..1. 범위를 넘는 값(-8, 5..7)은 물리 aimedContact가 상한으로 자른다.
-        const nibble = (n) => ((n & 15) > 7 ? (n & 15) - 16 : n & 15) / layout.aimSteps;
-        const aim = input[offset + 3] || 0;
         const code = secondary ? 10 : 0;
         const has = (n) => commands.some((command) => command.payload?.[0] === n + code);
         return {
@@ -270,7 +267,8 @@ class TakrawGame {
             z: signed(input[offset + 1] || 0),
             jump: !!((input[offset + 2] || 0) & 1),
             kick: !!((input[offset + 2] || 0) & 2),
-            aim: { x: nibble(aim >> 4), y: nibble(aim) },
+            // 조준도 이동 축과 같은 부호 있는 바이트다. 원 밖 값(-128)은 물리 aimedContact가 상한으로 자른다.
+            aim: { x: signed(input[offset + 3] || 0), y: signed(input[offset + 4] || 0) },
             jumpPressed: has(1),
             kickPressed: has(2),
             restart: has(4),

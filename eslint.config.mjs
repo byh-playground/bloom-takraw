@@ -17,9 +17,7 @@ export default [
             '**/assets/generated/**',
             'scripts/vendor/**',
             'sw.js',
-            'reference/**',
             'artifacts/**',
-            '.publish/**',
         ],
     },
     {

@@ -118,6 +118,9 @@ function takrawUiCallbacks({
             getInput()?.setAxis(x, z, match.controlsAllowed());
             match.observeSoon();
         },
+        onAim(x, y) {
+            getInput()?.setAim(x, y, match.controlsAllowed());
+        },
     };
 }
 

@@ -45,7 +45,7 @@ src/
   presentation/              Three.js 표시(view), DOM UI(ui), 연습 안내(training-coach), 접촉·착지·득점 효과, 득점 리플레이(highlight*), 소리, 소개영상 연결
     ui.js                    화면 전환·주소 맞추기·포커스와 runtime이 부르는 공개 메서드(TakrawUI)
     routes.js                화면 주소 정규화(gamekit navigation에 넘김)
-    {match-hud,touch-controls,training-panel,markup}.js  경기 HUD, 터치 조작, 연습 패널, 문구·이스케이프
+    {match-hud,touch-controls,training-panel,markup}.js  경기 HUD, 화면 조작(발차기 조준 버튼), 연습 패널, 문구·이스케이프
     screens/{home,club,campaign,draw-stage,settings,pause,network}.js  처음 화면 단계와 대화상자 화면별 상태·그리기
   i18n/                      화면 언어(ko/en) 선택과 문구 표
 styles/app.css               화면 스타일

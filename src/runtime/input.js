@@ -16,17 +16,21 @@ const ACTION_NAMES = Object.freeze([
 ]);
 
 /**
- * 이 기기의 입력: 키·포인터 장치(createDOMInput), 행동 상태, 터치 패드 축, 마우스 카메라 회전, 마지막으로 만든 입력 바이트.
+ * 이 기기의 입력: 키·포인터 장치(createDOMInput), 행동 상태, 터치 패드 축, 발차기 조준, 마우스 카메라 회전, 마지막으로 만든 입력 바이트.
  * 명령(점프·발차기 눌림)의 순서는 세션이 정한다. 여기서는 눌림 엣지만 돌려준다.
+ * 발차기와 조준은 화면의 발차기 버튼(touch-controls)에서만 들어온다. 키보드는 조준 값을 만들지 않는다(2P 발차기는 늘 가운데).
  *   onPointer(event): 캔버스 포인터 이벤트마다 부른다(오디오 잠금 해제·리플레이 건너뛰기·카메라 회전은 세션이 정한다).
  */
 class RuntimeInput {
     constructor({ canvas, config, onPointer }) {
         this.canvas = canvas;
         this.size = config.input.size;
+        this.stride = config.input.stride;
         this.axisScale = config.input.axisScale;
+        this.aimSteps = config.input.aimSteps;
         this.samples = Object.fromEntries(ACTION_NAMES.map((name) => [name, {}]));
         this.axis = { x: 0, z: 0 };
+        this.aim = { x: 0, y: 0 };
         this.cameraDrag = { pointer: null, x: 0, y: 0 };
         this.lastInput = new Uint8Array(this.size);
         this.actions = new ActionState();
@@ -48,7 +52,7 @@ class RuntimeInput {
                 Numpad0: 'p2Jump',
                 ShiftRight: 'p2Kick',
             },
-            pointerButtons: { 0: 'kick', 2: 'cameraOrbit' },
+            pointerButtons: { 2: 'cameraOrbit' },
             touchAction: 'none',
             onPointer,
         });
@@ -73,18 +77,20 @@ class RuntimeInput {
                 ),
             );
             input[2] = (samples.jump.held ? 1 : 0) | (samples.kick.held ? 2 : 0);
+            input[3] = samples.kick.held ? this.encodeAim(this.aim) : 0;
             edges.jump = samples.jump.pressed;
             edges.kick = samples.kick.pressed;
             if (local2p) {
+                const p2 = this.stride;
                 this.writeMovement(
                     input,
-                    3,
+                    p2,
                     movement(
                         Number(samples.p2Right.held) - Number(samples.p2Left.held),
                         Number(samples.p2Back.held) - Number(samples.p2Forward.held),
                     ),
                 );
-                input[5] = (samples.p2Jump.held ? 1 : 0) | (samples.p2Kick.held ? 2 : 0);
+                input[p2 + 2] = (samples.p2Jump.held ? 1 : 0) | (samples.p2Kick.held ? 2 : 0);
                 edges.p2Jump = samples.p2Jump.pressed;
                 edges.p2Kick = samples.p2Kick.pressed;
             }
@@ -97,6 +103,12 @@ class RuntimeInput {
     /** 터치 버튼(점프·발차기) 하나의 눌림. source는 손가락 식별자다. */
     setTouch(action, source, down) {
         this.actions.set(action, `touch:${source}`, Boolean(down));
+    }
+
+    /** 발차기 버튼을 누르고 있는 지점(버튼 원 기준 가로 오른쪽 +, 세로 위 +, -1..1). 조작할 수 없을 때는 가운데로 둔다. */
+    setAim(x, y, allowed) {
+        this.aim.x = allowed ? Math.max(-1, Math.min(1, x)) : 0;
+        this.aim.y = allowed ? Math.max(-1, Math.min(1, y)) : 0;
     }
 
     /** 터치 이동 패드 축. 조작할 수 없을 때는 0으로 둔다. */
@@ -131,6 +143,8 @@ class RuntimeInput {
     clear() {
         this.axis.x = 0;
         this.axis.z = 0;
+        this.aim.x = 0;
+        this.aim.y = 0;
         this.cameraDrag.pointer = null;
         this.canvas.classList.remove('is-orbiting');
         this.actions.releaseAll();
@@ -150,6 +164,12 @@ class RuntimeInput {
 
     encodeAxis(value) {
         return Math.round(Math.max(-1, Math.min(1, value)) * this.axisScale) & 255;
+    }
+
+    /** 조준 한 바이트: 가로·세로를 -aimSteps..aimSteps 정수로 양자화해 상위·하위 4비트(2의 보수)에 담는다. 가운데는 0이다. */
+    encodeAim(aim) {
+        const step = (value) => Math.round(value * this.aimSteps) & 15;
+        return (step(aim.x) << 4) | step(aim.y);
     }
 }
 

@@ -1,7 +1,7 @@
 /**
  * 연습(스파이크 연습)의 레슨·토스 정의와 연습 규칙의 단일 소유자.
  * 실제 발차기 선택/자세는 물리 계층이 소유한다. title·sequence·detail은 TextPair다.
- * 조작 이름은 PC 기준(좌클)이고 터치 화면은 ui.js controlText가 바꾼다.
+ * 조작 이름은 PC·터치 공통인 화면의 발차기 버튼이다.
  * 리플레이 워커도 game.js를 통해 이 파일을 읽으므로 상대 import만 쓴다.
  */
 const defineLesson = (
@@ -38,8 +38,8 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
         6,
         ['상황에 맞춰 차기', 'Context kick'],
         [
-            '거리와 높이 맞추기 → 점프 → 좌클 유지',
-            'Match distance and height → Jump → Hold left click',
+            '거리와 높이 맞추기 → 점프 → 발차기 버튼 유지',
+            'Match distance and height → Jump → Hold the kick button',
         ],
         [
             '공과 몸의 위치에 맞는 발차기로 이어져요. 점프 높이와 누르는 시점을 맞춰 보세요.',
@@ -52,8 +52,8 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
         5,
         ['내려찍기', 'Downward strike'],
         [
-            '좌클 먼저 유지 → 점프 → 높은 발로 내려찍기',
-            'Hold left click first → Jump → Strike down from a raised foot',
+            '발차기 버튼 먼저 유지 → 점프 → 높은 발로 내려찍기',
+            'Hold the kick button first → Jump → Strike down from a raised foot',
         ],
         [
             '올려 둔 발에서 내려치는 동작을 이어가세요. 공과 몸 사이에 발을 돌릴 공간을 남겨요.',
@@ -66,8 +66,8 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
         7,
         ['사선 회전킥', 'Diagonal spin kick'],
         [
-            '무릎 들고 점프 → 좌클 유지 → 몸을 돌려 사선 타격',
-            'Knee up and jump → Hold left click → Turn and strike diagonally',
+            '무릎 들고 점프 → 발차기 버튼 유지 → 몸을 돌려 사선 타격',
+            'Knee up and jump → Hold the kick button → Turn and strike diagonally',
         ],
         [
             '몸통을 기울여 돌며 뒷발을 사선으로 내려요. 발자국에서 높이와 거리를 먼저 맞추세요.',
@@ -80,8 +80,8 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
         8,
         ['가위치기', 'Scissor kick'],
         [
-            '점프 → 좌클 유지 → 다리를 교차해 발등 타격',
-            'Jump → Hold left click → Cross your legs and strike with the instep',
+            '점프 → 발차기 버튼 유지 → 다리를 교차해 발등 타격',
+            'Jump → Hold the kick button → Cross your legs and strike with the instep',
         ],
         [
             '공중에서 두 다리를 교차하며 발등을 보내요. 공 바로 아래로 너무 붙지 않게 준비하세요.',
@@ -93,8 +93,8 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
         9,
         ['540도 회전킥', '540 spin kick'],
         [
-            '점프 → 좌클 유지 → 발등이 앞서는 회전 타격',
-            'Jump → Hold left click → Spin with the instep leading',
+            '점프 → 발차기 버튼 유지 → 발등이 앞서는 회전 타격',
+            'Jump → Hold the kick button → Spin with the instep leading',
         ],
         [
             '몸과 다리를 함께 돌려 발등 쪽으로 차요. 높은 토스를 보고 회전할 시간을 확보하세요.',

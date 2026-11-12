@@ -12,9 +12,8 @@ import { matchText } from '../i18n/messages/match.js';
  * 상태는 DOM과 리플레이 중 여부(replaying)·표시 토큰뿐이다. 내 학교는 조회 함수(homeSchool)로 읽는다.
  */
 class TakrawMatchHud {
-    constructor({ listen, click, callbacks, controlText, homeSchool }) {
+    constructor({ listen, click, callbacks, homeSchool }) {
         this.callbacks = callbacks;
-        this.controlText = controlText;
         this.homeSchool = homeSchool;
         this.text = createTextSetter();
         this.node = document.getElementById('match-hud');
@@ -194,7 +193,7 @@ class TakrawMatchHud {
         const teamPlay = hud.teamPlay,
             notice = matchText(teamPlay?.title) || matchText(hud.lastMessage, hud.localTeam ?? 0);
         this.text('rally-notice', notice);
-        this.text('rally-detail', this.controlText(matchText(teamPlay?.detail)));
+        this.text('rally-detail', matchText(teamPlay?.detail));
         const callout = document.getElementById('rally-callout'),
             tone = teamPlay?.tone || 'neutral';
         callout.hidden = !notice;

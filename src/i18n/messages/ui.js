@@ -43,9 +43,7 @@ const UI = LOCALE.messages({
     },
     deuce: { ko: ({ a, b }) => `${a} : ${b} · 듀스`, en: ({ a, b }) => `${a} : ${b} · Deuce` },
     tossThrow: SHARED.toss,
-    tossHint: { ko: '꾹 · 높게', en: 'Hold · higher' },
     kick: SHARED.kick,
-    kickHint: SHARED.kickHint,
     watchTick: { ko: ({ tick }) => `틱 ${tick}`, en: ({ tick }) => `Tick ${tick}` },
     schoolClear: { ko: 'CLEAR', en: 'CLEAR' },
     schoolRetrySave: { ko: '저장 재시도 필요', en: 'Save needs a retry' },
@@ -114,12 +112,15 @@ const UI = LOCALE.messages({
         ko: ({ value }) => `발차기까지 ${seconds(value)}초`,
         en: ({ value }) => `Kick in ${seconds(value)}s`,
     },
-    timingKickHold: { ko: '좌클을 유지하세요', en: 'Keep holding left click' },
+    timingKickHold: { ko: '발차기 버튼을 유지하세요', en: 'Keep holding the kick button' },
     timingJumpIn: {
         ko: ({ value }) => `점프까지 ${seconds(value)}초`,
         en: ({ value }) => `Jump in ${seconds(value)}s`,
     },
-    timingJumpWithKick: { ko: '좌클을 유지한 채 점프하세요', en: 'Jump while holding left click' },
+    timingJumpWithKick: {
+        ko: '발차기 버튼을 유지한 채 점프하세요',
+        en: 'Jump while holding the kick button',
+    },
 
     // 대화상자 제목
     clubKicker: { ko: '선수단 · 편성 · 훈련', en: 'Roster · Lineup · Training' },

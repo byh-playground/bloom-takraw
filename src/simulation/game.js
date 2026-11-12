@@ -216,6 +216,7 @@ class TakrawGame {
             kick: false,
             jumpPressed: false,
             kickPressed: false,
+            aim: { x: 0, y: 0 },
             receive: null,
             intent: null,
             tossTarget: null,
@@ -256,8 +257,12 @@ class TakrawGame {
     }
 
     decode(input, commands, secondary = false) {
-        const offset = secondary ? 3 : 0;
-        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
+        const layout = this.config.input,
+            offset = secondary ? layout.stride : 0;
+        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / layout.axisScale;
+        // 조준 4비트(2의 보수) → -1..1. 범위를 넘는 값(-8, 5..7)은 물리 aimedContact가 상한으로 자른다.
+        const nibble = (n) => ((n & 15) > 7 ? (n & 15) - 16 : n & 15) / layout.aimSteps;
+        const aim = input[offset + 3] || 0;
         const code = secondary ? 10 : 0;
         const has = (n) => commands.some((command) => command.payload?.[0] === n + code);
         return {
@@ -265,6 +270,7 @@ class TakrawGame {
             z: signed(input[offset + 1] || 0),
             jump: !!((input[offset + 2] || 0) & 1),
             kick: !!((input[offset + 2] || 0) & 2),
+            aim: { x: nibble(aim >> 4), y: nibble(aim) },
             jumpPressed: has(1),
             kickPressed: has(2),
             restart: has(4),
@@ -408,6 +414,8 @@ class TakrawGame {
                 kick,
                 jumpPressed: jump && !a.previousJump,
                 kickPressed: kick && !a.previousKick,
+                // AI는 늘 가운데(발이 가던 방향 그대로 공 중심)를 찬다. 사람과 같은 aimedContact를 탄다.
+                aim: { x: 0, y: 0 },
                 receive:
                     this.state.phase === 'rally' && a.active && a.receive
                         ? { ...a.receive, allowSlide: true }
@@ -428,6 +436,7 @@ class TakrawGame {
                 kick: h.kick || h.kickPressed,
                 jumpPressed: h.jumpPressed,
                 kickPressed: h.kickPressed,
+                aim: h.aim,
             };
         }
         // AI 서버: 공을 던질 때까지 자기 자리에 서 있고(이동·점프·발차기 없음), 지상서브는 던진 공이 올라가는 동안 차지 않는다(내려오는 공만 찬다).
@@ -832,13 +841,22 @@ class TakrawGame {
                 /^(foot|lowerLeg)/.test(event.part || '') &&
                 this.physics.players[event.playerId].kick.mode === 'ground' &&
                 !spike;
-            if (target?.playerId === -1 && /^(foot|lowerLeg)/.test(event.part || '') && !spike)
+            // 접촉 뒤 공 속도를 목표 포물선으로 덮어쓰는 보정은 AI 접촉에만 둔다. 이 틱에 사람 입력이 들어간 선수(그 팀의 조종 선수)가
+            // 찬 서브·세트는 발과 공의 접촉 물리가 정한 그대로 나간다(조준 오프셋이 결과에 남는다).
+            const human =
+                !!humans[event.team] && event.playerId === this.state.selected[event.team];
+            if (
+                !human &&
+                target?.playerId === -1 &&
+                /^(foot|lowerLeg)/.test(event.part || '') &&
+                !spike
+            )
                 this.physics.assistServe(
                     this.physics.players[event.playerId],
                     event.position,
                     target,
                 );
-            else if (set && takrawIsAttacker(target.playerId))
+            else if (!human && set && takrawIsAttacker(target.playerId))
                 this.physics.assistSet(
                     this.physics.players[event.playerId],
                     event.position,
@@ -2345,6 +2363,8 @@ class TakrawGame {
             Array.from(data.inputs).every(
                 (input) =>
                     input &&
+                    Number.isFinite(input.aim?.x) &&
+                    Number.isFinite(input.aim?.y) &&
                     (input.receive === null ||
                         (receivePlan(input.receive) &&
                             typeof input.receive.allowSlide === 'boolean')),

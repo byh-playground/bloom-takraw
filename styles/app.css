@@ -1135,16 +1135,76 @@ body:not(.is-home) .site-footer .home-only {
     margin-top: 4px;
     opacity: 0.75;
 }
+/* 발차기 버튼은 배구공 그림(index.html 인라인 SVG)이다. 누른 곳의 접촉 점(kick-mark)과 누르는 동안의 녹색 링(kick-ring)은 그림 안에서 켠다. 이름은 공 위 가장자리의 알약이다. */
+/* 크기는 화면별 미디어 규칙이 바꾼다(.touch-actions .touch-kick). */
 .touch-actions .touch-kick {
-    height: 83px;
-    width: 83px;
-    background: #286f59de;
+    height: 112px;
+    width: 112px;
+}
+body .touch-actions button.touch-kick {
+    position: relative;
+    padding: 0;
+    overflow: visible;
+    background: none;
+    border: 0;
+    box-shadow: none;
+}
+.touch-kick .kick-ball {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    transition: transform 0.06s;
+}
+.touch-kick .kick-ring,
+.touch-kick .kick-mark {
+    display: none;
+}
+.touch-kick.is-down .kick-ring,
+.touch-kick.is-aiming .kick-mark {
+    display: inline;
+}
+.touch-kick.is-down .kick-ball {
+    transform: scale(0.97);
+}
+.touch-kick .kick-label {
+    position: absolute;
+    left: 50%;
+    top: -9px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: #1f5f4d;
     color: #fffced;
-    border: 1px solid #61937d;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.4;
+    padding: 1px 9px;
+    border-radius: 9px;
+    white-space: nowrap;
+}
+body .touch-actions button.touch-kick.is-down,
+body[data-showcase] .touch-actions button.touch-kick.is-down {
+    box-shadow: none;
+    filter: none;
 }
 .touch-actions button.is-down {
     box-shadow: inset 0 0 0 4px #d4bc795f;
     filter: brightness(0.95);
+}
+/* PC(터치가 아닌 화면): 발차기 버튼만 마우스로 누른다. 이동·점프는 키보드이고, 점프·발차기 표시등은 버튼 왼쪽에 둔다. */
+@media not all and (pointer: coarse) {
+    .touch-controls .move-pad,
+    .touch-controls .touch-jump {
+        display: none;
+    }
+    .touch-actions {
+        right: max(30px, env(safe-area-inset-right));
+        bottom: 76px;
+    }
+    body:not([data-showcase]) .drive-feedback {
+        right: max(156px, calc(126px + env(safe-area-inset-right)));
+    }
 }
 .rotate-note {
     display: none;
@@ -1560,8 +1620,8 @@ body:not(.is-home) .site-footer .home-only {
         font-size: 10px;
     }
     .touch-actions .touch-kick {
-        width: 70px;
-        height: 70px;
+        width: 96px;
+        height: 96px;
         font-size: 11px;
     }
     .touch-actions button small {
@@ -3253,7 +3313,7 @@ body[data-mode='training'] .player-panel {
     body .touch-actions {
         right: calc(14px + env(safe-area-inset-right));
         bottom: calc(34px + env(safe-area-inset-bottom));
-        gap: 12px;
+        gap: 10px;
     }
     body .touch-actions .touch-jump {
         width: 72px;
@@ -3262,10 +3322,8 @@ body[data-mode='training'] .player-panel {
         background: #f8faeedf;
     }
     body .touch-actions .touch-kick {
-        width: 88px;
-        height: 88px;
-        font-size: 14px;
-        background: #216b54ec;
+        width: 112px;
+        height: 112px;
     }
     body .touch-actions button small {
         font-size: 10px;
@@ -3540,8 +3598,8 @@ body[data-mode='training'] .player-panel {
             height: 68px;
         }
         body .touch-actions .touch-kick {
-            width: 80px;
-            height: 80px;
+            width: 104px;
+            height: 104px;
         }
         body .training-actions {
             top: calc(64px + env(safe-area-inset-top));

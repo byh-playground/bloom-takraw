@@ -4,7 +4,7 @@ import { takrawTrainingLesson } from '../../simulation/training.js';
 
 /**
  * 시뮬레이션이 내는 message(id, values)의 문장(docs/i18n.md). 값의 own은 보는 팀 기준이고, team(0|1)은 화면이 own으로 바꿔 넘긴다.
- * 조작 이름은 PC 기준(좌클·left click)이다. 터치 화면은 touchControlText가 바꾼다.
+ * 발차기는 PC·터치 모두 화면의 발차기 버튼(공 모양)으로 하므로 조작 이름은 하나(발차기 버튼·the kick button)다.
  */
 
 /** 역할 id → 이름. 모르는 선수(null)는 동료다. */
@@ -60,12 +60,12 @@ const RESULT = {
         detail: {
             ko: ({ downward }) =>
                 downward
-                    ? '점프 전에 좌클을 유지해 발을 올리고, 누른 채 점프하세요.'
-                    : '발자국에서 점프한 뒤 좌클을 유지하세요. 공중의 실제 발 타격으로 연습 결과를 확인해요.',
+                    ? '점프 전에 발차기 버튼을 유지해 발을 올리고, 누른 채 점프하세요.'
+                    : '발자국에서 점프한 뒤 발차기 버튼을 유지하세요. 공중의 실제 발 타격으로 연습 결과를 확인해요.',
             en: ({ downward }) =>
                 downward
-                    ? 'Hold left click before jumping to raise your foot, and jump while holding it.'
-                    : 'Jump from the footprints, then hold left click. The result is judged by a real foot strike in the air.',
+                    ? 'Hold the kick button before jumping to raise your foot, and jump while holding it.'
+                    : 'Jump from the footprints, then hold the kick button. The result is judged by a real foot strike in the air.',
         },
     },
     out: {
@@ -118,12 +118,12 @@ const RESULT = {
         detail: {
             ko: ({ downward }) =>
                 downward
-                    ? '좌클을 먼저 누른 채 점프해야 올려 둔 발로 내려찍을 수 있어요.'
-                    : '점프 후 “지금 발차기” 안내에 좌클을 눌러 유지하세요.',
+                    ? '발차기 버튼을 먼저 누른 채 점프해야 올려 둔 발로 내려찍을 수 있어요.'
+                    : '점프 후 “지금 발차기” 안내에 발차기 버튼을 눌러 유지하세요.',
             en: ({ downward }) =>
                 downward
-                    ? 'Hold left click before you jump so the raised foot can strike down.'
-                    : 'After jumping, press and hold left click on the “Kick now!” cue.',
+                    ? 'Hold the kick button before you jump so the raised foot can strike down.'
+                    : 'After jumping, press and hold the kick button on the “Kick now!” cue.',
         },
     },
     miss: {
@@ -136,11 +136,11 @@ const RESULT = {
         detail: {
             ko: ({ prehold }) =>
                 prehold
-                    ? '이번에는 점프와 같거나 뒤에 좌클을 눌렀어요. 다음 공은 이동 중 선행 좌클 안내부터 따라 보세요.'
+                    ? '이번에는 점프와 같거나 뒤에 발차기 버튼을 눌렀어요. 다음 공은 이동 중 선행 발차기 버튼 안내부터 따라 보세요.'
                     : '타점 표시는 준비를 돕는 예측이에요. 다음 토스에서 이동 속도를 줄이고 공 옆의 준비 위치를 맞춰 보세요.',
             en: ({ prehold }) =>
                 prehold
-                    ? 'You pressed left click with or after the jump. Next ball, follow the early left-click cue while moving.'
+                    ? 'You pressed the kick button with or after the jump. Next ball, follow the early kick-button cue while moving.'
                     : 'The contact marker is a prediction to help you prepare. Next set, move more slowly and match the ready spot beside the ball.',
         },
     },
@@ -189,8 +189,8 @@ const MATCH = LOCALE.messages({
         en: 'The setter is lifting it high. Get ready on the footprints.',
     },
     serveTossHuman: {
-        ko: '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 위로 올라갑니다. 달리면서 던지면 공이 달리는 방향으로 날아갑니다. 던지기 전에 엔드라인 안쪽을 밟으면 반칙입니다.',
-        en: 'Serve · Tap the toss for a low throw, hold it for a high one. Throw while running and the ball carries that way. Stepping inside the end line before the toss is a fault.',
+        ko: '서브 · 공 던지기를 짧게 누르면 낮게, 꾹 누르면 높게 위로 올라갑니다. 달리면서 던지면 공이 달리는 방향으로 날아갑니다. 찰 때는 발차기 버튼에서 누른 곳이 공에 닿는 면이 되어 서브 방향이 바뀝니다. 던지기 전에 엔드라인 안쪽을 밟으면 반칙입니다.',
+        en: 'Serve · Tap the toss for a low throw, hold it for a high one. Throw while running and the ball carries that way. When you kick, the spot you press on the kick button is where the foot meets the ball, so it steers the serve. Stepping inside the end line before the toss is a fault.',
     },
     serveCheck: { ko: '서브 · 공의 위치를 확인하세요.', en: 'Serve · Watch where the ball is.' },
     serveRising: {
@@ -257,12 +257,12 @@ const MATCH = LOCALE.messages({
             `${human ? 'You' : en(role)} · ${{ slide: 'sliding receive', lunge: 'stretching for it', cushion: 'receiving with the foot', ready: 'ready to receive' }[motion]}`,
     },
     playReceiveHuman: {
-        ko: '좌클을 유지해 받으세요. 동료는 다음 공을 커버해요.',
-        en: 'Hold left click to receive. Your teammates cover the next ball.',
+        ko: '발차기 버튼을 유지해 받으세요. 동료는 다음 공을 커버해요.',
+        en: 'Hold the kick button to receive. Your teammates cover the next ball.',
     },
     playReceiveReachable: {
-        ko: '빈 공간으로 이동해 좌클을 누르면 직접 받아낼 수 있어요.',
-        en: 'Move into the open space and left click to receive it yourself.',
+        ko: '빈 공간으로 이동해 발차기 버튼을 누르면 직접 받아낼 수 있어요.',
+        en: 'Move into the open space and press the kick button to receive it yourself.',
     },
     playReceiveFar: {
         ko: '먼 공을 따라가는 중이에요. 가까운 빈 공간을 직접 커버해 보세요.',
@@ -439,26 +439,30 @@ const MATCH = LOCALE.messages({
     },
     cueLanding: { ko: '발차기 뒤 착지를 준비하세요', en: 'Get ready to land after the kick' },
     cueStriking: {
-        ko: '좌클 유지 · 공을 향해 차고 있어요',
-        en: 'Hold left click · kicking toward the ball',
+        ko: '발차기 버튼 유지 · 공을 향해 차고 있어요',
+        en: 'Hold the kick button · kicking toward the ball',
     },
-    cueRaising: { ko: '좌클 유지 · 발을 올리고 있어요', en: 'Hold left click · raising your foot' },
+    cueRaising: {
+        ko: '발차기 버튼 유지 · 발을 올리고 있어요',
+        en: 'Hold the kick button · raising your foot',
+    },
     detailLanding: { ko: '공의 진행과 착지를 확인하세요.', en: 'Watch the ball and your landing.' },
     detailKeepKick: {
-        ko: ({ jump }) => `${JUMP[jump].ko} 좌클을 유지해 발차기를 이어가세요.`,
-        en: ({ jump }) => `${JUMP[jump].en} Hold left click to follow through.`,
+        ko: ({ jump }) => `${JUMP[jump].ko} 발차기 버튼을 유지해 발차기를 이어가세요.`,
+        en: ({ jump }) => `${JUMP[jump].en} Hold the kick button to follow through.`,
     },
     cueRise: { ko: '조금 더 떠오르세요', en: 'Rise a little more' },
-    cueHoldKick: { ko: '좌클을 유지하세요', en: 'Keep holding left click' },
+    cueHoldKick: { ko: '발차기 버튼을 유지하세요', en: 'Keep holding the kick button' },
     cueKickNow: { ko: '지금 발차기!', en: 'Kick now!' },
     detailWaitKick: {
         ko: ({ jump }) => `${JUMP[jump].ko} 발차기 안내를 기다리세요.`,
         en: ({ jump }) => `${JUMP[jump].en} Wait for the kick cue.`,
     },
     detailPressKick: {
-        ko: ({ jump }) => `${JUMP[jump].ko} 좌클을 눌러 유지하면 실제 발이 공을 향해 움직여요.`,
+        ko: ({ jump }) =>
+            `${JUMP[jump].ko} 발차기 버튼을 눌러 유지하면 실제 발이 공을 향해 움직여요.`,
         en: ({ jump }) =>
-            `${JUMP[jump].en} Press and hold left click and your foot swings at the ball.`,
+            `${JUMP[jump].en} Press and hold the kick button and your foot swings at the ball.`,
     },
     cueBesideBall: { ko: '공의 옆에서 준비하세요', en: 'Get ready beside the ball' },
     detailGuideSoon: {
@@ -466,19 +470,19 @@ const MATCH = LOCALE.messages({
         en: 'Footprints and the jump cue appear once the ball goes up.',
     },
     cueKeepRaised: {
-        ko: '좌클 유지 · 발을 올려 두세요',
-        en: 'Hold left click · keep your foot raised',
+        ko: '발차기 버튼 유지 · 발을 올려 두세요',
+        en: 'Hold the kick button · keep your foot raised',
     },
-    cuePressFirst: { ko: '좌클을 먼저 누르세요', en: 'Press left click first' },
+    cuePressFirst: { ko: '발차기 버튼을 먼저 누르세요', en: 'Press the kick button first' },
     detailPrehold: {
-        ko: '발자국으로 이동하는 동안 먼저 좌클을 누르세요. 발을 올린 채 속도를 줄이고 점프를 준비해요.',
-        en: 'Press left click while moving to the footprints. Keep the foot up, slow down and get ready to jump.',
+        ko: '발자국으로 이동하는 동안 먼저 발차기 버튼을 누르세요. 발을 올린 채 속도를 줄이고 점프를 준비해요.',
+        en: 'Press the kick button while moving to the footprints. Keep the foot up, slow down and get ready to jump.',
     },
     cueMoveToFootprint: {
         ko: ({ holding }) =>
-            holding ? '좌클 유지 · 발자국으로 이동하세요' : '발자국으로 이동하세요',
+            holding ? '발차기 버튼 유지 · 발자국으로 이동하세요' : '발자국으로 이동하세요',
         en: ({ holding }) =>
-            holding ? 'Hold left click · move to the footprints' : 'Move to the footprints',
+            holding ? 'Hold the kick button · move to the footprints' : 'Move to the footprints',
     },
     detailPrediction: {
         ko: '표시는 공이 올 위치의 예측이에요. 공 옆에서 발을 돌릴 공간을 준비하세요.',
@@ -486,9 +490,9 @@ const MATCH = LOCALE.messages({
     },
     cueBrake: {
         ko: ({ holding }) =>
-            holding ? '좌클 유지 · 이동 속도를 줄이세요' : '이동키를 놓고 속도를 줄이세요',
+            holding ? '발차기 버튼 유지 · 이동 속도를 줄이세요' : '이동키를 놓고 속도를 줄이세요',
         en: ({ holding }) =>
-            holding ? 'Hold left click · slow down' : 'Let go of the move keys and slow down',
+            holding ? 'Hold the kick button · slow down' : 'Let go of the move keys and slow down',
     },
     detailBrake: {
         ko: '몸이 아직 타점을 지나갈 속도로 움직이고 있어요. 발자국 안에서 이동을 멈춘 뒤 점프 안내를 확인하세요.',
@@ -499,21 +503,24 @@ const MATCH = LOCALE.messages({
         ko: ({ downward, short }) =>
             downward
                 ? short
-                    ? '좌클을 유지한 채 점프 버튼을 짧게 누르고 떼세요.'
-                    : '좌클을 유지한 채 점프 버튼도 잠깐 유지하세요.'
+                    ? '발차기 버튼을 유지한 채 점프 버튼을 짧게 누르고 떼세요.'
+                    : '발차기 버튼을 유지한 채 점프 버튼도 잠깐 유지하세요.'
                 : short
                   ? '낮은 공이에요. 점프 버튼을 짧게 누르고 뗀 뒤 발차기 안내를 보세요.'
                   : '점프 버튼을 잠깐 유지한 뒤 발차기 안내를 보세요.',
         en: ({ downward, short }) =>
             downward
                 ? short
-                    ? 'Keep holding left click and tap jump.'
-                    : 'Keep holding left click and hold jump briefly too.'
+                    ? 'Keep holding the kick button and tap jump.'
+                    : 'Keep holding the kick button and hold jump briefly too.'
                 : short
                   ? 'A low ball. Tap jump, then watch for the kick cue.'
                   : 'Hold jump briefly, then watch for the kick cue.',
     },
-    cueWaitJump: { ko: '좌클 유지 · 점프를 기다리세요', en: 'Hold left click · wait to jump' },
+    cueWaitJump: {
+        ko: '발차기 버튼 유지 · 점프를 기다리세요',
+        en: 'Hold the kick button · wait to jump',
+    },
     detailWaitJump: {
         ko: '올려 둔 발을 유지하며 점프 안내를 확인하세요.',
         en: 'Keep the foot raised and watch for the jump cue.',
@@ -521,9 +528,11 @@ const MATCH = LOCALE.messages({
     cueJumpTiming: { ko: '점프 타이밍을 기다리세요', en: 'Wait for the jump timing' },
     detailOrder: {
         ko: ({ downward }) =>
-            downward ? '좌클 준비 → 점프 순서입니다.' : '점프 → 공중에서 좌클 순서입니다.',
+            downward
+                ? '발차기 버튼 준비 → 점프 순서입니다.'
+                : '점프 → 공중에서 발차기 버튼 순서입니다.',
         en: ({ downward }) =>
-            downward ? 'Order: left click ready → jump.' : 'Order: jump → left click in the air.',
+            downward ? 'Order: kick button ready → jump.' : 'Order: jump → kick button in the air.',
     },
 });
 
@@ -535,19 +544,4 @@ function matchText(ref, localTeam = 0) {
     return MATCH[ref.id](values);
 }
 
-/** 터치 화면의 조작 이름. 문구 원본은 PC 기준이다. */
-const TOUCH_CONTROLS = {
-    ko: [[/좌클/g, '발차기 버튼']],
-    en: [
-        [/\bLeft click\b/g, 'Kick button'],
-        [/\bleft click\b/g, 'the kick button'],
-        [/\bleft-click\b/g, 'kick-button'],
-    ],
-};
-const touchControlText = (value) =>
-    TOUCH_CONTROLS[LOCALE.locale].reduce(
-        (text, [pattern, replacement]) => text.replace(pattern, replacement),
-        value,
-    );
-
-export { matchText, roleName, touchControlText };
+export { matchText, roleName };

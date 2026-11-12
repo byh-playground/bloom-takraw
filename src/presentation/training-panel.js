@@ -9,8 +9,7 @@ import { matchText } from '../i18n/messages/match.js';
 
 /** 연습 패널: 레슨·토스 선택과 안내(단계·문구·진행 막대). 상태는 DOM뿐이다. */
 class TakrawTrainingPanel {
-    constructor({ listen, callbacks, controlText }) {
-        this.controlText = controlText;
+    constructor({ listen, callbacks }) {
         this.text = createTextSetter();
         const lessonSelect = document.getElementById('training-lesson');
         lessonSelect.replaceChildren();
@@ -40,8 +39,8 @@ class TakrawTrainingPanel {
         if (lessonSelect.value !== training.lesson) lessonSelect.value = training.lesson;
         const tempoSelect = document.getElementById('training-tempo');
         if (tempoSelect.value !== training.tempo) tempoSelect.value = training.tempo;
-        this.text('training-sequence', this.controlText(say(training.sequence)));
-        this.text('training-motion', this.controlText(matchText(training.motionStatus)));
+        this.text('training-sequence', say(training.sequence));
+        this.text('training-motion', matchText(training.motionStatus));
         this.text(
             'training-count',
             UI.trainingCount({ count: Math.max(1, training.attempt || 0) }),
@@ -61,8 +60,8 @@ class TakrawTrainingPanel {
             stages[training.stage]?.() ||
                 (training.title ? say(training.title) : UI.modeTraining()),
         );
-        this.text('training-cue', this.controlText(matchText(training.cue)));
-        this.text('training-detail', this.controlText(matchText(training.detail)));
+        this.text('training-cue', matchText(training.cue));
+        this.text('training-detail', matchText(training.detail));
         this.text('training-successes', UI.trainingSuccesses({ count: training.successes || 0 }));
         const coach = document.getElementById('training-coach');
         const tone = training.tone || 'neutral';
@@ -90,8 +89,8 @@ class TakrawTrainingPanel {
         else if (Number.isFinite(training.jumpIn) && training.jumpIn > 0)
             label = UI.timingJumpIn({ value: training.jumpIn });
         else if (training.stage === 'kick') label = UI.timingJumpWithKick();
-        this.text('training-timing-label', this.controlText(label));
-        timing.setAttribute('aria-valuetext', this.controlText(label));
+        this.text('training-timing-label', label);
+        timing.setAttribute('aria-valuetext', label);
     }
 }
 

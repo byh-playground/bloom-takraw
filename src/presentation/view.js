@@ -5,6 +5,7 @@ import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 import { takrawNetShape } from '../config/physics.js';
 import { LOCALE } from '../i18n/locale.js';
 import { TakrawImpactEffects } from './impact.js';
+import { TakrawReplayImpacts } from './replay-impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
@@ -109,6 +110,7 @@ class TakrawView {
             reducedMotion: () => this.reducedMotion(),
         });
         this.impacts.camera = this.camera;
+        this.replayImpacts = new TakrawReplayImpacts({ impacts: this.impacts, config });
         this.impacts.setElements(this.schools.map((school) => school.element));
         this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
         this.field = new TakrawFieldEffects({
@@ -1316,6 +1318,8 @@ class TakrawView {
         this.lastMs = nowMs;
         for (const entity of viewData.entities)
             if (!this.meshes.has(entity.id)) this.createEntity(entity);
+        // 득점 리플레이 중이면 재생 시각으로 접촉 화면 이펙트를 진행하고, 재생이 아니면 남은 것을 거둔다.
+        this.replayImpacts.sync(viewData.state?.replay ?? null);
         // 표시 전용 히트스톱: 1이면 멈춘 포즈 그대로, 0~1이면 멈춘 포즈에서 지금 포즈로 따라잡는다. 멈추기 시작한 프레임에 지금 포즈를 잡아 둔다.
         const hold = this.reducedMotion() ? 0 : this.impacts.poseHold(),
             snapshot = hold > 0 && this.poseHoldValue === 0;

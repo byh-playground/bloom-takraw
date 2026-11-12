@@ -101,7 +101,7 @@ class TakrawHighlight {
     if (!range || this.recorded < range.to || !this.worker) return false;
     this.pending = null;
     const id = ++this.playId;
-    this.clip = { ...range, id, at: range.from, ids: null, ticks: [], data: [], done: false, startedAt: performance.now(), firstAt: null, receivedAt: performance.now() };
+    this.clip = { ...range, id, at: range.from, ids: null, ticks: [], data: [], events: [], done: false, startedAt: performance.now(), firstAt: null, receivedAt: performance.now() };
     this.worker.postMessage({ type: 'play', play: { id, from: range.from, to: range.to } });
     return true;
   }
@@ -116,6 +116,7 @@ class TakrawHighlight {
     if (clip.firstAt === null) { clip.firstAt = performance.now(); this.lastLatencyMs = clip.firstAt - clip.startedAt; this.played = (this.played || 0) + 1; }
     clip.ticks.push(...message.ticks);
     clip.data.push(...message.data);
+    clip.events.push(...message.events);
     clip.done = message.done;
     clip.receivedAt = performance.now();
   }
@@ -146,7 +147,7 @@ class TakrawHighlight {
     while (index < clip.ticks.length - 2 && clip.ticks[index + 1].tick <= clip.at) index++;
     // 이미 지난 묶음은 버려 재생이 길어도 탐색이 짧다.
     if (index > 8) { clip.ticks.splice(0, index); clip.data.splice(0, index); index = 0; }
-    const a = clip.ticks[index], b = clip.ticks[index + 1], left = clip.data[index], right = clip.data[index + 1];
+    const s = this.settings, a = clip.ticks[index], b = clip.ticks[index + 1], left = clip.data[index], right = clip.data[index + 1];
     const t = Math.max(0, Math.min(1, (clip.at - a.tick) / Math.max(1, b.tick - a.tick)));
     const poses = new Map();
     clip.ids.forEach((id, i) => {
@@ -160,7 +161,8 @@ class TakrawHighlight {
       });
       poses.set(id, pose);
     });
-    return { poses, state: { phase: 'replay', selected: b.selected, ballSpeed: b.ballSpeed, tick: b.tick }, reason: clip.reason };
+    // replay: 재생 시각(틱, 소수)과 이 구간의 접촉 이벤트. 뷰가 이 값으로 화면 이펙트의 경과 시간을 정한다(슬로모션이면 이펙트도 같이 느려진다).
+    return { poses, state: { phase: 'replay', selected: b.selected, ballSpeed: b.ballSpeed, tick: b.tick, replay: { at: clip.at, tickRate: s.tickRate, events: clip.events } }, reason: clip.reason };
   }
 
   dispose() { this.worker?.terminate(); this.worker = null; this.clip = null; }

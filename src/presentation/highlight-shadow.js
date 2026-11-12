@@ -33,7 +33,7 @@ class TakrawHighlightShadow {
   /** from..to를 재생한다. 그림자 경기가 이미 from을 지났으면 그 장면은 다시 만들 수 없다고 알린다. */
   start(play) {
     if (this.stepped >= play.from) { this.emit({ type: 'missing', id: play.id }); return; }
-    this.play = { ...play, ticks: [], data: [] };
+    this.play = { ...play, ticks: [], data: [], events: [] };
     this.target = Math.max(this.target, play.to);
     this.pump();
   }
@@ -49,6 +49,12 @@ class TakrawHighlightShadow {
       play.ids ??= entities.map(entity => entity.id);
       const poses = new Float32Array(entities.length * POSE_KEYS.length);
       entities.forEach((entity, index) => POSE_KEYS.forEach((key, k) => { poses[index * POSE_KEYS.length + k] = entity[key] ?? 0; }));
+      // 접촉·바닥 이벤트(화면 이펙트용): 이 스텝 뒤 경기 상태에서 접촉 종류를 고르는 데 필요한 값만 함께 보낸다.
+      for (const event of this.game.events) {
+        if (event.type !== 'touch' && event.type !== 'ground') continue;
+        const rally = state.play;
+        play.events.push({ ...event, speed: event.type === 'ground' ? state.ballSpeed : event.speed, after: { touches: state.touches, play: rally ? { kind: rally.kind, reason: rally.reason } : null } });
+      }
       play.ticks.push({ tick, selected: state.selected.slice(), ballSpeed: state.ballSpeed || 0 });
       play.data.push(poses);
       const done = tick >= play.to;
@@ -61,9 +67,10 @@ class TakrawHighlightShadow {
 
   flush(done) {
     const play = this.play;
-    this.emit({ type: 'poses', id: play.id, ids: play.ids, ticks: play.ticks, data: play.data, done }, play.data.map(poses => poses.buffer));
+    this.emit({ type: 'poses', id: play.id, ids: play.ids, ticks: play.ticks, data: play.data, events: play.events, done }, play.data.map(poses => poses.buffer));
     play.ticks = [];
     play.data = [];
+    play.events = [];
   }
 }
 

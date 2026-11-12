@@ -293,6 +293,7 @@ runtime의 `contact`·`ground` 어댑터(`runtime/match-events.js`)는 `presenta
 - 재계산은 Web Worker(`highlight-worker.js`)의 그림자 경기(`TakrawHighlightShadow`)가 한다. 메인 스레드는 입력을 넘기고 명장면 판정과 받은 포즈 재생만 한다. 워커에는 import map이 없어 Rapier·코덱 주소를 런타임이 `import.meta.resolve`로 풀어 넘긴다. 워커를 못 쓰면 리플레이 없이 진행한다.
 - 대기 없는 재생: 재생 구간은 끝에서 `leadTouches`번째 터치의 `leadTicks` 앞이거나 득점 `maxSeconds`초 전이다. 그래서 지금까지의 터치와 현재 틱만으로 "앞으로 어떤 재생 구간도 이 틱보다 앞서 시작하지 않는다"는 경계(`safeTick`)를 알고, 그림자 경기는 거기까지만 미리 계산한다(받은 입력 중 그 경계 이하를 모두). 득점이 나면 구간 시작부터 바로 계산해 4틱씩 보내므로 첫 장면은 수십 ms 안에 온다. 매 틱은 한 번씩만 계산되어 워커의 비용은 실제 경기 한 번만큼이다. 워커가 `stallMs` 동안 장면을 보내지 않으면 재생을 끝낸다.
 - 재생 화면: 틱 사이 포즈를 보간하고, 스파이크 앞뒤(`slowBefore`~`slowAfter`)는 `slowRate` 배속이다. 카메라는 사용자 시점을 바꾸지 않고 재생 동안만 측면 중계 각도(`camera`)로 본다. 득점 슬로(`scoreMotion`)·조작 안내·결과 창은 재생 중 숨긴다. 그림자 경기는 게임 상태·저장 형식에 아무것도 쓰지 않는다.
+- 재생 중 접촉 화면 이펙트(v0.17.5): 그림자 경기가 재생 구간의 `touch`·`ground` 이벤트를 포즈 묶음과 함께 보내고(`events`, 접촉 종류를 고르는 데 쓰는 스텝 뒤 `touches`·`play`를 `after`로 동봉), `TakrawHighlight.frame()`이 재생 시각(`replay.at`, 틱)과 이벤트 목록을 화면 상태에 싣는다. 뷰의 `TakrawReplayImpacts`(`presentation/replay-impact.js`)가 이를 읽어 `TakrawImpactEffects.startReplay`로 파동·명암, 공·발 반짝임, 공 눌림·늘어남, 속성 구름을 띄운다. 경과 시간은 실제 시간이 아니라 재생 시각에서 나오므로 슬로모션이면 이펙트도 같이 느려지고 일시 정지하면 멈춘다. 표시 히트스톱·기기 진동·화면 진동·화면 확대·"SPIKE!" 글자·접촉 소리는 리플레이에서 내지 않는다(표시 저널을 거치지 않는다). 재생이 끝나 `replay` 상태가 없어지면 남은 이펙트를 바로 거둔다. 시뮬레이션·상태 해시는 건드리지 않는다.
 - 확인용 장면 `?debug=1&scene=match&seed=N[&every=1]`은 시드를 고정한 AI 대전을 실제 시간으로 연다. `every=1`이면 모든 득점을 리플레이한다(판정 기준만 낮춘다). 워커가 다시 만든 재생 구간의 공 위치는 실제 경기와 비트 단위로 같아야 한다.
 
 ## 확인용 주소 장면

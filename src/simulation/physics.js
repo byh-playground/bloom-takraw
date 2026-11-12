@@ -3591,6 +3591,7 @@ class TakrawPhysics {
      * 공격수에게 보내는 세트: 세터 발이 공을 맞힌 직후 공 속도를, 꼭짓점 attackApex를 지나 attackHeight로 내려올 때 목표 (x, z)에 닿는 포물선으로 맞춘다.
      * 발 접촉만으로는 같은 계획에서도 세트 수직 속도가 6~11 m/s로 흔들려 공이 목표에서 1~4 m 벗어났다(공격수가 서 있는 곳이 아니라 한쪽으로 쏠림).
      * 접촉 위치와 목표만으로 정해지는 값이라 저장할 상태가 없다. 발이 이미 공을 맞힌 뒤의 보정이므로 접촉·터치 판정은 그대로다.
+     * AI 세터의 접촉에만 부른다. 사람이 찬 세트는 접촉 물리 그대로다(game.js).
      */
     assistSet(p, position, target) {
         const toss = this.settings.groundToss,
@@ -3606,7 +3607,7 @@ class TakrawPhysics {
         return true;
     }
 
-    /** 사람의 서브 발차기(지상·공중 모두): 접촉 직후 공을 꼭짓점 serveApex를 지나 상대 코트 목표점(serveHeight 높이)에 내려오는 포물선으로 보낸다. */
+    /** AI의 서브 발차기(지상·공중 모두): 접촉 직후 공을 꼭짓점 serveApex를 지나 상대 코트 목표점(serveHeight 높이)에 내려오는 포물선으로 보낸다. 사람이 찬 서브에는 부르지 않는다(game.js). */
     assistServe(p, position, target) {
         const toss = this.settings.groundToss,
             g = this.settings.gravity;

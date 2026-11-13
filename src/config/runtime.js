@@ -86,7 +86,7 @@ const POINT_LAYERS = [
 
 /**
  * 경기 모드별 runtime·화면 정책의 단일 출처. runtime·presentation은 모드 이름을 비교하지 않고 이 표나
- * 시뮬레이션 프로필(simulation/modes.js TAKRAW_MODES)의 플래그를 읽는다. 시뮬레이션 규칙과 같은 지식(사람 입력·한 기기 2인·
+ * 시뮬레이션 프로필(simulation/modes.js TAKRAW_MODES)의 플래그를 읽는다. 시뮬레이션 규칙과 같은 지식(사람 입력·
  * 상대 대기·연습·득점)은 프로필을 읽고, 여기에는 runtime·화면에만 있는 뜻을 둔다. 플래그 하나는 한 가지 뜻이다.
  * 어느 분기가 어느 플래그를 읽는지는 docs/architecture.md 「모드 정책」 표가 정리한다. 모드가 없으면(처음 화면) 표에 없으므로 `?.`로 읽는다.
  *
@@ -132,7 +132,6 @@ const TAKRAW_MODE_POLICY = Object.freeze({
         recorded: true,
         scoreMotion: true,
     }),
-    local: definePolicy({ ownSchool: true, replay: true, recorded: true }),
     online: definePolicy({
         room: true,
         announcesTeam: true,

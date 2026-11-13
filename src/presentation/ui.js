@@ -168,7 +168,6 @@ class TakrawUI {
         click('start-watch', () => this.start('watch'));
         click('open-campaign', () => this.navigate('campaign'));
         click('start-training', () => this.start('training'));
-        click('start-local', () => this.start('local'));
         click('open-network', () => {
             this.callbacks.onStart?.('online');
             this.navigate('network');

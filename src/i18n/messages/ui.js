@@ -9,13 +9,10 @@ const players = (count) =>
 
 const UI = LOCALE.messages({
     // 경기 화면
-    local1P: { ko: '1P · 청록', en: '1P · Teal' },
-    local2P: { ko: '2P · 코랄', en: '2P · Coral' },
     us: { ko: '우리 팀', en: 'Your team' },
     them: { ko: '상대 팀', en: 'Opponent' },
     modeTraining: SHARED.modeTraining,
     modeMatch: { ko: 'AI 대전', en: 'vs AI' },
-    modeLocal: SHARED.modeLocal,
     modeOnline: { ko: '온라인 1대1', en: 'Online 1-on-1' },
     modeWatch: SHARED.modeWatch,
     trainingSetLabel: { ko: '높은 토스 · 네 가지 발차기', en: 'High set · four kicks' },
@@ -56,7 +53,6 @@ const UI = LOCALE.messages({
         ko: ({ school }) => `${school} · 다시 도전해요`,
         en: ({ school }) => `${school} · try again`,
     },
-    localWin: { ko: ({ side }) => `${side} 팀 승리`, en: ({ side }) => `${side} team wins` },
     teamWin: { ko: ({ team }) => `${team} 승리`, en: ({ team }) => `${team} wins` },
     youWin: { ko: '우리 팀 승리!', en: 'You win!' },
     youLose: { ko: '패배 · 다시 도전해요', en: 'Defeat · try again' },

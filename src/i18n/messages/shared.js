@@ -8,7 +8,6 @@ const SHARED = Object.freeze({
     settings: Object.freeze({ ko: '설정', en: 'Settings' }),
     campaign: Object.freeze({ ko: '도장깨기', en: 'School Challenge' }),
     modeTraining: Object.freeze({ ko: '스파이크 연습', en: 'Spike practice' }),
-    modeLocal: Object.freeze({ ko: '로컬 2인', en: 'Local 2P' }),
     modeWatch: Object.freeze({ ko: 'AI 관전', en: 'Watch AI' }),
     copyDiagnostics: Object.freeze({ ko: '진단 복사', en: 'Copy diagnostics' }),
     kick: Object.freeze({ ko: '발차기', en: 'Kick' }),

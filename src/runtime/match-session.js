@@ -233,18 +233,14 @@ class MatchSession {
                 ),
             });
         }
-        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2), 2P 점프(11), 2P 발차기(12)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
+        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
         const { input: bytes, edges } = this.input.sample({
             allowed: this.controlsAllowed(),
-            local2p: Boolean(TAKRAW_MODES[this.mode]?.secondaryInput),
-            // Both local players share the same screen; online peers each see their
-            // own team from behind. Only world-space input crosses the network.
+            // Online peers each see their own team from behind. Only world-space input crosses the network.
             movement: (right, back) => this.view.screenMovement(right, back, this.localTeam()),
         });
         if (edges.jump) commands.push({ payload: Uint8Array.of(1) });
         if (edges.kick) commands.push({ payload: Uint8Array.of(2) });
-        if (edges.p2Jump) commands.push({ payload: Uint8Array.of(11) });
-        if (edges.p2Kick) commands.push({ payload: Uint8Array.of(12) });
         return { input: bytes, commands };
     }
 
@@ -556,7 +552,7 @@ class MatchSession {
         this.audio.unlock();
     }
 
-    /** open 1단계: 롤백 세션을 만든다. 온라인은 방(capability)에 붙고, 혼자·로컬 2인은 지연 없는 로컬 세션이다. */
+    /** open 1단계: 롤백 세션을 만든다. 온라인은 방(capability)에 붙고, 혼자 하는 경기는 지연 없는 로컬 세션이다. */
     createSession(online, capability, recorded, token) {
         const { config } = this;
         const adapter = this.sessionAdapter(online);

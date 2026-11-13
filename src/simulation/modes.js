@@ -5,7 +5,6 @@
  * 리플레이 워커도 game.js를 통해 이 파일을 읽으므로 상대 import만 쓴다.
  *
  * - humanInput: 팀별로 사람 입력을 받는가(받지 않는 팀은 들어온 입력을 버리고 AI가 조종한다).
- * - secondaryInput: 한 입력 묶음의 뒤쪽 3바이트가 팀 1 사람 입력이다(한 기기 2인).
  * - waitsForPeers: 두 사람이 모일 때까지 경기를 멈추고 기다린다(온라인).
  * - repeatable: 같은 상황을 반복한다(시드를 받지 않고 고정 시드, 토스 흩어짐 없음).
  * - drill: 랠리가 연습 시도다. 연습 기록·레슨/토스 명령·세터 공급·연습 시간과 문구·같은 공 재시도·시간 초과·
@@ -25,7 +24,6 @@ const defineMode = (profile) =>
     });
 
 const MATCH_RULES = Object.freeze({
-    secondaryInput: false,
     waitsForPeers: false,
     repeatable: false,
     drill: false,
@@ -39,12 +37,10 @@ const MATCH_RULES = Object.freeze({
 
 const TAKRAW_MODES = Object.freeze({
     match: defineMode({ ...MATCH_RULES, humanInput: [true, false] }),
-    local: defineMode({ ...MATCH_RULES, humanInput: [true, true], secondaryInput: true }),
     online: defineMode({ ...MATCH_RULES, humanInput: [true, true], waitsForPeers: true }),
     watch: defineMode({ ...MATCH_RULES, humanInput: [false, false] }),
     training: defineMode({
         humanInput: [true, false],
-        secondaryInput: false,
         waitsForPeers: false,
         repeatable: true,
         drill: true,

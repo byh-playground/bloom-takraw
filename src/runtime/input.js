@@ -1,31 +1,17 @@
 import { ActionState, createDOMInput } from '@bloom-gamekit/input';
 
-const ACTION_NAMES = Object.freeze([
-    'left',
-    'right',
-    'forward',
-    'back',
-    'jump',
-    'kick',
-    'p2Left',
-    'p2Right',
-    'p2Forward',
-    'p2Back',
-    'p2Jump',
-    'p2Kick',
-]);
+const ACTION_NAMES = Object.freeze(['left', 'right', 'forward', 'back', 'jump', 'kick']);
 
 /**
  * 이 기기의 입력: 키·포인터 장치(createDOMInput), 행동 상태, 터치 패드 축, 발차기 조준, 마우스 카메라 회전, 마지막으로 만든 입력 바이트.
  * 명령(점프·발차기 눌림)의 순서는 세션이 정한다. 여기서는 눌림 엣지만 돌려준다.
- * 발차기와 조준은 화면의 발차기 버튼(touch-controls)에서만 들어온다. 키보드는 조준 값을 만들지 않는다(2P 발차기는 늘 가운데).
+ * 발차기와 조준은 화면의 발차기 버튼(touch-controls)에서만 들어온다. 키보드는 조준 값을 만들지 않는다.
  *   onPointer(event): 캔버스 포인터 이벤트마다 부른다(오디오 잠금 해제·리플레이 건너뛰기·카메라 회전은 세션이 정한다).
  */
 class RuntimeInput {
     constructor({ canvas, config, onPointer }) {
         this.canvas = canvas;
         this.size = config.input.size;
-        this.stride = config.input.stride;
         this.axisScale = config.input.axisScale;
         this.samples = Object.fromEntries(ACTION_NAMES.map((name) => [name, {}]));
         this.axis = { x: 0, z: 0 };
@@ -43,13 +29,6 @@ class RuntimeInput {
                 KeyW: 'forward',
                 KeyS: 'back',
                 Space: 'jump',
-                ArrowLeft: 'p2Left',
-                ArrowRight: 'p2Right',
-                ArrowUp: 'p2Forward',
-                ArrowDown: 'p2Back',
-                Enter: 'p2Jump',
-                Numpad0: 'p2Jump',
-                ShiftRight: 'p2Kick',
             },
             pointerButtons: { 2: 'cameraOrbit' },
             touchAction: 'none',
@@ -61,9 +40,9 @@ class RuntimeInput {
      * 한 틱의 입력 바이트와 눌림 엣지. allowed가 아니면 바이트는 0이고 엣지도 없다.
      * movement(right, back)는 화면 기준 이동을 월드 축으로 바꾼다(보는 팀 기준).
      */
-    sample({ allowed, local2p, movement }) {
+    sample({ allowed, movement }) {
         const input = new Uint8Array(this.size);
-        const edges = { jump: false, kick: false, p2Jump: false, p2Kick: false };
+        const edges = { jump: false, kick: false };
         const samples = this.samples;
         for (const name of ACTION_NAMES) this.actions.sampleInto(name, samples[name]);
         if (allowed) {
@@ -82,20 +61,6 @@ class RuntimeInput {
             }
             edges.jump = samples.jump.pressed;
             edges.kick = samples.kick.pressed;
-            if (local2p) {
-                const p2 = this.stride;
-                this.writeMovement(
-                    input,
-                    p2,
-                    movement(
-                        Number(samples.p2Right.held) - Number(samples.p2Left.held),
-                        Number(samples.p2Back.held) - Number(samples.p2Forward.held),
-                    ),
-                );
-                input[p2 + 2] = (samples.p2Jump.held ? 1 : 0) | (samples.p2Kick.held ? 2 : 0);
-                edges.p2Jump = samples.p2Jump.pressed;
-                edges.p2Kick = samples.p2Kick.pressed;
-            }
         }
         this.actions.consume();
         this.lastInput = input.slice();

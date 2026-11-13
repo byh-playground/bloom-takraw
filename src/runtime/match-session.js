@@ -221,7 +221,7 @@ class MatchSession {
         ) {
             // 두 사람이 모이면 내 팀 이름·학교를 한 번 알린다(표시 전용)
             this.identitySent = true;
-            this.metrics.track('match', this.mode, 'start');
+            this.record.start({ session, mode: this.mode });
             const mine = this.getClub().getView();
             commands.push({
                 payload: takrawEncodeIdentity(
@@ -494,8 +494,6 @@ class MatchSession {
         const policy = TAKRAW_MODE_POLICY[nextMode],
             flags = TAKRAW_MODES[nextMode];
         const recorded = this.record.begin(nextMode);
-        // 상대를 기다리는 경기(온라인)의 시작은 두 사람이 모였을 때(identitySent) 남긴다.
-        if (!flags.waitsForPeers) this.metrics.track('match', nextMode, 'start');
         this.watch.point = { tick: null, restarting: false };
         const setup = takrawMatchSetup({
             mode: nextMode,
@@ -521,6 +519,8 @@ class MatchSession {
         const online = policy.room;
         const session = this.createSession(online, capability, recorded, token);
         this.session = session;
+        // 상대를 기다리는 경기(온라인)의 시작은 두 사람이 모였을 때(identitySent) record.start가 남긴다.
+        if (!flags.waitsForPeers) this.record.start({ session, mode: nextMode });
         const loop = this.createSimLoop(session, token, flags, policy);
         this.loop = loop;
         this.pump = this.createPump(token, flags);

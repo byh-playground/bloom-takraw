@@ -60,7 +60,7 @@ artifacts/                   새 실행 결과, Git 제외
 
 공통 기능의 원본은 사용자 소유 [bloom-gamekit](https://github.com/byh-playground/bloom-gamekit)입니다. `runtime.js`와 `src/runtime/`은 `import { createRoomSession } from '@bloom-gamekit/rollback'`처럼 기능 소유 모듈에서 직접 가져옵니다. HTML import map이 별칭을 고정 배포 URL로 해석합니다. GameKit 소스를 복사하거나 별도 공통 엔진으로 감싸지 않습니다.
 
-GameKit dist 커밋 `0364bbcabc6e3b960c293488d1bacd41ff5c2848`(v0.59.1, three-kit 포함), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
+GameKit dist 커밋 `eaa979458b26f696dda5367d760263359e099fe6`(v0.60.0, three-kit 포함), Three.js 0.180.0, Rapier 0.21.0를 씁니다. 책임 경계와 수정 위치는 [구조 문서](docs/architecture.md)를 참고하세요. 화면 문구는 한국어·영어이고 규칙은 [화면 언어](docs/i18n.md)에 있습니다.
 
 ## 게임 지표
 
@@ -71,7 +71,7 @@ GameKit dist 커밋 `0364bbcabc6e3b960c293488d1bacd41ff5c2848`(v0.59.1, three-ki
 | `menu`                          | `match`·`local`·`training`·`watch`·`online`       | `click`          | 시작 메뉴 버튼                                                                                                                                                               |
 | `menu`                          | `campaign`                                        | `click`          | 도장깨기 학교 선택. props `{ schoolId }`                                                                                                                                     |
 | `menu`                          | `watch_seed`                                      | `click`          | 관전 시드 입력·추천·무작위                                                                                                                                                   |
-| `match`                         | 모드(`match`·`local`·`training`·`watch`·`online`) | `start`          | 경기 시작. 온라인은 두 사람이 모였을 때                                                                                                                                      |
+| `match`                         | 모드(`match`·`local`·`training`·`watch`·`online`) | `start`          | 경기 시작(`metrics.beginMatch`). 재경기도 경기마다 한 번. 온라인은 두 사람이 모였을 때. props `{ matchId }`, 관전·연습은 `{ matchId, record: false }`                                                                                                                                      |
 | `match`                         | 모드                                              | `restart`·`quit` | 다시 하기·연습 재시도, 메뉴에서 나가기                                                                                                                                       |
 | `online`                        | `host`·`join`·`resume`                            | `click`          | 방 만들기·입장·재접속                                                                                                                                                        |
 | `club`                          | 클럽 동작(`rename`·`assign`·`train`·`draw` 등)    | `click`          | 팀 관리                                                                                                                                                                      |
@@ -94,7 +94,7 @@ GameKit dist 커밋 `0364bbcabc6e3b960c293488d1bacd41ff5c2848`(v0.59.1, three-ki
 
 `phase`는 `connect`(방 만들기·입장 중)·`session`(온라인 세션 중)·`handshake`(시간 초과)입니다. 원인은 화면 오류 문구·단계 이름과 같은 분류(`connectionCause`) `secure`·`sync`·`desync`·`game`·`version`·`relay`·`peer`·`other`이고(gamekit 실패 코드가 있으면 코드로 먼저 정한다), 지표는 원인의 성격(결함 의심·연결 사정·환경)으로 나눠 보냅니다. `version`은 게임 결함도 연결 사정도 아니라 이 두 사람의 버전 조합 문제라 `unsupported`로 둡니다. v0.15.6~0.15.7 빌드는 같은 지점을 `error:<kind>:fail`로 보냈습니다(D1에는 원본 그대로 남음). 놀이가 계속되는 실패(소리·저장·보상·PWA)와 부팅 실패(지표 생성 전)는 보내지 않습니다.
 
-경기 기록은 `match`(도장깨기·AI 대전)·`local`(2인)·`online` 경기가 끝날 때 하나씩 남깁니다(관전·연습 제외). rollback `RoomSession`의 `recordReplay` 기록(`SessionReplayRecorder`)이라 같은 게임 버전에서 `playReplay`로 다시 계산할 수 있습니다. 온라인은 예측한 끝이 확정된 뒤에 남기고, 두 사람이 같은 `matchId`(`방 세션:roster 세대:그 세대의 순번`)를 보내 한 행만 남습니다.
+경기 시작과 경기 기록은 `metrics.beginMatch`가 한 번호(`matchId`)로 잇습니다. 경기가 시작될 때(`MatchRecord.start`, 첫 경기와 재경기 모두 한 지점) `beginMatch`가 시작 이벤트 `match:<모드>:start`를 보내고 recorder(`SessionReplayRecorder`)를 돌려주며, 경기가 끝나면 그 recorder로 `recordMatch`를 한 번 부릅니다. `match`(도장깨기·AI 대전)·`local`(2인)·`online`이 기록 대상이고, 관전·연습은 `beginMatch({ mode, record: false })`라 시작만 남고 완주율에서 빠집니다. 중도 종료(메뉴로 나가기)·오류로 끝난 경기는 `recordMatch`를 부르지 않아 서버 완주율에서 미완주로 셉니다. rollback `RoomSession`의 `recordReplay` 기록이라 같은 게임 버전에서 `playReplay`로 다시 계산할 수 있습니다. 온라인은 예측한 끝이 확정된 뒤에 남기고, 두 사람이 시작 시점에 같은 `matchId`(`방 세션:roster 세대:그 세대의 순번`)를 정해 서버가 시작도 기록도 한 번만 셉니다. 재경기(방장 명령 재시작)는 기록한 경기 다음에 끝남이 풀리는 지점에서 다음 순번으로 새로 시작합니다. 같은 경기 도중 한 사람이 재접속해 roster 세대가 바뀌면 두 사람의 시작 `matchId`가 달라질 수 있습니다(시작 때 세대로 정하기 때문).
 
 | summary 키     | 뜻                                                          |
 | -------------- | ----------------------------------------------------------- |

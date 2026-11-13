@@ -9,8 +9,7 @@ import { TakrawReplayImpacts } from './replay-impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
-import { TakrawRenderStats } from './render-stats.js';
-import { PartList } from './merge-geometry.js';
+import { PartList, RenderStats, warmUp } from '@bloom-gamekit/three-kit';
 import { TakrawMarkers } from './markers.js';
 import { TakrawPlayerBatch } from './player-batch.js';
 
@@ -124,7 +123,7 @@ class TakrawView {
         this.replayImpacts = new TakrawReplayImpacts({ impacts: this.impacts, config });
         this.impacts.setElements(this.schools.map((school) => school.element));
         this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
-        this.renderStats = new TakrawRenderStats(this.renderer);
+        this.renderStats = new RenderStats(this.renderer);
         this.field = new TakrawFieldEffects({
             THREE,
             scene: this.scene,
@@ -1271,34 +1270,16 @@ class TakrawView {
 
     /**
      * 경기 중 처음 쓰는 순간에 일어날 GPU 일을 로딩 단계에서 미리 한다(DEV-032).
-     * 숨겨 둔 것(접촉 입자·색종이·먼지·안내 표시)까지 모두 보이게 한 장면을 실제 경기와 같은 카메라·조명·그림자·안개·톤 매핑으로
-     * 한 번 그려 셰이더 프로그램을 컴파일·링크하고, 쇼크웨이브 패스의 셰이더와 복사 텍스처도 이때 만든다. 그린 결과는 곧 다음 프레임이 덮는다.
+     * 효과 노드를 미리 만들고, three-kit의 warmUp이 숨겨 둔 것(접촉 입자·색종이·먼지·안내 표시)까지 보이게 한 장면을
+     * 실제 경기와 같은 카메라·조명·그림자·안개·톤 매핑으로 컴파일한다. 쇼크웨이브 패스의 셰이더와 복사 텍스처도 이때 만든다.
      * 장면 크기(화면 크기)가 바뀌면 복사 텍스처만 다시 만들어진다(경기 밖 동작).
      */
     warmUp() {
         const warm = this.config.visual.warm;
         this.impacts.warm(warm.impacts);
         this.field.warm(warm);
-        const saved = [];
-        this.scene.traverse((object) => {
-            if (object.visible) return;
-            saved.push(object);
-            object.visible = true;
-        });
-        this.impacts.cloud.warm();
-        this.field.warmLayers();
-        this.markers.warm();
-        try {
-            this.camera.updateMatrixWorld();
-            this.renderer.compile(this.scene, this.camera);
-            this.shockWave.warm(this.scene, this.camera);
-        } finally {
-            for (const object of saved) object.visible = false;
-            // 켜 둔 인스턴스 레이어를 실제 상태(살아 있는 효과만)로 되돌린다.
-            this.impacts.drawCloud();
-            this.field.draw();
-            this.markers.clear();
-        }
+        warmUp(this.renderer, this.scene, this.camera);
+        this.shockWave.warm(this.scene, this.camera);
         this.warmed = true;
     }
 

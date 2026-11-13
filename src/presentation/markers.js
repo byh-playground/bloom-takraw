@@ -1,6 +1,6 @@
 import { TAKRAW_MODES } from '../simulation/modes.js';
 import { takrawHumanPlayerIds, takrawTeamOf } from '../simulation/roster.js';
-import { InstanceLayer, createInstanceMaterial, mergeShapes } from './instanced-effects.js';
+import { InstanceLayer, mergeShapes } from '@bloom-gamekit/three-kit';
 
 const FLAT = -Math.PI / 2;
 const GROUND_CAPACITY = 48;
@@ -12,8 +12,8 @@ const ARROW_CAPACITY = 6;
  *   ground  : 바닥에 깔리는 반투명 표시. 접촉 그림자·공 그림자 → 선택 링·착지 표시 → 받기·공격 안내 순으로 쓴다(깊이 테스트).
  *   overlay : 깊이 테스트 없이 위에 겹쳐 그리는 표시. 안내 접점 막대·테두리·킥 링·공 후광(깊이 테스트 끔).
  *   arrows  : 선택 선수 머리 위 화살표(불투명).
- * 모양이 여럿이라 레이어마다 모양을 한 geometry에 합치고(mergeShapes), 색·투명도·위치·크기는 인스턴스 데이터다. 모든 변종은 view.warmUp()에서 컴파일된다(DEV-032).
- * 앞·뒷면이 모두 보이던 반투명 평면은 한 번에 그린다(createInstanceMaterial의 forceSinglePass). 위에서 내려다보는 평면이라 화면은 같다.
+ * 모양이 여럿이라 레이어마다 모양을 한 geometry에 합치고(mergeShapes), 색·투명도·위치·크기는 인스턴스 데이터다. 모든 변종은 view.warmUp()의 warmUp에서 컴파일된다(DEV-032).
+ * 앞·뒷면이 모두 보이던 반투명 평면은 한 번에 그린다(InstanceLayer의 forceSinglePass). 위에서 내려다보는 평면이라 화면은 같다.
  * 매 프레임 begin → 표시를 쓰는 draw → end이고, 버퍼·행렬·색은 만들 때 한 번만 할당한다.
  */
 class TakrawMarkers {
@@ -56,21 +56,25 @@ class TakrawMarkers {
         this.groundShapes = ground.shapes;
         this.overlayShapes = overlay.shapes;
         this.sources = [ground.geometry, overlay.geometry];
-        this.materials = [
-            createInstanceMaterial(T, { side: T.DoubleSide, shaped: true }),
-            createInstanceMaterial(T, { side: T.DoubleSide, shaped: true, depthTest: false }),
-            createInstanceMaterial(T, { opaque: true }),
-        ];
-        this.ground = new InstanceLayer(T, ground.geometry, this.materials[0], GROUND_CAPACITY, {
-            shaped: true,
+        this.ground = new InstanceLayer(T, {
+            geometry: ground.geometry,
+            capacity: GROUND_CAPACITY,
+            side: T.DoubleSide,
         });
         // 안내 접점·후광은 높은 renderOrder로 선·눈금 같은 다른 겹쳐 그림 위에 그린다.
-        this.overlay = new InstanceLayer(T, overlay.geometry, this.materials[1], OVERLAY_CAPACITY, {
-            shaped: true,
+        this.overlay = new InstanceLayer(T, {
+            geometry: overlay.geometry,
+            capacity: OVERLAY_CAPACITY,
+            side: T.DoubleSide,
+            depthTest: false,
             order: 4,
         });
         this.arrowGeometry = new T.ConeGeometry(0.075, 0.15, 3);
-        this.arrows = new InstanceLayer(T, this.arrowGeometry, this.materials[2], ARROW_CAPACITY);
+        this.arrows = new InstanceLayer(T, {
+            geometry: this.arrowGeometry,
+            capacity: ARROW_CAPACITY,
+            opaque: true,
+        });
         this.layers = [this.ground, this.overlay, this.arrows];
         scene.add(this.ground.mesh, this.overlay.mesh, this.arrows.mesh);
         // 그림자만 그리는 그림(renderFrom)을 위해, 앞에서부터 이 개수까지가 그림자다.
@@ -158,11 +162,6 @@ class TakrawMarkers {
 
     end() {
         for (const layer of this.layers) layer.end();
-    }
-
-    /** 로딩 때 모든 레이어를 한 칸씩 켜 컴파일·그리기를 해 둔다(DEV-032). 끝나면 clear()로 비운다. */
-    warm() {
-        for (const layer of this.layers) layer.warm();
     }
 
     clear() {
@@ -399,7 +398,6 @@ class TakrawMarkers {
         for (const layer of this.layers) layer.dispose();
         for (const geometry of this.sources) geometry.dispose();
         this.arrowGeometry.dispose();
-        for (const material of this.materials) material.dispose();
     }
 }
 

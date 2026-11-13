@@ -2,7 +2,7 @@ import { ObjectPool } from '@bloom-gamekit/object-pool';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { takrawEventUnits } from '../simulation/random.js';
 import { TAKRAW_CONFIG, TAKRAW_TIMING_GRADES } from '../config/game.js';
-import { TakrawParticleCloud } from './instanced-effects.js';
+import { TakrawParticleCloud } from './particle-cloud.js';
 
 const FOOT_PART = /^(foot|lowerLeg)/;
 const RIM_OPACITY = 0.85; // 입자 테두리의 불투명도(본체는 1)

@@ -21,8 +21,9 @@ function createRuntimeDiagnostics({ version }) {
      * 치명 오류 화면의 "진단 복사"가 클립보드에 넣는 글. 지금 상태 + 던져진 원래 예외(스택) + 연결 기록.
      * 오류 기록(format)은 링이 이미 가린 JSON이라 그대로 두고(redactDiagnostic은 JSON을 통째로 지운다), 나머지 글만 경로·토큰을 가린다.
      * stateLines는 세션 상태 줄(모드·단계·tick), networkHistory는 연결 기록 줄이다.
+     * hitches는 RenderStats의 튄 프레임 글(hitchText)이다. 숫자와 고정 이름뿐이라 가리지 않고 길이도 줄이지 않는다.
      */
-    function report({ stateLines, networkHistory }) {
+    function report({ stateLines, networkHistory, hitches = '' }) {
         const state = [
             `${TAKRAW_DIAGNOSTIC_NAME} ${version}`,
             ...stateLines,
@@ -31,6 +32,7 @@ function createRuntimeDiagnostics({ version }) {
         ].join('\n');
         return [
             redactDiagnostic(state, 1200),
+            ...(hitches ? [hitches] : []),
             ring.format(),
             ...(networkHistory.length
                 ? [redactDiagnostic(`network:\n${networkHistory.join('\n')}`, 4000)]

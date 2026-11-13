@@ -14,6 +14,25 @@ import { TakrawPlayerBatch } from './player-batch.js';
 
 const NO_DEFORM = Object.freeze({ axis: null, amount: 0 });
 
+/**
+ * 프레임 행(RenderStats)에 더 적는 값. 튄 프레임(히치) 보관에서 "어디가 오래 걸렸나"와 "그때 무슨 일이 있었나"를 같은 행으로 본다.
+ * stage(ms): sim = 시뮬 진행 pump 한 번 전체(입력·poll·틱·롤백 재계산·연결 정비, 그리기 콜백 밖이라 그 간격의 행에 더해짐),
+ *   prep = 포즈 반영·카메라·이펙트 버퍼 갱신, draw = renderer.render와 파동 패스.
+ * counter: ticks = 진행한 틱, resim = 롤백으로 다시 돌린 틱, jump·kick = 사람 입력, touch = 공 접촉 이벤트,
+ *   camOut·camIn = 카메라 거리 변화(cm), newProg = 새로 링크된 셰이더 프로그램.
+ */
+const FRAME_STAGES = Object.freeze(['sim', 'prep', 'draw']);
+const FRAME_COUNTERS = Object.freeze([
+    'ticks',
+    'resim',
+    'jump',
+    'kick',
+    'touch',
+    'camOut',
+    'camIn',
+    'newProg',
+]);
+
 class TakrawView {
     constructor({ THREE, canvas, config }) {
         this.THREE = THREE;
@@ -122,7 +141,12 @@ class TakrawView {
         this.replayImpacts = new TakrawReplayImpacts({ impacts: this.impacts, config });
         this.impacts.setElements(this.schools.map((school) => school.element));
         this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
-        this.renderStats = new RenderStats(this.renderer);
+        this.renderStats = new RenderStats(this.renderer, {
+            stages: FRAME_STAGES,
+            counters: FRAME_COUNTERS,
+        });
+        this.frameMetrics = this.renderStats.metrics;
+        this.programCount = 0;
         this.field = new TakrawFieldEffects({
             THREE,
             scene: this.scene,
@@ -820,7 +844,13 @@ class TakrawView {
         distance = Math.min(s.maxDistance, distance);
         // Move out promptly to keep incoming balls visible; move back in gently.
         const zoomBlend = snap || distance > rig.distance ? 1 : blend;
-        rig.distance += (distance - rig.distance) * zoomBlend;
+        const zoomStep = (distance - rig.distance) * zoomBlend;
+        rig.distance += zoomStep;
+        if (rig.initialized)
+            this.frameMetrics.count(
+                zoomStep > 0 ? 'camOut' : 'camIn',
+                Math.round(Math.abs(zoomStep) * 100),
+            );
         this.camera.position.copy(rig.focus).addScaledVector(rig.offset, rig.distance);
         this.camera.lookAt(rig.focus);
         this.camera.updateMatrixWorld();
@@ -860,9 +890,25 @@ class TakrawView {
         });
     }
 
+    /**
+     * 프레임 행 하나를 연다. 그리기 주기 콜백(MatchSession.frame) 전체가 한 행이라, render() 앞의 입력 관찰·표시 통로 일도 cpu에 든다.
+     * 콜백 밖(시뮬 pump)에서 적는 값은 FrameMetrics가 직전 행(지금 열린 간격)에 더한다.
+     */
+    beginFrame() {
+        this.renderStats.begin();
+    }
+
+    /** 프레임 행을 닫는다. 새로 링크된 셰이더 프로그램 수는 직전 프레임 끝과 비교한다. */
+    endFrame() {
+        const programs = this.renderer.info.programs?.length ?? 0;
+        this.frameMetrics.count('newProg', Math.max(0, programs - this.programCount));
+        this.programCount = programs;
+        this.renderStats.end();
+    }
+
     render(presentationFrame, viewData, nowMs, context = {}) {
         if (!viewData) return;
-        this.renderStats.begin();
+        const prepStart = performance.now();
         const dt = Math.min(0.05, Math.max(0, (nowMs - this.lastMs) / 1000));
         this.lastMs = nowMs;
         for (const entity of viewData.entities)
@@ -961,8 +1007,10 @@ class TakrawView {
         if (ball) this.updateBallMask(ball);
         this.impacts.drawCloud();
         this.field.draw();
+        const drawStart = performance.now();
+        this.frameMetrics.stage('prep', drawStart - prepStart);
         this.shockWave.render(this.scene, this.camera, this.impacts);
-        this.renderStats.end();
+        this.frameMetrics.stage('draw', performance.now() - drawStart);
     }
 
     /**
@@ -1275,6 +1323,8 @@ class TakrawView {
         warmUp(this.renderer, this.scene, this.camera);
         this.shockWave.warm(this.scene, this.camera);
         this.warmed = true;
+        // 로딩 때 만든 프로그램은 newProg로 세지 않는다(경기 중 새로 링크된 것만 보이게).
+        this.programCount = this.renderer.info.programs?.length ?? 0;
     }
 
     dispose() {

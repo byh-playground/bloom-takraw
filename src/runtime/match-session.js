@@ -239,8 +239,14 @@ class MatchSession {
             // Online peers each see their own team from behind. Only world-space input crosses the network.
             movement: (right, back) => this.view.screenMovement(right, back, this.localTeam()),
         });
-        if (edges.jump) commands.push({ payload: Uint8Array.of(1) });
-        if (edges.kick) commands.push({ payload: Uint8Array.of(2) });
+        if (edges.jump) {
+            commands.push({ payload: Uint8Array.of(1) });
+            this.view.frameMetrics.count('jump', 1);
+        }
+        if (edges.kick) {
+            commands.push({ payload: Uint8Array.of(2) });
+            this.view.frameMetrics.count('kick', 1);
+        }
         return { input: bytes, commands };
     }
 
@@ -346,12 +352,16 @@ class MatchSession {
 
     /** 그리기 주기의 한 프레임: 입력을 관찰하고 시뮬 루프(없으면 직접) 그리기. 예외는 실행 실패로 처리한다. */
     frame(now) {
+        const view = this.view;
+        view.beginFrame();
         try {
             this.loop?.observeInput(now);
             if (this.loop) this.loop.render();
             else this.render(now);
         } catch (error) {
             this.simulationFailed(error);
+        } finally {
+            view.endFrame();
         }
     }
 
@@ -494,6 +504,16 @@ class MatchSession {
                 this.events.emit(context, this.latestView);
                 highlight.record(context, this.latestView);
                 const elapsed = performance.now() - begin;
+                // 프레임 행(view.frameMetrics): 진행 틱과 롤백 재계산 틱을 나눠 세고, 접촉은 처음 진행한 틱에서만 센다.
+                const metrics = this.view.frameMetrics;
+                if (context.resimulating) metrics.count('resim', 1);
+                else {
+                    metrics.count('ticks', 1);
+                    let touches = 0;
+                    for (const event of this.latestView.events)
+                        if (event.type === 'touch') touches += 1;
+                    if (touches) metrics.count('touch', touches);
+                }
                 stats.steps += 1;
                 stats.simulationMs += elapsed;
                 stats.maxSimulationMs = Math.max(stats.maxSimulationMs, elapsed);
@@ -629,11 +649,14 @@ class MatchSession {
             },
             pulse: (now) => {
                 if (!this.loop || token !== this.run) return;
+                const begin = performance.now();
                 maintenanceDeadline = now + 1000 / TAKRAW_RUNTIME.clock.inputHz;
                 this.loop.pollInput(now);
                 this.loop.pulse(now, { render: false, input: false });
                 // Network commands belong to the existing pump, not to rendering.
                 this.maintainNetwork(now);
+                // 그리기 콜백 밖이라 FrameMetrics가 지금 열린 간격의 행(직전 그린 프레임)에 더한다.
+                this.view.frameMetrics.stage('sim', performance.now() - begin);
             },
         });
     }

@@ -367,6 +367,7 @@ async function bootTakraw() {
                 `mode=${match.mode ?? 'menu'} phase=${latestView?.state.phase ?? 'loading'} tick=${match.session?.tick ?? latestView?.state.tick ?? 0}`,
                 view?.renderStats.line() ?? 'render: not ready',
             ],
+            hitches: view?.renderStats.metrics.hitchText() ?? '',
             networkHistory: net.history(),
         });
     }
@@ -462,6 +463,7 @@ async function bootTakraw() {
                 simulation: match.simulationDiagnostics(),
                 lastContact: match.lastContact,
                 render: view?.renderStats.snapshot() ?? null,
+                hitches: view?.renderStats.metrics.hitches() ?? [],
                 highlight: match.highlightDiagnostics(),
                 errors: diagnostics.errors(),
             };
@@ -584,7 +586,11 @@ async function bootTakraw() {
         listen(window, 'blur', () => match.releaseControls());
         listen(document, 'visibilitychange', () => {
             if (document.hidden) match.releaseControls();
-            else match.resyncClock();
+            else {
+                // 숨겨진 동안의 간격은 튄 프레임이 아니다.
+                view.renderStats.metrics.skipInterval();
+                match.resyncClock();
+            }
         });
         listen(window, 'resize', () => view.resize());
         match.showIdleCourt();

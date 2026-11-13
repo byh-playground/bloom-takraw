@@ -30,6 +30,7 @@ function takrawContactKind(event, state, clutchHeight = TAKRAW_CONFIG.visual.imp
 
 /** 접촉 payload가 쓰는 연출 이름. 스파이크 > 타이밍 등급 > 바닥 > 접촉 종류(아슬아슬한 받아내기는 save). 런타임의 이벤트 수명 계산도 이 함수를 쓴다. */
 function impactStyleKey(styles, payload) {
+    if (payload?.style && styles[payload.style]) return payload.style;
     if (payload?.spike && styles.spike) return 'spike';
     const grade = payload?.timing?.grade;
     if (grade && grade !== TAKRAW_TIMING_GRADES.normal && styles[grade]) return grade;
@@ -139,6 +140,7 @@ class TakrawImpactEffects {
             waveScale: 1,
             flashFrames: false,
             groundPulse: false,
+            maxScreen: 0,
             playerId: -1,
             part: '',
             elementForward: new T.Vector3(),
@@ -238,11 +240,12 @@ class TakrawImpactEffects {
         // 물체 자체 반응(표시 전용): 켜진 것만 이 노드에 기록하고 view가 경과 시간으로 읽는다. 동작 줄이기에서는 왜곡·히트스톱·진동·반짝임·눌림을 끈다.
         node.playerId = payload.playerId ?? -1;
         node.part = payload.part ?? '';
-        node.flashFrames = !reduced && key !== 'body';
+        node.flashFrames = !reduced && key !== 'body' && style.flash !== false;
         node.groundPulse = !reduced && payload.kind === 'ground';
         node.waveStrength = reduced ? 0 : (style.wave || 0) * strength;
         node.shadeStrength = reduced ? 0 : (style.shade || 0) * strength;
         node.waveScale = style.waveScale * this.impact.wave.reach * Math.sqrt(strength);
+        node.maxScreen = style.maxScreen ?? this.impact.wave.maxScreen;
         node.fov = reduced ? 0 : (style.fovPunch || 0) * strength;
         node.squash = reduced ? 0 : Math.min(0.42, (style.squash || 0) * strength);
         node.squashDecay = style.squashDecay ?? 13;
@@ -460,6 +463,7 @@ class TakrawImpactEffects {
             slot.width = radius * wave.width;
             slot.distort = wave.amount * level ** wave.distortPower * node.strength * fade;
             slot.shade = node.shadeStrength * fade;
+            slot.maxScreen = node.maxScreen;
         }
         return Math.min(count, out.length);
     }

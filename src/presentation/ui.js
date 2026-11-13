@@ -518,6 +518,11 @@ class TakrawUI {
         this.hud.hideHitPop(token);
     }
 
+    /** 득점 팀 점수 숫자가 한 번 튄다. */
+    bumpScore(team) {
+        this.hud.bumpScore(team);
+    }
+
     showReplay(reason) {
         this.hud.showReplay(reason);
     }

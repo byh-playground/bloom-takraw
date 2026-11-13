@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.19.3';
+const TAKRAW_VERSION = '0.19.4';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -274,6 +274,8 @@ const TAKRAW_CONFIG = Object.freeze({
                     set: { ms: 10, strong: 0.15, weak: 0.1 },
                     drive: { ms: 30, strong: 0.5, weak: 0.3 },
                     ground: { ms: 30, strong: 0.4, weak: 0.4 },
+                    // 득점 착지: 득점 팀 사용자에게만.
+                    scoreLand: { ms: 90, strong: 0.8, weak: 0.5 },
                 },
             },
             // 세기: 원천 속도(m/s, foot은 발 속도 × footWeight) ÷ referenceSpeed를 min~max로 자른 값. 파동 크기·눌림에 곱하고 수명에는 제곱근을 곱한다.
@@ -435,6 +437,21 @@ const TAKRAW_CONFIG = Object.freeze({
                     squashFreq: 30,
                     pop: null,
                     intensity: 'ball',
+                },
+                // 득점 착지: 바닥에 닿은 점에서 접촉 파동보다 넓고 느리게 퍼지는 큰 파동 하나. 반짝임·눌림·진동·확대 없이 왜곡과 명암만. 경기를 가리지 않도록 작고 옅게 둔다
+                // (flash: false면 닿은 부위 반짝임 없음, maxScreen: 이 파동만 쓰는 반지름 상한).
+                scoreLand: {
+                    life: 1,
+                    wave: 1,
+                    shade: 1,
+                    waveScale: 8,
+                    maxScreen: 0.28,
+                    flash: false,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0,
+                    pop: null,
                 },
             },
         },

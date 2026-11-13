@@ -59,6 +59,7 @@ class TakrawShockWave {
             width: 0,
             distort: 0,
             shade: 0,
+            maxScreen: 0,
         }));
         this.copy = null;
         this.size = new THREE.Vector2();
@@ -97,8 +98,8 @@ class TakrawShockWave {
     project(count, camera) {
         const { slots, uniforms, point, shape } = this;
         const focal = 1 / Math.tan((camera.fov * Math.PI) / 360); // 깊이 1에서 화면 높이의 절반이 tan(fov/2)
-        // 반지름 상한: 화면 짧은 변의 maxScreen 배(세로 화면에서 파동이 화면 폭을 덮지 않게).
-        const limit = shape.maxScreen * Math.min(this.size.x / this.size.y, 1);
+        // 반지름 상한: 화면 짧은 변의 maxScreen 배(세로 화면에서 파동이 화면 폭을 덮지 않게). 파동마다 따로 정할 수 있다(slot.maxScreen).
+        const shortSide = Math.min(this.size.x / this.size.y, 1);
         let used = 0;
         for (let i = 0; i < count; i++) {
             const slot = slots[i];
@@ -110,6 +111,7 @@ class TakrawShockWave {
             // 월드 길이 → 화면 높이 비율: 깊이에서 화면 높이가 2·depth·tan(fov/2) m
             const perHeight = focal / (2 * depth);
             // 상한에 걸리면 반지름을 줄이되 시작 반지름 아래로는 줄이지 않는다(가까운 화면에서 띠가 공 위로 들어가 공 둘레가 깨져 보이던 문제). 띠 폭은 같은 비율로 줄인다.
+            const limit = (slot.maxScreen || shape.maxScreen) * shortSide;
             const full = slot.radius * perHeight,
                 radius = Math.min(full, Math.max(limit, shape.radius * shape.start * perHeight));
             const width = Math.max(

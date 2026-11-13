@@ -66,7 +66,7 @@ class MatchEventJournal {
     replace() {
         this.queue?.dispose();
         this.inRollback = false;
-        const { view, ui, audio, perspective } = this;
+        const { view, ui, audio, perspective, rumble } = this;
         const showHitPop = (payload) => {
             const text =
                 TAKRAW_CONFIG.visual.impact.styles[
@@ -154,14 +154,31 @@ class MatchEventJournal {
                             !view.reducedMotion()
                         )
                             view.scoreMotion.start(performance.now());
-                        return { node: view.field.startConfetti(event.payload) };
+                        // 득점 착지(표시 전용): 바닥에 닿은 점의 큰 파동, 점수 숫자 튐, 득점 팀 사용자의 진동. 파동·진동은 동작 줄이기에서 꺼진다.
+                        const { mode, team } = perspective();
+                        const landing = event.payload.landing;
+                        const impact =
+                            landing && !view.reducedMotion()
+                                ? view.impacts.start({
+                                      ...event.payload,
+                                      kind: 'score',
+                                      style: 'scoreLand',
+                                      position: { x: landing.x, y: 0, z: landing.z },
+                                  })
+                                : null;
+                        ui.bumpScore(event.payload.team);
+                        if (TAKRAW_MODES[mode]?.secondaryInput || event.payload.team === team)
+                            rumble.play({ ...event.payload, kind: 'score', style: 'scoreLand' });
+                        return { node: view.field.startConfetti(event.payload), impact };
                     },
                     update(handle, ageMs) {
                         if (handle.node) view.field.update(handle.node, ageMs);
+                        if (handle.impact) view.impacts.update(handle.impact, ageMs);
                     },
                     reconcile() {},
                     stop(handle) {
                         view.field.release(handle.node);
+                        if (handle.impact) view.impacts.release(handle.impact);
                     },
                 },
                 sound: audio.eventAdapter((event) => this.queue?.finish(event)),
@@ -232,6 +249,7 @@ class MatchEventJournal {
                     payload: {
                         ...event,
                         winningSpike: winningSpikeScore(event, previousEvent, this.contact),
+                        landing: { ...event.position },
                         position: { x: ((event.team === 0 ? -1 : 1) * halfLength) / 2, y: 0, z: 0 },
                     },
                     policy: 'confirmed',

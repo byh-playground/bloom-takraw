@@ -924,6 +924,7 @@ class TakrawPhysics {
         applicationPoint = null,
         feedForward = null,
         contactDrive = null,
+        speedLimit = null,
     ) {
         const point = applicationPoint || part.body.translation(),
             velocity = part.body.velocityAtPoint(point);
@@ -948,12 +949,33 @@ class TakrawPhysics {
         }
         const contactScale =
             contactDrive?.power && p.effects.power ? 1 + p.effects.power * contactDrive.weight : 1;
-        const force = this._limit(requested, maxForce * contactScale);
+        const limited = this._limit(requested, maxForce * contactScale);
+        const force = speedLimit
+            ? this._forceVelocityLimit(
+                  limited,
+                  this._sub(velocity, speedLimit.reference),
+                  speedLimit.maxSpeed,
+              )
+            : limited;
         const impulse = this._mul(force, dt);
         part.body.applyImpulseAtPoint(impulse, point, true);
         // Equal/opposite impulses at the same world point cancel the total wrench.
         // Unlike an opposite force at pelvis COM, this also preserves angular momentum.
         p.root.applyImpulseAtPoint(this._mul(impulse, -1), point, true);
+    }
+
+    /**
+     * 다리 근육의 힘-속도 관계(Hill 곡선의 선형 근사): 발이 엉덩이에 대해 움직이는 방향으로 더 미는 힘은
+     * (1 - 속도/maxSpeed)배로 줄어 maxSpeed에서 0이 된다. 멈추거나 방향을 트는 힘(속도 반대·옆 성분)은 그대로 둔다
+     * (근육은 늘어나며 버틸 때 줄어들며 밀 때보다 약하지 않다). 공·궤적은 건드리지 않고 발에 거는 힘만 줄인다.
+     */
+    _forceVelocityLimit(force, relative, maxSpeed) {
+        const speed = this._length(relative);
+        if (speed < 1e-9) return force;
+        const direction = this._mul(relative, 1 / speed),
+            along = this._dot(force, direction);
+        if (along <= 0) return force;
+        return this._sub(force, this._mul(direction, along * Math.min(1, speed / maxSpeed)));
     }
 
     _instepDrive(p, normal, targetClosing, forefoot, settings, power = false) {
@@ -1722,6 +1744,7 @@ class TakrawPhysics {
                 driveTarget,
                 targetVelocity,
                 forcePoint,
+                hip,
                 muscleResponse,
                 dt,
             });
@@ -1801,10 +1824,11 @@ class TakrawPhysics {
         p,
         foot,
         command,
-        { mode, airTarget, driveTarget, targetVelocity, forcePoint, muscleResponse, dt },
+        { mode, airTarget, driveTarget, targetVelocity, forcePoint, hip, muscleResponse, dt },
     ) {
         const s = p.settings;
         const { groundAcceleration, groundContactDrive, footControl } = command;
+        const groundToss = footControl === this.settings.groundToss;
         this._footDrive(
             p,
             foot,
@@ -1813,7 +1837,7 @@ class TakrawPhysics {
             (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
             dt,
             (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
-            (footControl === this.settings.groundToss
+            (groundToss
                 ? 2 * Math.sqrt(footControl.positionGain * footControl.accelerationMass)
                 : footControl
                   ? footControl.velocityGain
@@ -1831,6 +1855,13 @@ class TakrawPhysics {
                     )
                   : null,
             mode === 'air' ? airTarget.contactDrive : groundContactDrive,
+            // 지상 토스(서브·받기·토스·세트) 발만 다리의 힘-속도 한계를 받는다. 공중 차기(airKick 제어)는 그대로다.
+            groundToss
+                ? {
+                      reference: p.root.velocityAtPoint(hip),
+                      maxSpeed: this.settings.groundToss.maxFootSpeed,
+                  }
+                : null,
         );
     }
 

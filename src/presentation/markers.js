@@ -317,8 +317,7 @@ class TakrawMarkers {
         for (let team = 0; team < 2; team++) {
             const guide = viewData.receiveGuides?.[team],
                 body = guide ? view.meshes.get(`p${guide.playerId}:pelvis`) : null;
-            if (body && guide && rally && team === rig.team)
-                this.receiveGuide(guide, body);
+            if (body && guide && rally && team === rig.team) this.receiveGuide(guide, body);
         }
         for (let team = 0; team < 2; team++) {
             const guide = viewData.attackGuides?.[team];

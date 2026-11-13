@@ -1,13 +1,6 @@
 import { ActionState, createDOMInput } from '@bloom-gamekit/input';
 
-const ACTION_NAMES = Object.freeze([
-    'left',
-    'right',
-    'forward',
-    'back',
-    'jump',
-    'kick',
-]);
+const ACTION_NAMES = Object.freeze(['left', 'right', 'forward', 'back', 'jump', 'kick']);
 
 /**
  * 이 기기의 입력: 키·포인터 장치(createDOMInput), 행동 상태, 터치 패드 축, 발차기 조준, 마우스 카메라 회전, 마지막으로 만든 입력 바이트.

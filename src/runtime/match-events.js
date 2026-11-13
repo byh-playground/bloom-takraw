@@ -82,9 +82,7 @@ class MatchEventJournal {
         const updateImpact = (handle, ageMs) => view.impacts.update(handle.impact, ageMs);
         const showBadge = (payload) => {
             const { team } = perspective();
-            return payload.timing && payload.team === team
-                ? ui.showTiming(payload.timing)
-                : null;
+            return payload.timing && payload.team === team ? ui.showTiming(payload.timing) : null;
         };
         this.queue = new PresentationEventQueue({
             retentionTicks: TAKRAW_RUNTIME.feedback.retentionTicks,

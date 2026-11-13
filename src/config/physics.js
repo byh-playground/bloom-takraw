@@ -34,8 +34,11 @@ const TAKRAW_PHYSICS = Object.freeze({
         minPlanTime: 0.08,
         maxPlanTime: 0.45,
         attackHeight: 3.3,
+        // 서브 발 계획의 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.
+        // 사람·AI 서브 모두 이 계획으로 발을 움직이고 접촉 뒤 공 속도는 덮어쓰지 않는다(v0.19.7부터).
         serveApex: 3.8,
         serveHeight: 0.4,
+        // AI 세트의 접촉 뒤 속도 보정(assistSet)을 켠다.
         attackAssist: true,
         forefoot: 0.08,
         strokeTime: 0.12,

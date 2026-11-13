@@ -47,6 +47,10 @@ const TAKRAW_PHYSICS = Object.freeze({
         positionGain: 1200,
         velocityGain: 50,
         accelerationMass: 4.0,
+        // 지상 토스(서브·받기·토스·세트) 발의 힘-속도 한계(m/s, 엉덩이에 대한 발 속도): 그 방향으로 더 미는 힘이 (1 - 속도/maxFootSpeed)배로 줄어 이 속도에서 0이 된다.
+        // 도움닫기 없이 선 자리에서 차는 다리의 무부하 최대 속도 범위(무릎 펴기 최대 각속도 약 20~25 rad/s × 정강이+발 약 0.5 m ≈ 10~13 m/s, 엉덩이 굽힘이 조금 더한다)의 위쪽 끝.
+        // 늦게 누를수록 짧은 시간에 휘두르는 발이 이 한계에 걸려 더 빨라지지 못한다. 공중 차기(airKick)에는 걸지 않는다.
+        maxFootSpeed: 13,
         orientationStiffness: 1000,
         orientationDamping: 2.0,
         orientationInertia: 0.014,

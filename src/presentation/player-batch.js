@@ -1,6 +1,6 @@
 /**
  * 선수 6명 전부를 본체 드로우 한 번과 등번호 드로우 한 번으로 그린다(DEV-034: 드로우콜이 선수 수·부위 수·장식 수가 아니라 렌더 상태 묶음 수로 정해진다).
- * 그리기는 rigid-batch.js의 RigidBatch(three.js 기본 SkinnedMesh)에 맡긴다: 물리 부위마다 뼈 하나, 장식은 붙은 부위의 뼈, 등번호 판은 같은 뼈대에 묶인 두 번째 메시다.
+ * 그리기는 three-kit의 RigidBatch(three.js 기본 SkinnedMesh)에 맡긴다: 물리 부위마다 뼈 하나, 장식은 붙은 부위의 뼈, 등번호 판은 같은 뼈대에 묶인 두 번째 메시다.
  * 부위 뼈가 곧 view.meshes의 표시 포즈다(position·quaternion·userData.halfHeight). 자세를 굽지 않는다(물리가 매 순간 정한다).
  * 그림자 깊이는 three 기본 깊이 재질의 skinning이 그리고, 직접 넣는 셰이더 코드는 RigidBatch의 부위별 반짝임(emissive 가산)뿐이다.
  *
@@ -10,8 +10,7 @@
  * 와 같다. 몸통 법선은 수평(y 성분 0)이라 y 배율에 그대로이고, 캡은 평행이동뿐이라 법선은 부위 회전만 받는다. 다리는 k 1·o 0, 양말은 k 0.3·o -0.6이다.
  */
 import { takrawSlotOf } from '../simulation/roster.js';
-import { PartList } from './merge-geometry.js';
-import { RigidBatch } from './rigid-batch.js';
+import { PartList, RigidBatch } from '@bloom-gamekit/three-kit';
 
 const SKIN = Object.freeze([0xe9c49e, 0xd0a77f, 0xf1d2ac, 0xe1b88e, 0xb98a65, 0xf0c6a1]);
 // 등번호 아틀라스: 선수마다 64px 칸을 128px 셀 가운데에 둔다. 셀 사이 여백이 밉맵에서 옆 번호가 번지지 않게 한다.

@@ -1,7 +1,7 @@
 import { ObjectPool } from '@bloom-gamekit/object-pool';
 import * as deterministic from '@bloom-gamekit/deterministic';
 import { takrawEventUnits } from '../simulation/random.js';
-import { InstanceLayer, createInstanceMaterial } from './instanced-effects.js';
+import { InstanceLayer } from '@bloom-gamekit/three-kit';
 
 /**
  * 코트 바닥·득점 연출(착지 먼지, 득점 색종이)의 단일 소유자.
@@ -19,20 +19,15 @@ class TakrawFieldEffects {
         this.confettiGeometry = new THREE.PlaneGeometry(0.09, 0.05);
         // 먼지 퍼프와 색종이는 노드·조각 수와 무관하게 인스턴스 레이어 하나씩으로 그린다(DEV-034). 투명도는 인스턴스마다 다르다.
         // 칸은 먼지 노드 16개·색종이 노드 4개가 동시에 겹쳐도 넘치지 않는 수다.
-        this.puffMaterial = createInstanceMaterial(THREE, {});
-        this.confettiMaterial = createInstanceMaterial(THREE, { side: THREE.DoubleSide });
-        this.puffs = new InstanceLayer(
-            THREE,
-            this.puffGeometry,
-            this.puffMaterial,
-            this.style.land.puffs * 16,
-        );
-        this.confetti = new InstanceLayer(
-            THREE,
-            this.confettiGeometry,
-            this.confettiMaterial,
-            this.style.confetti.count * 4,
-        );
+        this.puffs = new InstanceLayer(THREE, {
+            geometry: this.puffGeometry,
+            capacity: this.style.land.puffs * 16,
+        });
+        this.confetti = new InstanceLayer(THREE, {
+            geometry: this.confettiGeometry,
+            capacity: this.style.confetti.count * 4,
+            side: THREE.DoubleSide,
+        });
         scene.add(this.puffs.mesh, this.confetti.mesh);
         this.palette = this.style.confetti.colors.map((color) => new THREE.Color(color));
         this.tint = new THREE.Color(this.style.land.color);
@@ -238,18 +233,10 @@ class TakrawFieldEffects {
         confetti.end();
     }
 
-    /** 로딩 단계에서 컴파일·그리기가 되도록 레이어를 켜 둔다(DEV-032). 이어서 draw()가 실제 상태로 되돌린다. */
-    warmLayers() {
-        this.puffs.warm();
-        this.confetti.warm();
-    }
-
     dispose() {
         this.scene.remove(this.puffs.mesh, this.confetti.mesh);
         this.puffs.dispose();
         this.confetti.dispose();
-        this.puffMaterial.dispose();
-        this.confettiMaterial.dispose();
         this.puffGeometry.dispose();
         this.confettiGeometry.dispose();
         this.active.clear();

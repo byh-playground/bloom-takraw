@@ -10,7 +10,7 @@
  * 와 같다. 몸통 법선은 수평(y 성분 0)이라 y 배율에 그대로이고, 캡은 평행이동뿐이라 법선은 부위 회전만 받는다. 다리는 k 1·o 0, 양말은 k 0.3·o -0.6이다.
  */
 import { takrawSlotOf } from '../simulation/roster.js';
-import { PartList, mergeColored } from './merge-geometry.js';
+import { PartList } from './merge-geometry.js';
 import { RigidBatch } from './rigid-batch.js';
 
 const SKIN = Object.freeze([0xe9c49e, 0xd0a77f, 0xf1d2ac, 0xe1b88e, 0xb98a65, 0xf0c6a1]);
@@ -19,110 +19,6 @@ const NUMBER = Object.freeze({ cell: 128, tile: 64, plate: 0.19 });
 // 늘어나는 캡슐: 다리 본체와 아랫다리 양말.
 const LEG = Object.freeze({ k: 1, o: 0 });
 const SOCK = Object.freeze({ k: 0.3, o: -0.6 });
-
-/** 부위 번호·늘어남 정보를 정점마다 붙이는 PartList. slot을 바꾼 뒤 add하면 그 부위의 정점이 된다. */
-class PlayerParts extends PartList {
-    constructor(THREE) {
-        super(THREE);
-        this.slot = 0;
-    }
-
-    /** options.stretch = { base, k, o }(다리 캡슐), options.uvRect = [u0, v0, du, dv](등번호 아틀라스 칸). */
-    add(geometry, color, options = {}) {
-        super.add(geometry, color, options);
-        Object.assign(this.parts[this.parts.length - 1], {
-            slot: this.slot,
-            stretch: options.stretch ?? null,
-            uvRect: options.uvRect ?? null,
-        });
-    }
-
-    build() {
-        const T = this.THREE,
-            merged = mergeColored(T, this.parts),
-            count = merged.getAttribute('position').count,
-            part = new Float32Array(count),
-            stretch = new Float32Array(count * 4),
-            uv = this.parts.some((entry) => entry.uvRect) ? new Float32Array(count * 2) : null;
-        let offset = 0;
-        for (const { geometry, slot, stretch: s, uvRect } of this.parts) {
-            const position = geometry.getAttribute('position'),
-                source = geometry.getAttribute('uv');
-            for (let i = 0; i < position.count; i++) {
-                const at = offset + i;
-                part[at] = slot;
-                if (s) {
-                    stretch[at * 4] = position.getY(i);
-                    stretch[at * 4 + 1] = s.base;
-                    stretch[at * 4 + 2] = s.k;
-                    stretch[at * 4 + 3] = s.o;
-                }
-                if (uv && uvRect) {
-                    uv[at * 2] = uvRect[0] + source.getX(i) * uvRect[2];
-                    uv[at * 2 + 1] = uvRect[1] + source.getY(i) * uvRect[3];
-                }
-            }
-            offset += position.count;
-        }
-        merged.setAttribute('takrawPart', new T.BufferAttribute(part, 1));
-        merged.setAttribute('takrawStretch', new T.BufferAttribute(stretch, 4));
-        if (uv) {
-            merged.setAttribute('uv', new T.BufferAttribute(uv, 2));
-            merged.deleteAttribute('color');
-        }
-        for (const geometry of this.cache.values()) geometry.dispose();
-        this.cache.clear();
-        this.parts.length = 0;
-        return merged;
-    }
-}
-
-/**
- * 표준 재질(조명·그림자·안개·톤 매핑 그대로)의 셰이더에 부위 자세를 끼운다. normals면 법선도 부위 회전으로 돌리고, glow면 반짝임을 emissive에 더한다.
- * 프로그램 변종은 재질마다 하나(본체·그림자 깊이·등번호)이고 모두 로딩 때 컴파일된다(DEV-032). 반짝임·늘어남은 텍스처 값이라 define을 바꾸지 않는다.
- */
-function injectPose(shader, poses, { normals = false, glow = false } = {}) {
-    shader.uniforms.takrawPoses = poses;
-    shader.vertexShader = shader.vertexShader
-        .replace(
-            'void main() {',
-            `attribute float takrawPart;
-attribute vec4 takrawStretch;
-uniform highp sampler2D takrawPoses;
-${glow ? 'varying float vTakrawGlow;\n' : ''}void main() {
-    int takrawRow = int(takrawPart + 0.5);
-    vec4 takrawC0 = texelFetch(takrawPoses, ivec2(0, takrawRow), 0);
-    vec4 takrawC1 = texelFetch(takrawPoses, ivec2(1, takrawRow), 0);
-    vec4 takrawC2 = texelFetch(takrawPoses, ivec2(2, takrawRow), 0);
-    vec4 takrawC3 = texelFetch(takrawPoses, ivec2(3, takrawRow), 0);
-    mat4 takrawPose = mat4(vec4(takrawC0.xyz, 0.0), vec4(takrawC1.xyz, 0.0), vec4(takrawC2.xyz, 0.0), vec4(takrawC3.xyz, 1.0));${
-        glow ? '\n    vTakrawGlow = takrawC1.w;' : ''
-    }`,
-        )
-        .replace(
-            '#include <begin_vertex>',
-            `#include <begin_vertex>
-    if (takrawStretch.z > 0.0) {
-        float takrawHalf = takrawStretch.z * takrawC0.w, takrawBase = takrawStretch.y, takrawY = takrawStretch.x;
-        transformed.y = (takrawY > takrawBase ? takrawY + takrawHalf - takrawBase
-            : takrawY < -takrawBase ? takrawY - takrawHalf + takrawBase
-            : takrawY * takrawHalf / takrawBase) + takrawStretch.w * takrawC0.w;
-    }
-    transformed = (takrawPose * vec4(transformed, 1.0)).xyz;`,
-        );
-    if (normals)
-        shader.vertexShader = shader.vertexShader.replace(
-            '#include <beginnormal_vertex>',
-            '#include <beginnormal_vertex>\n    objectNormal = mat3(takrawPose) * objectNormal;',
-        );
-    if (glow)
-        shader.fragmentShader = shader.fragmentShader
-            .replace('void main() {', 'varying float vTakrawGlow;\nvoid main() {')
-            .replace(
-                'vec3 totalEmissiveRadiance = emissive;',
-                'vec3 totalEmissiveRadiance = emissive + vec3(vTakrawGlow);',
-            );
-}
 
 class TakrawPlayerBatch {
     /**

@@ -3059,12 +3059,15 @@ class TakrawPhysics {
         const impact = this._add(ballPos, this._mul(ballVel, prediction));
         impact.y -= 0.5 * s.gravity * prediction * prediction;
         const attacking = takrawIsAttacker(input.tossTarget.playerId);
-        const goalHeight = attacking ? toss.attackHeight : height;
-        const upSpeed = Math.sqrt(
-            2 *
-                s.gravity *
-                Math.max(toss.minRise, (attacking ? toss.attackApex : toss.receiveApex) - impact.y),
-        );
+        // 서브 목표(playerId -1)는 동료에게 주는 패스가 아니라 상대 코트 바닥으로 보내는 공이다: 꼭짓점 serveApex를 지나 serveHeight로 내려오는 포물선.
+        const serving = input.tossTarget.playerId === -1;
+        const goalHeight = serving ? toss.serveHeight : attacking ? toss.attackHeight : height;
+        const apex = serving
+            ? Math.max(toss.serveApex, impact.y + 0.6)
+            : attacking
+              ? toss.attackApex
+              : toss.receiveApex;
+        const upSpeed = Math.sqrt(2 * s.gravity * Math.max(toss.minRise, apex - impact.y));
         const flight =
             (upSpeed +
                 Math.sqrt(
@@ -3600,22 +3603,6 @@ class TakrawPhysics {
         const up = Math.sqrt(2 * g * Math.max(toss.minRise, toss.attackApex - position.y));
         const flight =
             (up + Math.sqrt(Math.max(0, up * up + 2 * g * (position.y - toss.attackHeight)))) / g;
-        this.ball.setLinvel(
-            { x: (target.x - position.x) / flight, y: up, z: (target.z - position.z) / flight },
-            true,
-        );
-        return true;
-    }
-
-    /** AI의 서브 발차기(지상·공중 모두): 접촉 직후 공을 꼭짓점 serveApex를 지나 상대 코트 목표점(serveHeight 높이)에 내려오는 포물선으로 보낸다. 사람이 찬 서브에는 부르지 않는다(game.js). */
-    assistServe(p, position, target) {
-        const toss = this.settings.groundToss,
-            g = this.settings.gravity;
-        if (!toss.attackAssist) return false;
-        const apex = Math.max(toss.serveApex, position.y + 0.6),
-            up = Math.sqrt(2 * g * (apex - position.y));
-        const flight =
-            (up + Math.sqrt(Math.max(0, up * up + 2 * g * (position.y - toss.serveHeight)))) / g;
         this.ball.setLinvel(
             { x: (target.x - position.x) / flight, y: up, z: (target.z - position.z) / flight },
             true,

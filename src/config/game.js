@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.19.7';
+const TAKRAW_VERSION = '0.19.8';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -125,7 +125,9 @@ const TAKRAW_CONFIG = Object.freeze({
             spot: { x: -7.2, z: -0.3 },
             // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
             // 던지기를 떼면 위로 던져진다(앞뒤·좌우 속도는 던지는 순간 서버의 이동 속도 그대로). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). jumpApex(m) 이상으로 던지면 AI는 점프서브를 한다. maxHold(초) 안에 안 던지면 자동으로 던진다.
-            groundAim: { x: 4.2 },
+            // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이지만,
+            // 실제 발은 계획보다 세게·가파르게 맞아(v0.19.7 고정 사례) 가운데 조준 공이 약 1.3 m 더 깊게(코트 뒤쪽 2/3 근처) 떨어진다.
+            groundAim: { x: 3.0 },
             toss: {
                 offset: 0.65,
                 height: 1.0,

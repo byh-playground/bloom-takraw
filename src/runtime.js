@@ -53,7 +53,14 @@ function takrawUiCallbacks({
     getView,
     getInput,
 }) {
+    // 화면 이동 지표: 주소가 확정될 때마다 오지만 같은 화면에 다시 들어온 것(교정·재렌더)은 보내지 않는다.
+    let lastScreen = null;
     return {
+        onScreen(screen) {
+            if (screen === lastScreen || screen === 'showcase') return;
+            lastScreen = screen;
+            metrics.track('screen', screen, 'enter');
+        },
         canStart: (nextMode) => match.canStart(nextMode),
         onStart(nextMode) {
             metrics.track('menu', nextMode, 'click');
@@ -334,6 +341,20 @@ async function bootTakraw() {
         metrics.track(category, target, action, { mode: match.mode || 'menu', ...props });
     }
 
+    /** 부팅 지표. loadMs는 페이지 시작부터 준비까지, 나머지는 단계별 걸린 ms(pre는 이 함수가 시작되기 전 모듈 로딩, 100ms 단위로 내린다). */
+    function trackBoot(ready) {
+        const m = bootMarks,
+            round = (ms) => Math.round(ms / 100) * 100;
+        metrics.track('boot', 'ready', 'done', {
+            loadMs: round(ready),
+            pre: round(m.start),
+            club: round(m.club - m.start),
+            phys: round(m.physics - m.club),
+            gfx: round(m.graphics - m.physics),
+            ctl: round(ready - m.graphics),
+        });
+    }
+
     function listen(target, type, callback, options) {
         target.addEventListener(type, callback, options);
         listeners.push(() => target.removeEventListener(type, callback, options));
@@ -507,16 +528,22 @@ async function bootTakraw() {
         if (event.persisted) window.location.reload();
     });
     boot.show(RUNTIME.bootCourt());
+    // 부팅 지표(boot:ready:done): 단계가 끝난 시각(페이지 시작 기준)을 모아 준비되면 한 번 보낸다.
+    const bootMarks = { start: performance.now() };
+    const bootMark = (stage) => (bootMarks[stage] = performance.now());
 
     try {
         await clubLoad;
+        bootMark('club');
         boot.advance('physics');
         boot.show(RUNTIME.bootPlayers());
         if (!RAPIER || typeof RAPIER.init !== 'function') throw new Error('Rapier entry contract');
         await RAPIER.init();
         game = new TakrawGame({ RAPIER, config, deterministic });
+        bootMark('physics');
         boot.advance('graphics');
         view = new TakrawView({ THREE, canvas: ui.canvas, config });
+        bootMark('graphics');
         boot.advance('controls');
         codec = deterministic.createValueCodec();
         const soundReady = await soundLoad;
@@ -567,6 +594,7 @@ async function bootTakraw() {
         boot.advance('ready');
         boot.show('', false);
         ui.showHome();
+        trackBoot(bootMark('ready'));
         renderLoop.start();
         if (!isolated && !embedded) startPwa();
         const query = new URLSearchParams(location.search),

@@ -95,7 +95,7 @@ class TakrawView {
         this.ballScreenStretch = { along: 1, angle: 0 };
         this.ballExtent = 1;
         this.poseHoldValue = 0;
-        // 공·닿은 부위 반짝임(표시 전용): 밝아진 물체 이름과 공 재질 복제본. 선수 부위는 자세 텍스처의 반짝임 값이다.
+        // 공·닿은 부위 반짝임(표시 전용): 밝아진 물체 이름과 공 재질 복제본. 선수 부위는 부위 뼈의 반짝임 값이다.
         this.lit = new Set();
         this.litKeys = new Set();
         this.litMaterials = new Map();
@@ -107,7 +107,7 @@ class TakrawView {
         this.makeVenueBanners();
         this.applyVenue();
         this.makeMarkers();
-        // 선수 6명 전체: 본체 1 draw + 등번호 1 draw(그림자 패스는 본체 1). 부위 자세는 view.meshes의 보관 객체에서 읽는다.
+        // 선수 6명 전체: 본체 1 draw + 등번호 1 draw(그림자 패스는 본체 1). 부위 자세는 view.meshes에 등록한 부위 뼈(SkinnedMesh)다.
         this.players = new TakrawPlayerBatch({
             THREE,
             scene: this.scene,
@@ -662,7 +662,7 @@ class TakrawView {
         return parts.build();
     }
 
-    /** 부위의 표시 반길이(다리 늘어남)를 보관 객체에 적는다. 값이 없거나 0 이하이면 이전 값을 둔다. 다리가 아닌 부위의 값은 셰이더가 쓰지 않는다. */
+    /** 부위의 표시 반길이(다리 늘어남)를 부위 뼈에 적는다. 값이 없거나 0 이하이면 이전 값을 둔다. 다리가 아닌 부위의 값은 쓰지 않는다. */
     stretchPart(holder, halfHeight) {
         if (Number.isFinite(halfHeight) && halfHeight > 0) holder.userData.halfHeight = halfHeight;
     }
@@ -672,15 +672,15 @@ class TakrawView {
         this.schools = schools;
         this.impacts?.setElements(schools.map((school) => school.element));
         this.applyVenue();
-        // 정점 색·머리 모양·등번호 아틀라스를 새 학교로 다시 쓴다. 부위 보관 객체(포즈)는 그대로다.
+        // 정점 색·머리 모양·등번호 아틀라스를 새 학교로 다시 쓴다. 부위 뼈(포즈)는 그대로다.
         this.players.paint(schools);
     }
 
-    /** 처음 보는 물리 부위가 있으면 선수 6명 전부를 한 번에 만들고 부위 보관 객체를 meshes에 등록한다. */
+    /** 처음 보는 물리 부위가 있으면 선수 6명 전부를 한 번에 만들고 부위 뼈를 meshes에 등록한다. */
     addPlayers(entities) {
         const bodies = entities.filter((entity) => entity.kind === 'body');
-        for (const [id, holder] of this.players.build(bodies, this.schools))
-            this.meshes.set(id, holder);
+        for (const [id, bone] of this.players.build(bodies, this.schools))
+            this.meshes.set(id, bone);
     }
 
     createBall(entity) {
@@ -974,7 +974,7 @@ class TakrawView {
 
     /**
      * 접촉 순간 공과 닿은 부위를 잠깐 밝게. 덧그림이 아니라 물체가 밝아진다.
-     * 선수 부위는 자세 텍스처의 반짝임 값(셰이더가 emissive에 더함)이고, 공은 emissive를 켠 재질 복제본을 한 번 만들어 바꿔 끼우고 끝나면 되돌린다.
+     * 선수 부위는 부위 뼈의 반짝임 값(RigidBatch가 emissive에 더함)이고, 공은 emissive를 켠 재질 복제본을 한 번 만들어 바꿔 끼우고 끝나면 되돌린다.
      */
     applyHitFlash() {
         const keys = this.litKeys;

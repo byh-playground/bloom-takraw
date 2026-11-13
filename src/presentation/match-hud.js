@@ -15,6 +15,7 @@ class TakrawMatchHud {
     constructor({ listen, click, callbacks, homeSchool }) {
         this.callbacks = callbacks;
         this.homeSchool = homeSchool;
+        this.bumpPending = [false, false];
         this.text = createTextSetter();
         this.node = document.getElementById('match-hud');
         this.endActions = document.getElementById('end-actions');
@@ -146,6 +147,21 @@ class TakrawMatchHud {
         document.getElementById('hit-pop').hidden = true;
     }
 
+    /** 점수 숫자가 한 번 튄다(CSS 애니메이션 다시 시작). 캔버스 밖 DOM이라 경기 화면을 가리지 않는다. */
+    bumpScore(team) {
+        this.bumpPending[team] = true;
+    }
+
+    /** 숫자가 실제로 바뀌는 순간에 튀게 한다(점수판 갱신은 득점 이벤트보다 늦다). */
+    bumpIfChanged(team, value) {
+        const node = document.getElementById(`score-${team}`);
+        if (!node || !this.bumpPending[team] || node.textContent === String(value)) return;
+        this.bumpPending[team] = false;
+        node.classList.remove('score-bump');
+        void node.offsetWidth;
+        node.classList.add('score-bump');
+    }
+
     hideTiming(token) {
         if (!token || this.timingToken !== token) return;
         this.timingToken = null;
@@ -155,6 +171,7 @@ class TakrawMatchHud {
     update(hud, mode) {
         const policy = TAKRAW_MODE_POLICY[mode],
             flags = TAKRAW_MODES[mode];
+        for (const team of [0, 1]) this.bumpIfChanged(team, hud.score?.[team] ?? 0);
         this.text('score-0', hud.score?.[0] ?? 0);
         this.text('score-1', hud.score?.[1] ?? 0);
         document.getElementById('set-number').hidden =

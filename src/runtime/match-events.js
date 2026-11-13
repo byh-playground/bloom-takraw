@@ -66,7 +66,7 @@ class MatchEventJournal {
     replace() {
         this.queue?.dispose();
         this.inRollback = false;
-        const { view, ui, audio, perspective } = this;
+        const { view, ui, audio, perspective, rumble } = this;
         const showHitPop = (payload) => {
             const text =
                 TAKRAW_CONFIG.visual.impact.styles[
@@ -154,14 +154,28 @@ class MatchEventJournal {
                             !view.reducedMotion()
                         )
                             view.scoreMotion.start(performance.now());
-                        return { node: view.field.startConfetti(event.payload) };
+                        // 득점 순간 시안(주소 score=): 꺼져 있으면 null. 착지점 파동·점수 숫자 반응·득점 팀 진동은 A부터.
+                        const moment = view.scoreMoment.start(event.payload);
+                        if (moment) {
+                            const { mode, team } = perspective();
+                            ui.bumpScore(event.payload.team);
+                            if (TAKRAW_MODES[mode]?.secondaryInput || event.payload.team === team)
+                                rumble.play({
+                                    ...event.payload,
+                                    kind: 'score',
+                                    style: 'scoreLand',
+                                });
+                        }
+                        return { node: view.field.startConfetti(event.payload), moment };
                     },
                     update(handle, ageMs) {
                         if (handle.node) view.field.update(handle.node, ageMs);
+                        if (handle.moment) view.scoreMoment.update(handle.moment, ageMs);
                     },
                     reconcile() {},
                     stop(handle) {
                         view.field.release(handle.node);
+                        if (handle.moment) view.scoreMoment.release(handle.moment);
                     },
                 },
                 sound: audio.eventAdapter((event) => this.queue?.finish(event)),
@@ -232,6 +246,7 @@ class MatchEventJournal {
                     payload: {
                         ...event,
                         winningSpike: winningSpikeScore(event, previousEvent, this.contact),
+                        landing: { ...event.position },
                         position: { x: ((event.team === 0 ? -1 : 1) * halfLength) / 2, y: 0, z: 0 },
                     },
                     policy: 'confirmed',

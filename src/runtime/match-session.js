@@ -9,6 +9,7 @@ import { PresentationFeed } from './presentation-feed.js';
 import { MatchEventJournal } from './match-events.js';
 import { HighlightController } from './highlight-controller.js';
 import { takrawHudModel, HudClock } from './hud-model.js';
+import { TrainingRecord, PerfSummary } from './usage-metrics.js';
 import { takrawMatchSetup, takrawSessionProfile } from './match-setup.js';
 
 /**
@@ -42,6 +43,8 @@ class MatchSession {
         this.net = net;
         this.rewards = rewards;
         this.record = record;
+        this.trainingRecord = new TrainingRecord({ metrics });
+        this.perfSummary = new PerfSummary({ metrics });
         this.recordError = recordError;
         this.trackFailure = trackFailure;
         this.getClub = getClub;
@@ -264,12 +267,26 @@ class MatchSession {
 
     observeMetricsMatch() {
         if (this.isDisposed()) return;
+        this.observeUsageMetrics();
         this.record.observe({
             session: this.session,
             state: this.latestView?.state,
             mode: this.mode,
             schoolId: () => this.rewards.schoolId,
             localTeam: () => this.localTeam(),
+        });
+    }
+
+    /** 연습 과제 통과(TrainingRecord)와 세션당 한 번의 성능 요약(PerfSummary). 값은 이미 있는 뷰·렌더 진단에서 읽는다. */
+    observeUsageMetrics() {
+        const latestView = this.latestView;
+        if (!latestView) return;
+        this.trainingRecord.observe(latestView.training);
+        this.perfSummary.observe({
+            tick: latestView.state.tick,
+            mode: this.mode,
+            quality: this.view.quality,
+            snapshot: () => this.view.renderStats.snapshot(),
         });
     }
 
@@ -494,6 +511,7 @@ class MatchSession {
         const policy = TAKRAW_MODE_POLICY[nextMode],
             flags = TAKRAW_MODES[nextMode];
         const recorded = this.record.begin(nextMode);
+        this.trainingRecord.reset();
         this.watch.point = { tick: null, restarting: false };
         const setup = takrawMatchSetup({
             mode: nextMode,

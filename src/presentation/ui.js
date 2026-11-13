@@ -112,12 +112,16 @@ class TakrawUI {
         // 주소와 브라우저 이력은 gamekit navigation이 소유한다. 이력 복원(뒤로·앞으로·주소 입력)에만 화면을 맞추고,
         // 내부 이동은 navigate가 주소를 바꾼 뒤 직접 화면을 맞춘다.
         this.routes = createNavigation({ normalize: takrawRoute });
+        // 화면 이동 지표(onScreen)도 주소가 확정되는 이 한 곳에서 받는다. 같은 화면 반복은 받는 쪽(runtime)이 거른다.
         this.routes.subscribe((route, { source }) => {
+            this.callbacks.onScreen?.(route.screen);
             if (source === 'history') this.applyRoute(route);
         });
         this.bind();
         this.syncInputMode();
         this.applyRoute(this.routes.snapshot());
+        // 처음 주소('' = main)는 발행되지 않아 처음 화면 진입을 여기서 한 번 알린다.
+        this.callbacks.onScreen?.(this.routes.snapshot().screen);
     }
 
     /** 소리·그래픽 품질 설정 값(runtime이 settings.quality를 읽는다). 설정 화면이 가진다. */

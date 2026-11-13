@@ -198,7 +198,7 @@ class TakrawMarkers {
                 if (selected[takrawTeamOf(i)] === i) this.selection(i, body);
         }
         if (ball && ball.position.y > 0.3) this.locator(ball);
-        this.guides(viewData, context);
+        this.guides(viewData);
         if (ball) this.halo(ball);
         this.end();
     }
@@ -310,7 +310,7 @@ class TakrawMarkers {
             layer.add(this.matrix.multiplyMatrices(this.parent, bar), color, opacity, shape);
     }
 
-    guides(viewData, context) {
+    guides(viewData) {
         const view = this.view,
             rig = view.cameraRig,
             rally = viewData.state?.phase === 'rally';

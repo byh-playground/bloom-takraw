@@ -800,7 +800,8 @@ class TakrawView {
             const vertical = (Math.abs(projectedHeight) + radius) / (tangent * verticalMargin);
             distance = Math.max(distance, depthOffset + Math.max(horizontal, vertical));
         };
-        for (const id of pair ? selected : [selected[team]]) {
+        {
+            const id = selected[team];
             const body = this.meshes.get(`p${id}:pelvis`);
             if (body) {
                 rig.target.set(body.position.x, 0.04, body.position.z);

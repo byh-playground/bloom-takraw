@@ -154,28 +154,31 @@ class MatchEventJournal {
                             !view.reducedMotion()
                         )
                             view.scoreMotion.start(performance.now());
-                        // 득점 순간 시안(주소 score=): 꺼져 있으면 null. 착지점 파동·점수 숫자 반응·득점 팀 진동은 A부터.
-                        const moment = view.scoreMoment.start(event.payload);
-                        if (moment) {
-                            const { mode, team } = perspective();
-                            ui.bumpScore(event.payload.team);
-                            if (TAKRAW_MODES[mode]?.secondaryInput || event.payload.team === team)
-                                rumble.play({
-                                    ...event.payload,
-                                    kind: 'score',
-                                    style: 'scoreLand',
-                                });
-                        }
-                        return { node: view.field.startConfetti(event.payload), moment };
+                        // 득점 착지(표시 전용): 바닥에 닿은 점의 큰 파동, 점수 숫자 튐, 득점 팀 사용자의 진동. 파동·진동은 동작 줄이기에서 꺼진다.
+                        const { mode, team } = perspective();
+                        const landing = event.payload.landing;
+                        const impact =
+                            landing && !view.reducedMotion()
+                                ? view.impacts.start({
+                                      ...event.payload,
+                                      kind: 'score',
+                                      style: 'scoreLand',
+                                      position: { x: landing.x, y: 0, z: landing.z },
+                                  })
+                                : null;
+                        ui.bumpScore(event.payload.team);
+                        if (TAKRAW_MODES[mode]?.secondaryInput || event.payload.team === team)
+                            rumble.play({ ...event.payload, kind: 'score', style: 'scoreLand' });
+                        return { node: view.field.startConfetti(event.payload), impact };
                     },
                     update(handle, ageMs) {
                         if (handle.node) view.field.update(handle.node, ageMs);
-                        if (handle.moment) view.scoreMoment.update(handle.moment, ageMs);
+                        if (handle.impact) view.impacts.update(handle.impact, ageMs);
                     },
                     reconcile() {},
                     stop(handle) {
                         view.field.release(handle.node);
-                        if (handle.moment) view.scoreMoment.release(handle.moment);
+                        if (handle.impact) view.impacts.release(handle.impact);
                     },
                 },
                 sound: audio.eventAdapter((event) => this.queue?.finish(event)),

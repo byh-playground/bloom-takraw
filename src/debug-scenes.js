@@ -32,7 +32,6 @@ export function createDebugScenes({
     openMatch,
     readReplay,
     ballScreen,
-    selectScoreMoment,
 }) {
     const QUANTUM = 1000 / config.simulation.tickRate;
     const scenes = {
@@ -40,10 +39,8 @@ export function createDebugScenes({
          * 시드 하나의 AI 대 AI 경기를 debug-tools 가상 시계로 틱 단위로 진행한다. 시드는 관전 범위(0~maxSeed) 안의 아무 정수다.
          * 일반 관전과 달리 첫 1점 뒤에 다시 열지 않으므로 state()의 tick은 요청한 tick이다(득점 뒤에도 경기가 이어진다).
          */
-        watch({ seed, score }, { freezeClock }) {
+        watch({ seed }, { freezeClock }) {
             if (!openWatch(seed)) throw new Error(`watch needs an integer seed in range: ${seed}`);
-            // score=A|B|C|D: 득점 순간 시안(표시 전용). 없으면 기본 연출.
-            selectScoreMoment(score);
             // 표시·연출이 읽는 시계도 틱에서 나오게 해, 같은 주소가 항상 같은 장면을 만든다. 시계는 호스트가 되돌린다.
             const clock = freezeClock();
             return {
@@ -69,14 +66,14 @@ export function createDebugScenes({
          * camera는 `x,y,z,tx,ty,tz,fov`(카메라 위치, 바라보는 점, 세로 시야각 도)이며 바라보는 점은 공 위치 기준의 상대 좌표다.
          * aim=world면 바라보는 점이 월드 좌표다(카메라가 공을 따라 돌지 않아 접점 효과의 크기 변화를 그대로 본다).
          */
-        spike({ seed, camera, aim, score }, context) {
+        spike({ seed, camera, aim }, context) {
             const values = String(camera).split(',').map(Number);
             if (values.length !== 7 || !values.every(Number.isFinite))
                 throw new Error(`spike needs camera=x,y,z,tx,ty,tz,fov: ${camera}`);
             const [x, y, z, tx, ty, tz, fov] = values;
             if (aim !== undefined && aim !== 'world')
                 throw new Error(`spike aim must be world: ${aim}`);
-            const watch = scenes.watch({ seed, score }, context);
+            const watch = scenes.watch({ seed }, context);
             const style = document.createElement('style');
             style.textContent = '#app > :not(#court-canvas){display:none!important}';
             document.head.append(style);

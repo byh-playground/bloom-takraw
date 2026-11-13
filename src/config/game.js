@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.19.3';
+const TAKRAW_VERSION = '0.19.4';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -15,21 +15,6 @@ const TAKRAW_PRODUCT_NAME = Object.freeze({
 const TAKRAW_DIAGNOSTIC_NAME = TAKRAW_PRODUCT_NAME.en.toUpperCase();
 // 저장·방·지표가 이 게임을 가리키는 식별자. 화면 이름이 아니라서 바꾸면 기존 저장·방 복귀·지표가 끊긴다.
 const TAKRAW_ID = 'bloom-takraw';
-
-// 득점 착지 파동 연출(visual.impact.styles.scoreLand). 설명은 그 자리에 있다.
-const SCORE_LAND = Object.freeze({
-    life: 1.6,
-    wave: 1.5,
-    shade: 2,
-    waveScale: 16,
-    maxScreen: 0.55,
-    flash: false,
-    hold: 0,
-    shake: null,
-    fovPunch: 0,
-    squash: 0,
-    pop: null,
-});
 
 /**
  * 능력치 → 경기 효과의 단일 공식(경기와 팀 관리 화면이 같이 읽는다).
@@ -289,7 +274,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     set: { ms: 10, strong: 0.15, weak: 0.1 },
                     drive: { ms: 30, strong: 0.5, weak: 0.3 },
                     ground: { ms: 30, strong: 0.4, weak: 0.4 },
-                    // 득점 순간(scoreMoment): 득점 팀 사용자에게만.
+                    // 득점 착지: 득점 팀 사용자에게만.
                     scoreLand: { ms: 90, strong: 0.8, weak: 0.5 },
                 },
             },
@@ -453,17 +438,22 @@ const TAKRAW_CONFIG = Object.freeze({
                     pop: null,
                     intensity: 'ball',
                 },
-                // 득점 착지(scoreMoment): 바닥에 닿은 점에서 접촉 파동보다 넓고 느리게 퍼지는 큰 파동 하나. 반짝임·눌림·진동·확대 없이 왜곡과 명암만(maxScreen: 이 파동만 쓰는 반지름 상한).
-                scoreLand: SCORE_LAND,
-                // B 이상: 착지 순간 표시 히트스톱(내 화면의 선수·공 포즈만 멈추고 따라잡는다).
-                scoreLandHold: { ...SCORE_LAND, displayHold: 0.15 },
+                // 득점 착지: 바닥에 닿은 점에서 접촉 파동보다 넓고 느리게 퍼지는 큰 파동 하나. 반짝임·눌림·진동·확대 없이 왜곡과 명암만. 경기를 가리지 않도록 작고 옅게 둔다
+                // (flash: false면 닿은 부위 반짝임 없음, maxScreen: 이 파동만 쓰는 반지름 상한).
+                scoreLand: {
+                    life: 1,
+                    wave: 1,
+                    shade: 1,
+                    waveScale: 8,
+                    maxScreen: 0.28,
+                    flash: false,
+                    hold: 0,
+                    shake: null,
+                    fovPunch: 0,
+                    squash: 0,
+                    pop: null,
+                },
             },
-        },
-        // 득점 순간(표시 전용 시안, 주소 score=A|B|C|D로만 켠다. 꺼져 있으면 기존 연출 그대로): 바닥 착지점의 큰 파동(styles.scoreLand)·점수 숫자 반응·득점 팀 진동은 A부터,
-        // 착지 표시 히트스톱(styles.scoreLandHold)은 B부터, C는 득점 팀 색을 화면 픽셀에 곱셈으로 스치게(tint: 최대 amount, life 초), D는 착지점 둘레만 남기고 가장자리를 곱셈으로 살짝 어둡게(spot: 최대 amount, 밝게 두는 반지름(화면 높이 비율), life 초).
-        scoreMoment: {
-            tint: { amount: 0.12, life: 0.15 },
-            spot: { amount: 0.1, radius: 0.28, life: 0.4 },
         },
         // 공 비행 늘어남(외형만): 표시 속도가 minSpeed 아래면 없고 maxSpeed에서 max배. 나머지 축은 부피 보존으로 줄인다.
         // smoothing: 속도 평활 시간(초), resetDistance: 한 프레임에 이보다 멀리 가면 끊긴 장면으로 보고 속도를 지운다(m).

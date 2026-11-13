@@ -22,8 +22,6 @@ uniform float uAspect;
 uniform float uFront;
 uniform vec2 uLevel;
 uniform vec3 uKeep;
-uniform vec4 uTint;
-uniform vec4 uSpot;
 varying vec2 vUv;
 void main() {
     vec2 scale = vec2(uAspect, 1.0);
@@ -44,11 +42,7 @@ void main() {
     // 공과 그 후광 둘레(uKeep = 중심 u, v와 반지름, 화면 높이 단위)는 밀지 않는다: 얇은 후광 선이 밀려 거칠게 깨져 보이던 문제.
     offset *= smoothstep(uKeep.z, uKeep.z * 1.5, length((vUv - uKeep.xy) * scale));
     vec3 color = texture2D(tScene, vUv - offset).rgb;
-    color *= 1.0 + shade;
-    // 득점 순간 곱셈 보정(그리는 것 없이 원래 픽셀에 곱한다): 팀 색 스침(가장 큰 채널을 1로 맞춘 색이라 밝아지지 않는다), 착지점 둘레만 남기는 가장자리 어두워짐.
-    color *= mix(vec3(1.0), uTint.rgb, uTint.a);
-    color *= 1.0 - uSpot.w * smoothstep(uSpot.z, uSpot.z * 2.2, length((vUv - uSpot.xy) * scale));
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color * (1.0 + shade), 1.0);
 }`;
 
 class TakrawShockWave {
@@ -67,14 +61,6 @@ class TakrawShockWave {
             shade: 0,
             maxScreen: 0,
         }));
-        this.grading = {
-            tintHex: 0,
-            tintAmount: 0,
-            spot: new THREE.Vector3(),
-            spotAmount: 0,
-            spotRadius: 0,
-        };
-        this.spotPoint = new THREE.Vector3();
         this.copy = null;
         this.size = new THREE.Vector2();
         this.point = new THREE.Vector3();
@@ -88,9 +74,6 @@ class TakrawShockWave {
             uFront: { value: this.shape.front },
             uLevel: { value: new THREE.Vector2(this.shape.shade.light, this.shape.shade.dark) },
             uKeep: { value: new THREE.Vector3(0, 0, 0) },
-            // 득점 순간 색 곱셈: uTint = (곱할 색 rgb, 세기), uSpot = (착지점 u, v, 밝게 둘 반지름, 가장자리 어두워짐 세기)
-            uTint: { value: new THREE.Vector4(1, 1, 1, 0) },
-            uSpot: { value: new THREE.Vector4(0, 0, 1, 0) },
         };
         this.material = new THREE.ShaderMaterial({
             vertexShader: VERTEX,
@@ -146,43 +129,14 @@ class TakrawShockWave {
     }
 
     /** 장면을 직접 그리고, 퍼지는 파동이 화면 안에 있으면 그 위에 왜곡 패스를 더한다. */
-    render(scene, camera, impacts, moment = null) {
+    render(scene, camera, impacts) {
         const renderer = this.renderer;
         camera.updateMatrixWorld();
         renderer.getDrawingBufferSize(this.size);
         renderer.render(scene, camera);
         const count = impacts.waves(this.slots);
-        const waves = count > 0 ? this.project(count, camera) : 0;
-        const graded = moment ? this.setGrading(moment, camera) : false;
-        if (!(waves > 0 || graded)) return;
-        if (waves === 0) this.uniforms.uCount.value = 0;
+        if (!(count > 0 && this.project(count, camera) > 0)) return;
         this.composite();
-    }
-
-    /** 득점 순간 곱셈 보정 값을 uniform에 옮긴다. 보정이 없으면 false(없는 동안은 패스를 더하지 않는다). */
-    setGrading(moment, camera) {
-        const grading = this.grading,
-            { uTint, uSpot } = this.uniforms;
-        moment.grade(grading);
-        if (grading.tintAmount > 0) {
-            // 화면은 이미 sRGB로 인코딩된 픽셀이라 팀 색도 hex의 sRGB 값 그대로 곱한다.
-            const hex = grading.tintHex,
-                r = ((hex >> 16) & 255) / 255,
-                g = ((hex >> 8) & 255) / 255,
-                b = (hex & 255) / 255,
-                top = Math.max(r, g, b, 1e-4);
-            uTint.value.set(r / top, g / top, b / top, grading.tintAmount);
-        } else uTint.value.w = 0;
-        if (grading.spotAmount > 0) {
-            this.spotPoint.copy(grading.spot).project(camera);
-            uSpot.value.set(
-                (this.spotPoint.x + 1) / 2,
-                (this.spotPoint.y + 1) / 2,
-                grading.spotRadius,
-                grading.spotAmount,
-            );
-        } else uSpot.value.w = 0;
-        return grading.tintAmount > 0 || grading.spotAmount > 0;
     }
 
     /** 화면을 복사 텍스처에 옮기고 왜곡 패스를 그린다. 복사 텍스처는 화면 크기가 바뀔 때만 다시 만든다. */

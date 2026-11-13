@@ -518,7 +518,7 @@ class TakrawUI {
         this.hud.hideHitPop(token);
     }
 
-    /** 득점 순간 시안: 득점 팀 점수 숫자가 한 번 튄다. */
+    /** 득점 팀 점수 숫자가 한 번 튄다. */
     bumpScore(team) {
         this.hud.bumpScore(team);
     }

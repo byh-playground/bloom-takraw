@@ -9,7 +9,6 @@ import { TakrawReplayImpacts } from './replay-impact.js';
 import { TakrawFieldEffects } from './field-effects.js';
 import { TakrawScoreMotion } from './score-motion.js';
 import { TakrawShockWave } from './shock-wave.js';
-import { TakrawScoreMoment } from './score-moment.js';
 import { PartList, RenderStats, warmUp } from '@bloom-gamekit/three-kit';
 import { TakrawMarkers } from './markers.js';
 import { TakrawPlayerBatch } from './player-batch.js';
@@ -124,13 +123,6 @@ class TakrawView {
         this.replayImpacts = new TakrawReplayImpacts({ impacts: this.impacts, config });
         this.impacts.setElements(this.schools.map((school) => school.element));
         this.shockWave = new TakrawShockWave({ THREE, renderer: this.renderer, config });
-        this.scoreMoment = new TakrawScoreMoment({
-            THREE,
-            config,
-            impacts: this.impacts,
-            teamColor: (team) => this.schools[team].uniform.primary,
-            reducedMotion: () => this.reducedMotion(),
-        });
         this.renderStats = new RenderStats(this.renderer);
         this.field = new TakrawFieldEffects({
             THREE,
@@ -975,7 +967,7 @@ class TakrawView {
         if (ball) this.updateBallMask(ball);
         this.impacts.drawCloud();
         this.field.draw();
-        this.shockWave.render(this.scene, this.camera, this.impacts, this.scoreMoment);
+        this.shockWave.render(this.scene, this.camera, this.impacts);
         this.renderStats.end();
     }
 
@@ -1077,7 +1069,7 @@ class TakrawView {
         this.impacts.drawCloud();
         this.field.draw();
         this.markers.withoutGuides(() =>
-            this.shockWave.render(this.scene, this.camera, this.impacts, this.scoreMoment),
+            this.shockWave.render(this.scene, this.camera, this.impacts),
         );
         guides.forEach((guide, index) => {
             guide.visible = shown[index];

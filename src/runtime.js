@@ -195,7 +195,6 @@ async function installTakrawDebugScenes({
             },
             openMatch: (seed, every) => match.openDebugMatch(seed, every),
             ballScreen: () => view.ballScreen(),
-            selectScoreMoment: (name) => view.scoreMoment.select(name),
             readReplay: () => match.replayState(),
         }),
     });

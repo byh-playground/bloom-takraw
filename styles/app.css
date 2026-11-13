@@ -760,22 +760,6 @@ body:not(.is-home) .site-footer .home-only {
 .bottom-guide kbd {
     font-size: 9px;
 }
-.local-guide {
-    position: absolute;
-    left: 50%;
-    bottom: 82px;
-    transform: translateX(-50%);
-    font-size: 9px;
-    white-space: nowrap;
-    color: #9b664b;
-    background: #fff3e4bc;
-    border-radius: 8px;
-    padding: 7px 10px;
-}
-.local-guide kbd {
-    font-size: 8px;
-    margin: 0 3px;
-}
 .training-actions {
     position: absolute;
     right: max(30px, env(safe-area-inset-right));
@@ -1315,9 +1299,6 @@ body[data-showcase] .touch-actions button.touch-kick.is-down {
     .player-panel {
         bottom: 79px;
     }
-    .local-guide {
-        bottom: 113px;
-    }
     .is-home #court-canvas {
         transform: translateX(13%);
     }
@@ -1471,10 +1452,6 @@ body[data-showcase] .touch-actions button.touch-kick.is-down {
     .bottom-guide kbd {
         padding: 3px 4px;
     }
-    .local-guide {
-        bottom: 96px;
-        font-size: 8px;
-    }
     .modal-layer {
         padding: 55px 20px 25px;
     }
@@ -1602,13 +1579,6 @@ body[data-showcase] .touch-actions button.touch-kick.is-down {
     }
     .bottom-guide > span {
         font-size: 8px;
-    }
-    .local-guide {
-        max-width: 90%;
-        white-space: normal;
-        line-height: 1.9;
-        text-align: center;
-        bottom: 166px;
     }
     .end-actions {
         right: 15px;
@@ -3353,11 +3323,6 @@ body[data-mode='training'] .player-panel {
         box-shadow: inset 0 0 0 4px #f4d88f;
         filter: none;
     }
-    body .local-guide {
-        bottom: calc(163px + env(safe-area-inset-bottom));
-        font-size: 10px;
-        max-width: calc(100% - 28px);
-    }
     body .rotate-note {
         display: none;
     }
@@ -3636,9 +3601,6 @@ body[data-mode='training'] .player-panel {
         }
         body .training-timing-labels {
             font-size: 9px;
-        }
-        body .local-guide {
-            display: none;
         }
         body .end-actions {
             left: 50%;
@@ -4907,7 +4869,6 @@ body[data-replay] .rally-strip,
 body[data-replay] .player-panel,
 body[data-replay] .drive-feedback,
 body[data-replay] .bottom-guide,
-body[data-replay] .local-guide,
 body[data-replay] .end-actions {
     visibility: hidden;
 }
@@ -4999,7 +4960,6 @@ body[data-showcase] .touch-actions button.is-down {
 }
 /* 조작 안내의 단어(data-i18n)는 기울이지 않는다. */
 .home-controls i,
-.bottom-guide i,
-.local-guide i {
+.bottom-guide i {
     font-style: normal;
 }

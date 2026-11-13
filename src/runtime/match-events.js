@@ -1,7 +1,6 @@
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
-import { TAKRAW_MODES } from '../simulation/modes.js';
 import { impactStyleKey, takrawContactKind } from '../presentation/impact.js';
 import { TakrawRumble } from '../presentation/rumble.js';
 import { winningSpikeScore } from '../presentation/score-motion.js';
@@ -76,15 +75,14 @@ class MatchEventJournal {
         };
         // 접촉 효과 시작(사용자 조작 팀의 접촉이면 기기 진동도). 반환한 노드를 update·release에 넘긴다.
         const startImpact = (payload) => {
-            const { mode, team } = perspective();
-            if (TAKRAW_MODES[mode]?.secondaryInput || payload.team === team)
-                this.rumble.play(payload);
+            const { team } = perspective();
+            if (payload.team === team) this.rumble.play(payload);
             return view.impacts.start(payload);
         };
         const updateImpact = (handle, ageMs) => view.impacts.update(handle.impact, ageMs);
         const showBadge = (payload) => {
-            const { mode, team } = perspective();
-            return payload.timing && (TAKRAW_MODES[mode]?.secondaryInput || payload.team === team)
+            const { team } = perspective();
+            return payload.timing && payload.team === team
                 ? ui.showTiming(payload.timing)
                 : null;
         };
@@ -155,7 +153,7 @@ class MatchEventJournal {
                         )
                             view.scoreMotion.start(performance.now());
                         // 득점 착지(표시 전용): 바닥에 닿은 점의 큰 파동, 점수 숫자 튐, 득점 팀 사용자의 진동. 파동·진동은 동작 줄이기에서 꺼진다.
-                        const { mode, team } = perspective();
+                        const { team } = perspective();
                         const landing = event.payload.landing;
                         const impact =
                             landing && !view.reducedMotion()
@@ -167,7 +165,7 @@ class MatchEventJournal {
                                   })
                                 : null;
                         ui.bumpScore(event.payload.team);
-                        if (TAKRAW_MODES[mode]?.secondaryInput || event.payload.team === team)
+                        if (event.payload.team === team)
                             rumble.play({ ...event.payload, kind: 'score', style: 'scoreLand' });
                         return { node: view.field.startConfetti(event.payload), impact };
                     },

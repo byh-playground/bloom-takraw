@@ -256,19 +256,16 @@ class TakrawGame {
         this.revision++;
     }
 
-    decode(input, commands, secondary = false) {
-        const layout = this.config.input,
-            offset = secondary ? layout.stride : 0;
-        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / layout.axisScale;
-        const code = secondary ? 10 : 0;
-        const has = (n) => commands.some((command) => command.payload?.[0] === n + code);
+    decode(input, commands) {
+        const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
+        const has = (n) => commands.some((command) => command.payload?.[0] === n);
         return {
-            x: signed(input[offset] || 0),
-            z: signed(input[offset + 1] || 0),
-            jump: !!((input[offset + 2] || 0) & 1),
-            kick: !!((input[offset + 2] || 0) & 2),
+            x: signed(input[0] || 0),
+            z: signed(input[1] || 0),
+            jump: !!((input[2] || 0) & 1),
+            kick: !!((input[2] || 0) & 2),
             // 조준도 이동 축과 같은 부호 있는 바이트다. 원 밖 값(-128)은 물리 aimedContact가 상한으로 자른다.
-            aim: { x: signed(input[offset + 3] || 0), y: signed(input[offset + 4] || 0) },
+            aim: { x: signed(input[3] || 0), y: signed(input[4] || 0) },
             jumpPressed: has(1),
             kickPressed: has(2),
             restart: has(4),
@@ -301,8 +298,6 @@ class TakrawGame {
                     this.teamSchools[team] = identity.schoolId;
                 }
             }
-            if (this.profile.secondaryInput)
-                humans[1] = this.decode(entry.input, entry.commands || [], true);
         }
         if (this.profile.drill && humans[0]?.trainingLesson) {
             this.setTrainingLesson(humans[0].trainingLesson);

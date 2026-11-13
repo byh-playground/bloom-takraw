@@ -1,6 +1,5 @@
 import { TAKRAW_SCHOOLS } from '../config/schools.js';
 import { takrawHumanPlayerIds } from '../simulation/roster.js';
-import { TAKRAW_MODES } from '../simulation/modes.js';
 import { TAKRAW_MODE_POLICY } from '../config/runtime.js';
 import { takrawNetShape } from '../config/physics.js';
 import { LOCALE } from '../i18n/locale.js';
@@ -742,21 +741,15 @@ class TakrawView {
         const s = this.config.visual.camera,
             rig = this.cameraRig;
         const mode = context.mode ?? viewData.state?.mode;
-        const pair = Boolean(TAKRAW_MODES[mode]?.secondaryInput);
-        const team = pair ? 0 : context.team === 1 ? 1 : 0;
+        const team = context.team === 1 ? 1 : 0;
         this.setViewTeam(team);
         const toward = team === 0 ? 1 : -1;
         const selected = viewData.state?.selected || takrawHumanPlayerIds();
         const player = this.meshes.get(`p${selected[team]}:pelvis`);
         if (!player) return;
         const ball = this.meshes.get('ball');
-        const localPair = pair ? this.meshes.get(`p${selected[1]}:pelvis`) : null;
-        if (localPair) {
-            rig.target.copy(player.position).add(localPair.position).multiplyScalar(0.5);
-        } else {
-            rig.target.copy(player.position);
-            rig.target.x += toward * s.focusAhead;
-        }
+        rig.target.copy(player.position);
+        rig.target.x += toward * s.focusAhead;
         if (ball) {
             rig.target.x += Math.max(
                 -s.maxLateral,

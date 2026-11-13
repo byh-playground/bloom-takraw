@@ -1,4 +1,3 @@
-import { TAKRAW_MODES } from '../simulation/modes.js';
 import { takrawHumanPlayerIds, takrawTeamOf } from '../simulation/roster.js';
 import { InstanceLayer, mergeShapes } from '@bloom-gamekit/three-kit';
 
@@ -189,14 +188,13 @@ class TakrawMarkers {
     draw(viewData, context, ball) {
         const view = this.view;
         this.begin();
-        const selected = viewData.state?.selected || takrawHumanPlayerIds(),
-            pair = Boolean(TAKRAW_MODES[viewData.state?.mode]?.secondaryInput);
+        const selected = viewData.state?.selected || takrawHumanPlayerIds();
         for (let i = 0; i < 6; i++) this.contactShadow(view.meshes.get(`p${i}:pelvis`));
         if (ball) this.ballShadow(ball);
         this.shadowCount = this.ground.count;
         for (let i = 0; i < 6; i++) {
             const body = view.meshes.get(`p${i}:pelvis`);
-            if (body && (pair || takrawTeamOf(i) === view.cameraRig.team))
+            if (body && takrawTeamOf(i) === view.cameraRig.team)
                 if (selected[takrawTeamOf(i)] === i) this.selection(i, body);
         }
         if (ball && ball.position.y > 0.3) this.locator(ball);
@@ -315,17 +313,16 @@ class TakrawMarkers {
     guides(viewData, context) {
         const view = this.view,
             rig = view.cameraRig,
-            local = Boolean(TAKRAW_MODES[context.mode ?? viewData.state?.mode]?.secondaryInput),
             rally = viewData.state?.phase === 'rally';
         for (let team = 0; team < 2; team++) {
             const guide = viewData.receiveGuides?.[team],
                 body = guide ? view.meshes.get(`p${guide.playerId}:pelvis`) : null;
-            if (body && guide && rally && (local || team === rig.team))
+            if (body && guide && rally && team === rig.team)
                 this.receiveGuide(guide, body);
         }
         for (let team = 0; team < 2; team++) {
             const guide = viewData.attackGuides?.[team];
-            if (guide && rally && (local || team === rig.team)) this.attackGuide(guide, team);
+            if (guide && rally && team === rig.team) this.attackGuide(guide, team);
         }
     }
 

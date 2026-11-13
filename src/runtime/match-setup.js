@@ -73,7 +73,7 @@ function takrawMatchSetup({
     };
 }
 
-/** 롤백 세션 프로필. 온라인은 롤백, 혼자·로컬 2인은 지연 없는 락스텝이다. */
+/** 롤백 세션 프로필. 온라인은 롤백, 혼자 하는 경기는 지연 없는 락스텝이다. */
 function takrawSessionProfile({ online, tickRate }) {
     return online
         ? {

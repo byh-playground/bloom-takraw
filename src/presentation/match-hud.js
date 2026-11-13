@@ -65,19 +65,17 @@ class TakrawMatchHud {
         this.node.hidden = false;
         document.getElementById('watch-form').hidden = !policy?.watchSeed;
         document.getElementById('training-actions').hidden = !flags?.drill;
-        document.getElementById('local-guide').hidden = !flags?.secondaryInput;
         this.endActions.hidden = true;
         document
             .querySelector('.scoreboard')
             .classList.toggle('is-training', Boolean(flags?.drill));
-        this.text('team-label-0', flags?.secondaryInput ? UI.local1P() : UI.us()); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
-        this.text('team-label-1', flags?.secondaryInput ? UI.local2P() : UI.them());
+        this.text('team-label-0', UI.us()); // 온라인·관전은 경기가 시작되면 알려 온 팀 이름·학교 이름으로 바뀐다
+        this.text('team-label-1', UI.them());
         this.text(
             'match-type',
             {
                 training: UI.modeTraining,
                 match: UI.modeMatch,
-                local: UI.modeLocal,
                 online: UI.modeOnline,
                 watch: UI.modeWatch,
             }[mode](),
@@ -216,7 +214,7 @@ class TakrawMatchHud {
         callout.hidden = !notice;
         if (callout.dataset.tone !== tone) callout.dataset.tone = tone;
         this.text('selected-name', hud.selectedName || UI.attacker());
-        if (hud.teamNames && !flags?.secondaryInput) {
+        if (hud.teamNames) {
             this.text('team-label-0', hud.teamNames[0] ?? UI.us());
             this.text('team-label-1', hud.teamNames[1] ?? UI.them());
         }
@@ -289,13 +287,11 @@ class TakrawMatchHud {
         if (ended)
             this.text(
                 'match-result',
-                flags?.secondaryInput
-                    ? UI.localWin({ side: hud.matchWinner === 0 ? '1P' : '2P' })
-                    : policy?.namedTeams
-                      ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() })
-                      : hud.matchWinner === 0
-                        ? UI.youWin()
-                        : UI.youLose(),
+                policy?.namedTeams
+                    ? UI.teamWin({ team: hud.teamNames?.[hud.matchWinner] ?? UI.them() })
+                    : hud.matchWinner === 0
+                      ? UI.youWin()
+                      : UI.youLose(),
             );
     }
 

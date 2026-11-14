@@ -17,6 +17,7 @@ function takrawPhysicsSettings(config) {
         throw new RangeError(`physics step ${stepMs}ms exceeds maxStepMs ${settings.maxStepMs}ms`);
     settings.stepSeconds = stepMs / 1000;
     settings.maxStepSeconds = settings.maxStepMs / 1000;
+    settings.controlStepSeconds = settings.controlStepMs / 1000;
     const airKick = settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
@@ -939,35 +940,69 @@ class TakrawPhysics {
     ) {
         const point = applicationPoint || part.body.translation(),
             velocity = part.body.velocityAtPoint(point);
-        const feedback = this._add(
-            this._mul(this._sub(target, point), positionGain),
-            this._mul(this._sub(desiredVelocity, velocity), velocityGain),
-        );
-        let requested = feedForward ? this._add(feedback, feedForward) : feedback;
+        let normalForce = 0;
         if (contactDrive) {
-            const { normal, gap, closing, targetClosing, weight } = contactDrive;
+            const { gap, closing, targetClosing } = contactDrive;
             // The real instep may reach a falling ball before the planned clock.
             // Build the intended closing speed over the actual remaining gap.
             // Only the foot force changes; the ball stays entirely solver-owned.
             const acceleration =
                 (targetClosing * targetClosing - closing * Math.abs(closing)) /
                 (2 * Math.max(gap, this.settings.ballRadius * 0.05));
-            const normalForce = contactDrive.mass * acceleration;
-            requested = this._add(
-                requested,
-                this._mul(normal, (normalForce - this._dot(requested, normal)) * weight),
-            );
+            normalForce = contactDrive.mass * acceleration;
         }
         const contactScale =
             contactDrive?.power && p.effects.power ? 1 + p.effects.power * contactDrive.weight : 1;
-        const limited = this._limit(requested, maxForce * contactScale);
-        const force = speedLimit
-            ? this._forceVelocityLimit(
-                  limited,
-                  this._sub(velocity, speedLimit.reference),
-                  speedLimit.maxSpeed,
-              )
-            : limited;
+        // 걸음 길이와 무관한 발 PD(DEV-035): 이득은 제어 해상도(controlStepMs) 한 칸에서 맞춘 값이다. 걸음이 그보다 길면
+        // 걸음을 그 칸으로 나눠 발(질점, 발 몸체 질량)이 이 힘에 어떻게 움직일지 예측하며 칸마다 힘을 다시 계산하고, 그 평균을 건다.
+        // 걸음 시작 상태 하나로 긴 걸음 내내 같은 힘을 걸면 속도 이득 × 걸음 / 질량이 커져 발이 걸음마다 좌우로 튀고(1/60초에서 공중 차기 2.3),
+        // 힘-속도 한계도 걸음 시작 속도로만 걸려 걸음 안에서 속도가 한계를 넘는다. 걸음이 제어 칸 이하이면 칸이 하나라 계산이 그대로다.
+        const cells = Math.max(1, Math.ceil(dt / this.settings.controlStepSeconds - 1e-9)),
+            cell = dt / cells,
+            // 예측 질량은 발 몸체 질량이다(다리에 매달린 몫은 관절이 따로 푼다). 무겁게 잡으면 칸을 나눠도 걸음 시작 힘과 거의 같아 고쳐지지 않는다.
+            mass = part.body.mass();
+        // 계획 목표는 걸음 끝 시각의 값이다(계획 함수가 this.time + dt로 계산). 칸마다 그 칸 끝의 목표를 쓰도록 목표 속도로 되짚어 첫 칸 끝으로 옮긴다.
+        let error = this._sub(
+                cells > 1 ? this._sub(target, this._mul(desiredVelocity, dt - cell)) : target,
+                point,
+            ),
+            modelVelocity = velocity,
+            sum = null;
+        for (let index = 0; index < cells; index++) {
+            const feedback = this._add(
+                this._mul(error, positionGain),
+                this._mul(this._sub(desiredVelocity, modelVelocity), velocityGain),
+            );
+            let requested = feedForward ? this._add(feedback, feedForward) : feedback;
+            if (contactDrive)
+                requested = this._add(
+                    requested,
+                    this._mul(
+                        contactDrive.normal,
+                        (normalForce - this._dot(requested, contactDrive.normal)) *
+                            contactDrive.weight,
+                    ),
+                );
+            const limited = this._limit(requested, maxForce * contactScale);
+            const cellForce = speedLimit
+                ? this._forceVelocityLimit(
+                      limited,
+                      this._sub(modelVelocity, speedLimit.reference),
+                      speedLimit.maxSpeed,
+                  )
+                : limited;
+            sum = sum ? this._add(sum, cellForce) : cellForce;
+            if (index + 1 < cells) {
+                // 앞먹임(중력·목표 가속 보상)은 목표가 함께 가속하는 몫이라 오차를 줄이지 않는다. 되먹임 몫만 오차를 바꾼다.
+                const correction = feedForward ? this._sub(cellForce, feedForward) : cellForce;
+                modelVelocity = this._add(modelVelocity, this._mul(correction, cell / mass));
+                error = this._add(
+                    error,
+                    this._mul(this._sub(desiredVelocity, modelVelocity), cell),
+                );
+            }
+        }
+        const force = cells > 1 ? this._mul(sum, 1 / cells) : sum;
         const impulse = this._mul(force, dt);
         part.body.applyImpulseAtPoint(impulse, point, true);
         // Equal/opposite impulses at the same world point cancel the total wrench.

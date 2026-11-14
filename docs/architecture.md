@@ -270,6 +270,8 @@ runtime의 `contact`·`ground` 어댑터(`runtime/match-events.js`)는 `presenta
 - 틱 개수로 적던 시간 설정은 ms로 적는다. 틱 환산은 GameKit `deterministic`의 `tickTime({ tickRate })`(DEV-035)가 맡고, 이 스레드에서 틱 수를 아는 한 곳(`runtime.js`, 리플레이 워커는 `highlight-worker.js`)이 하나를 만들어 게임(`TakrawGame.time`)·세션·소개영상에 넘긴다. 시뮬레이션 안의 주기(AI 판단 `aiIntervalMs`)는 `time.fires`·`time.every`(틱마다 1000을 더하고 `intervalMs × tickRate`와 비교, 넘으면 그만큼 빼서 나머지 이월)로 돌고, 누적값(`state.aiClock.elapsed`, 정수)은 경기 상태라 스냅샷·롤백에 들어간다. 지속 시간(짧은 점프 `shortJumpHoldMs`)은 기존처럼 경기 시각(`state.time`)과 비교한다.
 - 틱 개수를 요구하는 외부 API와 틱 번호로 구간을 정하는 표시 쪽만 경계에서 한 번 올림한다(`time.ceilTicks`): 롤백 창·상태 기록·입력 지연·체크섬 간격·따라잡기 한도(`runtime/match-setup.js`), 리플레이 앞뒤 구간·슬로모션 구간·포즈 묶음(`runtime/highlight-controller.js`·`highlight-worker.js`), 표시 사건 보관(`runtime/match-events.js`), 성능 요약 시작(`runtime/usage-metrics.js`).
 - 접촉 타이밍 등급 창(`timing.windowsMs`)은 입력이 틱 시작에 모이는 만큼 반 틱을 더해 판정한다.
+- 발 PD(`physics.js _footDrive`: 지상 토스·서브·받기, 공중 차기, 걷는 발)는 이득을 `config/physics.js`의 `controlStepMs`(1000/120 ms) 한 칸에서 맞춘 값으로 본다(v0.21.0~). 물리 한 걸음이 그보다 길면 걸음을 칸으로 나눠, 발 몸체 질량의 질점이 힘을 받아 움직이는 것을 예측하며 칸마다 되먹임·힘 상한·힘-속도 한계를 다시 계산하고 그 평균 힘을 건다(계획 목표는 걸음 끝 값이라 목표 속도로 칸 끝까지 되짚는다). 걸음이 한 칸 이하(60틱 × substep 2)이면 계산이 이전과 비트 단위로 같다. 걸음 시작 상태 하나로 1/60초 내내 같은 힘을 걸면 속도 이득 × 걸음 / 발 질량이 공중 차기 2.3·지상 토스 1.65가 되어 발이 걸음마다 좌우로 튀었다.
+- 틱 수만 바꾼 비교(60×2, 30×4, 30×2)에서 AI 판단·조향·점프는 틱이 아니라 물리 한 걸음 길이에 따라 달라졌다: 30×4(물리 한 걸음 1/120초)는 이동·점프·서브·스파이크가 60×2와 거의 같았다. 남은 30틱 차이는 접촉 걸음(1/60초 동안 발 힘이 공에 닿은 채 걸림)과 예측 접촉(soft CCD, 60틱에서도 hard CCD보다 지상 서브가 깊다)에서 온다.
 - 틱 번호에 묶인 자료(디버그 장면 주소의 `tick=`, 소개영상 `config/intro.js`의 사건 틱, 명경기 시드 목록)는 60틱·이전 물리의 경기 기준이라 장면이 바뀐다. 실행 오류는 없고 다시 고르는 일은 따로 한다.
 
 ## 시드 난수(v0.17.0~, D-313)

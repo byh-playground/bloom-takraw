@@ -1901,15 +1901,6 @@ class TakrawPhysics {
         targetMap['ankle' + suffix] = pose.ankle;
     }
 
-    /** 차는 다리(넓적다리·정강이·발) 질량 합(kg). */
-    _kickLegMass(p) {
-        const suffix = p.kick.side;
-        return ['upperLeg', 'lowerLeg', 'foot'].reduce(
-            (sum, name) => sum + p.byName[name + suffix].body.mass(),
-            0,
-        );
-    }
-
     /** 지상 토스 마무리 구간: 발등과 힘점의 회전 속도 차이를 목표 속도에서 뺀다(구간 끝으로 갈수록 크게). */
     _groundStrokeVelocity(p, foot, forcePoint, targetVelocity, dt) {
         const plan = p.kick.receivePlan,
@@ -1963,7 +1954,7 @@ class TakrawPhysics {
                                 groundAcceleration,
                                 this.settings.groundToss.accelerationMass,
                             ),
-                            this._v(0, s.gravity * this._kickLegMass(p), 0),
+                            this._v(0, s.gravity * foot.body.mass(), 0),
                         ),
                         muscleResponse,
                     )
@@ -2150,11 +2141,10 @@ class TakrawPhysics {
             if (
                 orientedFoot &&
                 (j.name === 'ankle' + orientedFoot ||
-                    ((mode === 'air' || p.kick.receivePlan) && j.name === 'hip' + orientedFoot))
+                    (mode === 'air' && j.name === 'hip' + orientedFoot))
             ) {
-                // Foot orientation owns the ankle. Every controlled contact lets its
-                // force trajectory own hip direction, without a second
-                // absolute-angle motor pulling the foot through the contact point.
+                // 발 방향 제어가 발목을 맡는다. 공중 차기는 힘 궤적이 엉덩이 방향까지 맡아 엉덩이 모터를 끈다.
+                // 지상 받기·서브·세트는 엉덩이 모터가 IK 자세로 넓적다리 무게를 받치고, 발 구동은 발 몫(발 무게·가속)만 맡는다.
                 for (const axis of [
                     this.R.JointAxis.AngX,
                     this.R.JointAxis.AngY,
@@ -3232,22 +3222,17 @@ class TakrawPhysics {
      * 세기다. 닿는 면은 그 방향과 조준으로 aimedContact가 정하고, 발의 유효 질량·반발로 그 세기를 낼 발 속도를 approach 방향으로 낸다.
      */
     _receiveStrike(p, wanted, incoming, impact, aim) {
-        const s = this.settings,
-            toss = this.settings.groundToss;
+        const s = this.settings;
         // Precontact foot targets only; no ball impulse or velocity assignment.
         // The estimated collision normal and speed guide the articulated foot;
         // its finite reach, force, orientation and actual collision decide the pass.
         const delta = this._sub(wanted, incoming),
             approach = this._unit(delta, this._v(0, 1, 0));
         const contactFoot = p.byName['foot' + p.kick.side];
-        const mass = contactFoot.body.mass(),
-            extent = contactFoot.halfExtents;
-        const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
-        // 발은 자유 상자가 아니라 발목 관절(발 기준점 (0, 0.065, -0.085))에 묶여 있다. 발목이 정강이에 붙잡힌 채 발이 발목을 축으로 도는
-        // 유효 질량(발목 축 관성 / 발목→앞꿈치 거리²)을 쓴다. 자유 상자 모형(1 / (1/m + r²/I))은 0.78 kg, 이 모형은 1.0 kg이다.
-        const ankleInertia = pitchInertia + mass * (0.065 * 0.065 + 0.085 * 0.085),
-            ankleLever = toss.forefoot + 0.085;
-        const contactMass = ankleInertia / (ankleLever * ankleLever);
+        const mass = contactFoot.body.mass();
+        // 지상 받기·서브·세트 동안 엉덩이·무릎 모터가 다리를 받치고 있어, 짧은 충돌 동안 공은 발과 정강이를 한 몸으로 민다
+        // (자유 상자 발 0.78 kg·발목 축 회전 1.0 kg 모형은 실제 전달률 0.94~0.97보다 작게 잡아 발을 너무 빨리 휘둘렀다).
+        const contactMass = mass + p.byName['lowerLeg' + p.kick.side].body.mass();
         const transfer = contactMass / (contactMass + s.ballMass);
         const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
         const { normal, surface } = this.aimedContact(p, impact, approach, aim);

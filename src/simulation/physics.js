@@ -1949,8 +1949,14 @@ class TakrawPhysics {
                   )
                 : groundAcceleration
                   ? this._mul(
-                        this._add(groundAcceleration, this._v(0, s.gravity, 0)),
-                        this.settings.groundToss.accelerationMass * muscleResponse,
+                        this._add(
+                            this._mul(
+                                groundAcceleration,
+                                this.settings.groundToss.accelerationMass,
+                            ),
+                            this._v(0, s.gravity * foot.body.mass(), 0),
+                        ),
+                        muscleResponse,
                     )
                   : null,
             mode === 'air' ? airTarget.contactDrive : groundContactDrive,
@@ -2135,11 +2141,10 @@ class TakrawPhysics {
             if (
                 orientedFoot &&
                 (j.name === 'ankle' + orientedFoot ||
-                    ((mode === 'air' || p.kick.receivePlan) && j.name === 'hip' + orientedFoot))
+                    (mode === 'air' && j.name === 'hip' + orientedFoot))
             ) {
-                // Foot orientation owns the ankle. Every controlled contact lets its
-                // force trajectory own hip direction, without a second
-                // absolute-angle motor pulling the foot through the contact point.
+                // 발 방향 제어가 발목을 맡는다. 공중 차기는 힘 궤적이 엉덩이 방향까지 맡아 엉덩이 모터를 끈다.
+                // 지상 받기·서브·세트는 엉덩이 모터가 IK 자세로 넓적다리 무게를 받치고, 발 구동은 발 몫(발 무게·가속)만 맡는다.
                 for (const axis of [
                     this.R.JointAxis.AngX,
                     this.R.JointAxis.AngY,
@@ -3217,18 +3222,17 @@ class TakrawPhysics {
      * 세기다. 닿는 면은 그 방향과 조준으로 aimedContact가 정하고, 발의 유효 질량·반발로 그 세기를 낼 발 속도를 approach 방향으로 낸다.
      */
     _receiveStrike(p, wanted, incoming, impact, aim) {
-        const s = this.settings,
-            toss = this.settings.groundToss;
+        const s = this.settings;
         // Precontact foot targets only; no ball impulse or velocity assignment.
         // The estimated collision normal and speed guide the articulated foot;
         // its finite reach, force, orientation and actual collision decide the pass.
         const delta = this._sub(wanted, incoming),
             approach = this._unit(delta, this._v(0, 1, 0));
         const contactFoot = p.byName['foot' + p.kick.side];
-        const mass = contactFoot.body.mass(),
-            extent = contactFoot.halfExtents;
-        const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
-        const contactMass = 1 / (1 / mass + (toss.forefoot * toss.forefoot) / pitchInertia);
+        const mass = contactFoot.body.mass();
+        // 지상 받기·서브·세트 동안 엉덩이·무릎 모터가 다리를 받치고 있어, 짧은 충돌 동안 공은 발과 정강이를 한 몸으로 민다
+        // (자유 상자 발 0.78 kg·발목 축 회전 1.0 kg 모형은 실제 전달률 0.94~0.97보다 작게 잡아 발을 너무 빨리 휘둘렀다).
+        const contactMass = mass + p.byName['lowerLeg' + p.kick.side].body.mass();
         const transfer = contactMass / (contactMass + s.ballMass);
         const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
         const { normal, surface } = this.aimedContact(p, impact, approach, aim);

@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.23.1';
+const TAKRAW_VERSION = '0.24.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -118,7 +118,10 @@ const TAKRAW_CONFIG = Object.freeze({
     },
     ai: {
         receiveHeight: 0.75,
-        kickHold: 0.34,
+        // 지상 발차기 조향(simulation/ground-kick-plan.js, decideAI): 예측 접촉이 armMs 안으로 들어오면 누르는 때를 정한다.
+        // 휘두르기 시작 예측보다 pressLeadMs 먼저 눌러 발이 대기점에 자리 잡게 하고(누른 발이 대기점에 서는 데 약 200 ms), 예측 접촉 뒤 물리 followThrough + releaseMs에 떼며,
+        // 뗀 뒤 cooldownMs 동안은 새로 누르지 않는다. 이미 눌렀거나 지난 계획의 접촉이 lockMs 안이면 서는 자리를 바꾸지 않고 지금 자리에서 조준만 고른다.
+        groundKick: { armMs: 900, pressLeadMs: 400, releaseMs: 50, cooldownMs: 160, lockMs: 550 },
         jumpHold: 0.25,
         // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 이 값이 한 틱보다 짧으면 실제로는 누른 한 틱 동안 유지된다(30틱에서 33 ms).
         shortJumpHoldMs: 17,
@@ -131,10 +134,8 @@ const TAKRAW_CONFIG = Object.freeze({
             spot: { x: -7.2, z: -0.3 },
             // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
             // 던지기를 떼면 위로 던져진다(앞뒤·좌우 속도는 던지는 순간 서버의 이동 속도 그대로). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). jumpApex(m) 이상으로 던지면 AI는 점프서브를 한다. maxHold(초) 안에 안 던지면 자동으로 던진다.
-            // groundAim.x: AI 지상 서브(와 목표 없는 마지막 터치)의 조준이 겨누는 상대 코트 x(m, simulation/game.js groundKickAim). 이 점을 groundToss.serveHeight 높이로 지나는 포물선의 방향으로 면을 고른다.
+            // groundAim.x: AI 지상 서브(와 넘기는 지상 공)가 떨어뜨리려는 상대 코트 x(m, 자기 팀 방향 좌표, simulation/game.js groundKickGoal).
             groundAim: { x: 2.7 },
-            // AI 지상 서브가 발차기를 누르기 시작하는 때: 공이 접촉 높이에 오기 이만큼(ms) 전. 발은 누르는 동안 공을 따라가므로 늦게 누를수록 세다.
-            kickLeadMs: 150,
             toss: {
                 offset: 0.65,
                 height: 1.0,
@@ -183,8 +184,8 @@ const TAKRAW_CONFIG = Object.freeze({
             aim: { dx: 0.7, dz: 0 },
             // 세트 목표점이 공격수 기준점 둘레의 직사각형 안에서 흩어지는 반 길이(m): 능력별 [토스 능력 기본값(50), 최대값(100)]. 앞뒤(x)는 좁고 좌우(z)는 넓다(simulation/game.js tossSpread).
             spread: { half: { x: [0.3, 0.1], z: [1.0, 0.25] } },
-            // lead: AI 지상 받기·토스·세트가 공이 접촉 높이에 오기 몇 초 전에 누르는지. 일찍 누르면 공이 높을 때 휘둘러 정강이에 먼저 닿는다.
-            ground: { lead: 0.15, followThrough: 0.15, window: 0.45 },
+            // followThrough: 받기 예측의 접촉 시각이 지나도 그 받기를 붙잡아 두는 시간(초, decideReceive).
+            ground: { followThrough: 0.15 },
             lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
             attack: {
                 offset: 0.65,

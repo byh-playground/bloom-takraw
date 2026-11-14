@@ -37,7 +37,7 @@ const TAKRAW_PHYSICS = Object.freeze({
     netHalfThickness: 0.025,
     post: { gap: 0.12, radius: 0.045, halfLength: 0.74, centerY: 0.79 },
     // 지상 발차기(서브·받기·토스·세트, v0.23.0~ D-421): 누르는 동안 발이 매 걸음 지금 공(조준으로 옮긴 가상 중심)을 따라간다.
-    // 목표 지점에서 거꾸로 계산한 발 궤적은 없다. 아래 포물선 값(contactHeight·…·minRise)은 AI가 누를 때·조준을 고르는 데와
+    // 목표 지점에서 거꾸로 계산한 발 궤적은 없다. 아래 포물선 값(contactHeight·…·minRise)은 AI 조향의 목표(game.js groundKickGoal)와
     // AI 세트 보정(assistSet)·받기 예측(planReceive)이 읽는다.
     groundToss: {
         contactHeight: 0.75,
@@ -51,6 +51,8 @@ const TAKRAW_PHYSICS = Object.freeze({
         forefoot: 0.08,
         // 발이 공에 닿은 뒤 같은 누름으로 공을 따라가는 시간(초). 지나면 발은 평소 자세로 돌아간다(떠나는 공을 다시 쫓지 않는다).
         followThrough: 0.08,
+        // 공이 다리 범위 밖이거나 엉덩이보다 높을 때 발등이 기다리는 자리(m, 엉덩이 기준): 아래로 below, 공 쪽 수평 방향으로 ahead(D-428).
+        wait: { below: 0.7, ahead: 0.6 },
         // 발 PD: 위치 이득과, 속도 이득 2√(positionGain·accelerationMass)를 정하는 질량(kg).
         positionGain: 1200,
         accelerationMass: 4.0,

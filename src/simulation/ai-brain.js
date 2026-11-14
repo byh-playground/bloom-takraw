@@ -142,22 +142,23 @@ class CoverState extends AiState {
     }
 }
 
-/** 실제로 공을 받는 선수. 물리 계획이 정한 자리에 선다. */
+/** 실제로 공을 받는 선수. 지상 발차기 조향(ground-kick-plan.js)이 고른 자리, 아직 없으면 받기 예측(planReceive)의 자리에 선다. */
 class ReceiveState extends AiState {
     constructor() {
         super('receive');
     }
-    target({ defense }) {
-        return { ...defense.plan.stance };
+    target({ defense, groundPlan }) {
+        return { ...(groundPlan?.stance || defense.plan.stance) };
     }
 }
 
-/** 공을 향해 다가서는 상태의 공통 부분. 자리는 aim에서 offset 떨어진 곳이다. */
+/** 공을 향해 다가서는 상태의 공통 부분. 지상 발차기 조향이 고른 자리가 있으면 그곳, 없으면 aim에서 offset 떨어진 곳이다. */
 class ApproachState extends AiState {
     offset() {
         throw new Error(`${this.name}: offset 미구현`);
     }
     target(ctx) {
+        if (ctx.groundPlan) return { ...ctx.groundPlan.stance };
         return ctx.game.approachPosition(ctx.team, ctx.aim, this.offset(ctx));
     }
 }
@@ -217,7 +218,7 @@ class AiBrain {
         );
     }
 
-    /** ctx: { game, player, team, ball, aim, defense, active, highContact, setTarget, record, temperament, now } */
+    /** ctx: { game, player, team, ball, aim, defense, active, highContact, setTarget, groundPlan, record, temperament, now } */
     wanted(ctx) {
         if (ctx.defense) return ctx.player === ctx.active ? 'receive' : 'cover';
         if (ctx.player === ctx.active)

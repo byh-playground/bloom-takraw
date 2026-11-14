@@ -3554,7 +3554,7 @@ class TakrawPhysics {
         };
     }
 
-    /** 걸음 안 비율 s(0~1)의 부위 자세: 위치는 직선, 회전은 정규화한 선형 보간(nlerp). */
+    /** 걸음 안 비율 s(0~1)의 부위 자세: 위치는 직선, 회전은 정규화한 선형 보간(nlerp). 속도는 걸음 끝 값을 쓴다(_sweepBallContacts). */
     _sweepPose(entry, s) {
         const a = entry.start,
             b = entry.end;
@@ -3577,8 +3577,6 @@ class TakrawPhysics {
         return {
             position: lerp(a.position, b.position),
             rotation: { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n },
-            linear: lerp(a.linear, b.linear),
-            angular: lerp(a.angular, b.angular),
         };
     }
 
@@ -3708,9 +3706,12 @@ class TakrawPhysics {
             hit.add(entry);
             const contact = this._shapeDistance(part, center, at.position, at.rotation),
                 n = contact.normal;
+            // 부위 속도는 걸음 끝 값이다. Rapier는 걸음 처음에 관절·제약으로 속도를 푼 뒤 그 속도로 위치를 적분하므로(반암시 오일러) 걸음 안에서
+            // 부위가 실제로 움직인 속도가 그것이다. 걸음 시작 값은 발 PD·발 방향 충격을 막 받고 관절이 아직 풀지 않은 속도라, 걸음이 길수록
+            // 실제 움직임과 멀어진다(25 ms 서브에서 발 각속도 약 39 rad/s 대 걸음 끝 약 23 rad/s).
             const partVelocity = this._add(
-                at.linear,
-                this._cross(at.angular, this._sub(contact.point, at.position)),
+                entry.end.linear,
+                this._cross(entry.end.angular, this._sub(contact.point, at.position)),
             );
             const ballVelocity = ballVelocityAt(s);
             // 공 표면 접촉점의 속도(회전 포함) - 부위 접촉점 속도.

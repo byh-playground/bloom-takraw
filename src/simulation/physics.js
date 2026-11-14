@@ -940,17 +940,19 @@ class TakrawPhysics {
     ) {
         const point = applicationPoint || part.body.translation(),
             velocity = part.body.velocityAtPoint(point);
-        let normalForce = 0;
-        if (contactDrive) {
-            const { gap, closing, targetClosing } = contactDrive;
+        // 발등 밀기(contactDrive): 남은 틈 안에서 접근 속도를 targetClosing까지 만드는 법선 힘. 칸마다 그 칸 시작의 예측 틈·접근 속도로 다시 계산한다
+        // (걸음 시작 값 하나로 긴 걸음 내내 밀면 접근 속도가 목표를 지나쳐도 계속 민다). 공은 솔버가 그대로 푼다.
+        let driveGap = contactDrive ? contactDrive.gap : 0,
+            driveClosing = contactDrive ? contactDrive.closing : 0;
+        const driveForce = () => {
             // The real instep may reach a falling ball before the planned clock.
             // Build the intended closing speed over the actual remaining gap.
-            // Only the foot force changes; the ball stays entirely solver-owned.
+            const targetClosing = contactDrive.targetClosing;
             const acceleration =
-                (targetClosing * targetClosing - closing * Math.abs(closing)) /
-                (2 * Math.max(gap, this.settings.ballRadius * 0.05));
-            normalForce = contactDrive.mass * acceleration;
-        }
+                (targetClosing * targetClosing - driveClosing * Math.abs(driveClosing)) /
+                (2 * Math.max(driveGap, this.settings.ballRadius * 0.05));
+            return contactDrive.mass * acceleration;
+        };
         const contactScale =
             contactDrive?.power && p.effects.power ? 1 + p.effects.power * contactDrive.weight : 1;
         // 걸음 길이와 무관한 발 PD(DEV-035): 이득은 제어 해상도(controlStepMs) 한 칸에서 맞춘 값이다. 걸음이 그보다 길면
@@ -968,6 +970,11 @@ class TakrawPhysics {
             ),
             modelVelocity = velocity,
             sum = null;
+        // 공과 새로 닿는 걸음: 발이 공에 닿는 칸까지의 힘만 건다. Rapier는 걸음 시작에 건 충격량을 다 실은 발 속도로 충돌을 풀므로,
+        // 닿은 뒤 칸의 힘까지 미리 실으면 공이 떠난 뒤에 발이 받을 가속이 반발과 함께 공에 실린다(걸음이 길수록 공이 세진다).
+        // 닿는 칸까지는 제어 칸 한 걸음(60틱 시절 물리 한 걸음)과 같은 계산이고, 걸음이 한 칸이면 아무것도 바뀌지 않는다.
+        const approach = cells > 1 ? this._ballApproach(part) : null;
+        let gap = approach ? approach.gap : 0;
         for (let index = 0; index < cells; index++) {
             const feedback = this._add(
                 this._mul(error, positionGain),
@@ -979,7 +986,7 @@ class TakrawPhysics {
                     requested,
                     this._mul(
                         contactDrive.normal,
-                        (normalForce - this._dot(requested, contactDrive.normal)) *
+                        (driveForce() - this._dot(requested, contactDrive.normal)) *
                             contactDrive.weight,
                     ),
                 );
@@ -995,19 +1002,65 @@ class TakrawPhysics {
             if (index + 1 < cells) {
                 // 앞먹임(중력·목표 가속 보상)은 목표가 함께 가속하는 몫이라 오차를 줄이지 않는다. 되먹임 몫만 오차를 바꾼다.
                 const correction = feedForward ? this._sub(cellForce, feedForward) : cellForce;
-                modelVelocity = this._add(modelVelocity, this._mul(correction, cell / mass));
+                const change = this._mul(correction, cell / mass);
+                modelVelocity = this._add(modelVelocity, change);
                 error = this._add(
                     error,
                     this._mul(this._sub(desiredVelocity, modelVelocity), cell),
                 );
+                if (contactDrive) {
+                    driveClosing += this._dot(change, contactDrive.normal);
+                    driveGap -= driveClosing * cell;
+                }
+                if (approach && gap > 0) {
+                    // 이 칸 동안 발 접점과 공 중심이 법선 방향으로 가까워지는 거리(공은 중력 포물선, 발은 예측 속도).
+                    approach.closing += this._dot(change, approach.normal);
+                    gap -=
+                        approach.closing * cell +
+                        0.5 * this.settings.gravity * approach.normal.y * cell * cell;
+                    approach.closing += this.settings.gravity * approach.normal.y * cell;
+                    if (gap <= 0) break;
+                }
             }
         }
-        const force = cells > 1 ? this._mul(sum, 1 / cells) : sum;
-        const impulse = this._mul(force, dt);
+        const impulse = this._mul(sum, cell);
         part.body.applyImpulseAtPoint(impulse, point, true);
         // Equal/opposite impulses at the same world point cancel the total wrench.
         // Unlike an opposite force at pelvis COM, this also preserves angular momentum.
         p.root.applyImpulseAtPoint(this._mul(impulse, -1), point, true);
+    }
+
+    /**
+     * 발(상자)과 공의 지금 틈(m)·법선(발 위 가장 가까운 점 → 공 중심)·법선 방향 접근 속도(m/s, 발 접점 속도 - 공 속도).
+     * 이미 닿아 있으면 null이다. _footDrive가 긴 걸음 안에서 새 접촉 시각을 찾는 데만 쓴다.
+     */
+    _ballApproach(part) {
+        if (!part.halfExtents) return null;
+        const body = part.body,
+            rotation = body.rotation(),
+            center = body.translation(),
+            ball = this.ball.translation(),
+            extent = part.halfExtents;
+        const local = this._rotate(this._conj(rotation), this._sub(ball, center));
+        const nearest = this._rotate(rotation, {
+            x: this._clamp(local.x, -extent.x, extent.x),
+            y: this._clamp(local.y, -extent.y, extent.y),
+            z: this._clamp(local.z, -extent.z, extent.z),
+        });
+        const surface = this._add(center, nearest),
+            offset = this._sub(ball, surface),
+            distance = this._length(offset),
+            gap = distance - this.settings.ballRadius;
+        if (distance < 1e-6 || gap <= 0) return null;
+        const normal = this._mul(offset, 1 / distance);
+        return {
+            gap,
+            normal,
+            closing: this._dot(
+                this._sub(body.velocityAtPoint(surface), this.ball.linvel()),
+                normal,
+            ),
+        };
     }
 
     /**

@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.23.0';
+const TAKRAW_VERSION = '0.23.1';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -183,8 +183,8 @@ const TAKRAW_CONFIG = Object.freeze({
             aim: { dx: 0.7, dz: 0 },
             // 세트 목표점이 공격수 기준점 둘레의 직사각형 안에서 흩어지는 반 길이(m): 능력별 [토스 능력 기본값(50), 최대값(100)]. 앞뒤(x)는 좁고 좌우(z)는 넓다(simulation/game.js tossSpread).
             spread: { half: { x: [0.3, 0.1], z: [1.0, 0.25] } },
-            // lead: AI 지상 받기·토스·세트가 공이 접촉 높이에 오기 몇 초 전에 누르는지. 일찍 누르면 다 펴진 다리의 정강이에 공이 먼저 닿는다.
-            ground: { lead: 0.15, followThrough: 0.15, window: 0.45 },
+            // lead: AI 지상 받기·토스·세트가 공이 다리 범위(physics strikeEntryTime)에 들어오기 몇 초 전에 누르는지(game.js groundKickDelay).
+            ground: { lead: 0.25, followThrough: 0.15, window: 0.45 },
             lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
             attack: {
                 offset: 0.65,

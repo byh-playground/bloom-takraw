@@ -1786,7 +1786,7 @@ class TakrawPhysics {
             const suffix = p.kick.side,
                 foot = p.byName['foot' + suffix];
             const hip = this._point(root, { x: suffix === 'L' ? -0.12 : 0.12, y: -0.06, z: 0 });
-            const command = this._kickCommand(p, input, mode, airTarget);
+            const command = this._kickCommand(p, input, mode, airTarget, hip);
             // The air controller already projects position and velocity together
             // into the current leg workspace. The ground foot is kept inside the leg's reach here.
             if (mode !== 'air') this._limitGroundKickReach(p, suffix, foot, hip, command, dt);
@@ -1924,7 +1924,7 @@ class TakrawPhysics {
      * 공 속도에 그 방향으로 다리가 낼 수 있는 최대 속도(maxFootSpeed)를 더한 값이다. 실제 발 속도는 다리 힘 상한과
      * 힘-속도 한계, 다리 길이가 정하고, 공의 세기·방향은 닿는 순간의 발 속도·면과 접촉 물리가 정한다.
      */
-    _kickCommand(p, input, mode, airTarget) {
+    _kickCommand(p, input, mode, airTarget, hip) {
         if (mode === 'air')
             return {
                 target: airTarget.target,
@@ -1957,6 +1957,10 @@ class TakrawPhysics {
             this._sub(heading, this._mul(normal, this._dot(heading, normal))),
             this._v(p.toward, 0, 0),
         );
+        // 공이 다리(엉덩이→발목 최대 길이 + 발목→발등 + 공 반지름) 밖이면 발로 공 쪽을 가리키며 따라가기만 하고 휘두르지 않는다.
+        // 닿지 않는 공으로 다리 끝 속도를 내면 다리 길이 제한이 그 속도를 엉덩이 둘레 구면을 따라 돌려, 엉덩이보다 낮은 발은 위로 갈수록
+        // 공보다 바깥(앞)으로 지나가고 공은 펴진 다리 위, 정강이 쪽으로 떨어진다. 가리키기만 하면 다리 선이 늘 공 중심을 지나 다리 끝(발)이 공에 가장 가깝다.
+        const within = this._length(this._sub(ballPos, hip)) <= this._strikeRange(p, p.kick.side);
         // 발 중심: 발등(위로 0.055)이 가상 중심에 오고 앞꿈치(forefoot)가 맞는 자리.
         const target = this._sub(
             this._sub(virtualCenter, this._mul(normal, 0.055)),
@@ -1964,7 +1968,9 @@ class TakrawPhysics {
         );
         return {
             target,
-            targetVelocity: this._add(ballVel, this._mul(toward, toss.maxFootSpeed)),
+            targetVelocity: within
+                ? this._add(ballVel, this._mul(toward, toss.maxFootSpeed))
+                : { ...ballVel },
             contactNormal: normal,
             contactForward: forward,
             footControl: toss,
@@ -2291,6 +2297,39 @@ class TakrawPhysics {
      * aimedContact의 역: 지상 발차기에서 impact의 공을 normal 방향으로 미는 면이 되게 하는 조준(-1..1). 발이 공으로 향하는 방향은
      * 지금 발등에서 impact 쪽이다. 조준 상한(kickAim.maxOffset)을 넘는 기울기는 상한으로 자른다. AI가 누르는 동안 조준을 고르는 데만 쓴다.
      */
+    /** 지상 발차기가 공을 휘두를 수 있는 엉덩이→공 중심 거리(m): 엉덩이→발목 최대 길이 + 발목→발등 + 공 반지름. */
+    _strikeRange(p, suffix) {
+        return (
+            this._legReach(p, suffix) +
+            this.settings.groundToss.forefoot +
+            0.085 +
+            this.settings.ballRadius
+        );
+    }
+
+    /**
+     * 지금 공이 중력 포물선 그대로 날아갈 때, 지금 자리의 엉덩이(주발 쪽) 둘레 지상 발차기 범위(_strikeRange)에 처음 들어오는 시각(초 뒤).
+     * horizon 안에 들어오지 않으면 null. 공·몸에 쓰지 않는 읽기 전용 예측이며 AI가 발차기를 누를 때를 정하는 데만 쓴다.
+     */
+    strikeEntryTime(p, horizon) {
+        const s = this.settings,
+            g = s.gravity,
+            step = s.controlStepSeconds;
+        const ball = this.ball.translation(),
+            velocity = this.ball.linvel();
+        const suffix = s.dominantFoot.side;
+        const hip = this._point(p.root, this._v(suffix === 'L' ? -0.12 : 0.12, -0.06, 0));
+        const range = this._strikeRange(p, suffix);
+        for (let t = 0; t <= horizon; t += step) {
+            const y = ball.y + velocity.y * t - 0.5 * g * t * t;
+            if (y < s.ballRadius) return null;
+            const dx = ball.x + velocity.x * t - hip.x,
+                dz = ball.z + velocity.z * t - hip.z;
+            if (Math.hypot(dx, y - hip.y, dz) <= range) return t;
+        }
+        return null;
+    }
+
     groundAimFor(p, impact, normal) {
         const reach = this.settings.kickAim.maxOffset;
         const foot = p.byName['foot' + p.kick.side].body;

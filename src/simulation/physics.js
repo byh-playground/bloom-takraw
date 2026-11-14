@@ -3243,7 +3243,11 @@ class TakrawPhysics {
         const mass = contactFoot.body.mass(),
             extent = contactFoot.halfExtents;
         const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
-        const contactMass = 1 / (1 / mass + (toss.forefoot * toss.forefoot) / pitchInertia);
+        // 발은 자유 상자가 아니라 발목 관절(발 기준점 (0, 0.065, -0.085))에 묶여 있다. 발목이 정강이에 붙잡힌 채 발이 발목을 축으로 도는
+        // 유효 질량(발목 축 관성 / 발목→앞꿈치 거리²)을 쓴다. 자유 상자 모형(1 / (1/m + r²/I))은 0.78 kg, 이 모형은 1.0 kg이다.
+        const ankleInertia = pitchInertia + mass * (0.065 * 0.065 + 0.085 * 0.085),
+            ankleLever = toss.forefoot + 0.085;
+        const contactMass = ankleInertia / (ankleLever * ankleLever);
         const transfer = contactMass / (contactMass + s.ballMass);
         const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
         const { normal, surface } = this.aimedContact(p, impact, approach, aim);

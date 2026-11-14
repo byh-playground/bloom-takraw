@@ -1,7 +1,6 @@
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
-import { takrawTickCount } from '../simulation/tick-time.js';
 import { impactStyleKey, takrawContactKind } from '../presentation/impact.js';
 import { TakrawRumble } from '../presentation/rumble.js';
 import { winningSpikeScore } from '../presentation/score-motion.js';
@@ -40,8 +39,9 @@ function contactDuration(payload) {
  * 세션마다 replace()로 새 큐를 만들고 close()로 닫는다. 보는 모드·팀은 perspective()로 읽는다.
  */
 class MatchEventJournal {
-    constructor({ config, view, ui, audio, perspective }) {
+    constructor({ config, time, view, ui, audio, perspective }) {
         this.config = config;
+        this.time = time;
         this.view = view;
         this.ui = ui;
         this.audio = audio;
@@ -86,11 +86,7 @@ class MatchEventJournal {
             return payload.timing && payload.team === team ? ui.showTiming(payload.timing) : null;
         };
         this.queue = new PresentationEventQueue({
-            retentionTicks: takrawTickCount(
-                TAKRAW_RUNTIME.feedback.retentionMs,
-                TAKRAW_CONFIG.simulation.tickRate,
-                1,
-            ),
+            retentionTicks: Math.max(1, this.time.ceilTicks(TAKRAW_RUNTIME.feedback.retentionMs)),
             adapters: {
                 contact: {
                     reversible: true,

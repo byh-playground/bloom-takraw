@@ -62,7 +62,7 @@ const TAKRAW_CONFIG = Object.freeze({
     status: 'Candidate',
     // tickRate: 초당 틱(입력·AI·규칙 한 번). 물리 한 걸음은 1000/(tickRate·substeps) ms이고 config/physics.js maxStepMs를 넘지 못한다.
     //   v0.20.0에서 60 → 30(물리 초당 120 → 60). 20(한 걸음 25 ms)은 발-공 접촉이 같은 계획에서도 매번 크게 달라 쓰지 않는다.
-    //   시간 설정은 ms로 적고 틱 수로는 simulation/tick-time.js에서만 맞춘다. 그래서 tickRate를 바꿀 때 다른 설정을 고치지 않는다.
+    //   시간 설정은 ms로 적고 틱 수로는 gamekit tickTime({ tickRate })로만 맞춘다. 그래서 tickRate를 바꿀 때 다른 설정을 고치지 않는다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
     simulation: { tickRate: 30, substeps: 2, aiIntervalMs: 66, fixedSeed: 7 },

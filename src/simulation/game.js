@@ -10,7 +10,6 @@ import {
 import { takrawDecodeIdentity } from './identity.js';
 import { takrawModeProfile } from './modes.js';
 import { takrawSeededUnit } from './random.js';
-import { takrawTickPeriod } from './tick-time.js';
 import { TAKRAW_ROLE } from '../config/game.js';
 import {
     TAKRAW_ROLES,
@@ -34,9 +33,13 @@ const INT8_MAX = 127;
 
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
-    /** deterministic은 gamekit `@bloom-gamekit/deterministic` 모듈이다. 리플레이 워커에는 import map이 없어 RAPIER처럼 받는다. */
-    constructor({ RAPIER, config, deterministic }) {
+    /**
+     * deterministic은 gamekit `@bloom-gamekit/deterministic` 모듈이다. 리플레이 워커에는 import map이 없어 RAPIER처럼 받는다.
+     * time은 그 모듈의 `tickTime({ tickRate })`(DEV-035)로, 이 스레드에서 틱 수를 아는 한 곳이 만들어 넘긴다.
+     */
+    constructor({ RAPIER, config, deterministic, time }) {
         this.config = config;
+        this.time = time;
         this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
         this.timingJudge = new TakrawTimingJudge(config.timing, config.simulation.tickRate);
@@ -145,7 +148,7 @@ class TakrawGame {
             phase: 'ready',
             tick: 0,
             time: 0,
-            // AI 판단 주기의 정수 누적값(ms × tickRate 단위, simulation/tick-time.js).
+            // AI 판단 주기의 정수 누적값(ms × tickRate 단위, gamekit tickTime).
             aiClock: { elapsed: 0 },
             seed: profile.repeatable ? this.config.simulation.fixedSeed : seed >>> 0,
             score: [0, 0],
@@ -382,12 +385,11 @@ class TakrawGame {
         }
 
         // AI 갱신 주기는 경기 상태 안의 누적 시계(state.aiClock) 기준이다. 호스트가 넘기는 frame.tick은 세션마다 시작이 달라(게임킷 세션 0, 시뮬레이션 도구 1)
-        // 틱 번호로 주기를 정하면 같은 시드가 다른 경기가 된다. 주기 aiIntervalMs가 틱 간격으로 나누어떨어지지 않아도 나머지를 이월해 평균이 맞는다(tick-time.js).
-        const aiDue = takrawTickPeriod(
-            this.state.aiClock,
-            this.config.simulation.aiIntervalMs,
-            frame.tickRate,
-        );
+        // 틱 번호로 주기를 정하면 같은 시드가 다른 경기가 된다. 주기 aiIntervalMs가 틱 간격으로 나누어떨어지지 않아도 gamekit tickTime이 나머지를 이월해 평균이 맞는다.
+        const aiClock = this.state.aiClock,
+            aiMs = this.config.simulation.aiIntervalMs,
+            aiDue = this.time.fires(aiClock.elapsed, aiMs) > 0;
+        aiClock.elapsed = this.time.every(aiClock.elapsed, aiMs);
         if (this.aiDirty || aiDue) {
             this.decideAI(humans);
             this.aiDirty = false;

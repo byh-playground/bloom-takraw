@@ -8,19 +8,32 @@ import { LOCALE } from '../i18n/locale.js';
  * 제목·장 제목(TextPair)은 여기서 페이지 언어로 풀고, 호스트의 조작 문구는 locale로 게임킷이 고른다.
  */
 class TakrawIntro {
-  /** @param {{ playSelector: string, launcher: string }} options */
-  constructor({ playSelector, launcher }) {
-    this.script = new TakrawIntroScript();
-    this.handle = installShowcase({
-      title: LOCALE.text(TAKRAW_INTRO.title), locale: LOCALE.locale, launcher, playSelector, durationMs: TAKRAW_INTRO.durationMs,
-      ready: win => Boolean(win.__takraw?.ready),
-      timeline: this.script.timeline().map(item => item.action === 'chapter' ? { ...item, title: LOCALE.text(item.title) } : item),
-      custom: (name, win) => this.script.run(name, win),
-    });
-  }
+    /** @param {{ playSelector: string, launcher: string, time: object }} options */
+    constructor({ playSelector, launcher, time }) {
+        this.script = new TakrawIntroScript({ time });
+        this.handle = installShowcase({
+            title: LOCALE.text(TAKRAW_INTRO.title),
+            locale: LOCALE.locale,
+            launcher,
+            playSelector,
+            durationMs: TAKRAW_INTRO.durationMs,
+            ready: (win) => Boolean(win.__takraw?.ready),
+            timeline: this.script
+                .timeline()
+                .map((item) =>
+                    item.action === 'chapter' ? { ...item, title: LOCALE.text(item.title) } : item,
+                ),
+            custom: (name, win) => this.script.run(name, win),
+        });
+    }
 
-  open() { this.handle?.open(); }
-  dispose() { this.handle?.dispose(); this.handle = null; }
+    open() {
+        this.handle?.open();
+    }
+    dispose() {
+        this.handle?.dispose();
+        this.handle = null;
+    }
 }
 
 export { TakrawIntro };

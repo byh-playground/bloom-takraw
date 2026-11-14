@@ -26,6 +26,7 @@ import { takrawMatchSetup, takrawSessionProfile } from './match-setup.js';
 class MatchSession {
     constructor({
         config,
+        time,
         metrics,
         net,
         rewards,
@@ -44,7 +45,8 @@ class MatchSession {
         this.rewards = rewards;
         this.record = record;
         this.trainingRecord = new TrainingRecord({ metrics });
-        this.perfSummary = new PerfSummary({ metrics });
+        this.time = time;
+        this.perfSummary = new PerfSummary({ metrics, time });
         this.recordError = recordError;
         this.trackFailure = trackFailure;
         this.getClub = getClub;
@@ -82,9 +84,10 @@ class MatchSession {
         this.observationPending = false;
         this.releasing = false;
         this.stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
+        this.simBegin = 0; // frame()가 loop.frame을 부르기 직전의 시각(진단 stage sim의 시작)
         this.hud = new HudClock();
         this.highlight = new HighlightController({
-            tickRate: config.simulation.tickRate,
+            time,
             showReplay: (reason) => this.ui.showReplay(reason),
             snapCamera: () => this.view.snapCamera(),
             onPlaybackChange: (active) => {
@@ -110,6 +113,7 @@ class MatchSession {
         this.feed = new PresentationFeed({ stepMs: 1000 / this.config.simulation.tickRate });
         this.events = new MatchEventJournal({
             config: this.config,
+            time: this.time,
             view,
             ui,
             audio,
@@ -351,9 +355,10 @@ class MatchSession {
     }
 
     /**
-     * 그리기 주기의 한 프레임: 입력 관찰 → 밀린 틱 진행 → 그리기. 세션이 없으면 직접 그린다. 예외는 실행 실패로 처리한다.
+     * 그리기 주기의 한 프레임: 입력 관찰 → 밀린 틱 진행 → 그리기(`loop.frame`). 세션이 없으면 직접 그린다. 예외는 실행 실패로 처리한다.
      * 틱은 deadline pump와 이 콜백이 같은 루프(누적 시간 하나)를 나눠 진행한다. 터치 직후 브라우저가 타이머를 늦게 실행해도
      * 화면이 보이는 동안은 프레임마다 밀린 틱을 따라잡는다. 진행 조건(canAdvance)·따라잡기 상한은 두 경로가 같다.
+     * 진단 stage `sim`은 이 시각부터 그리기 콜백(createSimLoop의 render)이 시작될 때까지(입력 관찰·틱 진행)다.
      */
     frame(now) {
         const view = this.view;
@@ -361,12 +366,8 @@ class MatchSession {
         try {
             const loop = this.loop;
             if (loop) {
-                loop.observeInput(now);
-                const begin = performance.now();
-                // 방금 관찰한 표본으로 진행한다(input: false는 pump와 같은 경로). 연결 정비는 pump만 한다.
-                loop.pulse(now, { render: false, input: false });
-                view.frameMetrics.stage('sim', performance.now() - begin);
-                if (!this.failed) loop.render();
+                this.simBegin = performance.now();
+                loop.frame(now);
             } else this.render(now);
         } catch (error) {
             this.simulationFailed(error);
@@ -586,7 +587,7 @@ class MatchSession {
     createSession(online, capability, recorded, token) {
         const { config } = this;
         const adapter = this.sessionAdapter(online);
-        const profile = takrawSessionProfile({ online, tickRate: config.simulation.tickRate });
+        const profile = takrawSessionProfile({ online, time: this.time });
         this.identitySent = false;
         return createRoomSession({
             mode: online ? 'online' : 'local',
@@ -638,7 +639,11 @@ class MatchSession {
             onBacklogDrop: () => {
                 this.stats.backlogDrops += 1;
             },
-            render: () => this.render(performance.now()),
+            render: () => {
+                const now = performance.now();
+                this.view.frameMetrics.stage('sim', now - this.simBegin);
+                this.render(now);
+            },
         });
     }
 

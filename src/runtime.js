@@ -310,8 +310,12 @@ async function bootTakraw() {
         onHandshakeTimeout: () => match.stop(),
     });
 
+    // 틱 수(config.simulation.tickRate)를 아는 이 스레드의 한 곳. 게임·세션·소개영상이 같은 도우미를 받는다(리플레이 워커는 자기 것을 만든다).
+    const time = deterministic.tickTime({ tickRate: config.simulation.tickRate });
+
     const match = new MatchSession({
         config,
+        time,
         metrics,
         net,
         rewards,
@@ -543,7 +547,7 @@ async function bootTakraw() {
         boot.show(RUNTIME.bootPlayers());
         if (!RAPIER || typeof RAPIER.init !== 'function') throw new Error('Rapier entry contract');
         await RAPIER.init();
-        game = new TakrawGame({ RAPIER, config, deterministic });
+        game = new TakrawGame({ RAPIER, config, deterministic, time });
         bootMark('physics');
         boot.advance('graphics');
         view = new TakrawView({ THREE, canvas: ui.canvas, config });
@@ -632,6 +636,7 @@ async function bootTakraw() {
             intro = new TakrawIntro({
                 playSelector: '#start-match',
                 launcher: '.home-description',
+                time,
             });
             listen(window, 'bloom-showcase-opened', () => {
                 resume = Boolean(match.mode) && !match.paused;

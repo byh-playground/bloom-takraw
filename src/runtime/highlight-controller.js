@@ -1,14 +1,13 @@
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TakrawHighlight } from '../presentation/highlight.js';
-import { takrawTickCount } from '../simulation/tick-time.js';
 
 /** ms로 적은 리플레이 구간 설정(config/runtime.js highlight)을 틱 번호로 자르는 TakrawHighlight에 맞춰 틱 수로 올림한다. */
-function highlightSettings(tickRate) {
+function highlightSettings(time) {
     const s = TAKRAW_RUNTIME.highlight,
-        ticks = (ms) => takrawTickCount(ms, tickRate);
+        ticks = (ms) => time.ceilTicks(ms);
     return {
         ...s,
-        tickRate,
+        tickRate: time.tickRate,
         leadTicks: ticks(s.leadMs),
         tailTicks: ticks(s.tailMs),
         slowBefore: ticks(s.slowBeforeMs),
@@ -25,11 +24,11 @@ function highlightSettings(tickRate) {
  *   snapCamera(): 재생 카메라와 경기 카메라가 바뀌는 순간 카메라를 바로 옮긴다.
  */
 class HighlightController {
-    constructor({ tickRate, showReplay, snapCamera, onPlaybackChange }) {
+    constructor({ time, showReplay, snapCamera, onPlaybackChange }) {
         this.showReplay = showReplay;
         this.snapCamera = snapCamera;
         this.onPlaybackChange = onPlaybackChange;
-        this.highlight = new TakrawHighlight(highlightSettings(tickRate), {
+        this.highlight = new TakrawHighlight(highlightSettings(time), {
             rapierUrl: import.meta.resolve('rapier'),
             deterministicUrl: import.meta.resolve('@bloom-gamekit/deterministic'),
         });

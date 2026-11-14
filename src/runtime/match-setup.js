@@ -8,7 +8,6 @@ import {
 } from '../config/schools.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
-import { takrawTickCount } from '../simulation/tick-time.js';
 import { LOCALE } from '../i18n/locale.js';
 import { roleName } from '../i18n/messages/match.js';
 
@@ -78,9 +77,10 @@ function takrawMatchSetup({
  * 롤백 세션 프로필. 온라인은 롤백, 혼자 하는 경기는 지연 없는 락스텝이다.
  * gamekit 롤백 프로필은 틱 개수를 받으므로, ms로 적은 설정(config/runtime.js network·clock)을 여기서 한 번 올림해 넘긴다.
  */
-function takrawSessionProfile({ online, tickRate }) {
+function takrawSessionProfile({ online, time }) {
+    const tickRate = time.tickRate;
     const { network, clock } = TAKRAW_RUNTIME;
-    const ticks = (ms, minimum = 0) => takrawTickCount(ms, tickRate, minimum);
+    const ticks = (ms, minimum = 0) => Math.max(minimum, time.ceilTicks(ms));
     const maxCatchupSteps = ticks(clock.maxCatchupMs, 1);
     return online
         ? {

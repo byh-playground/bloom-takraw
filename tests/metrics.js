@@ -63,7 +63,12 @@ export function replaySession(page) {
         const codec = deterministic.createValueCodec(),
             replay = window.__takraw.session.exportReplay();
         return replay.segments.map((segment) => {
-            const game = new TakrawGame({ RAPIER, config: TAKRAW_CONFIG, deterministic });
+            const game = new TakrawGame({
+                RAPIER,
+                config: TAKRAW_CONFIG,
+                deterministic,
+                time: deterministic.tickTime({ tickRate: TAKRAW_CONFIG.simulation.tickRate }),
+            });
             try {
                 const played = playReplay({
                     replay: segment,

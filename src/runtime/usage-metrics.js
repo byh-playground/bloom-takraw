@@ -4,8 +4,6 @@
  *   PerfSummary: 세션당 한 번, 첫 경기가 어느 정도 진행된 뒤 렌더 진단(`RenderStats.snapshot()`)과 품질 설정을 구간으로 내려 보낸다.
  * 해제할 자원은 없다.
  */
-import { TAKRAW_CONFIG } from '../config/game.js';
-import { takrawTickCount } from '../simulation/tick-time.js';
 
 /** value가 경계(bounds) 중 처음으로 넘지 않는 것의 라벨. 마지막 라벨은 모두 넘을 때. */
 function bucket(value, bounds, labels) {
@@ -47,8 +45,9 @@ class TrainingRecord {
 }
 
 class PerfSummary {
-    constructor({ metrics }) {
+    constructor({ metrics, time }) {
         this.metrics = metrics;
+        this.time = time;
         this.sent = false;
     }
 
@@ -57,11 +56,7 @@ class PerfSummary {
      * stats는 view.renderStats.snapshot()이 아니라 호출 함수를 받아 조건이 되기 전에는 요약을 계산하지 않는다.
      */
     observe({ tick, mode, quality, snapshot }) {
-        if (
-            this.sent ||
-            tick < takrawTickCount(PerfSummary.minMatchMs, TAKRAW_CONFIG.simulation.tickRate)
-        )
-            return;
+        if (this.sent || tick < this.time.ceilTicks(PerfSummary.minMatchMs)) return;
         const stats = snapshot();
         if (stats.retainedFrames < PerfSummary.minFrames || stats.fps === null) return;
         this.sent = true;

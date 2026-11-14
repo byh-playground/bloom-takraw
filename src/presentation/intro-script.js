@@ -1,9 +1,9 @@
 import { TAKRAW_INTRO } from '../config/intro.js';
-import { takrawTickCount } from '../simulation/tick-time.js';
 
 /** 소개영상 대본: 문구 타임라인과 격리 iframe 안의 게임을 다루는 명령. 호스트(게임킷)를 모르는 순수 클래스라 단독으로 시험한다. */
 class TakrawIntroScript {
-    constructor({ config = TAKRAW_INTRO, now = () => performance.now() } = {}) {
+    constructor({ time, config = TAKRAW_INTRO, now = () => performance.now() }) {
+        this.time = time;
         this.config = config;
         this.now = now;
         this.gateAt = null;
@@ -15,7 +15,7 @@ class TakrawIntroScript {
      * show가 있는 장은 문구를 바꾸기 직전에 게임 화면(뽑기 연출 등)을 띄우거나 닫는다.
      */
     timeline() {
-        const { chapters, tickRate } = this.config;
+        const { chapters } = this.config;
         let atMs = 0;
         return [
             { atMs: 0, action: 'custom', name: 'watch' },
@@ -23,7 +23,7 @@ class TakrawIntroScript {
                 const gate =
                     chapter.atMs === undefined
                         ? `after:${chapter.afterMs}`
-                        : `tick:${takrawTickCount(chapter.atMs, tickRate)}`;
+                        : `tick:${this.time.ceilTicks(chapter.atMs)}`;
                 atMs = chapter.atMs === undefined ? atMs + chapter.afterMs : chapter.atMs;
                 const scene = chapter.show
                     ? [{ atMs, action: 'custom', name: `show:${chapter.show}` }]

@@ -1901,6 +1901,15 @@ class TakrawPhysics {
         targetMap['ankle' + suffix] = pose.ankle;
     }
 
+    /** 차는 다리(넓적다리·정강이·발) 질량 합(kg). */
+    _kickLegMass(p) {
+        const suffix = p.kick.side;
+        return ['upperLeg', 'lowerLeg', 'foot'].reduce(
+            (sum, name) => sum + p.byName[name + suffix].body.mass(),
+            0,
+        );
+    }
+
     /** 지상 토스 마무리 구간: 발등과 힘점의 회전 속도 차이를 목표 속도에서 뺀다(구간 끝으로 갈수록 크게). */
     _groundStrokeVelocity(p, foot, forcePoint, targetVelocity, dt) {
         const plan = p.kick.receivePlan,
@@ -1949,8 +1958,14 @@ class TakrawPhysics {
                   )
                 : groundAcceleration
                   ? this._mul(
-                        this._add(groundAcceleration, this._v(0, s.gravity, 0)),
-                        this.settings.groundToss.accelerationMass * muscleResponse,
+                        this._add(
+                            this._mul(
+                                groundAcceleration,
+                                this.settings.groundToss.accelerationMass,
+                            ),
+                            this._v(0, s.gravity * this._kickLegMass(p), 0),
+                        ),
+                        muscleResponse,
                     )
                   : null,
             mode === 'air' ? airTarget.contactDrive : groundContactDrive,

@@ -45,7 +45,7 @@ const TAKRAW_PHYSICS = Object.freeze({
         attackHeight: 3.3,
         // 서브 발 계획의 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.
         // 사람·AI 서브 모두 이 계획으로 발을 움직이고 접촉 뒤 공 속도는 덮어쓰지 않는다(v0.19.7부터).
-        serveApex: 3.0,
+        serveApex: 3.8,
         serveHeight: 0.4,
         // AI 세트의 접촉 뒤 속도 보정(assistSet)을 켠다.
         attackAssist: true,
@@ -61,8 +61,8 @@ const TAKRAW_PHYSICS = Object.freeze({
         // 늦게 누를수록 짧은 시간에 휘두르는 발이 이 한계에 걸려 더 빨라지지 못한다. 공중 차기(airKick)에는 걸지 않는다.
         // v0.20.0(30틱, 물리 한 걸음 1/60초)에서 13 → 7. 13에서는 사람 가운데 서브가 늦게 누를수록 x 8~12 m(엔드라인 밖)로 나갔다.
         // v0.21.0부터 한계는 제어 칸(controlStepMs)마다 그 칸의 예측 발 속도로 다시 계산한다(걸음 시작 속도 하나로 걸음 내내 줄이지 않는다).
-        // 그래도 13·serveApex 3.8·groundAim 2.7로 되돌리면 60틱(예측 접촉)과 30틱 모두 서브가 엔드라인 밖으로 나가 되돌리지 않았다(v0.21.0 보고).
-        maxFootSpeed: 7,
+        // v0.22.0(D-415): 13·serveApex 3.8·groundAim 2.7로 되돌렸다. 결과에 맞춰 줄이지 않고 계획 대비 실제 공 속도 차이를 제어 물리에서 고친다(진행 중).
+        maxFootSpeed: 13,
         orientationStiffness: 1000,
         orientationDamping: 2.0,
         orientationInertia: 0.014,

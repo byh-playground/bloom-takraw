@@ -2333,10 +2333,6 @@ class TakrawPhysics {
         return { normal, surface: this._sub(impact, this._mul(normal, s.ballRadius)) };
     }
 
-    /**
-     * aimedContact의 역: 지상 발차기에서 impact의 공을 normal 방향으로 미는 면이 되게 하는 조준(-1..1). 발이 공으로 향하는 방향은
-     * 지금 발등에서 impact 쪽이다. 조준 상한(kickAim.maxOffset)을 넘는 기울기는 상한으로 자른다. AI가 누르는 동안 조준을 고르는 데만 쓴다.
-     */
     /** 지상 발차기가 공을 휘두를 수 있는 엉덩이→공 중심 거리(m): 엉덩이→발목 최대 길이 + 발목→발등 + 공 반지름. */
     _strikeRange(p, suffix) {
         return (
@@ -2347,21 +2343,29 @@ class TakrawPhysics {
         );
     }
 
-    groundAimFor(p, impact, normal) {
-        const reach = this.settings.kickAim.maxOffset;
-        const foot = p.byName['foot' + p.kick.side].body;
-        const instep = this._point(foot, this._v(0, 0.055, this.settings.groundToss.forefoot));
-        const direction = this._unit(this._sub(impact, instep), this._v(0, 1, 0));
-        const right = this._unit(this._cross(direction, this._v(0, 1, 0)), this._v(0, 0, p.toward));
-        const up = this._cross(right, direction);
-        // normal = √(1−|k|²)·direction − k (k ⊥ direction) 이므로 k = −(normal의 direction 수직 성분)
-        const offset = this._mul(
-            this._sub(normal, this._mul(direction, this._dot(normal, direction))),
-            -1,
-        );
-        const aim = { x: this._dot(offset, right) / reach, y: this._dot(offset, up) / reach };
-        const size = Math.hypot(aim.x, aim.y);
-        return size > 1 ? { x: aim.x / size, y: aim.y / size } : aim;
+    /**
+     * AI 지상 발차기 조향(simulation/ground-kick-plan.js)이 읽는 다리 치수(읽기 전용, 규칙은 _kickCommand가 소유한다).
+     * 발마다 _kickCommand와 같은 엉덩이 기준점의 몸 기준 위치(hip, 월드 축), 휘두르기 범위(_strikeRange), 공에 닿는 발+정강이 질량(mass), 발등에서 본 다리의 유효 질량(legMass: 발+정강이+엉덩이로 도는 허벅지의 1/3), 몸의 오른쪽 축(right).
+     */
+    groundKickReach(p) {
+        const root = p.root.translation();
+        const leg = (side) => ({
+            hip: this._sub(
+                this._point(p.root, this._v(side === 'L' ? -0.12 : 0.12, -0.06, 0)),
+                root,
+            ),
+            range: this._strikeRange(p, side),
+            mass: p.byName['foot' + side].body.mass() + p.byName['lowerLeg' + side].body.mass(),
+            legMass:
+                p.byName['foot' + side].body.mass() +
+                p.byName['lowerLeg' + side].body.mass() +
+                p.byName['upperLeg' + side].body.mass() / 3,
+        });
+        return {
+            right: this._rotate(p.root.rotation(), this._v(1, 0, 0)),
+            L: leg('L'),
+            R: leg('R'),
+        };
     }
 
     _airContact(p, ballPos, ballVel, lead, aim) {

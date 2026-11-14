@@ -1,5 +1,20 @@
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TakrawHighlight } from '../presentation/highlight.js';
+import { takrawTickCount } from '../simulation/tick-time.js';
+
+/** ms로 적은 리플레이 구간 설정(config/runtime.js highlight)을 틱 번호로 자르는 TakrawHighlight에 맞춰 틱 수로 올림한다. */
+function highlightSettings(tickRate) {
+    const s = TAKRAW_RUNTIME.highlight,
+        ticks = (ms) => takrawTickCount(ms, tickRate);
+    return {
+        ...s,
+        tickRate,
+        leadTicks: ticks(s.leadMs),
+        tailTicks: ticks(s.tailMs),
+        slowBefore: ticks(s.slowBeforeMs),
+        slowAfter: ticks(s.slowAfterMs),
+    };
+}
 
 /**
  * 득점 리플레이. 경기 시작 상태 + 입력으로 워커의 그림자 경기가 다시 계산한 장면을 그린다. 재생 중에는 경기 진행과 조작을 멈춘다.
@@ -14,13 +29,10 @@ class HighlightController {
         this.showReplay = showReplay;
         this.snapCamera = snapCamera;
         this.onPlaybackChange = onPlaybackChange;
-        this.highlight = new TakrawHighlight(
-            { ...TAKRAW_RUNTIME.highlight, tickRate },
-            {
-                rapierUrl: import.meta.resolve('rapier'),
-                deterministicUrl: import.meta.resolve('@bloom-gamekit/deterministic'),
-            },
-        );
+        this.highlight = new TakrawHighlight(highlightSettings(tickRate), {
+            rapierUrl: import.meta.resolve('rapier'),
+            deterministicUrl: import.meta.resolve('@bloom-gamekit/deterministic'),
+        });
         this.shown = false;
         this.playedAt = 0;
     }

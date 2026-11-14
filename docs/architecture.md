@@ -146,9 +146,9 @@
 - **네트의 그림은 물리 충돌체 경계에서 파생합니다**(v0.17.3~). `config/physics.js`의 `takrawNetShape(court, physics)`가 court와 물리 설정(`netBottom`·`netHalfThickness`·`post`)에서 네트 판(아래 `bottomY`·위 `topY`·좌우 `halfWidth`)과 기둥 캡슐(`z`·반지름·`bottomY`~`topY`)의 경계를 한 번 정하고, 물리 어댑터(`_buildCourt`)는 그 값으로 충돌체를 만들고 `TakrawView.makeCourt`는 같은 값으로 그물·테이프·기둥을 그립니다. 그물로 보이는 면이 곧 공이 막히는 면이고(이전에는 그림이 아래로 5 cm·좌우로 29 cm 더 컸습니다), 기둥은 물리 캡슐 자리·치수 그대로이며 테이프가 그물 끝에서 기둥 면까지 이어집니다. 카메라가 담는 기둥 위치(`updateCamera`)도 같은 값입니다.
 - **코트·네트 치수**는 `TAKRAW_CONFIG.court`가 단일 출처이고 물리의 네트 충돌체도 이를 읽습니다. 물리 설정(중력·공·이동·점프·토스·받기·공중 발차기·블로킹·주발, 선수 몸 제어의 판정 기준·자세·걸음 `drive` 등)은 `config/physics.js`의 `TAKRAW_PHYSICS` 한 곳이 원본이고 `TAKRAW_CONFIG.physics`가 이를 가리킵니다. `TakrawPhysics`는 생성자에서 `takrawPhysicsSettings(config)`로 인스턴스마다 복사본(`structuredClone`)을 만들고 파생값(`airKick.velocityGain = 2√(positionGain·trackingMass)`)만 더합니다. 물리 어댑터는 `TAKRAW_CONFIG`를 직접 import하지 않고 넘겨받은 config만 읽습니다. 선수 제어 단계(`_drivePlayer`)와 공중 발차기·지상 토스 발 목표의 조정값은 이 설정에 이름을 붙여 옮겼습니다. 그 단계들에 남은 숫자는 수학 상수, 몸 치수(엉덩이·발바닥·발목 기준점과 무릎 한계 2.45처럼 `_buildPlayer`가 정하는 값), 관절 자세 배열입니다. 몸 만들기·몸 세우기(`_orientRoot`)·받기 예측(`planReceive`)·받기 충격(`_receiveImpact`)·블로킹·모션 질의의 숫자는 아직 코드에 있습니다.
 - **킥 소리 단계·등급 이름**은 `config/runtime.js`의 소리 정의 표에서 파생해 `presentation/sound.js`가 읽습니다(`TAKRAW_KICK_SOUND`).
-- **타이밍 등급 이름**(`perfect`·`good`·`normal`)은 `config/game.js`의 `TAKRAW_TIMING_GRADES`가 단일 출처입니다(v0.17.2~). 등급 창(`timing.windows`)·접촉 효과(`visual.impact`)의 키, 판정(`simulation/timing.js`), 킥 소리 등급 표, HUD 등급 표시, 효과 키 고르기가 이 값을 읽습니다. CSS 선택자(`[data-grade='perfect']`)만 같은 글자를 씁니다.
+- **타이밍 등급 이름**(`perfect`·`good`·`normal`)은 `config/game.js`의 `TAKRAW_TIMING_GRADES`가 단일 출처입니다(v0.17.2~). 등급 창(`timing.windowsMs`, 반 틱을 더해 판정)·접촉 효과(`visual.impact`)의 키, 판정(`simulation/timing.js`), 킥 소리 등급 표, HUD 등급 표시, 효과 키 고르기가 이 값을 읽습니다. CSS 선택자(`[data-grade='perfect']`)만 같은 글자를 씁니다.
 - **역할**은 `config/game.js`가 소유합니다(v0.17.2~): `TAKRAW_ROLE`(id 이름표), `TAKRAW_ROLES`(팀 안 순서, 슬롯 0 리시버·1 세터·2 공격수), `TAKRAW_ROLE_NAMES`(표시 이름 TextPair). 역할별 판단(AI·토스·물리)과 선호 역할 데이터는 `TAKRAW_ROLE.<id>`로 가리키고, 사람이 조종하는 역할은 `simulation/roster.js`의 `TAKRAW_HUMAN_ROLE`입니다. 값(글자)은 스냅샷·저장의 `player.role`·`preferredRole`에 그대로 들어갑니다.
-- **물리 설정 키를 두 곳이 함께 읽는 경우**는 같은 지식일 때만 둡니다(v0.17.2 재판단). `drive.landing.airTime`은 착지 무장 조건과 착지 이벤트 조건이 같은 "충분히 떠 있었다" 기준이고, `groundToss.minRise`는 받기 토스와 세트 보정(`assistSet`)이 같은 포물선 계획의 최소 상승이며, `airKick.contact.terminalMax`는 마지막 스트로크 상한과 "다리가 이미 닿아 도달 시간이 상한을 주지 않는" 경우(`qc <= 0`)의 값이 같은 상한이라 나누지 않았습니다. `physics.step`의 `Math.min(dt, 1/60)`은 tickRate가 아니라 Rapier 한 번 적분의 상한이라 tickRate에서 끌어오지 않습니다(코드 주석).
+- **물리 설정 키를 두 곳이 함께 읽는 경우**는 같은 지식일 때만 둡니다(v0.17.2 재판단). `drive.landing.airTime`은 착지 무장 조건과 착지 이벤트 조건이 같은 "충분히 떠 있었다" 기준이고, `groundToss.minRise`는 받기 토스와 세트 보정(`assistSet`)이 같은 포물선 계획의 최소 상승이며, `airKick.contact.terminalMax`는 마지막 스트로크 상한과 "다리가 이미 닿아 도달 시간이 상한을 주지 않는" 경우(`qc <= 0`)의 값이 같은 상한이라 나누지 않았습니다. `physics.step`의 상한 `maxStepMs`(1000/60 ms)는 tickRate가 아니라 Rapier 한 번 적분의 검증한 상한이라 tickRate에서 끌어오지 않고, 게임 한 걸음이 이 상한을 넘으면 물리 생성이 실패합니다(v0.20.0~, 코드 주석).
 - **같은 뜻의 화면 문구**는 `i18n/messages/shared.js` 한 곳에 두고 PAGE·UI·RUNTIME 표가 가리킵니다.
 - **연결 실패 분류**(`connectionCause`)는 gamekit가 코드를 주는 실패를 코드로 먼저 나누고(세션 `failure.type`·`failure.reason`, 방 오류 `Error.code`), 코드가 없는 실패만 메시지 정규식으로 나눕니다. 코드: `version-mismatch`·`handshake-mismatch`·`incompatible-session` → `version`, `desync-unrecoverable` → `desync`, `fatal` → `game`. `desync`·`game`은 연결 사정이 아니라 게임 쪽 실패라 연결 카드에 「게임 상태 불일치」·「게임 실행 오류」로 보이고, 지표는 같은 실패를 `MatchSession.simulationFailed`가 이미 `fault:desync`·`fault:simulation`으로 보냈으므로 연결 원인 이벤트를 다시 보내지 않습니다(v0.17.2, 이전에는 `input-history-mismatch`가 정규식 `mismatch`에 걸려 `unsupported:version`, 나머지 desync·fatal은 `network:other`로 한 번 더 갔습니다). 원인별 문구·단계 이름은 `CONNECTION_CAUSES` 한 표입니다.
 
@@ -259,8 +259,18 @@ runtime의 `contact`·`ground` 어댑터(`runtime/match-events.js`)는 `presenta
 ## 시작 틱 독립성(호스트가 넘기는 tick에 경기가 묶이지 않는다)
 
 - 문제: AI 갱신 주기를 `frame.tick % N`으로 정해, 호스트가 step을 부르는 첫 tick에 따라 갱신 위상이 달라졌다. 게임킷 세션은 틱 0부터, 시뮬레이션 도구와 테스트는 틱 1부터 돌려 같은 시드가 다른 경기가 됐다(v0.16 이전 난수 기준 시드 1013: 틱 1 시작은 틱 831에 팀 0 득점·스파이크 5번, 틱 0 시작인 브라우저는 틱 404에 팀 1 득점·스파이크 0번). 시드 탐색 결과가 브라우저 장면과 달랐던 원인이다.
-- 수정: 주기를 경기 안 스텝 수(`metrics.logicSteps`, reset에서 0, save/load 포함)로 정한다. 첫 스텝이 1이라 기존 노드 결과(시드 탐색·소개영상 대본)는 그대로다.
+- 수정: 주기를 경기 안 스텝 수(`metrics.logicSteps`, reset에서 0, save/load 포함)로 정한다. 첫 스텝이 1이라 기존 노드 결과(시드 탐색·소개영상 대본)는 그대로다. v0.20.0부터는 같은 자리를 경기 상태 안의 정수 누적 시계(`state.aiClock`, 아래 "틱 수와 시간 설정")가 맡는다.
 - 불변식: 같은 시드는 첫 tick이 몇이든 같은 경기다. 게임 규칙에서 `frame.tick`은 이벤트 표시와 재시작 시드에만 쓰고 확률·주기 판단에 쓰지 않는다.
+
+## 틱 수와 시간 설정(v0.20.0~)
+
+- 틱 수는 `config/game.js`의 `simulation.tickRate` 한 곳(30, 물리 substep 2라 물리 초당 60)이다. 60틱(물리 초당 120)은 필요 이상의 시뮬레이션 해상도라 낮췄다. 20틱(물리 한 걸음 25 ms)은 예측 접촉을 켜도 같은 서브 계획에서 발-공 접촉 부위·공 속도가 매번 크게 달라 쓰지 않는다.
+- 물리 한 걸음 상한은 `config/physics.js`의 `maxStepMs`(1000/60 ms)다. 게임 한 걸음 `1000/(tickRate·substeps)`가 이를 넘으면 물리 생성이 실패한다(시간을 조용히 잘라 느려지지 않게).
+- 한 걸음이 1/60초가 되면 발과 공이 한 걸음에 0.2 m 넘게 가까워져, 걸음 시작에만 접촉을 찾는 판정이 공을 발 반대쪽으로 민다(뚫림). 공·발·정강이는 hard CCD 대신 Rapier 예측 접촉(`softCcdPrediction`)을 쓴다.
+- 틱 개수로 적던 시간 설정은 ms로 적는다. 시뮬레이션 안의 주기(AI 판단 `aiIntervalMs`)는 `simulation/tick-time.js`의 정수 누적기(틱마다 1000을 더하고 `intervalMs × tickRate`와 비교, 넘으면 그만큼 빼서 나머지 이월)로 돌고, 누적값은 경기 상태라 스냅샷·롤백에 들어간다. 지속 시간(짧은 점프 `shortJumpHoldMs`)은 기존처럼 경기 시각(`state.time`)과 비교한다.
+- 틱 개수를 요구하는 외부 API와 틱 번호로 구간을 정하는 표시 쪽만 경계에서 한 번 올림한다(`takrawTickCount`): 롤백 창·상태 기록·입력 지연·체크섬 간격·따라잡기 한도(`runtime/match-setup.js`), 리플레이 앞뒤 구간·슬로모션 구간·포즈 묶음(`runtime/highlight-controller.js`·`highlight-worker.js`), 표시 사건 보관(`runtime/match-events.js`), 성능 요약 시작(`runtime/usage-metrics.js`).
+- 접촉 타이밍 등급 창(`timing.windowsMs`)은 입력이 틱 시작에 모이는 만큼 반 틱을 더해 판정한다.
+- 틱 번호에 묶인 자료(디버그 장면 주소의 `tick=`, 소개영상 `config/intro.js`의 사건 틱, 명경기 시드 목록)는 60틱·이전 물리의 경기 기준이라 장면이 바뀐다. 실행 오류는 없고 다시 고르는 일은 따로 한다.
 
 ## 시드 난수(v0.17.0~, D-313)
 

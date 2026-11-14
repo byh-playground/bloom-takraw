@@ -164,8 +164,9 @@ const TAKRAW_RUNTIME = Object.freeze({
             { seed: 1164, digs: 7, touches: 18 },
         ],
     },
-    // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailTicks에서 경기를 멈추고 그 장면을 다시 그린다.
-    // 구간은 끝에서 leadTouches번째 터치의 leadTicks 앞부터(최대 maxSeconds초)다. 스파이크 앞 slowBefore~뒤 slowAfter 틱은 slowRate 배속이다.
+    // 득점 리플레이(경기 시작 상태 + 입력으로 다시 계산): 스파이크 결정타이거나 터치가 longRallyTouches 이상인 랠리로 득점하면, 득점 틱 + tailMs에서 경기를 멈추고 그 장면을 다시 그린다.
+    // 구간은 끝에서 leadTouches번째 터치의 leadMs 앞부터(최대 maxSeconds초)다. 스파이크 앞 slowBeforeMs~뒤 slowAfterMs는 slowRate 배속이다.
+    // 시간은 ms로 적고, 틱 번호로 구간을 자르는 리플레이(presentation/highlight.js)에 넘길 때 runtime/highlight-controller.js가 한 번 틱으로 올림한다.
     // 카메라는 측면 중계 각도(yaw·pitch, 라디안)다. 온라인은 상대와 시계를 맞춰야 하므로 멈출 수 없어 제외한다.
     // 게임 지표(gamekit metrics). 경기 기록은 TAKRAW_MODE_POLICY의 recorded 모드만 남긴다(관전·훈련 제외). 키 표는 README "게임 지표".
     metrics: {
@@ -175,17 +176,21 @@ const TAKRAW_RUNTIME = Object.freeze({
     highlight: {
         longRallyTouches: 10,
         leadTouches: 3,
-        leadTicks: 15,
+        leadMs: 250,
         maxSeconds: 4,
-        tailTicks: 40,
-        slowBefore: 8,
-        slowAfter: 30,
+        tailMs: 667,
+        slowBeforeMs: 133,
+        slowAfterMs: 500,
         slowRate: 0.35,
         camera: { yaw: 1.05, pitch: 0.36 },
+        // batchMs: 워커가 계산한 포즈를 이 시간(ms)만큼 묶어 보낸다.
+        batchMs: 67,
         // 워커가 이 시간(ms) 동안 다음 장면을 보내지 않으면 리플레이를 끝내고 경기를 이어 간다.
         stallMs: 1000,
     },
-    clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupSteps: 4 },
+    // maxCatchupMs: 한 번의 루프 깨움에서 따라잡는 시뮬레이션 시간 상한(ms). 롤백 세션 프로필의 maxCatchupSteps(틱 수)로는 올림해 넘긴다(runtime/match-setup.js).
+    // baseHz는 tickRate(config/game.js)·inputHz·renderHz로 나누어떨어져야 한다(gamekit simloop clockRates).
+    clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupMs: 66 },
     network: {
         // 신호 릴레이에서 방을 찾는 이름공간(게임 식별자). 다른 게임과 방 코드가 섞이지 않게 한다.
         namespace: TAKRAW_ID,
@@ -210,8 +215,13 @@ const TAKRAW_RUNTIME = Object.freeze({
         ],
         transitionTimeout: 20000,
         reconnectGrace: 90000,
-        rollbackWindow: 24,
-        historySize: 128,
+        // 롤백·입력 지연·체크섬은 ms로 적고, 틱 개수를 요구하는 롤백 세션 프로필에 넘길 때 올림한다(runtime/match-setup.js).
+        // rollbackWindowMs: 되돌려 다시 계산할 수 있는 가장 먼 과거, historyMs: 보관하는 상태 기록 길이(롤백 창보다 길어야 한다).
+        // inputDelayMs: 온라인 입력 지연 기본값·최대값, checksumIntervalMs: 두 피어가 상태를 비교하는 간격.
+        rollbackWindowMs: 400,
+        historyMs: 2134,
+        inputDelayMs: { base: 17, max: 100 },
+        checksumIntervalMs: 1000,
         maxSnapshotBytes: 2 * 1024 * 1024,
         maxHistoryBytes: 64 * 1024 * 1024,
         maxReplayBytes: 8 * 1024 * 1024,
@@ -222,7 +232,8 @@ const TAKRAW_RUNTIME = Object.freeze({
     feedback: {
         duration: 430,
         badge: 900,
-        retentionTicks: 180,
+        // retentionMs: 확정 전 표시 사건(접촉 효과·소리)을 롤백 대비로 보관하는 시간. 틱 번호로 지우는 gamekit 큐에는 올림해 넘긴다.
+        retentionMs: 3000,
         soundReferenceSpeed: 14,
         soundPanSpread: 0.7,
         soundDetuneCents: 150,

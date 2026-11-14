@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.19.12';
+const TAKRAW_VERSION = '0.20.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -35,7 +35,7 @@ function takrawAthleteEffects(stats = {}, definition = TAKRAW_CONFIG.athletes) {
 
 /**
  * 접촉 타이밍 등급 이름. 판정(simulation/timing.js)·킥 소리(config/runtime.js)·접촉 효과(visual.impact)·HUD 등급 표시가 이 이름을 쓴다.
- * perfect·good은 창(timing.windows) 이름이기도 하고, 모든 창 밖이면 normal이다. CSS(.timing-badge[data-grade])도 같은 글자를 쓴다.
+ * perfect·good은 창(timing.windowsMs) 이름이기도 하고, 모든 창 밖이면 normal이다. CSS(.timing-badge[data-grade])도 같은 글자를 쓴다.
  */
 const TAKRAW_TIMING_GRADES = Object.freeze({ perfect: 'perfect', good: 'good', normal: 'normal' });
 
@@ -60,8 +60,12 @@ const TAKRAW_ROLE_NAMES = Object.freeze({
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
+    // tickRate: 초당 틱(입력·AI·규칙 한 번). 물리 한 걸음은 1000/(tickRate·substeps) ms이고 config/physics.js maxStepMs를 넘지 못한다.
+    //   v0.20.0에서 60 → 30(물리 초당 120 → 60). 20(한 걸음 25 ms)은 발-공 접촉이 같은 계획에서도 매번 크게 달라 쓰지 않는다.
+    //   시간 설정은 ms로 적고 틱 수로는 simulation/tick-time.js에서만 맞춘다. 그래서 tickRate를 바꿀 때 다른 설정을 고치지 않는다.
+    // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
-    simulation: { tickRate: 60, substeps: 2, aiRate: 15, fixedSeed: 7 },
+    simulation: { tickRate: 30, substeps: 2, aiIntervalMs: 66, fixedSeed: 7 },
     // 매 틱 입력 바이트열: [x, z, 버튼, 조준x, 조준y] 5바이트(이 기기의 한 명). runtime/input.js가 쓰고 game.js decode가 읽는다.
     // x·z와 조준 x·y는 모두 -1..1을 axisScale배 한 부호 있는 바이트다. 조준은 발차기 버튼 원 안에서 누른 지점(가로 오른쪽 +, 세로 위 +)이고
     // 단계로 나누지 않는다. 발차기를 누르지 않으면 0(가운데)이다.
@@ -76,12 +80,12 @@ const TAKRAW_CONFIG = Object.freeze({
     },
     // 출시 전 임시 경기 길이: 7점, 6:6부터 기존 듀스 방식으로 9점 상한, 단판.
     rules: { contacts: 3, points: 7, deuce: 6, cap: 9, sets: 1, ready: 1.25, point: 2 },
-    // 접촉 타이밍 등급 창(초). 오차 크기가 perfect 이하면 perfect, good 이하면 good, 그 외 normal.
-    // 헤드리스 실측에서 발이 공에 닿은 입력 오차는 최대 약 0.06초였다.
-    // 입력 틱 1.2개(0.02초) 이내를 perfect, 2.4개(0.04초) 이내를 good으로 둔다. 사람 플레이로 재보정 대상이다.
-    // maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
+    // 접촉 타이밍 등급 창(ms). 오차 크기가 perfect 창 이하면 perfect, good 창 이하면 good, 그 외 normal.
+    // 입력은 틱 시작에 모이므로 누른 시각이 최대 한 틱 늦게 잡힌다. 창은 사람 오차 windowsMs에 반 틱(500/tickRate ms)을 더한 값이다
+    // (simulation/timing.js). 60틱(v0.19)에서 perfect 20 ms·good 40 ms였던 창이 그대로 나오게 12·32로 두었고, 30틱에서는 약 29·49 ms다.
+    // 사람 플레이로 재보정 대상이다. maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
     timing: {
-        windows: { [TAKRAW_TIMING_GRADES.perfect]: 0.02, [TAKRAW_TIMING_GRADES.good]: 0.04 },
+        windowsMs: { [TAKRAW_TIMING_GRADES.perfect]: 12, [TAKRAW_TIMING_GRADES.good]: 32 },
         maxAge: 1.2,
     },
     // base: 기본 능력치, max: 효과 비율 1이 되는 능력치(이 위는 overflow × log2(v/max)만큼 더 늘어남), maxEffect: 효과 값의 상한(수비는 1 - 효과라 1 미만이어야 한다).
@@ -116,6 +120,8 @@ const TAKRAW_CONFIG = Object.freeze({
         receiveHeight: 0.75,
         kickHold: 0.34,
         jumpHold: 0.25,
+        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 이 값이 한 틱보다 짧으면 실제로는 누른 한 틱 동안 유지된다(30틱에서 33 ms).
+        shortJumpHoldMs: 17,
         // 선수 성향의 범위. 경기 시드·선수·랠리 번호로 값이 정해져 경기마다 상황이 달라진다(simulation/ai-brain.js).
         // reaction: 동료가 받기 시작한 뒤 보조 위치로 움직이기까지의 반응 시간(초), clearance: 공 궤적과 떨어지는 간격(m),
         // depth·lateral: 대기 자리의 앞뒤·옆 흔들림(±m).
@@ -128,7 +134,7 @@ const TAKRAW_CONFIG = Object.freeze({
             // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이지만,
             // 실제 발은 계획보다 세게·가파르게 맞아 가운데 조준 공이 목표보다 약 2~3 m 깊게 떨어진다. 사람 서브도 같은 계획이라, 이 값에서 늦게 눌러 다리 속도 상한
             // (groundToss.maxFootSpeed)에 걸린 사람 가운데 서브가 엔드라인 안쪽(x 약 6.4 m), AI 지상 서브가 x 약 3.7~6.6 m에 떨어진다(v0.19.9 고정 사례로 다시 맞춤).
-            groundAim: { x: 2.7 },
+            groundAim: { x: 1.2 },
             toss: {
                 offset: 0.65,
                 height: 1.0,
@@ -234,7 +240,7 @@ const TAKRAW_CONFIG = Object.freeze({
             orbit: { sensitivity: 0.006, minPitch: 0.14, maxPitch: 1.13 },
         },
         // 접촉 효과(타격감 가이드 §3·§6: 국소 hitflash·squash 먼저, 카메라 흔들림은 가장 센 사건 하나만). 화면에 그림을 덧붙이지 않고 쇼크웨이브 왜곡·명암, 공 눌림·늘어남,
-        // 공·닿은 부위 반짝임, 표시 히트스톱, 기기 진동으로 접촉을 전한다. styles의 이름은 timing.windows와 normal, spike, 접촉 종류(takrawContactKind가 고른다:
+        // 공·닿은 부위 반짝임, 표시 히트스톱, 기기 진동으로 접촉을 전한다. styles의 이름은 timing.windowsMs와 normal, spike, 접촉 종류(takrawContactKind가 고른다:
         // serve·receive·save·set·drive·body·ground)다. 연관 수치는 기준값(wave.amount·intensity.referenceSpeed)에서 배율로 파생한다.
         impact: {
             // 쇼크웨이브: 접점에서 퍼지며 뒤 화면을 굴절시키고(왜곡) 띠 앞쪽을 밝게·바로 뒤를 어둡게(명암) 한다. 반지름 = radius × (start + styles.waveScale × reach × 확대 곡선 × √세기),

@@ -4,6 +4,8 @@
  *   PerfSummary: 세션당 한 번, 첫 경기가 어느 정도 진행된 뒤 렌더 진단(`RenderStats.snapshot()`)과 품질 설정을 구간으로 내려 보낸다.
  * 해제할 자원은 없다.
  */
+import { TAKRAW_CONFIG } from '../config/game.js';
+import { takrawTickCount } from '../simulation/tick-time.js';
 
 /** value가 경계(bounds) 중 처음으로 넘지 않는 것의 라벨. 마지막 라벨은 모두 넘을 때. */
 function bucket(value, bounds, labels) {
@@ -51,11 +53,15 @@ class PerfSummary {
     }
 
     /**
-     * 경기가 충분히 진행됐고(minTick) 프레임 기록이 충분하면(minFrames) 한 번만 보낸다.
+     * 경기가 충분히 진행됐고(minMatchMs) 프레임 기록이 충분하면(minFrames) 한 번만 보낸다.
      * stats는 view.renderStats.snapshot()이 아니라 호출 함수를 받아 조건이 되기 전에는 요약을 계산하지 않는다.
      */
     observe({ tick, mode, quality, snapshot }) {
-        if (this.sent || tick < PerfSummary.minTick) return;
+        if (
+            this.sent ||
+            tick < takrawTickCount(PerfSummary.minMatchMs, TAKRAW_CONFIG.simulation.tickRate)
+        )
+            return;
         const stats = snapshot();
         if (stats.retainedFrames < PerfSummary.minFrames || stats.fps === null) return;
         this.sent = true;
@@ -79,8 +85,8 @@ class PerfSummary {
         });
     }
 }
-/** 경기 틱(120Hz 기준 약 10초)과 최근 프레임 수. */
-PerfSummary.minTick = 1200;
+/** 경기 진행 시간(ms, 경기 틱으로 올림해 비교)과 최근 프레임 수. */
+PerfSummary.minMatchMs = 20000;
 PerfSummary.minFrames = 120;
 
 export { TrainingRecord, PerfSummary };

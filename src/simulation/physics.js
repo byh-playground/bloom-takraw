@@ -10,6 +10,13 @@ import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './ro
  */
 function takrawPhysicsSettings(config) {
     const settings = structuredClone(config.physics);
+    // 게임 한 걸음 = 틱 길이 / substeps. 검증한 상한(maxStepMs)을 넘으면 만들지 않는다(조용히 시간이 잘리지 않게).
+    // Rapier 적분은 초 단위라 stepSeconds·maxStepSeconds는 여기서 한 번 초로 바꿔 둔 파생값이다.
+    const stepMs = 1000 / (config.simulation.tickRate * config.simulation.substeps);
+    if (stepMs > settings.maxStepMs + 1e-9)
+        throw new RangeError(`physics step ${stepMs}ms exceeds maxStepMs ${settings.maxStepMs}ms`);
+    settings.stepSeconds = stepMs / 1000;
+    settings.maxStepSeconds = settings.maxStepMs / 1000;
     const airKick = settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
@@ -72,10 +79,9 @@ class TakrawPhysics {
     _createWorld(profiles) {
         const s = this.settings;
         this.world = new this.R.World({ x: 0, y: -s.gravity, z: 0 });
-        this.world.integrationParameters.dt = 1 / 120;
+        this.world.integrationParameters.dt = s.stepSeconds;
         this.world.integrationParameters.numSolverIterations = s.solverIterations;
         this.world.integrationParameters.numInternalPgsIterations = 2;
-        this.world.integrationParameters.maxCcdSubsteps = s.ccdSubsteps;
         this.queue = new this.R.EventQueue(true);
         // Original binary checkpoint while a restored world is still untouched.
         // Cleared by every authoritative physical-world mutation.
@@ -573,7 +579,12 @@ class TakrawPhysics {
                     .setLinearDamping(0.08)
                     .setAngularDamping(0.12)
                     .setCanSleep(false)
-                    .setCcdEnabled(name.startsWith('foot') || name.startsWith('lowerLeg')),
+                    // 발·정강이는 공과 예측 접촉(soft CCD)을 쓴다(config/physics.js softCcdPrediction).
+                    .setSoftCcdPrediction(
+                        name.startsWith('foot') || name.startsWith('lowerLeg')
+                            ? this.settings.softCcdPrediction
+                            : 0,
+                    ),
             );
             let desc;
             if (shape === 'sphere') desc = R.ColliderDesc.ball(geometry.radius);
@@ -761,7 +772,7 @@ class TakrawPhysics {
             s = this.settings;
         this.ball = this.world.createRigidBody(
             R.RigidBodyDesc.dynamic()
-                .setCcdEnabled(true)
+                .setSoftCcdPrediction(s.softCcdPrediction)
                 .setLinearDamping(s.ballDamping)
                 .setAngularDamping(0.08)
                 .setCanSleep(false),
@@ -3368,10 +3379,13 @@ class TakrawPhysics {
 
     step(dt, inputs = []) {
         this.restoredSnapshotBytes = null;
-        // 1/60은 tickRate가 아니라 Rapier 한 번 적분에 허용하는 가장 긴 시간이다(큰 dt가 와도 한 걸음을 이보다 길게 적분하지 않는 안전장치).
-        // 게임은 1/(tickRate·substeps) = 1/120을 넘기므로 지금은 닿지 않지만, tickRate를 낮춰도 이 상한은 따라 커지면 안 된다.
-        // 잘못된 dt(0·NaN)일 때의 1/120은 그때 쓸 기본 한 걸음이다.
-        const h = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 1 / 60) : 1 / 120;
+        // maxStepMs(config/physics.js)는 tickRate가 아니라 Rapier 한 번 적분에 허용하는 가장 긴 시간(검증한 한 걸음)이다. 이보다 긴 dt는 잘라서 적분한다(그만큼 시간이 버려진다).
+        // 게임의 한 걸음 1000/(tickRate·substeps) ms가 이 상한을 넘으면 물리 생성이 실패한다(조용히 느려지지 않게). tickRate를 더 낮출 때 이 값을 함께 검증해 올린다.
+        // 잘못된 dt(0·NaN)일 때는 게임 한 걸음(stepSeconds)을 쓴다.
+        const h =
+            Number.isFinite(dt) && dt > 0
+                ? Math.min(dt, this.settings.maxStepSeconds)
+                : this.settings.stepSeconds;
         this.world.integrationParameters.dt = h;
         for (const p of this.players) this._drivePlayer(p, inputs[p.id] || {}, h);
         const before = this._captureBefore();

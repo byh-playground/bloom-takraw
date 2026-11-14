@@ -8,6 +8,7 @@ import {
 } from '../config/schools.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
+import { takrawTickCount } from '../simulation/tick-time.js';
 import { LOCALE } from '../i18n/locale.js';
 import { roleName } from '../i18n/messages/match.js';
 
@@ -73,20 +74,26 @@ function takrawMatchSetup({
     };
 }
 
-/** 롤백 세션 프로필. 온라인은 롤백, 혼자 하는 경기는 지연 없는 락스텝이다. */
+/**
+ * 롤백 세션 프로필. 온라인은 롤백, 혼자 하는 경기는 지연 없는 락스텝이다.
+ * gamekit 롤백 프로필은 틱 개수를 받으므로, ms로 적은 설정(config/runtime.js network·clock)을 여기서 한 번 올림해 넘긴다.
+ */
 function takrawSessionProfile({ online, tickRate }) {
+    const { network, clock } = TAKRAW_RUNTIME;
+    const ticks = (ms, minimum = 0) => takrawTickCount(ms, tickRate, minimum);
+    const maxCatchupSteps = ticks(clock.maxCatchupMs, 1);
     return online
         ? {
               ...profiles.action,
               mode: 'rollback',
               tickRate,
-              baseInputDelayTicks: 1,
+              baseInputDelayTicks: ticks(network.inputDelayMs.base),
               minInputDelayTicks: 0,
-              maxInputDelayTicks: 6,
-              rollbackWindowTicks: TAKRAW_RUNTIME.network.rollbackWindow,
-              stateHistorySize: TAKRAW_RUNTIME.network.historySize,
-              checksumInterval: tickRate,
-              maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
+              maxInputDelayTicks: ticks(network.inputDelayMs.max),
+              rollbackWindowTicks: ticks(network.rollbackWindowMs, 1),
+              stateHistorySize: ticks(network.historyMs, 1),
+              checksumInterval: ticks(network.checksumIntervalMs, 1),
+              maxCatchupSteps,
               maxSnapshotBytes: TAKRAW_RUNTIME.network.maxSnapshotBytes,
               maxHistoryBytes: TAKRAW_RUNTIME.network.maxHistoryBytes,
               maxReplayBytes: TAKRAW_RUNTIME.network.maxReplayBytes,
@@ -100,7 +107,7 @@ function takrawSessionProfile({ online, tickRate }) {
               maxInputDelayTicks: 0,
               adaptiveInputDelay: false,
               pacingPolicy: 'none',
-              maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
+              maxCatchupSteps,
           };
 }
 

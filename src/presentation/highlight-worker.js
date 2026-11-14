@@ -1,5 +1,7 @@
 import { TAKRAW_CONFIG } from '../config/game.js';
 import { TakrawGame } from '../simulation/game.js';
+import { TAKRAW_RUNTIME } from '../config/runtime.js';
+import { takrawTickCount } from '../simulation/tick-time.js';
 import { TakrawHighlightShadow } from './highlight-shadow.js';
 
 // 리플레이 그림자 경기를 메인 스레드 밖에서 계산한다. 워커에는 import map이 없으므로 Rapier·gamekit deterministic 주소는 메인이 풀어서 넘긴다.
@@ -17,6 +19,7 @@ async function handle(message) {
         shadow = new TakrawHighlightShadow(
             new TakrawGame({ RAPIER, config: TAKRAW_CONFIG, deterministic }),
             (data, transfer) => self.postMessage(data, transfer),
+            takrawTickCount(TAKRAW_RUNTIME.highlight.batchMs, TAKRAW_CONFIG.simulation.tickRate, 1),
         );
         self.postMessage({ type: 'ready' });
     } else if (message.type === 'reset') shadow.reset();

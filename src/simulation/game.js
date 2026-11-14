@@ -413,7 +413,7 @@ class TakrawGame {
                 kick,
                 jumpPressed: jump && !a.previousJump,
                 kickPressed: kick && !a.previousKick,
-                // AI는 늘 가운데(발이 가던 방향 그대로 공 중심)를 찬다. 사람과 같은 aimedContact를 탄다.
+                // 공중 차기는 가운데를 찬다. 지상 발차기 조준은 아래 의도를 정한 뒤 groundKickAim이 고른다. 사람과 같은 aimedContact를 탄다.
                 aim: { x: 0, y: 0 },
                 receive:
                     this.state.phase === 'rally' && a.active && a.receive
@@ -475,6 +475,14 @@ class TakrawGame {
                     ? previous.intent
                     : this.kickIntent(player);
             input.tossTarget = input.intent?.target || null;
+            // AI의 지상 발차기는 누르는 동안 매 틱 조준을 다시 고른다(공중 차기는 가운데).
+            if (
+                !(humans[player.team] && player.id === this.state.selected[player.team]) &&
+                input.kick &&
+                !player.jump.active &&
+                this.state.phase === 'rally'
+            )
+                input.aim = this.groundKickAim(player, input.tossTarget);
             input.motionPreference =
                 this.state.training && player.id === this.state.selected[0]
                     ? this.state.training.lesson
@@ -841,8 +849,7 @@ class TakrawGame {
                 this.physics.players[event.playerId].kick.mode === 'ground' &&
                 !spike;
             // 접촉 뒤 공 속도를 목표 포물선으로 덮어쓰는 보정은 AI 세트에만 둔다. 이 틱에 사람 입력이 들어간 선수(그 팀의 조종 선수)가
-            // 찬 세트는 발과 공의 접촉 물리가 정한 그대로 나간다(조준 오프셋이 결과에 남는다). 서브는 사람·AI 모두 덮어쓰지 않는다:
-            // 서브 발의 계획(physics _predictReceivePass의 서브 포물선)이 접촉 물리만으로 공을 상대 코트에 보낸다.
+            // 찬 세트는 발과 공의 접촉 물리가 정한 그대로 나간다(조준 오프셋이 결과에 남는다). 서브는 사람·AI 모두 덮어쓰지 않는다.
             const human =
                 !!humans[event.team] && event.playerId === this.state.selected[event.team];
             if (!human && set && takrawIsAttacker(target.playerId))
@@ -1386,6 +1393,58 @@ class TakrawGame {
 
     tossTarget(player) {
         return this.kickIntent(player)?.target || null;
+    }
+
+    /**
+     * AI 지상 발차기(서브·받기·토스·세트)의 조준. 물리는 누르는 동안 발을 지금 공으로 밀 뿐이라, AI는 어디로 보낼지를 조준으로만 정한다:
+     * 공이 접촉 높이(groundToss.contactHeight)에 오는 위치·속도를 예측하고, 그 점에서 목표(동료 또는 상대 코트)로 가는 포물선 속도를 구해
+     * 공 속도가 바뀌어야 할 방향(= 발 면이 공을 밀 방향)을 낸 뒤 그 면이 되는 조준을 고른다(physics.groundAimFor). 세기는 누르는 시점이 정한다.
+     * 목표가 없는 마지막 터치는 서브와 같은 상대 코트 목표로 넘긴다. 결정론: 물리 상태와 의도만 읽는다.
+     */
+    groundKickAim(player, target) {
+        const s = this.physics.settings,
+            toss = s.groundToss,
+            g = s.gravity;
+        const ball = this.physics.ball.translation(),
+            velocity = this.physics.ball.linvel();
+        const goal = target || {
+            x: player.toward * this.config.ai.serve.groundAim.x,
+            z: 0,
+            playerId: -1,
+        };
+        const height = toss.contactHeight;
+        const time = Math.max(
+            0,
+            (velocity.y + Math.sqrt(Math.max(0, velocity.y ** 2 + 2 * g * (ball.y - height)))) / g,
+        );
+        const impact = {
+            x: ball.x + velocity.x * time,
+            y: Math.max(height, ball.y + velocity.y * time - 0.5 * g * time * time),
+            z: ball.z + velocity.z * time,
+        };
+        const incoming = { x: velocity.x, y: velocity.y - g * time, z: velocity.z };
+        const serving = goal.playerId === -1,
+            attacking = takrawIsAttacker(goal.playerId);
+        const goalHeight = serving ? toss.serveHeight : attacking ? toss.attackHeight : height;
+        const apex = serving
+            ? Math.max(toss.serveApex, impact.y + 0.6)
+            : attacking
+              ? toss.attackApex
+              : toss.receiveApex;
+        const up = Math.sqrt(2 * g * Math.max(toss.minRise, apex - impact.y));
+        const flight = (up + Math.sqrt(Math.max(0, up * up + 2 * g * (impact.y - goalHeight)))) / g;
+        const change = {
+            x: (goal.x - impact.x) / flight - incoming.x,
+            y: up - incoming.y,
+            z: (goal.z - impact.z) / flight - incoming.z,
+        };
+        const size = Math.hypot(change.x, change.y, change.z);
+        if (!(size > 1e-6)) return { x: 0, y: 0 };
+        return this.physics.groundAimFor(player, impact, {
+            x: change.x / size,
+            y: change.y / size,
+            z: change.z / size,
+        });
     }
 
     /**
@@ -2070,7 +2129,12 @@ class TakrawGame {
                 const q = player.root.translation();
                 const setTarget = this.tossTarget(player);
                 const ground = groundBase;
-                const kickLead = setTarget ? ground.lead : 0.2;
+                // 지상 서브는 공이 더 내려온 뒤 눌러 발이 더 먼 거리에서 휘둘러 오게 한다(세기는 누르는 시점이 정한다).
+                const kickLead = setTarget
+                    ? setTarget.playerId === -1
+                        ? this.config.ai.serve.kickLeadMs / 1000
+                        : ground.lead
+                    : 0.2;
                 const kickWindow = setTarget ? ground.window : 0.36;
                 // 서브: 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브(공중 공격과 같은 점프·발차기), 아니면 지상서브다(사람과 같은 기준).
                 const jumpServe = this.isJumpServe(team);

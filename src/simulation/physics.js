@@ -2209,13 +2209,16 @@ class TakrawPhysics {
         };
         const angle = Math.atan2(this._dot(chord, cross), this._dot(current, wanted));
         const speed = this._dot(this._sub(upper.angvel(), p.root.angvel()), chord);
-        const stable =
-            1 +
-            (s.kneePlaneDamping * dt) / s.kneePlaneInertia +
-            (s.kneePlaneStiffness * dt * dt) / s.kneePlaneInertia;
+        const gains = this._stablePdGains(
+            s.kneePlaneStiffness,
+            s.kneePlaneDamping,
+            s.kneePlaneInertia,
+            dt,
+            1,
+        );
         const torque =
             this._clamp(
-                (s.kneePlaneStiffness * angle - s.kneePlaneDamping * speed) / stable,
+                gains.position * angle + gains.velocity * speed,
                 -s.kneePlaneMaxTorque,
                 s.kneePlaneMaxTorque,
             ) * response;
@@ -2224,6 +2227,49 @@ class TakrawPhysics {
         const impulse = this._mul(chord, torque * dt);
         upper.applyTorqueImpulse(impulse, true);
         p.root.applyTorqueImpulse(this._mul(impulse, -1), true);
+    }
+
+    /**
+     * 회전 PD(발 방향·무릎 평면)의 한 걸음 이득. 토크 = position × 각도 오차 + velocity × 각속도.
+     * 기준은 v0.19.12의 식: 제어 칸(footDrive.controlStepMs) 하나에 r(kp e - kd w) / (1 + kd c / I + kp c^2 / I)를 거는 안정 PD다.
+     * 이 식을 25 ms 한 걸음에 그대로 쓰면 분모가 감쇠까지 줄여 한 걸음에 오차를 거의 다 돌리고도 각속도가 남는다(걸음당 감쇠 약 4 %, 60틱은 25 ms에 약 24 %).
+     * 그래서 걸음을 칸으로 나눈 기준 식의 칸 n개 응답(관성 I인 강체, 칸마다 토크 → 각속도 → 각도 순서로 적분) 행렬 A^n을 만들고,
+     * 한 걸음 토크 하나로 같은 응답 모드(고유값: 행렬의 대각합·행렬식)가 나오게 두 이득을 푼다. 걸음이 한 칸이면 기준 식과 같은 값이다.
+     */
+    _stablePdGains(stiffness, damping, inertia, dt, response) {
+        const cells = Math.max(
+            1,
+            Math.ceil(dt / (this.settings.footDrive.controlStepMs / 1000) - 1e-9),
+        );
+        const cell = dt / cells;
+        const stable = 1 + (damping * cell) / inertia + (stiffness * cell * cell) / inertia;
+        const position = (stiffness * response) / stable,
+            velocity = (-damping * response) / stable;
+        if (cells === 1) return { position, velocity };
+        // 상태 (오차 e, 각속도 w)의 칸 한 개: w' = w + (c / I)(a e + b w), e' = e - c w'.
+        const g = cell / inertia;
+        const m = [
+            1 - cell * g * position,
+            -cell * (1 + g * velocity),
+            g * position,
+            1 + g * velocity,
+        ];
+        let r = m;
+        for (let index = 1; index < cells; index++)
+            r = [
+                r[0] * m[0] + r[1] * m[2],
+                r[0] * m[1] + r[1] * m[3],
+                r[2] * m[0] + r[3] * m[2],
+                r[2] * m[1] + r[3] * m[3],
+            ];
+        const trace = r[0] + r[3],
+            determinant = r[0] * r[3] - r[1] * r[2];
+        // 한 걸음 dt 행렬 [[1 - dt G a, -dt(1 + G b)], [G a, 1 + G b]] (G = dt / I)의 행렬식은 1 + G b, 대각합은 2 + G b - dt G a.
+        const stepGain = dt / inertia;
+        return {
+            position: (1 + determinant - trace) / (dt * stepGain),
+            velocity: (determinant - 1) / stepGain,
+        };
     }
 
     _orientFootNormal(p, suffix, normal, forward, s, dt, response, angularVelocity) {
@@ -2282,14 +2328,17 @@ class TakrawPhysics {
             );
         }
         const omega = angularVelocity || body.angvel();
-        const kp = s.orientationStiffness,
-            kd = s.orientationDamping,
-            inertia = s.orientationInertia;
-        const stable = 1 + (kd * dt) / inertia + (kp * dt * dt) / inertia;
+        const gains = this._stablePdGains(
+            s.orientationStiffness,
+            s.orientationDamping,
+            s.orientationInertia,
+            dt,
+            response,
+        );
         // Translation acts at the ankle joint, so there is no COM-force moment
         // to compensate. Orientation retains equal/opposite finite torques.
         const torque = this._limit(
-            this._mul(this._sub(this._mul(error, kp), this._mul(omega, kd)), response / stable),
+            this._add(this._mul(error, gains.position), this._mul(omega, gains.velocity)),
             s.maxTorque * response,
         );
         body.applyTorqueImpulse(this._mul(torque, dt), true);

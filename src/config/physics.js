@@ -28,7 +28,7 @@ const TAKRAW_PHYSICS = Object.freeze({
     maxStepMs: 25,
     solverIterations: 8,
     ccdSubsteps: 3,
-    // 발 PD(physics.js _footDrive)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × substep 2).
+    // 발 PD(physics.js _footDrive)와 발 방향·무릎 평면 회전 PD(_stablePdGains)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × substep 2).
     // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·substeps를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
     footDrive: { controlStepMs: 1000 / 120 },
     // 발·정강이와 공의 접촉(physics.js _sweepBallContacts). Rapier는 걸음 시작에만 접촉을 찾아, 한 걸음에 발과 공이 공 지름(19 cm)·발등 폭(15 cm)보다

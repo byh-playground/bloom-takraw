@@ -601,7 +601,7 @@ class MatchSession {
                 maxPlayers: 2,
                 transitionTimeoutMs: TAKRAW_RUNTIME.network.transitionTimeout,
                 reconnectGraceMs: TAKRAW_RUNTIME.network.reconnectGrace,
-                maxCatchupSteps: TAKRAW_RUNTIME.clock.maxCatchupSteps,
+                maxCatchupSteps: profile.maxCatchupSteps,
             },
             onEvent: (event) => this.onSessionEvent(event, token),
         });

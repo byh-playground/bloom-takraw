@@ -10,6 +10,7 @@ import {
 import { takrawDecodeIdentity } from './identity.js';
 import { takrawModeProfile } from './modes.js';
 import { takrawSeededUnit } from './random.js';
+import { takrawTickPeriod } from './tick-time.js';
 import { TAKRAW_ROLE } from '../config/game.js';
 import {
     TAKRAW_ROLES,
@@ -38,7 +39,7 @@ class TakrawGame {
         this.config = config;
         this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
-        this.timingJudge = new TakrawTimingJudge(config.timing);
+        this.timingJudge = new TakrawTimingJudge(config.timing, config.simulation.tickRate);
         this.drill = new TakrawTrainingDrill();
         this.aiBrain = new AiBrain();
         this.formation = new AiFormation(config.ai.fill, {
@@ -144,6 +145,8 @@ class TakrawGame {
             phase: 'ready',
             tick: 0,
             time: 0,
+            // AI 판단 주기의 정수 누적값(ms × tickRate 단위, simulation/tick-time.js).
+            aiClock: { elapsed: 0 },
             seed: profile.repeatable ? this.config.simulation.fixedSeed : seed >>> 0,
             score: [0, 0],
             sets: [0, 0],
@@ -378,13 +381,14 @@ class TakrawGame {
             }
         }
 
-        // AI 갱신 주기는 경기 안의 스텝 수 기준이다. 호스트가 넘기는 frame.tick은 세션마다 시작이 달라(게임킷 세션 0, 시뮬레이션 도구 1) 주기가 어긋나면 같은 시드가 다른 경기가 된다.
-        if (
-            this.aiDirty ||
-            this.metrics.logicSteps %
-                Math.max(1, Math.round(frame.tickRate / this.config.simulation.aiRate)) ===
-                0
-        ) {
+        // AI 갱신 주기는 경기 상태 안의 누적 시계(state.aiClock) 기준이다. 호스트가 넘기는 frame.tick은 세션마다 시작이 달라(게임킷 세션 0, 시뮬레이션 도구 1)
+        // 틱 번호로 주기를 정하면 같은 시드가 다른 경기가 된다. 주기 aiIntervalMs가 틱 간격으로 나누어떨어지지 않아도 나머지를 이월해 평균이 맞는다(tick-time.js).
+        const aiDue = takrawTickPeriod(
+            this.state.aiClock,
+            this.config.simulation.aiIntervalMs,
+            frame.tickRate,
+        );
+        if (this.aiDirty || aiDue) {
             this.decideAI(humans);
             this.aiDirty = false;
         }
@@ -1603,7 +1607,7 @@ class TakrawGame {
         // A low set's narrow height window can open just before maxLead. Keep one
         // AI decision interval so the 15 Hz controller cannot skip that window.
         const maxLead = shortJump
-            ? Math.max(attack.maxLead, contactLead + 1 / this.config.simulation.aiRate)
+            ? Math.max(attack.maxLead, contactLead + this.config.simulation.aiIntervalMs / 1000)
             : attack.maxLead;
         const overheadHeight = p.y + v.y * contactLead - 0.5 * gravity * contactLead * contactLead;
         const heightGain = jumpGain * contactLead;
@@ -1741,7 +1745,7 @@ class TakrawGame {
         const jumpHold =
             recorded?.jumpHold ??
             guide?.jumpHold ??
-            (shortJump ? 1 / this.config.simulation.tickRate : this.config.ai.jumpHold);
+            (shortJump ? this.config.ai.shortJumpHoldMs / 1000 : this.config.ai.jumpHold);
         const kickDelay =
             recorded?.kickDelay ?? guide?.kickDelay ?? this.getAttackKickDelay(aerial);
         const lesson = this.drill.lesson(t);
@@ -1841,7 +1845,7 @@ class TakrawGame {
             const contactLead = recorded?.contactLead ?? aerial.contactLead;
             const jumpHold =
                 recorded?.jumpHold ??
-                (shortJump ? 1 / this.config.simulation.tickRate : this.config.ai.jumpHold);
+                (shortJump ? this.config.ai.shortJumpHoldMs / 1000 : this.config.ai.jumpHold);
             const kickDelay = this.getAttackKickDelay(aerial);
             if (
                 !this.profile.drill &&
@@ -2163,7 +2167,7 @@ class TakrawGame {
                             a.jumpUntil =
                                 this.state.time +
                                 (shortJump
-                                    ? 1 / this.config.simulation.tickRate
+                                    ? this.config.ai.shortJumpHoldMs / 1000
                                     : this.config.ai.jumpHold);
                             a.kickFrom =
                                 this.state.time +
@@ -2341,6 +2345,7 @@ class TakrawGame {
                     AiBrain.validRecord(ai.brain),
             ) &&
             Number.isInteger(data.state.seed) &&
+            Number.isSafeInteger(data.state.aiClock?.elapsed) &&
             Array.isArray(data.inputs) &&
             data.inputs.length === 6 &&
             Array.from(data.inputs).every(

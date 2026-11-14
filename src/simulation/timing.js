@@ -7,8 +7,16 @@ import { TAKRAW_TIMING_GRADES } from '../config/game.js';
  * 연습의 안내 문구와 접촉 효과가 같은 공식을 쓰도록 계산식을 여기에만 둔다.
  */
 class TakrawTimingJudge {
-    constructor(settings) {
+    /** settings: config.timing. tickRate: 입력이 모이는 틱 빈도(누른 시각이 최대 한 틱 늦게 잡히는 만큼 창을 반 틱 넓힌다). */
+    constructor(settings, tickRate) {
         this.settings = settings;
+        const quantizationMs = 500 / tickRate;
+        this.windows = Object.fromEntries(
+            Object.entries(settings.windowsMs).map(([grade, ms]) => [
+                grade,
+                (ms + quantizationMs) / 1000,
+            ]),
+        );
     }
 
     /** 팀별 기록 한 쌍. jump·kick은 { at, error } 또는 null. */
@@ -41,9 +49,9 @@ class TakrawTimingJudge {
         records[team][kind] = { at: time, error };
     }
 
-    /** 오차 크기로 등급을 정한다. 창은 config.timing.windows가, 등급 이름은 TAKRAW_TIMING_GRADES가 소유한다. */
+    /** 오차 크기로 등급을 정한다. 창은 config.timing.windowsMs(+반 틱)가, 등급 이름은 TAKRAW_TIMING_GRADES가 소유한다. */
     grade(error) {
-        const { windows } = this.settings,
+        const { windows } = this,
             grades = TAKRAW_TIMING_GRADES;
         const size = Math.abs(error);
         return size <= windows[grades.perfect]

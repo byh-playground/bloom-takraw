@@ -1,6 +1,7 @@
 import { PresentationEventQueue } from '@bloom-gamekit/presentation-events';
 import { TAKRAW_CONFIG } from '../config/game.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
+import { takrawTickCount } from '../simulation/tick-time.js';
 import { impactStyleKey, takrawContactKind } from '../presentation/impact.js';
 import { TakrawRumble } from '../presentation/rumble.js';
 import { winningSpikeScore } from '../presentation/score-motion.js';
@@ -85,7 +86,11 @@ class MatchEventJournal {
             return payload.timing && payload.team === team ? ui.showTiming(payload.timing) : null;
         };
         this.queue = new PresentationEventQueue({
-            retentionTicks: TAKRAW_RUNTIME.feedback.retentionTicks,
+            retentionTicks: takrawTickCount(
+                TAKRAW_RUNTIME.feedback.retentionMs,
+                TAKRAW_CONFIG.simulation.tickRate,
+                1,
+            ),
             adapters: {
                 contact: {
                     reversible: true,

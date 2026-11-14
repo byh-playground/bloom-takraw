@@ -26,7 +26,7 @@ function copyFrame(frame) {
  * 메인 스레드는 명장면 판정과 받은 포즈의 재생만 한다. 실제 경기 상태·저장 형식은 건드리지 않는다.
  */
 class TakrawHighlight {
-    /** urls: 워커가 불러올 Rapier·코덱 모듈 주소(import map으로 푼 값). */
+    /** settings: 틱 단위로 바꾼 리플레이 설정(runtime/highlight-controller.js highlightSettings). urls: 워커가 불러올 Rapier·코덱 모듈 주소(import map으로 푼 값). */
     constructor(settings, urls) {
         this.settings = settings;
         this.urls = urls;

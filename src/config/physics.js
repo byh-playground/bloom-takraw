@@ -23,8 +23,14 @@ const TAKRAW_PHYSICS = Object.freeze({
     receptionMinSpeed: 7.5,
     receptionFullSpeed: 14,
     receptionMaxDuration: 0.66,
+    // Rapier 한 번 적분의 최대 길이(ms). 게임 한 걸음 1000/(tickRate·substeps)이 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
+    // 1000/60 ms(30틱 × substep 2)까지 검증했다. 25 ms(20틱)에서는 발-공 접촉이 같은 계획에서도 매번 크게 달라졌다(v0.20.0 보고).
+    maxStepMs: 1000 / 60,
     solverIterations: 8,
-    ccdSubsteps: 3,
+    // 공·발·정강이의 예측 접촉 거리(m, Rapier soft CCD). 한 걸음이 1/60초면 발과 공이 마주 오는 속도(약 13 m/s)로 0.2 m 넘게 가까워져,
+    // 걸음 시작에만 접촉을 찾는 기본 판정으로는 접촉 전 걸음에 안 닿다가 다음 걸음에 공 중심이 발을 지나 반대쪽으로 밀린다(뚫림).
+    // 속도로 앞질러 접촉을 만드는 예측 접촉으로 바꾸고 hard CCD는 쓰지 않는다. 한 걸음 상대 이동(약 0.2 m)보다 크게 둔다.
+    softCcdPrediction: 0.3,
     // 네트(얇은 판)와 기둥(캡슐)의 충돌체 치수. 위치·크기는 takrawNetShape 한 곳에서 court와 합쳐 정하고, 물리와 그림이 그 값을 같이 읽는다.
     netBottom: 0.78,
     netHalfThickness: 0.025,
@@ -36,7 +42,7 @@ const TAKRAW_PHYSICS = Object.freeze({
         attackHeight: 3.3,
         // 서브 발 계획의 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.
         // 사람·AI 서브 모두 이 계획으로 발을 움직이고 접촉 뒤 공 속도는 덮어쓰지 않는다(v0.19.7부터).
-        serveApex: 3.8,
+        serveApex: 3.0,
         serveHeight: 0.4,
         // AI 세트의 접촉 뒤 속도 보정(assistSet)을 켠다.
         attackAssist: true,

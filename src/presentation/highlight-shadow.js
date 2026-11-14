@@ -5,7 +5,8 @@ const POSE_KEYS = ['x', 'y', 'z', 'qx', 'qy', 'qz', 'qw', 'halfHeight'];
  * 입력은 쌓아 두고 target 틱까지만 계산한다. 재생 구간(from..to)의 틱은 계산하면서 포즈를 묶어 내보낸다.
  */
 class TakrawHighlightShadow {
-    constructor(game, emit, batchTicks = 4) {
+    /** batchTicks: 포즈를 몇 틱씩 묶어 보낼지(config/runtime.js highlight.batchMs를 워커가 틱 수로 올림해 넘긴다). */
+    constructor(game, emit, batchTicks) {
         this.game = game;
         this.emit = emit;
         this.batchTicks = batchTicks;

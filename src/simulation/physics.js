@@ -2,7 +2,7 @@ import { TAKRAW_ROLE, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
 import { takrawNetShape } from '../config/physics.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
-import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
+import { TAKRAW_ROLES, takrawSlotOf, takrawTeamOf } from './roster.js';
 
 /**
  * 인스턴스 설정(DEV-005): config.physics(config/physics.js)를 복사하고 파생값만 더한다.
@@ -1786,7 +1786,7 @@ class TakrawPhysics {
             const suffix = p.kick.side,
                 foot = p.byName['foot' + suffix];
             const hip = this._point(root, { x: suffix === 'L' ? -0.12 : 0.12, y: -0.06, z: 0 });
-            const command = this._kickCommand(p, input, mode, airTarget, hip);
+            const command = this._kickCommand(p, input, mode, airTarget);
             // The air controller already projects position and velocity together
             // into the current leg workspace. The ground foot is kept inside the leg's reach here.
             if (mode !== 'air') this._limitGroundKickReach(p, suffix, foot, hip, command, dt);
@@ -1924,7 +1924,7 @@ class TakrawPhysics {
      * 공 속도에 그 방향으로 다리가 낼 수 있는 최대 속도(maxFootSpeed)를 더한 값이다. 실제 발 속도는 다리 힘 상한과
      * 힘-속도 한계, 다리 길이가 정하고, 공의 세기·방향은 닿는 순간의 발 속도·면과 접촉 물리가 정한다.
      */
-    _kickCommand(p, input, mode, airTarget, hip) {
+    _kickCommand(p, input, mode, airTarget) {
         if (mode === 'air')
             return {
                 target: airTarget.target,

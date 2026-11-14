@@ -22,6 +22,9 @@ function takrawPhysicsSettings(config) {
     return settings;
 }
 
+/** 공 충돌체의 충돌 그룹 비트. 발·정강이 충돌체는 이 비트를 걸러 Rapier가 공과의 접촉을 풀지 않는다. */
+const BALL_GROUP = 2;
+
 /** 스냅샷 검사: x·y·z가 모두 유한한 벡터인지. */
 const snapshotVector = (value) =>
     value && ['x', 'y', 'z'].every((axis) => Number.isFinite(value[axis]));
@@ -597,7 +600,13 @@ class TakrawPhysics {
                     .setMass(mass)
                     .setFriction(name.startsWith('foot') ? 0.9 : 0.42)
                     .setRestitution(0.04)
-                    .setCollisionGroups(this._groups(member, 0xffff ^ member))
+                    // 발·정강이와 공의 접촉은 Rapier가 풀지 않고 걸음 사이 경로로 직접 푼다(_sweepBallContacts). 그래서 공(그룹 비트 2)을 거른다.
+                    .setCollisionGroups(
+                        this._groups(
+                            member,
+                            0xffff ^ member ^ (this._sweptPart(name) ? BALL_GROUP : 0),
+                        ),
+                    )
                     .setActiveEvents(R.ActiveEvents.COLLISION_EVENTS),
                 body,
             );
@@ -779,7 +788,7 @@ class TakrawPhysics {
                 .setFriction(0.45)
                 .setRestitution(s.ballRestitution)
                 .setRestitutionCombineRule(R.CoefficientCombineRule.Max)
-                .setCollisionGroups(this._groups(2))
+                .setCollisionGroups(this._groups(BALL_GROUP))
                 .setActiveEvents(
                     R.ActiveEvents.COLLISION_EVENTS | R.ActiveEvents.CONTACT_FORCE_EVENTS,
                 ),
@@ -919,6 +928,12 @@ class TakrawPhysics {
         body.applyTorqueImpulse(this._mul(torque, dt * strength), true);
     }
 
+    /**
+     * 발 PD. 이득은 footDrive.controlStepMs(v0.19.12의 물리 한 걸음 1000/120 ms) 동안 그 칸 시작 상태로 힘을 거는 것으로 맞춘 값이다.
+     * 물리 한 걸음이 그보다 길면 걸음을 그 칸으로 나눠, 발(질점, 발 몸체 질량)이 이 힘에 어떻게 움직일지 예측하며 칸마다 되먹임·발등 밀기·힘 상한·
+     * 힘-속도 한계를 다시 계산하고 그 평균을 건다. 걸음 시작 상태 하나로 25 ms 내내 같은 힘을 걸면 속도 이득 × 걸음 / 질량이 커져(지상 토스 약 2.5)
+     * 발이 목표를 지나쳐 걸음마다 튄다. 걸음이 한 칸 이하이면 칸이 하나라 계산이 v0.19.12와 같다.
+     */
     _footDrive(
         p,
         part,
@@ -935,36 +950,70 @@ class TakrawPhysics {
     ) {
         const point = applicationPoint || part.body.translation(),
             velocity = part.body.velocityAtPoint(point);
-        const feedback = this._add(
-            this._mul(this._sub(target, point), positionGain),
-            this._mul(this._sub(desiredVelocity, velocity), velocityGain),
-        );
-        let requested = feedForward ? this._add(feedback, feedForward) : feedback;
-        if (contactDrive) {
-            const { normal, gap, closing, targetClosing, weight } = contactDrive;
-            // The real instep may reach a falling ball before the planned clock.
-            // Build the intended closing speed over the actual remaining gap.
-            // Only the foot force changes; the ball stays entirely solver-owned.
-            const acceleration =
-                (targetClosing * targetClosing - closing * Math.abs(closing)) /
-                (2 * Math.max(gap, this.settings.ballRadius * 0.05));
-            const normalForce = contactDrive.mass * acceleration;
-            requested = this._add(
-                requested,
-                this._mul(normal, (normalForce - this._dot(requested, normal)) * weight),
-            );
-        }
+        const cells = Math.max(
+                1,
+                Math.ceil(dt / (this.settings.footDrive.controlStepMs / 1000) - 1e-9),
+            ),
+            cell = dt / cells,
+            mass = part.body.mass();
         const contactScale =
             contactDrive?.power && p.effects.power ? 1 + p.effects.power * contactDrive.weight : 1;
-        const limited = this._limit(requested, maxForce * contactScale);
-        const force = speedLimit
-            ? this._forceVelocityLimit(
-                  limited,
-                  this._sub(velocity, speedLimit.reference),
-                  speedLimit.maxSpeed,
-              )
-            : limited;
-        const impulse = this._mul(force, dt);
+        // 계획 목표는 걸음 끝 시각의 값이다(계획 함수가 this.time + dt로 계산). 칸마다 그 칸 끝의 목표가 되도록 목표 속도로 첫 칸 끝까지 되짚는다.
+        let error = this._sub(
+                cells > 1 ? this._sub(target, this._mul(desiredVelocity, dt - cell)) : target,
+                point,
+            ),
+            modelVelocity = velocity,
+            driveGap = contactDrive ? contactDrive.gap : 0,
+            driveClosing = contactDrive ? contactDrive.closing : 0,
+            sum = this._v();
+        for (let index = 0; index < cells; index++) {
+            const feedback = this._add(
+                this._mul(error, positionGain),
+                this._mul(this._sub(desiredVelocity, modelVelocity), velocityGain),
+            );
+            let requested = feedForward ? this._add(feedback, feedForward) : feedback;
+            if (contactDrive) {
+                const { normal, targetClosing, weight } = contactDrive;
+                // The real instep may reach a falling ball before the planned clock.
+                // Build the intended closing speed over the actual remaining gap.
+                // Only the foot force changes; the ball contact itself is solved separately.
+                const acceleration =
+                    (targetClosing * targetClosing - driveClosing * Math.abs(driveClosing)) /
+                    (2 * Math.max(driveGap, this.settings.ballRadius * 0.05));
+                const normalForce = contactDrive.mass * acceleration;
+                requested = this._add(
+                    requested,
+                    this._mul(normal, (normalForce - this._dot(requested, normal)) * weight),
+                );
+            }
+            const limited = this._limit(requested, maxForce * contactScale);
+            const force = speedLimit
+                ? this._forceVelocityLimit(
+                      limited,
+                      this._sub(modelVelocity, speedLimit.reference),
+                      speedLimit.maxSpeed,
+                  )
+                : limited;
+            sum = this._add(sum, force);
+            if (index + 1 < cells) {
+                // 앞먹임(중력·목표 가속 보상)은 목표가 함께 가속하는 몫이라 오차를 줄이지 않는다. 되먹임 몫만 발 속도를 바꾼다.
+                const change = this._mul(
+                    feedForward ? this._sub(force, feedForward) : force,
+                    cell / mass,
+                );
+                modelVelocity = this._add(modelVelocity, change);
+                error = this._add(
+                    error,
+                    this._mul(this._sub(desiredVelocity, modelVelocity), cell),
+                );
+                if (contactDrive) {
+                    driveClosing += this._dot(change, contactDrive.normal);
+                    driveGap -= driveClosing * cell;
+                }
+            }
+        }
+        const impulse = this._mul(sum, cell);
         part.body.applyImpulseAtPoint(impulse, point, true);
         // Equal/opposite impulses at the same world point cancel the total wrench.
         // Unlike an opposite force at pelvis COM, this also preserves angular momentum.
@@ -3385,6 +3434,7 @@ class TakrawPhysics {
         this.world.integrationParameters.dt = h;
         for (const p of this.players) this._drivePlayer(p, inputs[p.id] || {}, h);
         const before = this._captureBefore();
+        const sweep = this._captureSweep();
         this.world.step(this.queue);
         this.time += h;
         const events = [],
@@ -3397,6 +3447,7 @@ class TakrawPhysics {
         // this step's candidates so the force queue can still confirm their hit.
         const candidates = new Map(this.ballContacts),
             impulses = new Set();
+        this._sweepBallContacts(sweep, h, contactStarts, candidates, impulses);
         this._drainCollisions(events, contactStarts, candidates, before);
         this._collectBallImpulses(candidates, impulses);
         this._confirmTouches(impulses, candidates, contactStarts, confirmedTouches);
@@ -3423,6 +3474,369 @@ class TakrawPhysics {
                 ),
             })),
         };
+    }
+
+    /** 공과의 접촉을 걸음 사이 경로로 직접 푸는 부위(config/physics.js ballContact.parts: 발·정강이). */
+    _sweptPart(name) {
+        return this.settings.ballContact.parts.some((prefix) => name.startsWith(prefix));
+    }
+
+    /** world.step 직전의 공과 발·정강이 자세·속도(걸음 시작). 걸음 끝은 world.step 뒤 Rapier 값이다. */
+    _captureSweep() {
+        const ball = this.ball;
+        const pose = (body) => ({
+            position: { ...body.translation() },
+            rotation: { ...body.rotation() },
+            linear: { ...body.linvel() },
+            angular: { ...body.angvel() },
+        });
+        const parts = [];
+        for (const p of this.players)
+            for (const part of p.parts)
+                if (this._sweptPart(part.name)) parts.push({ p, part, start: pose(part.body) });
+        return { ball: pose(ball), parts };
+    }
+
+    /**
+     * 공 중심 center에서 부위 형상(상자·캡슐, 자세 position·rotation)까지의 거리. 안쪽이면 음수(가장 얕은 면까지의 깊이).
+     * point는 형상 표면의 가장 가까운 점, normal은 그 점에서 공 쪽을 향하는 단위 법선(월드)이다.
+     */
+    _shapeDistance(part, center, position, rotation) {
+        const local = this._rotate(this._conj(rotation), this._sub(center, position));
+        let point, normal, distance;
+        if (part.shape === 'box') {
+            const e = part.halfExtents;
+            const q = {
+                x: this._clamp(local.x, -e.x, e.x),
+                y: this._clamp(local.y, -e.y, e.y),
+                z: this._clamp(local.z, -e.z, e.z),
+            };
+            const d = this._sub(local, q),
+                length = this._length(d);
+            if (length > 1e-9) {
+                distance = length;
+                normal = this._mul(d, 1 / length);
+                point = q;
+            } else {
+                // 중심이 상자 안: 가장 얕은 면으로 나간다.
+                let axis = 'x',
+                    depth = e.x - Math.abs(local.x);
+                for (const key of ['y', 'z']) {
+                    const value = e[key] - Math.abs(local[key]);
+                    if (value < depth) {
+                        axis = key;
+                        depth = value;
+                    }
+                }
+                const sign = local[axis] < 0 ? -1 : 1;
+                distance = -depth;
+                normal = { x: 0, y: 0, z: 0, [axis]: sign };
+                point = { ...local, [axis]: sign * e[axis] };
+            }
+        } else {
+            // 캡슐: 국소 y축 선분(±halfHeight)과 반지름.
+            const axisPoint = {
+                x: 0,
+                y: this._clamp(local.y, -part.halfHeight, part.halfHeight),
+                z: 0,
+            };
+            const d = this._sub(local, axisPoint),
+                length = this._length(d);
+            normal = length > 1e-9 ? this._mul(d, 1 / length) : { x: 1, y: 0, z: 0 };
+            distance = length - part.radius;
+            point = this._add(axisPoint, this._mul(normal, part.radius));
+        }
+        return {
+            distance,
+            point: this._add(position, this._rotate(rotation, point)),
+            normal: this._rotate(rotation, normal),
+            local: point,
+        };
+    }
+
+    /** 걸음 안 비율 s(0~1)의 부위 자세: 위치는 직선, 회전은 정규화한 선형 보간(nlerp). */
+    _sweepPose(entry, s) {
+        const a = entry.start,
+            b = entry.end;
+        const lerp = (u, v) => ({
+            x: u.x + (v.x - u.x) * s,
+            y: u.y + (v.y - u.y) * s,
+            z: u.z + (v.z - u.z) * s,
+        });
+        const q0 = a.rotation;
+        let q1 = b.rotation;
+        if (q0.x * q1.x + q0.y * q1.y + q0.z * q1.z + q0.w * q1.w < 0)
+            q1 = { x: -q1.x, y: -q1.y, z: -q1.z, w: -q1.w };
+        const q = {
+            x: q0.x + (q1.x - q0.x) * s,
+            y: q0.y + (q1.y - q0.y) * s,
+            z: q0.z + (q1.z - q0.z) * s,
+            w: q0.w + (q1.w - q0.w) * s,
+        };
+        const n = Math.sqrt(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
+        return {
+            position: lerp(a.position, b.position),
+            rotation: { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n },
+            linear: lerp(a.linear, b.linear),
+            angular: lerp(a.angular, b.angular),
+        };
+    }
+
+    /**
+     * 공과 부위 하나가 [from, 1] 구간에서 처음 닿는 걸음 비율. 공 경로 ballAt(s), 부위 경로 _sweepPose로 거리 함수를 표본으로 훑고
+     * 처음 닿은 칸을 이분법으로 좁힌다. from에서 이미 겹쳐 있으면 from이다. 닿지 않으면 null.
+     */
+    _firstContact(entry, ballAt, from) {
+        const c = this.settings.ballContact,
+            radius = this.settings.ballRadius;
+        const gap = (s) => {
+            const pose = this._sweepPose(entry, s);
+            return (
+                this._shapeDistance(entry.part, ballAt(s), pose.position, pose.rotation).distance -
+                radius
+            );
+        };
+        if (gap(from) <= 0) return from;
+        // 표본 간격: 공과 부위의 상대 이동(회전은 형상 크기만큼의 호)이 sampleSpacing m를 넘지 않게.
+        const a = entry.start,
+            b = entry.end;
+        const relative = this._length(
+            this._sub(
+                this._sub(ballAt(1), ballAt(from)),
+                this._sub(b.position, this._sweepPose(entry, from).position),
+            ),
+        );
+        const turn =
+            2 *
+            Math.sqrt(
+                Math.max(
+                    0,
+                    1 -
+                        Math.pow(
+                            a.rotation.x * b.rotation.x +
+                                a.rotation.y * b.rotation.y +
+                                a.rotation.z * b.rotation.z +
+                                a.rotation.w * b.rotation.w,
+                            2,
+                        ),
+                ),
+            );
+        const reach =
+            entry.part.shape === 'box'
+                ? this._length(entry.part.halfExtents)
+                : entry.part.halfHeight + entry.part.radius;
+        const samples = this._clamp(
+            Math.ceil((relative + turn * reach) / c.sampleSpacing),
+            1,
+            c.maxSamples,
+        );
+        let low = from;
+        for (let k = 1; k <= samples; k++) {
+            const high = from + ((1 - from) * k) / samples;
+            if (gap(high) > 0) {
+                low = high;
+                continue;
+            }
+            let hi = high;
+            for (let i = 0; i < c.bisection; i++) {
+                const mid = (low + hi) / 2;
+                if (gap(mid) > 0) low = mid;
+                else hi = mid;
+            }
+            return hi;
+        }
+        return null;
+    }
+
+    /**
+     * 발·정강이와 공의 접촉을 걸음 사이 경로로 직접 푼다. world.step은 이 쌍을 거른 채(충돌 그룹) 걸음 끝까지 적분했으므로,
+     * 걸음 시작·끝 자세를 이어 처음 닿는 순간(TOI)·접촉점·법선을 찾고, 그 순간의 상대 속도로 반발(Rapier 결합 규칙 Max)·마찰(평균) 충격을
+     * 공과 부위에 준 뒤 남은 걸음 동안 공을 다시 적분한다. 접촉은 Rapier 접촉과 같은 터치 확정 경로(contactStarts·candidates·impulses)로 넘긴다.
+     * 같은 걸음에 다른 부위에 이어 닿을 수 있어 ballContact.maxContacts번까지 되풀이한다. 상태는 공·부위 Rapier 값과 ballContacts뿐이다.
+     */
+    _sweepBallContacts(sweep, h, contactStarts, candidates, impulses) {
+        const c = this.settings.ballContact,
+            radius = this.settings.ballRadius,
+            g = this.settings.gravity;
+        const ball = this.ball,
+            ballCollider = this.world.getCollider(this.ballColliderHandle);
+        const pose = (body) => ({
+            position: { ...body.translation() },
+            rotation: { ...body.rotation() },
+            linear: { ...body.linvel() },
+            angular: { ...body.angvel() },
+        });
+        for (const entry of sweep.parts) entry.end = pose(entry.part.body);
+        // 공 경로: 걸음 시작·끝 위치를 잇는 직선(25 ms 안의 중력 휨은 3 mm 정도). 접촉 뒤에는 새 속도로 남은 걸음을 다시 적분한다.
+        let path = {
+            from: 0,
+            start: sweep.ball.position,
+            end: { ...ball.translation() },
+            v0: sweep.ball.linear,
+            v1: { ...ball.linvel() },
+        };
+        const ballAt = (s) => {
+            const u = path.from >= 1 ? 1 : (s - path.from) / (1 - path.from);
+            return {
+                x: path.start.x + (path.end.x - path.start.x) * u,
+                y: path.start.y + (path.end.y - path.start.y) * u,
+                z: path.start.z + (path.end.z - path.start.z) * u,
+            };
+        };
+        const ballVelocityAt = (s) => {
+            const u = path.from >= 1 ? 1 : (s - path.from) / (1 - path.from);
+            return {
+                x: path.v0.x + (path.v1.x - path.v0.x) * u,
+                y: path.v0.y + (path.v1.y - path.v0.y) * u,
+                z: path.v0.z + (path.v1.z - path.v0.z) * u,
+            };
+        };
+        const hit = new Set();
+        let angular = { ...ball.angvel() };
+        for (let round = 0; round < c.maxContacts; round++) {
+            let best = null;
+            for (const entry of sweep.parts) {
+                if (hit.has(entry)) continue;
+                const s = this._firstContact(entry, ballAt, path.from);
+                if (s !== null && (!best || s < best.s)) best = { entry, s };
+            }
+            if (!best) break;
+            const { entry, s } = best,
+                part = entry.part,
+                at = this._sweepPose(entry, s),
+                center = ballAt(s);
+            hit.add(entry);
+            const contact = this._shapeDistance(part, center, at.position, at.rotation),
+                n = contact.normal;
+            const partVelocity = this._add(
+                at.linear,
+                this._cross(at.angular, this._sub(contact.point, at.position)),
+            );
+            const ballVelocity = ballVelocityAt(s);
+            // 공 표면 접촉점의 속도(회전 포함) - 부위 접촉점 속도.
+            const arm = this._mul(n, -radius);
+            const relative = this._sub(
+                this._add(ballVelocity, this._cross(angular, arm)),
+                partVelocity,
+            );
+            const closing = this._dot(relative, n);
+            const partCollider = this.world.getCollider(part.colliderHandle);
+            // 반발은 새로 닿는 접촉에만 준다(Rapier도 이어지는 접촉점에는 반발을 걸지 않는다). 계수는 결합 규칙 Max, 마찰은 평균.
+            const fresh = !this.ballContacts.has(part.colliderHandle);
+            const restitution = fresh
+                    ? Math.max(ballCollider.restitution(), partCollider.restitution())
+                    : 0,
+                friction = (ballCollider.friction() + partCollider.friction()) / 2;
+            const ballMass = ball.mass(),
+                ballInertia = 0.4 * ballMass * radius * radius,
+                lever = this._sub(contact.point, at.position);
+            const penetration = radius - contact.distance;
+            if (closing >= 0) {
+                // 떨어지는 중인 접촉: 충격은 없고, 걸음 시작에 겹쳐 있었다면 겹친 만큼만 밀어낸다.
+                if (penetration > c.slop) {
+                    const push = this._mul(n, penetration);
+                    path = {
+                        ...path,
+                        start: this._add(path.start, push),
+                        end: this._add(path.end, push),
+                    };
+                }
+                this._recordSweptContact(entry.p, part, contactStarts, candidates, null);
+                continue;
+            }
+            // 법선 충격: 닿는 순간의 접근 속도를 반발 계수만큼 되돌린다. 질량은 Rapier 접촉 제약과 같은 두 몸체의 일반화 역질량이다
+            // (공 1/m, 부위 1/m + 회전 관성 항. 관절로 이어진 부위는 넣지 않는다: Rapier도 접촉 한 건을 두 몸체 사이에서만 푼다).
+            const normalImpulse =
+                (-(1 + restitution) * closing) /
+                (1 / ballMass + this._inverseMassAt(part.body, at.rotation, lever, n));
+            let impulse = this._mul(n, normalImpulse);
+            const tangent = this._sub(relative, this._mul(n, closing)),
+                slip = this._length(tangent);
+            if (slip > 1e-9) {
+                // 미끄러짐을 멈추는 충격(공 회전 관성 포함)과 마찰 원뿔(μ × 법선 충격) 중 작은 쪽.
+                const tangentMass =
+                    1 /
+                    (1 / ballMass +
+                        (radius * radius) / ballInertia +
+                        this._inverseMassAt(
+                            part.body,
+                            at.rotation,
+                            lever,
+                            this._mul(tangent, 1 / slip),
+                        ));
+                const amount = Math.min(slip * tangentMass, friction * normalImpulse);
+                impulse = this._add(impulse, this._mul(tangent, -amount / slip));
+            }
+            const nextVelocity = this._add(ballVelocity, this._mul(impulse, 1 / ballMass));
+            angular = this._add(angular, this._mul(this._cross(arm, impulse), 1 / ballInertia));
+            // 공을 접촉면 밖(반지름 거리)에 두고 남은 걸음을 새 속도로 적분한다.
+            const placed = this._add(contact.point, this._mul(n, radius)),
+                rest = (1 - s) * h;
+            path = {
+                from: s,
+                start: placed,
+                end: {
+                    x: placed.x + nextVelocity.x * rest,
+                    y: placed.y + nextVelocity.y * rest - 0.5 * g * rest * rest,
+                    z: placed.z + nextVelocity.z * rest,
+                },
+                v0: nextVelocity,
+                v1: { x: nextVelocity.x, y: nextVelocity.y - g * rest, z: nextVelocity.z },
+            };
+            // 반작용: 접촉점의 부위 국소 위치를 걸음 끝 자세로 옮겨 그 점에 반대 충격을 준다.
+            const endPoint = this._add(
+                entry.end.position,
+                this._rotate(entry.end.rotation, contact.local),
+            );
+            part.body.applyImpulseAtPoint(this._mul(impulse, -1), endPoint, true);
+            this._recordSweptContact(entry.p, part, contactStarts, candidates, impulses);
+        }
+        if (hit.size) {
+            ball.setTranslation(path.end, true);
+            ball.setLinvel(path.v1, true);
+            ball.setAngvel(angular, true);
+        }
+        // 떨어진 접촉은 접촉 묶음에서 뺀다(Rapier 접촉의 끝 이벤트에 해당).
+        const final = { ...ball.translation() };
+        for (const entry of sweep.parts) {
+            const handle = entry.part.colliderHandle,
+                active = this.ballContacts.get(handle);
+            if (!active || hit.has(entry)) continue;
+            const pose = entry.end;
+            const gap =
+                this._shapeDistance(entry.part, final, pose.position, pose.rotation).distance -
+                radius;
+            if (gap > c.separation) this.ballContacts.delete(handle);
+        }
+    }
+
+    /** 직접 푼 접촉을 Rapier 접촉 이벤트와 같은 자리에 넣는다: 새 접촉이면 시작, 충격이 있으면 터치 후보. */
+    _recordSweptContact(p, part, contactStarts, candidates, impulses) {
+        const handle = part.colliderHandle;
+        let contact = this.ballContacts.get(handle);
+        if (!contact) {
+            contact = {
+                ...this.colliderMeta.get(handle),
+                confirmed: this._episodeConfirmed(p.id),
+            };
+            this.ballContacts.set(handle, contact);
+            contactStarts.push(contact);
+        }
+        candidates.set(handle, contact);
+        impulses?.add(handle);
+    }
+
+    /**
+     * 몸체의 점 (질량 중심 + lever)에서 방향 direction으로 본 일반화 역질량 1/m + (r×d)·I⁻¹(r×d).
+     * I⁻¹은 Rapier 주관성 모멘트(principalInertia, 국소 축 principalInertiaLocalFrame)를 자세 rotation으로 돌린 값이다.
+     */
+    _inverseMassAt(body, rotation, lever, direction) {
+        const w = this._cross(lever, direction),
+            frame = this._qmul(rotation, body.principalInertiaLocalFrame()),
+            inertia = body.principalInertia();
+        const local = this._rotate(this._conj(frame), w);
+        const scaled = { x: local.x / inertia.x, y: local.y / inertia.y, z: local.z / inertia.z };
+        return 1 / body.mass() + this._dot(w, this._rotate(frame, scaled));
     }
 
     /** 이 선수의 지금 공 접촉이 이미 터치로 확정됐는지. */

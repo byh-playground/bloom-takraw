@@ -24,9 +24,27 @@ const TAKRAW_PHYSICS = Object.freeze({
     receptionFullSpeed: 14,
     receptionMaxDuration: 0.66,
     // Rapier 한 번 적분의 최대 길이(ms). 게임 한 걸음 1000/(tickRate·substeps)이 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
-    maxStepMs: 1000 / 60,
+    // 25 ms(20틱 × substep 2)까지 쓴다. 이 길이에서 발이 공을 지나치는 문제는 ballContact가, 발 PD가 걸음마다 튀는 문제는 footDrive가 맡는다(v0.25.0).
+    maxStepMs: 25,
     solverIterations: 8,
     ccdSubsteps: 3,
+    // 발 PD(physics.js _footDrive)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × substep 2).
+    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·substeps를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
+    footDrive: { controlStepMs: 1000 / 120 },
+    // 발·정강이와 공의 접촉(physics.js _sweepBallContacts). Rapier는 걸음 시작에만 접촉을 찾아, 한 걸음에 발과 공이 공 지름(19 cm)·발등 폭(15 cm)보다
+    // 많이 가까워지면(25 ms × 마주 오는 약 13 m/s ≈ 30 cm) 발이 공을 지나친다. 그래서 이 쌍은 Rapier가 풀지 않고, 걸음 시작·끝 자세를 이어
+    // 처음 닿는 순간을 찾아 그 순간의 상대 속도로 반발·마찰 충격을 준다(계수는 두 충돌체의 Rapier 값과 결합 규칙 그대로).
+    //   parts: 이 부위 이름으로 시작하는 충돌체. sampleSpacing(m)·maxSamples·bisection: 처음 닿는 순간을 찾는 표본 간격·최대 표본 수·이분법 횟수.
+    //   maxContacts: 한 걸음에 이어 닿을 수 있는 부위 수. slop(m): 겹침을 밀어내기 시작하는 깊이. separation(m): 접촉이 끝났다고 보는 틈.
+    ballContact: {
+        parts: ['foot', 'lowerLeg'],
+        sampleSpacing: 0.01,
+        maxSamples: 64,
+        bisection: 14,
+        maxContacts: 3,
+        slop: 0.001,
+        separation: 0.002,
+    },
     // 네트(얇은 판)와 기둥(캡슐)의 충돌체 치수. 위치·크기는 takrawNetShape 한 곳에서 court와 합쳐 정하고, 물리와 그림이 그 값을 같이 읽는다.
     netBottom: 0.78,
     netHalfThickness: 0.025,

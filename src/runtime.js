@@ -368,6 +368,7 @@ async function bootTakraw() {
                 view?.renderStats.line() ?? 'render: not ready',
             ],
             hitches: view?.renderStats.metrics.hitchText() ?? '',
+            traces: view?.renderStats.metrics.traceText() ?? '',
             networkHistory: net.history(),
         });
     }
@@ -464,6 +465,7 @@ async function bootTakraw() {
                 lastContact: match.lastContact,
                 render: view?.renderStats.snapshot() ?? null,
                 hitches: view?.renderStats.metrics.hitches() ?? [],
+                traces: view?.renderStats.metrics.traces() ?? [],
                 highlight: match.highlightDiagnostics(),
                 errors: diagnostics.errors(),
             };

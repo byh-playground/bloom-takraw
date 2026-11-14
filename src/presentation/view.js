@@ -144,6 +144,7 @@ class TakrawView {
         this.renderStats = new RenderStats(this.renderer, {
             stages: FRAME_STAGES,
             counters: FRAME_COUNTERS,
+            trace: { counters: ['jump', 'kick'] },
         });
         this.frameMetrics = this.renderStats.metrics;
         this.programCount = 0;

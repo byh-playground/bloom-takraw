@@ -51,6 +51,8 @@ const TAKRAW_PHYSICS = Object.freeze({
         forefoot: 0.08,
         // 발이 공에 닿은 뒤 같은 누름으로 공을 따라가는 시간(초). 지나면 발은 평소 자세로 돌아간다(떠나는 공을 다시 쫓지 않는다).
         followThrough: 0.08,
+        // 공이 다리 범위 밖이거나 엉덩이보다 높을 때 발등이 기다리는 자리(m, 엉덩이 기준): 아래로 below, 공 쪽 수평 방향으로 ahead(D-428).
+        wait: { below: 0.7, ahead: 0.6 },
         // 발 PD: 위치 이득과, 속도 이득 2√(positionGain·accelerationMass)를 정하는 질량(kg).
         positionGain: 1200,
         accelerationMass: 4.0,

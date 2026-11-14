@@ -1937,6 +1937,14 @@ class TakrawPhysics {
         const toss = this.settings.groundToss;
         const ballPos = this.ball.translation(),
             ballVel = this.ball.linvel();
+        // 공이 다리 범위(엉덩이→발목 최대 + 발목→발등 + 공 반지름) 밖이거나 공 중심이 엉덩이보다 높으면 휘두르지도, 공을 따라 다리를 들지도 않고
+        // 차는 자세의 낮은 대기점(엉덩이 아래, 공 쪽 수평 방향으로 조금 앞 = 공의 뒤 아래)에서 발등이 공을 보게 기다린다(D-428).
+        // 높은 공을 가리키며 다리를 들면 다리 선이 공 중심을 지나 떨어지는 공이 정강이에 먼저 닿고, 공 아래에 먼저 가 있던 발은 공을 위로만 띄웠다.
+        if (
+            this._length(this._sub(ballPos, hip)) > this._strikeRange(p, p.kick.side) ||
+            ballPos.y > hip.y
+        )
+            return this._groundKickWait(p, ballPos, hip);
         const foot = p.byName['foot' + p.kick.side].body;
         const instep = this._point(foot, this._v(0, 0.055, toss.forefoot));
         const toward = this._unit(this._sub(ballPos, instep), this._v(0, 1, 0));
@@ -1957,10 +1965,6 @@ class TakrawPhysics {
             this._sub(heading, this._mul(normal, this._dot(heading, normal))),
             this._v(p.toward, 0, 0),
         );
-        // 공이 다리(엉덩이→발목 최대 길이 + 발목→발등 + 공 반지름) 밖이면 발로 공 쪽을 가리키며 따라가기만 하고 휘두르지 않는다.
-        // 닿지 않는 공으로 다리 끝 속도를 내면 다리 길이 제한이 그 속도를 엉덩이 둘레 구면을 따라 돌려, 엉덩이보다 낮은 발은 위로 갈수록
-        // 공보다 바깥(앞)으로 지나가고 공은 펴진 다리 위, 정강이 쪽으로 떨어진다. 가리키기만 하면 다리 선이 늘 공 중심을 지나 다리 끝(발)이 공에 가장 가깝다.
-        const within = this._length(this._sub(ballPos, hip)) <= this._strikeRange(p, p.kick.side);
         // 발 중심: 발등(위로 0.055)이 가상 중심에 오고 앞꿈치(forefoot)가 맞는 자리.
         const target = this._sub(
             this._sub(virtualCenter, this._mul(normal, 0.055)),
@@ -1968,9 +1972,45 @@ class TakrawPhysics {
         );
         return {
             target,
-            targetVelocity: within
-                ? this._add(ballVel, this._mul(toward, toss.maxFootSpeed))
-                : { ...ballVel },
+            targetVelocity: this._add(ballVel, this._mul(toward, toss.maxFootSpeed)),
+            contactNormal: normal,
+            contactForward: forward,
+            footControl: toss,
+            faceControl: toss,
+        };
+    }
+
+    /**
+     * 지상 발차기의 대기 목표: 발등이 엉덩이 기준 대기점(groundToss.wait: 아래 below m, 공 쪽 수평 방향으로 ahead m)에 오고 공을 보게 한다.
+     * 목표 속도는 엉덩이 속도라 발은 몸에 대해 그 자리에 머문다(공을 따라 들지 않는다).
+     */
+    _groundKickWait(p, ballPos, hip) {
+        const toss = this.settings.groundToss,
+            wait = toss.wait;
+        const ahead = this._unit(
+            this._v(ballPos.x - hip.x, 0, ballPos.z - hip.z),
+            this._v(p.toward, 0, 0),
+        );
+        const instep = this._add(
+            this._add(hip, this._v(0, -wait.below, 0)),
+            this._mul(ahead, wait.ahead),
+        );
+        const normal = this._unit(this._sub(ballPos, instep), this._v(0, 1, 0));
+        const heading =
+            p.receive?.mode === 'slide'
+                ? this._sub(ballPos, p.root.translation())
+                : this._v(p.toward, 0, 0);
+        const forward = this._unit(
+            this._sub(heading, this._mul(normal, this._dot(heading, normal))),
+            this._v(p.toward, 0, 0),
+        );
+        const hipVelocity = p.root.velocityAtPoint(hip);
+        return {
+            target: this._sub(
+                this._sub(instep, this._mul(normal, 0.055)),
+                this._mul(forward, toss.forefoot),
+            ),
+            targetVelocity: this._v(hipVelocity.x, hipVelocity.y, hipVelocity.z),
             contactNormal: normal,
             contactForward: forward,
             footControl: toss,

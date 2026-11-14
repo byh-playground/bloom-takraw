@@ -183,8 +183,8 @@ const TAKRAW_CONFIG = Object.freeze({
             aim: { dx: 0.7, dz: 0 },
             // 세트 목표점이 공격수 기준점 둘레의 직사각형 안에서 흩어지는 반 길이(m): 능력별 [토스 능력 기본값(50), 최대값(100)]. 앞뒤(x)는 좁고 좌우(z)는 넓다(simulation/game.js tossSpread).
             spread: { half: { x: [0.3, 0.1], z: [1.0, 0.25] } },
-            // lead: AI 지상 받기·토스·세트가 공이 다리 범위(physics strikeEntryTime)에 들어오기 몇 초 전에 누르는지(game.js groundKickDelay).
-            ground: { lead: 0.25, followThrough: 0.15, window: 0.45 },
+            // lead: AI 지상 받기·토스·세트가 공이 접촉 높이에 오기 몇 초 전에 누르는지. 일찍 누르면 공이 높을 때 휘둘러 정강이에 먼저 닿는다.
+            ground: { lead: 0.15, followThrough: 0.15, window: 0.45 },
             lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
             attack: {
                 offset: 0.65,

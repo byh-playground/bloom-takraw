@@ -1396,16 +1396,6 @@ class TakrawGame {
     }
 
     /**
-     * AI 지상 발차기를 누를 때까지 남은 시간(초). 물리는 공이 다리 범위에 들어온 뒤에만 발을 휘두르므로, 지금 공 궤적이 지금 자리의
-     * 엉덩이 둘레 범위에 들어오는 예측 시각(physics.strikeEntryTime)보다 lead초 먼저 눌러 발이 공 쪽을 가리키고 있게 한다.
-     * 범위에 들어오지 않는 궤적이면 접촉 높이 도착 시각(arrival)에서 lead초 전이다.
-     */
-    groundKickDelay(player, arrival, lead) {
-        const entry = this.physics.strikeEntryTime(player, arrival + lead);
-        return Math.max(0, (entry ?? arrival) - lead);
-    }
-
-    /**
      * AI 지상 발차기(서브·받기·토스·세트)의 조준. 물리는 누르는 동안 발을 지금 공으로 밀 뿐이라, AI는 어디로 보낼지를 조준으로만 정한다:
      * 공이 접촉 높이(groundToss.contactHeight)에 오는 위치·속도를 예측하고, 그 점에서 목표(동료 또는 상대 코트)로 가는 포물선 속도를 구해
      * 공 속도가 바뀌어야 할 방향(= 발 면이 공을 밀 방향)을 낸 뒤 그 면이 되는 조준을 고른다(physics.groundAimFor). 세기는 누르는 시점이 정한다.
@@ -2224,9 +2214,7 @@ class TakrawGame {
                         // cooldown was set at reservation time, so it could prevent a save
                         // even when the foot never made contact. No ball impulse is added.
                         const arrivalAt = this.state.time + defense.plan.time;
-                        const from =
-                            this.state.time +
-                            this.groundKickDelay(player, defense.plan.time, ground.lead);
+                        const from = Math.max(this.state.time, arrivalAt - ground.lead);
                         const until = arrivalAt + ground.followThrough;
                         const strokeHeld =
                             a.kickFrom <= this.state.time && a.kickUntil > this.state.time;
@@ -2262,12 +2250,7 @@ class TakrawGame {
                             p.y > 0.28 &&
                             v.y < 1.5
                         ) {
-                            // 지상 서브는 접촉 높이 도착 kickLeadMs 전에 누른다(늦게 누를수록 세다). 받기·토스·세트는 다리 범위에 들어오는 때에 맞춘다.
-                            a.kickFrom =
-                                this.state.time +
-                                (setTarget?.playerId === -1
-                                    ? Math.max(0, intercept.time - kickLead)
-                                    : this.groundKickDelay(player, intercept.time, kickLead));
+                            a.kickFrom = this.state.time + Math.max(0, intercept.time - kickLead);
                             a.kickUntil =
                                 a.kickFrom +
                                 (setTarget

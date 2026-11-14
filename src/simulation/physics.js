@@ -2307,29 +2307,6 @@ class TakrawPhysics {
         );
     }
 
-    /**
-     * 지금 공이 중력 포물선 그대로 날아갈 때, 지금 자리의 엉덩이(주발 쪽) 둘레 지상 발차기 범위(_strikeRange)에 처음 들어오는 시각(초 뒤).
-     * horizon 안에 들어오지 않으면 null. 공·몸에 쓰지 않는 읽기 전용 예측이며 AI가 발차기를 누를 때를 정하는 데만 쓴다.
-     */
-    strikeEntryTime(p, horizon) {
-        const s = this.settings,
-            g = s.gravity,
-            step = s.controlStepSeconds;
-        const ball = this.ball.translation(),
-            velocity = this.ball.linvel();
-        const suffix = s.dominantFoot.side;
-        const hip = this._point(p.root, this._v(suffix === 'L' ? -0.12 : 0.12, -0.06, 0));
-        const range = this._strikeRange(p, suffix);
-        for (let t = 0; t <= horizon; t += step) {
-            const y = ball.y + velocity.y * t - 0.5 * g * t * t;
-            if (y < s.ballRadius) return null;
-            const dx = ball.x + velocity.x * t - hip.x,
-                dz = ball.z + velocity.z * t - hip.z;
-            if (Math.hypot(dx, y - hip.y, dz) <= range) return t;
-        }
-        return null;
-    }
-
     groundAimFor(p, impact, normal) {
         const reach = this.settings.kickAim.maxOffset;
         const foot = p.byName['foot' + p.kick.side].body;

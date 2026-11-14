@@ -33,7 +33,13 @@ class PresentationFeed {
                 halfHeight: this.LINEAR,
             };
         }
-        this.presentation = new PresentationRuntime({ stepMs: this.stepMs, delayMs: this.stepMs });
+        // bounded: 표시 시각을 게시 때마다 이어 잡아, 시뮬이 실제 시간보다 뒤처진(backlog 버림) 뒤에도 1틱 지연 보간으로 돌아온다.
+        // fixed는 첫 게시의 origin을 유지해 뒤처진 만큼 표시 시각이 앞서 버리고 최신 틱 자세에 붙는다.
+        this.presentation = new PresentationRuntime({
+            stepMs: this.stepMs,
+            delayMs: this.stepMs,
+            clock: 'bounded',
+        });
         this.poseCache.clear();
         this.poseEntities.length = 0;
         this.publishedTick = -1;

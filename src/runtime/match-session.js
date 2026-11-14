@@ -350,14 +350,24 @@ class MatchSession {
         if (this.hud.due(now, this.mode) && this.mode) this.ui.update(this.hudModel());
     }
 
-    /** 그리기 주기의 한 프레임: 입력을 관찰하고 시뮬 루프(없으면 직접) 그리기. 예외는 실행 실패로 처리한다. */
+    /**
+     * 그리기 주기의 한 프레임: 입력 관찰 → 밀린 틱 진행 → 그리기. 세션이 없으면 직접 그린다. 예외는 실행 실패로 처리한다.
+     * 틱은 deadline pump와 이 콜백이 같은 루프(누적 시간 하나)를 나눠 진행한다. 터치 직후 브라우저가 타이머를 늦게 실행해도
+     * 화면이 보이는 동안은 프레임마다 밀린 틱을 따라잡는다. 진행 조건(canAdvance)·따라잡기 상한은 두 경로가 같다.
+     */
     frame(now) {
         const view = this.view;
         view.beginFrame();
         try {
-            this.loop?.observeInput(now);
-            if (this.loop) this.loop.render();
-            else this.render(now);
+            const loop = this.loop;
+            if (loop) {
+                loop.observeInput(now);
+                const begin = performance.now();
+                // 방금 관찰한 표본으로 진행한다(input: false는 pump와 같은 경로). 연결 정비는 pump만 한다.
+                loop.pulse(now, { render: false, input: false });
+                view.frameMetrics.stage('sim', performance.now() - begin);
+                if (!this.failed) loop.render();
+            } else this.render(now);
         } catch (error) {
             this.simulationFailed(error);
         } finally {
@@ -655,7 +665,7 @@ class MatchSession {
                 this.loop.pulse(now, { render: false, input: false });
                 // Network commands belong to the existing pump, not to rendering.
                 this.maintainNetwork(now);
-                // 그리기 콜백 밖이라 FrameMetrics가 지금 열린 간격의 행(직전 그린 프레임)에 더한다.
+                // 그리기 콜백 밖이라 FrameMetrics가 지금 열린 간격의 행(직전 그린 프레임)에 더한다. 그 행의 콜백 안에서 돈 sim과 합산된다.
                 this.view.frameMetrics.stage('sim', performance.now() - begin);
             },
         });

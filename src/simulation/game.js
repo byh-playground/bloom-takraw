@@ -1,6 +1,5 @@
 import { AiBrain, Temperament } from './ai-brain.js';
 import { AiFormation } from './ai-formation.js';
-import { TakrawGroundKickPlanner } from './ground-kick-plan.js';
 import { TakrawPhysics } from './physics.js';
 import { TakrawTimingJudge } from './timing.js';
 import {
@@ -188,8 +187,6 @@ class TakrawGame {
             previousKick: false,
             attack: null,
             receive: null,
-            groundStance: null,
-            aim: null,
             brain: AiBrain.blankRecord(),
         }));
         this.aiDirty = true;
@@ -416,11 +413,8 @@ class TakrawGame {
                 kick,
                 jumpPressed: jump && !a.previousJump,
                 kickPressed: kick && !a.previousKick,
-                // 지상 발차기 조준은 decideAI의 조향(ground-kick-plan.js)이 고른 값이고 사람과 같은 aimedContact를 탄다. 공중 차기는 가운데를 찬다.
-                aim:
-                    kick && a.aim && !this.physics.players[i].jump.active
-                        ? { ...a.aim }
-                        : { x: 0, y: 0 },
+                // AI는 늘 가운데(발이 가던 방향 그대로 공 중심)를 찬다. 사람과 같은 aimedContact를 탄다.
+                aim: { x: 0, y: 0 },
                 receive:
                     this.state.phase === 'rally' && a.active && a.receive
                         ? { ...a.receive, allowSlide: true }
@@ -620,8 +614,6 @@ class TakrawGame {
                 previousKick: false,
                 attack: null,
                 receive: null,
-                groundStance: null,
-                aim: null,
                 brain: AiBrain.blankRecord(),
             });
         this.aiDirty = true;
@@ -849,7 +841,8 @@ class TakrawGame {
                 this.physics.players[event.playerId].kick.mode === 'ground' &&
                 !spike;
             // 접촉 뒤 공 속도를 목표 포물선으로 덮어쓰는 보정은 AI 세트에만 둔다. 이 틱에 사람 입력이 들어간 선수(그 팀의 조종 선수)가
-            // 찬 세트는 발과 공의 접촉 물리가 정한 그대로 나간다(조준 오프셋이 결과에 남는다). 서브는 사람·AI 모두 덮어쓰지 않는다.
+            // 찬 세트는 발과 공의 접촉 물리가 정한 그대로 나간다(조준 오프셋이 결과에 남는다). 서브는 사람·AI 모두 덮어쓰지 않는다:
+            // 서브 발의 계획(physics _predictReceivePass의 서브 포물선)이 접촉 물리만으로 공을 상대 코트에 보낸다.
             const human =
                 !!humans[event.team] && event.playerId === this.state.selected[event.team];
             if (!human && set && takrawIsAttacker(target.playerId))
@@ -1393,26 +1386,6 @@ class TakrawGame {
 
     tossTarget(player) {
         return this.kickIntent(player)?.target || null;
-    }
-
-    /**
-     * AI 지상 발차기의 목표(ground-kick-plan.js의 goal). 서브·마지막 터치·세트를 받은 공격수의 지상 공은 상대 코트(ai.serve.groundAim) 쪽으로
-     * 넘기고, 토스는 동료 목표점 위로 띄운다(공격수에게는 공중 타점 높이·꼭짓점, 그 밖의 동료에게는 받는 높이·꼭짓점).
-     */
-    groundKickGoal(player) {
-        const intent = this.kickIntent(player);
-        if (!intent) return null;
-        const toss = this.physics.settings.groundToss;
-        if (intent.kind !== 'toss')
-            return { over: true, x: player.toward * this.config.ai.serve.groundAim.x, z: 0 };
-        const attacking = takrawIsAttacker(intent.target.playerId);
-        return {
-            over: false,
-            x: intent.target.x,
-            z: intent.target.z,
-            height: attacking ? toss.attackHeight : toss.contactHeight,
-            apex: attacking ? toss.attackApex : toss.receiveApex,
-        };
     }
 
     /**
@@ -2010,9 +1983,6 @@ class TakrawGame {
         const v = this.physics.ball.linvel();
         const intercept = this.predictAtHeight(this.config.ai.receiveHeight);
         const { lowAttack, attack } = this.config.ai.toss;
-        const steering = this.config.ai.groundKick,
-            planner = new TakrawGroundKickPlanner(this.physics, this.config);
-        planner.prepare();
         for (let team = 0; team < 2; team++) {
             if (!this.profile.aiTeams[team]) {
                 for (const i of TAKRAW_TEAM_PLAYER_IDS[team])
@@ -2085,6 +2055,7 @@ class TakrawGame {
                     this.state.training.setAt === null && !this.state.training.contact
                         ? this.physics.players[TAKRAW_TRAINING_SETTER_ID]
                         : null;
+            const groundBase = this.config.ai.toss.ground;
             const braking = this.config.ai.receive.braking;
             const defense = this.decideReceive(team, human, available, intercept, active);
             if (defense) active = this.physics.players[defense.playerId];
@@ -2098,6 +2069,9 @@ class TakrawGame {
                     { shortJump } = aerial;
                 const q = player.root.translation();
                 const setTarget = this.tossTarget(player);
+                const ground = groundBase;
+                const kickLead = setTarget ? ground.lead : 0.2;
+                const kickWindow = setTarget ? ground.window : 0.36;
                 // 서브: 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브(공중 공격과 같은 점프·발차기), 아니면 지상서브다(사람과 같은 기준).
                 const jumpServe = this.isJumpServe(team);
                 const attacking =
@@ -2108,38 +2082,6 @@ class TakrawGame {
                 const highContact =
                     !defense && attacking && aerial.reachable && aerial.time > attack.minLead;
                 const aim = highContact ? aerial : intercept;
-                // 지상 발차기 조향: 서는 자리·누르는 때·조준을 결정론 전방 예측으로 고른다(ground-kick-plan.js). 자기가 막 찬 공은 다시 쫓지 않는다.
-                // 이미 누른 발차기는 사람처럼 누를 때 고른 자리·조준을 끝까지 유지한다(누른 뒤 다시 고르면 휘두르는 중에 면이 바뀐다).
-                const now = this.state.time;
-                const committed =
-                    a.aim !== null &&
-                    a.groundStance !== null &&
-                    a.kickFrom <= now &&
-                    a.kickUntil > now &&
-                    !player.jump.active;
-                const groundPlan = committed
-                    ? { stance: { x: a.groundStance.x, z: a.groundStance.z }, committed }
-                    : player === active &&
-                        !highContact &&
-                        !player.jump.active &&
-                        this.state.lastTouch !== player.id &&
-                        this.state.serveToss?.stage !== 'hold' &&
-                        !/fall|recover|down/i.test(player.state)
-                      ? planner.plan(
-                            player,
-                            this.groundKickGoal(player),
-                            a.groundStance,
-                            this.physics.time,
-                            steering.lockMs,
-                        )
-                      : null;
-                if (!committed)
-                    a.groundStance = groundPlan
-                        ? {
-                              ...groundPlan.stance,
-                              contactAt: this.physics.time + groundPlan.contactIn,
-                          }
-                        : null;
                 // 목표 자리와 현재 상태(대기·보조·받기·공격·세트·추격)는 상태머신이 정한다.
                 const { mode, target } = this.aiBrain.update({
                     game: this,
@@ -2151,7 +2093,6 @@ class TakrawGame {
                     active,
                     highContact,
                     setTarget,
-                    groundPlan,
                     record: a.brain,
                     temperament: this.temperamentOf(player.id),
                     now: this.state.time,
@@ -2197,25 +2138,26 @@ class TakrawGame {
                 );
                 const settled = drift < prepare.driftRadius;
                 if (player === active) {
-                    if (groundPlan?.committed) {
-                        // 누른 발차기는 정한 때에 뗀다.
-                    } else if (groundPlan) {
-                        // 누르는 때: 예측한 휘두르기 시작보다 pressLeadMs 먼저(그동안 발은 대기점에서 기다린다). 떼는 때: 예측 접촉 뒤 물리 followThrough가 지난 다음.
-                        if (
-                            (now >= a.cooldown || a.kickFrom > now) &&
-                            groundPlan.contactIn <= steering.armMs / 1000
-                        ) {
-                            a.kickFrom =
-                                now + Math.max(0, groundPlan.swingIn - steering.pressLeadMs / 1000);
-                            a.kickUntil =
-                                now +
-                                groundPlan.contactIn +
-                                this.physics.settings.groundToss.followThrough +
-                                steering.releaseMs / 1000;
-                            a.cooldown = a.kickUntil + steering.cooldownMs / 1000;
-                            a.aim = groundPlan.aim;
-                        }
-                    } else if (now >= a.cooldown) {
+                    const saving =
+                        !!defense &&
+                        defense.plan.reachable &&
+                        defense.plan.time <= ground.window &&
+                        p.y > this.physics.settings.ballRadius &&
+                        v.y < 1.5 &&
+                        !player.jump.active;
+                    if (saving) {
+                        // Re-time BEFORE contact as the ball trajectory changes. The old
+                        // cooldown was set at reservation time, so it could prevent a save
+                        // even when the foot never made contact. No ball impulse is added.
+                        const arrivalAt = this.state.time + defense.plan.time;
+                        const from = Math.max(this.state.time, arrivalAt - ground.lead);
+                        const until = arrivalAt + ground.followThrough;
+                        const strokeHeld =
+                            a.kickFrom <= this.state.time && a.kickUntil > this.state.time;
+                        if (!strokeHeld) a.kickFrom = from;
+                        a.kickUntil = strokeHeld ? Math.max(a.kickUntil, until) : until;
+                        a.cooldown = a.kickUntil + 0.16;
+                    } else if (this.state.time >= a.cooldown) {
                         if (
                             highContact &&
                             settled &&
@@ -2223,24 +2165,40 @@ class TakrawGame {
                             aerial.jumpWindow &&
                             (player.grounded || (player.supportAge < 0.065 && !player.jump.active))
                         ) {
-                            a.attack = { until: now + aerial.time };
-                            a.aim = null;
+                            a.attack = { until: this.state.time + aerial.time };
                             a.jumpUntil =
-                                now +
+                                this.state.time +
                                 (shortJump
                                     ? this.config.ai.shortJumpHoldMs / 1000
                                     : this.config.ai.jumpHold);
-                            a.kickFrom = now + (shortJump ? lowAttack.kickDelay : attack.kickDelay);
+                            a.kickFrom =
+                                this.state.time +
+                                (shortJump ? lowAttack.kickDelay : attack.kickDelay);
                             a.kickUntil = a.kickFrom + 0.65;
                             a.cooldown = a.kickFrom + 0.9;
                             a.x = 0;
                             a.z = 0;
+                        } else if (
+                            !defense &&
+                            !highContact &&
+                            dist < 0.4 &&
+                            intercept.time < kickWindow &&
+                            p.y > 0.28 &&
+                            v.y < 1.5
+                        ) {
+                            a.kickFrom = this.state.time + Math.max(0, intercept.time - kickLead);
+                            a.kickUntil =
+                                a.kickFrom +
+                                (setTarget
+                                    ? kickLead + ground.followThrough
+                                    : this.config.ai.kickHold);
+                            a.cooldown = a.kickUntil + 0.25;
                         }
                     }
                 }
                 // A receiver must finish approaching while its real foot swings.
                 // Stopping on kickFrom strands the player outside the kick workspace.
-                const reaching = receiving || !!groundPlan;
+                const reaching = receiving;
                 if (
                     a.jumpUntil > this.state.time ||
                     (player.jump.active && this.state.time < a.kickUntil) ||

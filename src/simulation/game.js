@@ -2174,7 +2174,8 @@ class TakrawGame {
                         if (!strokeHeld) a.kickFrom = from;
                         a.kickUntil = strokeHeld ? Math.max(a.kickUntil, until) : until;
                         a.cooldown = a.kickUntil + 0.16;
-                    } else if (this.state.time >= a.cooldown) {
+                    } else if (this.aiPressTime() >= a.cooldown) {
+                        // 재사용 대기(cooldown)도 버튼 시각이다: 틱 시작에서만 풀리므로 aiPressTime으로 비교해, 긴 틱에서 다음 차기 결정이 v0.19.12(60틱)보다 늦어지지 않게 한다.
                         if (
                             highContact &&
                             settled &&

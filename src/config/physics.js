@@ -36,8 +36,10 @@ const TAKRAW_PHYSICS = Object.freeze({
     // 처음 닿는 순간을 찾아 그 순간의 상대 속도로 반발·마찰 충격을 준다(계수는 두 충돌체의 Rapier 값과 결합 규칙 그대로).
     //   parts: 이 부위 이름으로 시작하는 충돌체. sampleSpacing(m)·maxSamples·bisection: 처음 닿는 순간을 찾는 표본 간격·최대 표본 수·이분법 횟수.
     //   maxContacts: 한 걸음에 이어 닿을 수 있는 부위 수. slop(m): 겹침을 밀어내기 시작하는 깊이. separation(m): 접촉이 끝났다고 보는 틈.
+    //   delayMs: 새 접촉을 푸는 격자(ms). v0.19.12의 Rapier는 처음 닿은 뒤 다음 물리 걸음(1000/120 ms) 시작에 겹친 자리로 풀었다(physics.js _contactDueFraction).
     ballContact: {
         parts: ['foot', 'lowerLeg'],
+        delayMs: 1000 / 120,
         sampleSpacing: 0.01,
         maxSamples: 64,
         bisection: 14,

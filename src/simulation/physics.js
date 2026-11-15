@@ -3481,8 +3481,10 @@ class TakrawPhysics {
                 ? Math.min(dt, this.settings.maxStepSeconds)
                 : this.settings.stepSeconds;
         this.world.integrationParameters.dt = h;
+        const driven = this._sweptVelocities();
         for (const p of this.players) this._drivePlayer(p, inputs[p.id] || {}, h);
         const before = this._captureBefore();
+        const started = this._resolveStartBallContacts(driven, h);
         const sweep = this._captureSweep();
         this.world.step(this.queue);
         this.time += h;
@@ -3496,6 +3498,9 @@ class TakrawPhysics {
         // this step's candidates so the force queue can still confirm their hit.
         const candidates = new Map(this.ballContacts),
             impulses = new Set();
+        this._finishStartBallContacts(started, h, sweep);
+        for (const { p, part } of started)
+            this._recordSweptContact(p, part, contactStarts, candidates, impulses);
         this._sweepBallContacts(sweep, h, contactStarts, candidates, impulses);
         this._drainCollisions(events, contactStarts, candidates, before);
         this._collectBallImpulses(candidates, impulses);
@@ -3530,6 +3535,186 @@ class TakrawPhysics {
         return this.settings.ballContact.parts.some((prefix) => name.startsWith(prefix));
     }
 
+    /** 구동 충격을 주기 전의 발·정강이 속도(직전 걸음 끝 값). _resolveStartBallContacts가 구동 한 칸 몫만 더할 때 쓴다. */
+    _sweptVelocities() {
+        const out = new Map();
+        for (const p of this.players)
+            for (const part of p.parts)
+                if (this._sweptPart(part.name))
+                    out.set(part, {
+                        linear: { ...part.body.linvel() },
+                        angular: { ...part.body.angvel() },
+                    });
+        return out;
+    }
+
+    /**
+     * 걸음 안 비율 s에 처음 닿은 새 접촉을 풀 걸음 안 비율. v0.19.12(60틱 × substep 2, Rapier)는 발이 CCD에 걸리지 않아 공에 들어간 뒤
+     * 다음 걸음 시작(1000/120 ms 격자)에야 겹친 자리로 접촉을 풀었다. 그래서 걸음 시작부터 ballContact.delayMs 칸 경계 중 처음 닿은 뒤 첫 경계에서 푼다.
+     * 1이면 이 걸음 끝 = 다음 걸음 시작이다. 걸음이 한 칸이면 늘 다음 걸음 시작이라 v0.19.12와 같다.
+     */
+    _contactDueFraction(s, h) {
+        const cell = this.settings.ballContact.delayMs / 1000;
+        return Math.min(1, (Math.ceil((s * h) / cell - 1e-9) * cell) / h);
+    }
+
+    /**
+     * 걸음 시작(구동 충격 뒤, world.step 전)에 공과 겹친 새 접촉을 찾는다. v0.19.12의 Rapier는 겹친 다음 걸음에 이 접촉을 관절과 한 솔버에서 풀었다:
+     * 반발 목표(접근 속도 × e)는 걸음 시작(구동 충격 뒤) 속도로 정하고, 그 목표를 관절이 푼 걸음 끝 발 속도에 대해 맞췄다.
+     * 여기서는 접촉점(부위 국소)·법선·목표 분리 속도만 정하고, 충격은 world.step 뒤 _finishStartBallContacts가 준다.
+     * 걸음이 한 칸(ballContact.delayMs)보다 길면 구동 충격 중 한 칸 몫만 접근 속도에 넣는다(Rapier가 본 속도는 직전 걸음 끝 + 한 칸 구동이다).
+     */
+    _resolveStartBallContacts(driven, h) {
+        const radius = this.settings.ballRadius,
+            share = Math.min(1, this.settings.ballContact.delayMs / 1000 / h),
+            ball = this.ball,
+            center = { ...ball.translation() },
+            ballVelocity = { ...ball.linvel() },
+            ballAngular = { ...ball.angvel() },
+            ballCollider = this.world.getCollider(this.ballColliderHandle),
+            found = [];
+        for (const p of this.players)
+            for (const part of p.parts) {
+                if (!this._sweptPart(part.name) || this.ballContacts.has(part.colliderHandle))
+                    continue;
+                const body = part.body,
+                    position = body.translation(),
+                    rotation = body.rotation();
+                const contact = this._shapeDistance(part, center, position, rotation);
+                if (contact.distance > radius) continue;
+                const before = driven.get(part),
+                    blend = (u, v) => this._add(u, this._mul(this._sub(v, u), share));
+                const linear = blend(before.linear, body.linvel()),
+                    angular = blend(before.angular, body.angvel());
+                const lever = this._sub(contact.point, position),
+                    n = contact.normal,
+                    arm = this._mul(n, -radius);
+                const closing = this._dot(
+                    this._sub(
+                        this._add(ballVelocity, this._cross(ballAngular, arm)),
+                        this._add(linear, this._cross(angular, lever)),
+                    ),
+                    n,
+                );
+                if (closing >= 0) continue;
+                const restitution = Math.max(
+                    ballCollider.restitution(),
+                    this.world.getCollider(part.colliderHandle).restitution(),
+                );
+                found.push({
+                    p,
+                    part,
+                    local: this._rotate(this._conj(rotation), lever),
+                    normal: n,
+                    separation: -restitution * closing,
+                });
+            }
+        return found;
+    }
+
+    /**
+     * _resolveStartBallContacts가 찾은 접촉에 world.step 뒤 충격을 준다. 충격 뒤 공과 걸음 끝 부위 접촉점의 상대 속도가 법선으로는 목표 분리 속도,
+     * 접선으로는 0(마찰 원뿔 안)이 되게 푼다. 공은 이 걸음 내내 새 속도로 움직인 것으로 위치를 고친다(Rapier도 걸음 처음에 속도를 풀고 적분했다).
+     */
+    _finishStartBallContacts(found, h, sweep) {
+        const radius = this.settings.ballRadius,
+            ball = this.ball,
+            mass = ball.mass(),
+            inertia = 0.4 * mass * radius * radius;
+        for (const item of found) {
+            const body = item.part.body,
+                rotation = body.rotation(),
+                lever = this._rotate(rotation, item.local),
+                point = this._add(body.translation(), lever);
+            const ballVelocity = { ...ball.linvel() },
+                ballAngular = { ...ball.angvel() };
+            const impulse = this._ballContactImpulse(
+                item.part,
+                rotation,
+                { normal: item.normal },
+                lever,
+                this._add(body.linvel(), this._cross(body.angvel(), lever)),
+                ballVelocity,
+                ballAngular,
+                true,
+                item.separation,
+            );
+            if (!impulse) continue;
+            const change = this._mul(impulse, 1 / mass),
+                arm = this._mul(item.normal, -radius);
+            ball.setLinvel(this._add(ballVelocity, change), true);
+            ball.setTranslation(this._add(ball.translation(), this._mul(change, h)), true);
+            ball.setAngvel(
+                this._add(ballAngular, this._mul(this._cross(arm, impulse), 1 / inertia)),
+                true,
+            );
+            body.applyImpulseAtPoint(this._mul(impulse, -1), point, true);
+            // 이 걸음의 경로 접촉(_sweepBallContacts)은 공이 처음부터 새 속도였던 것으로 보고, 이 부위는 다시 풀지 않는다.
+            sweep.ball.linear = this._add(sweep.ball.linear, change);
+            sweep.resolved.add(item.part);
+        }
+    }
+
+    /**
+     * 공과 부위 접촉의 공 쪽 충격(반발 + 마찰). contact.normal은 부위에서 공 쪽 법선, partVelocity는 부위 접촉점 속도.
+     * separation(목표 분리 속도)을 주면 반발 목표 대신 그 값을 쓴다. 없으면 떨어지는 중일 때 null. 반발은 새 접촉에만(Rapier 결합 규칙 Max), 마찰은 평균. 질량은 공과 그 부위 두 몸체의 일반화 역질량이다.
+     */
+    _ballContactImpulse(
+        part,
+        rotation,
+        contact,
+        lever,
+        partVelocity,
+        ballVelocity,
+        ballAngular,
+        fresh,
+        separation,
+    ) {
+        const radius = this.settings.ballRadius,
+            n = contact.normal,
+            arm = this._mul(n, -radius);
+        const relative = this._sub(
+            this._add(ballVelocity, this._cross(ballAngular, arm)),
+            partVelocity,
+        );
+        const closing = this._dot(relative, n);
+        if (separation === undefined && closing >= 0) return null;
+        const ballCollider = this.world.getCollider(this.ballColliderHandle),
+            partCollider = this.world.getCollider(part.colliderHandle);
+        const restitution = fresh
+                ? Math.max(ballCollider.restitution(), partCollider.restitution())
+                : 0,
+            friction = (ballCollider.friction() + partCollider.friction()) / 2;
+        const ballMass = this.ball.mass(),
+            ballInertia = 0.4 * ballMass * radius * radius;
+        // 한 번에 푸는 3축 충격: 충격 뒤 상대 속도가 법선으로는 반발(-e × 접근), 접선으로는 0이 되게 한다(Rapier가 접촉·마찰·관절을 한 솔버에서
+        // 같이 풀어 나오는 결과). 응답 행렬은 공(질량·회전) + 부위(_jointedResponse)이고, 법선 충격이 접선 속도를 바꾸는 몫도 들어간다.
+        // 접선 충격이 마찰 원뿔(μ × 법선 충격)을 넘으면 원뿔 끝으로 줄인다.
+        const response = this._jointedResponse(part, rotation, lever),
+            spin = (radius * radius) / ballInertia;
+        const k = response.slice();
+        const axes = ['x', 'y', 'z'];
+        for (let r = 0; r < 3; r++)
+            for (let c = 0; c < 3; c++)
+                k[r * 3 + c] +=
+                    (r === c ? 1 / ballMass + spin : 0) - spin * n[axes[r]] * n[axes[c]];
+        const inverse = this._mat3Inverse(k);
+        if (!inverse) return null;
+        const wanted = this._sub(this._mul(n, separation ?? -restitution * closing), relative);
+        let impulse = this._mat3Apply(inverse, wanted);
+        const normalImpulse = this._dot(impulse, n);
+        if (normalImpulse <= 0) return null;
+        const tangential = this._sub(impulse, this._mul(n, normalImpulse)),
+            tangentSize = this._length(tangential),
+            cone = friction * normalImpulse;
+        if (tangentSize > cone)
+            impulse = this._add(
+                this._mul(n, normalImpulse),
+                this._mul(tangential, cone / tangentSize),
+            );
+        return impulse;
+    }
+
     /** world.step 직전의 공과 발·정강이 자세·속도(걸음 시작). 걸음 끝은 world.step 뒤 Rapier 값이다. */
     _captureSweep() {
         const ball = this.ball;
@@ -3543,7 +3728,7 @@ class TakrawPhysics {
         for (const p of this.players)
             for (const part of p.parts)
                 if (this._sweptPart(part.name)) parts.push({ p, part, start: pose(part.body) });
-        return { ball: pose(ball), parts };
+        return { ball: pose(ball), parts, resolved: new Set() };
     }
 
     /**
@@ -3738,7 +3923,7 @@ class TakrawPhysics {
                 z: path.v0.z + (path.v1.z - path.v0.z) * u,
             };
         };
-        const hit = new Set();
+        const hit = new Set(sweep.parts.filter((entry) => sweep.resolved.has(entry.part)));
         let angular = { ...ball.angvel() };
         for (let round = 0; round < c.maxContacts; round++) {
             let best = null;
@@ -3748,11 +3933,19 @@ class TakrawPhysics {
                 if (s !== null && (!best || s < best.s)) best = { entry, s };
             }
             if (!best) break;
-            const { entry, s } = best,
-                part = entry.part,
+            const { entry } = best;
+            hit.add(entry);
+            let s = best.s;
+            if (!this.ballContacts.has(entry.part.colliderHandle)) {
+                // 새 접촉은 처음 닿은 순간이 아니라 그 뒤 첫 칸 경계(ballContact.delayMs 격자)에서 푼다(_contactDueFraction).
+                // 경계가 걸음 끝이면 이 걸음에는 공이 부위 안으로 들어간 채 두고, 다음 걸음 시작에 겹친 자리로 푼다(_resolveStartBallContacts).
+                const due = this._contactDueFraction(s, h);
+                if (due >= 1 - 1e-9) continue;
+                s = due;
+            }
+            const part = entry.part,
                 at = this._sweepPose(entry, s),
                 center = ballAt(s);
-            hit.add(entry);
             const contact = this._shapeDistance(part, center, at.position, at.rotation),
                 n = contact.normal;
             // 부위 속도는 걸음 끝 값이다. Rapier는 걸음 처음에 관절·제약으로 속도를 푼 뒤 그 속도로 위치를 적분하므로(반암시 오일러) 걸음 안에서
@@ -3874,6 +4067,100 @@ class TakrawPhysics {
         }
         candidates.set(handle, contact);
         impulses?.add(handle);
+    }
+
+    /** 3×3 행렬(행 우선 9개 배열)과 벡터의 곱. */
+    _mat3Apply(m, v) {
+        return {
+            x: m[0] * v.x + m[1] * v.y + m[2] * v.z,
+            y: m[3] * v.x + m[4] * v.y + m[5] * v.z,
+            z: m[6] * v.x + m[7] * v.y + m[8] * v.z,
+        };
+    }
+
+    /** 몸체(자세 rotation)의 점 rA 속도가 점 rB 충격에 바뀌는 행렬 (1/m)E - [rA]× I⁻¹ [rB]× (r은 질량 중심 기준). */
+    _pointResponse(body, rotation, rA, rB) {
+        const frame = this._qmul(rotation, body.principalInertiaLocalFrame()),
+            inertia = body.principalInertia(),
+            mass = body.mass();
+        const out = new Array(9);
+        const axes = [
+            { x: 1, y: 0, z: 0 },
+            { x: 0, y: 1, z: 0 },
+            { x: 0, y: 0, z: 1 },
+        ];
+        axes.forEach((e, column) => {
+            const torque = this._rotate(this._conj(frame), this._cross(rB, e));
+            const w = this._rotate(frame, {
+                x: torque.x / inertia.x,
+                y: torque.y / inertia.y,
+                z: torque.z / inertia.z,
+            });
+            const v = this._add(this._mul(e, 1 / mass), this._cross(w, rA));
+            out[column] = v.x;
+            out[3 + column] = v.y;
+            out[6 + column] = v.z;
+        });
+        return out;
+    }
+
+    /**
+     * 공이 부위의 점 (질량 중심 + lever)을 칠 때 그 점의 속도 응답 행렬(일반화 역질량). 발은 발목 관절(점 구속)로 정강이와 이어진 두 몸체로 본다.
+     * v0.19.12의 Rapier는 접촉과 관절을 한 솔버에서 같이 풀어, 공이 본 발의 질량에 정강이 몫이 들어갔다. 그 밖의 부위는 그 몸체 하나다.
+     */
+    _jointedResponse(part, rotation, lever) {
+        const body = part.body;
+        const own = this._pointResponse(body, rotation, lever, lever);
+        if (!part.name.startsWith('foot')) return own;
+        const suffix = part.name.slice(4),
+            p = this.players.find((player) => player.byName[part.name] === part),
+            joint = p?.joints.find((item) => item.name === 'ankle' + suffix),
+            leg = p?.byName['lowerLeg' + suffix];
+        if (!joint || !leg) return own;
+        const center = body.translation();
+        const anchor = this._add(center, this._rotate(rotation, joint.restAnchor2)),
+            fromFoot = this._sub(anchor, center),
+            fromLeg = this._sub(anchor, leg.body.translation()),
+            legRotation = leg.body.rotation();
+        const faa = this._pointResponse(body, rotation, fromFoot, fromFoot),
+            laa = this._pointResponse(leg.body, legRotation, fromLeg, fromLeg),
+            fac = this._pointResponse(body, rotation, fromFoot, lever),
+            fca = this._pointResponse(body, rotation, lever, fromFoot);
+        const k = faa.map((value, index) => value + laa[index]);
+        const inverse = this._mat3Inverse(k);
+        if (!inverse) return own;
+        const product = (a, b) => {
+            const out = new Array(9);
+            for (let r = 0; r < 3; r++)
+                for (let c = 0; c < 3; c++)
+                    out[r * 3 + c] =
+                        a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c];
+            return out;
+        };
+        const correction = product(fca, product(inverse, fac));
+        return own.map((value, index) => value - correction[index]);
+    }
+
+    /** 3×3 역행렬(행 우선). 특이하면 null. */
+    _mat3Inverse(m) {
+        const [a, b, c, d, e, f, g, h, i] = m;
+        const A = e * i - f * h,
+            B = -(d * i - f * g),
+            C = d * h - e * g;
+        const det = a * A + b * B + c * C;
+        if (Math.abs(det) < 1e-12) return null;
+        const r = 1 / det;
+        return [
+            A * r,
+            -(b * i - c * h) * r,
+            (b * f - c * e) * r,
+            B * r,
+            (a * i - c * g) * r,
+            -(a * f - c * d) * r,
+            C * r,
+            -(a * h - b * g) * r,
+            (a * e - b * d) * r,
+        ];
     }
 
     /**

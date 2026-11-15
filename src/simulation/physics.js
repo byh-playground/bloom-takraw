@@ -2231,44 +2231,16 @@ class TakrawPhysics {
 
     /**
      * 회전 PD(발 방향·무릎 평면)의 한 걸음 이득. 토크 = position × 각도 오차 + velocity × 각속도.
-     * 기준은 v0.19.12의 식: 제어 칸(footDrive.controlStepMs) 하나에 r(kp e - kd w) / (1 + kd c / I + kp c^2 / I)를 거는 안정 PD다.
-     * 이 식을 25 ms 한 걸음에 그대로 쓰면 분모가 감쇠까지 줄여 한 걸음에 오차를 거의 다 돌리고도 각속도가 남는다(걸음당 감쇠 약 4 %, 60틱은 25 ms에 약 24 %).
-     * 그래서 걸음을 칸으로 나눈 기준 식의 칸 n개 응답(관성 I인 강체, 칸마다 토크 → 각속도 → 각도 순서로 적분) 행렬 A^n을 만들고,
-     * 한 걸음 토크 하나로 같은 응답 모드(고유값: 행렬의 대각합·행렬식)가 나오게 두 이득을 푼다. 걸음이 한 칸이면 기준 식과 같은 값이다.
+     * v0.19.12의 안정 PD 식 r(kp e - kd w) / (1 + kd dt / I + kp dt^2 / I)를 실제 걸음 dt로 쓴다. 이 식은 PD를 걸음 끝 상태로 푼(암시적) 형태라
+     * 걸음 길이와 상관없이 발산하지 않고, 걸음이 짧아지면 연속 PD로 수렴한다. 60틱 × substep 2이면 v0.19.12와 같은 값이다.
+     * (0fc9b71은 칸 n개 응답과 고유값을 맞춘 이득을 썼으나, 관성 I가 실제 발·정강이 결합 관성과 달라 25 ms에서 발 방향이 걸음마다 흔들렸다:
+     *  받기 직전 발 각속도 12~23 rad/s, 60틱은 1~3 rad/s. 같은 상태에서 이 식으로 바꾸면 1~4 rad/s로 돌아온다.)
      */
     _stablePdGains(stiffness, damping, inertia, dt, response) {
-        const cells = Math.max(
-            1,
-            Math.ceil(dt / (this.settings.footDrive.controlStepMs / 1000) - 1e-9),
-        );
-        const cell = dt / cells;
-        const stable = 1 + (damping * cell) / inertia + (stiffness * cell * cell) / inertia;
-        const position = (stiffness * response) / stable,
-            velocity = (-damping * response) / stable;
-        if (cells === 1) return { position, velocity };
-        // 상태 (오차 e, 각속도 w)의 칸 한 개: w' = w + (c / I)(a e + b w), e' = e - c w'.
-        const g = cell / inertia;
-        const m = [
-            1 - cell * g * position,
-            -cell * (1 + g * velocity),
-            g * position,
-            1 + g * velocity,
-        ];
-        let r = m;
-        for (let index = 1; index < cells; index++)
-            r = [
-                r[0] * m[0] + r[1] * m[2],
-                r[0] * m[1] + r[1] * m[3],
-                r[2] * m[0] + r[3] * m[2],
-                r[2] * m[1] + r[3] * m[3],
-            ];
-        const trace = r[0] + r[3],
-            determinant = r[0] * r[3] - r[1] * r[2];
-        // 한 걸음 dt 행렬 [[1 - dt G a, -dt(1 + G b)], [G a, 1 + G b]] (G = dt / I)의 행렬식은 1 + G b, 대각합은 2 + G b - dt G a.
-        const stepGain = dt / inertia;
+        const stable = 1 + (damping * dt) / inertia + (stiffness * dt * dt) / inertia;
         return {
-            position: (1 + determinant - trace) / (dt * stepGain),
-            velocity: (determinant - 1) / stepGain,
+            position: (stiffness * response) / stable,
+            velocity: (-damping * response) / stable,
         };
     }
 

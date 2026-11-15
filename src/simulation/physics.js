@@ -277,11 +277,13 @@ class TakrawPhysics {
                 Math.abs(point.x) > this.config.court.halfLength + 0.65
             )
                 return null;
+            // 서는 자리: 접촉점(발로 받는 높이에 공이 오는 곳)에서 offset만큼 뒤. 뒤쪽 한계는 접촉점을 받아들이는 한계(끝줄 + 0.65 m)와 같다.
+            // 끝줄 안쪽(끝줄 - 0.5 m)에서 멈추게 하면 깊은 서브에서 공이 발 높이로 내려오기 전에 몸에 닿는다(몸통 받기).
             const stance = {
                 x:
                     this._clamp(
                         point.x * p.toward - offset,
-                        -this.config.court.halfLength + 0.5,
+                        -this.config.court.halfLength - 0.65,
                         -0.6,
                     ) * p.toward,
                 z: this._clamp(

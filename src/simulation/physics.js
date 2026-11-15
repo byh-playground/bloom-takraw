@@ -1861,21 +1861,12 @@ class TakrawPhysics {
         targetMap['ankle' + suffix] = pose.ankle;
     }
 
-    /**
-     * 받기 계획의 목표 시각: 이번 걸음의 가운데. 발 힘은 한 걸음 내내 그대로 걸리므로, 그 힘이 따라갈 목표는
-     * 걸음 안 궤적의 평균(가운데 값과 2차까지 같다)이어야 한다. 걸음 끝 시각을 쓰면 목표가 걸음 길이만큼 앞서
-     * 걸음이 긴 설정에서 발이 계획보다 먼저 나간다.
-     */
-    _receivePlanClock(plan, dt) {
-        return this.time - plan.startedAt + dt * 0.5;
-    }
-
     /** 지상 토스 마무리 구간: 발등과 힘점의 회전 속도 차이를 목표 속도에서 뺀다(구간 끝으로 갈수록 크게). */
     _groundStrokeVelocity(p, foot, forcePoint, targetVelocity, dt) {
         const plan = p.kick.receivePlan,
             toss = this.settings.groundToss;
         const terminal = this._clamp(
-            (this._receivePlanClock(plan, dt) - plan.duration + toss.strokeTime) / toss.strokeTime,
+            (this.time - plan.startedAt + dt - plan.duration + toss.strokeTime) / toss.strokeTime,
             0,
             1,
         );
@@ -3476,7 +3467,7 @@ class TakrawPhysics {
     _dynamicReceivePath(p, plan, ballVel, dt) {
         const s = this.settings,
             toss = this.settings.groundToss;
-        const elapsed = this._receivePlanClock(plan, dt),
+        const elapsed = this.time - plan.startedAt + dt,
             terminal = Math.min(toss.strokeTime, plan.duration * 0.5);
         // 발은 조준과 상관없이 approach 방향으로 공에 다가간다(조준은 닿는 면만 바꾼다).
         const prepDuration = Math.max(dt, plan.duration - terminal),
@@ -3548,7 +3539,7 @@ class TakrawPhysics {
         const toss = this.settings.groundToss;
         // Cushion receptions and high sets share a continuous approach, with
         // endpoint velocity for the intended pass instead of a late hard swing.
-        const elapsed = this._receivePlanClock(plan, dt);
+        const elapsed = this.time - plan.startedAt + dt;
         const duration = plan.duration;
         const point = plan.point;
         const u = this._clamp(elapsed / duration, 0, 1),
@@ -3600,7 +3591,8 @@ class TakrawPhysics {
     _strokeReceivePath(p, plan, ballVel, dt) {
         const s = this.settings,
             toss = this.settings.groundToss;
-        const elapsed = this._receivePlanClock(plan, dt);
+        // A plan created after recovery starts now, retaining the first-substep drive.
+        const elapsed = this.time - plan.startedAt + dt;
         const stroke = Math.min(toss.strokeTime, plan.duration * toss.strokeFraction);
         const beforeStroke = plan.duration - stroke;
         const clock = this._clamp(elapsed - beforeStroke, 0, stroke);

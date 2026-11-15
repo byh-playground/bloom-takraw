@@ -152,6 +152,9 @@ const TAKRAW_CONFIG = Object.freeze({
                 jumpApex: 3.2,
                 fullCharge: 0.8,
                 maxHold: 12,
+                // AI 서버는 멈춰 선 뒤에만 힘을 모으기 시작한다: 몸통 수평 속도 speed(m/s) 미만이 stillMs(ms) 동안 이어질 때.
+                // 공을 든 동안 AI 서버는 움직이지 않으므로(game.js updateInputs) 남은 거리 문턱은 두지 않는다. 사람 서브 규칙은 그대로다.
+                settle: { speed: 0.05, stillMs: 150 },
             },
         },
         // 사람이 자리를 비우면 AI 동료가 비운 구역을 메운다(ai-formation.js). slow: 이 시간(초)을 넘겨 닿는 구역만 벌점, reaction: 출발 반응(초),

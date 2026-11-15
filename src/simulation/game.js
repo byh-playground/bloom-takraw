@@ -746,9 +746,21 @@ class TakrawGame {
         if (this.callServeFootFault()) return;
         // AI는 모은 힘이 aimCharge에 닿는 틱에 던진다. 틱이 길면 그만큼 평균 더 모으므로, aiPressTime과 같이 v0.19.12(60틱)의 평균 넘침이 되게 앞당긴다.
         const early = Math.max(0, (dt - this.config.simulation.aiPressReferenceMs / 1000) / 2);
-        const held = this.humanServes(this.state.serving)
-                ? !!human?.toss
-                : toss.charge + early < toss.aimCharge,
+        const aiServing = !this.humanServes(this.state.serving);
+        if (aiServing && !toss.charging) {
+            // AI 서버는 멈춰 선 채 stillMs가 지나야 모으기 시작한다. 멈춘 시각은 aiPressTime 기준(버튼 시각과 같은 원칙)이다.
+            const id = this.serverId(this.state.serving),
+                v = this.physics.players[id].root.linvel(),
+                settle = cfg.settle;
+            const still = Math.hypot(v.x, v.z) < settle.speed;
+            toss.stillSince = still ? (toss.stillSince ?? this.aiPressTime()) : null;
+        }
+        const ready =
+            toss.charging ||
+            (toss.stillSince !== null &&
+                toss.stillSince !== undefined &&
+                this.aiPressTime() - toss.stillSince >= cfg.settle.stillMs / 1000);
+        const held = !aiServing ? !!human?.toss : ready && toss.charge + early < toss.aimCharge,
             pressed = !!human?.tossPressed;
         if (held || pressed) {
             toss.charging = true;

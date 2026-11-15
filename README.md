@@ -104,7 +104,7 @@ GameKit dist 커밋 `d63dce2301e5631adb11b855ef844394436b4d6a`(v0.64.0, three-ki
 | -------------- | ----------------------------------------------------------- |
 | `winner`       | 이긴 팀(0 홈, 1 원정)                                       |
 | `sets`·`score` | 끝난 순간의 세트·점수                                       |
-| `ticks`        | 경기 시뮬레이션 tick(30Hz, v0.20.0~)                        |
+| `ticks`        | 경기 시뮬레이션 tick(`simulation.tickRate`)                 |
 | `seed`         | 경기 변주 시드(`state.seed`). 기록의 시드는 세션 시드입니다 |
 | `schoolId`     | `match`만: 도장깨기 상대 학교, AI 대전은 `null`             |
 | `localTeam`    | `online`만: 보낸 사람의 팀                                  |

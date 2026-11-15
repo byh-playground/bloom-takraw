@@ -16,50 +16,79 @@ const TAKRAW_PHYSICS = Object.freeze({
     jumpSpeed: 5.4,
     jumpHoldAcceleration: 7.5,
     jumpHoldTime: 0.16,
-    // 지상 발차기(서브·받기·토스·세트) 발을 미는 다리 힘 상한(N, 근력 setting이 곱해진다).
     groundKickForce: 380,
+    groundKickSpeed: 7.5,
+    footPositionGain: 200,
+    footVelocityGain: 23,
     receptionMinSpeed: 7.5,
     receptionFullSpeed: 14,
     receptionMaxDuration: 0.66,
     // Rapier 한 번 적분의 최대 길이(ms). 게임 한 걸음 1000/(tickRate·substeps)이 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
-    // 1000/60 ms(30틱 × substep 2)까지 검증했다. 25 ms(20틱)에서는 발-공 접촉이 같은 계획에서도 매번 크게 달라졌다(v0.20.0 보고).
-    maxStepMs: 1000 / 60,
-    // 발 PD(simulation/physics.js _footDrive)의 제어 해상도(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19까지 물리 한 걸음).
-    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산하므로, 틱 수·substeps를 바꿔도 발의 실제 움직임이 같다.
-    controlStepMs: 1000 / 120,
+    // 25 ms(20틱 × substep 2)까지 쓴다. 이 길이에서 발이 공을 지나치는 문제는 ballContact가, 발 PD가 걸음마다 튀는 문제는 footDrive가 맡는다(v0.25.0).
+    maxStepMs: 25,
     solverIterations: 8,
-    // 공·발·정강이의 예측 접촉 거리(m, Rapier soft CCD). 한 걸음이 1/60초면 발과 공이 마주 오는 속도(약 13 m/s)로 0.2 m 넘게 가까워져,
-    // 걸음 시작에만 접촉을 찾는 기본 판정으로는 접촉 전 걸음에 안 닿다가 다음 걸음에 공 중심이 발을 지나 반대쪽으로 밀린다(뚫림).
-    // 속도로 앞질러 접촉을 만드는 예측 접촉으로 바꾸고 hard CCD는 쓰지 않는다. 한 걸음 상대 이동(약 0.2 m)보다 크게 둔다.
-    softCcdPrediction: 0.3,
+    ccdSubsteps: 3,
+    // 발 PD(physics.js _footDrive)와 발 방향·무릎 평면 회전 PD(_stablePdGains)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × substep 2).
+    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·substeps를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
+    footDrive: { controlStepMs: 1000 / 120 },
+    // 차는 동안 발 방향 계획(physics.js _followFootPlans, D-441). 발 방향은 PD로 쫓지 않고 시작 방향에서 목표 방향으로 가는 시간 함수를 그대로 따른다.
+    // remaining: 시작 뒤 sampleMs마다 남은 각도 비율(1 = 시작, 0 = 목표). v0.19.12 60틱 × substep 2 관전(시드 2·5·9, 60초)에서 실제 발 방향과 목표 방향의
+    // 각도를 걸음마다 기록한 중앙값이다. receive: 지상 받기·토스·서브(목표 고정), air: 공중 차기(목표가 움직임). 따를 때는 누적 최솟값(되돌아가는 출렁임 제외)을
+    // 쓰고 표 끝 값이 목표 도달이 되게 늘린다. 표 뒤는 목표 그대로다.
+    footPlan: {
+        sampleMs: 1000 / 120,
+        remaining: {
+            receive: [
+                1.0, 0.99, 0.99, 0.98, 0.97, 0.96, 0.94, 0.92, 0.9, 0.86, 0.84, 0.77, 0.71, 0.61,
+                0.52, 0.42, 0.37, 0.31, 0.26, 0.24, 0.17, 0.13, 0.11, 0.1, 0.1, 0.11, 0.08, 0.05,
+            ],
+            air: [
+                1.0, 0.73, 0.51, 0.34, 0.13, 0.18, 0.3, 0.29, 0.19, 0.06, 0.09, 0.15, 0.14, 0.09,
+                0.06, 0.08, 0.09, 0.07, 0.04, 0.02,
+            ],
+        },
+    },
+    // 발·정강이와 공의 접촉(physics.js _sweepBallContacts). Rapier는 걸음 시작에만 접촉을 찾아, 한 걸음에 발과 공이 공 지름(19 cm)·발등 폭(15 cm)보다
+    // 많이 가까워지면(25 ms × 마주 오는 약 13 m/s ≈ 30 cm) 발이 공을 지나친다. 그래서 이 쌍은 Rapier가 풀지 않고, 걸음 시작·끝 자세를 이어
+    // 처음 닿는 순간을 찾아 그 순간의 상대 속도로 반발·마찰 충격을 준다(계수는 두 충돌체의 Rapier 값과 결합 규칙 그대로).
+    //   parts: 이 부위 이름으로 시작하는 충돌체. sampleSpacing(m)·maxSamples·bisection: 처음 닿는 순간을 찾는 표본 간격·최대 표본 수·이분법 횟수.
+    //   maxContacts: 한 걸음에 이어 닿을 수 있는 부위 수. slop(m): 겹침을 밀어내기 시작하는 깊이. separation(m): 접촉이 끝났다고 보는 틈.
+    //   delayMs: 새 접촉을 푸는 격자(ms). v0.19.12의 Rapier는 처음 닿은 뒤 다음 물리 걸음(1000/120 ms) 시작에 겹친 자리로 풀었다(physics.js _contactDueFraction).
+    ballContact: {
+        parts: ['foot', 'lowerLeg'],
+        delayMs: 1000 / 120,
+        sampleSpacing: 0.01,
+        maxSamples: 64,
+        bisection: 14,
+        maxContacts: 3,
+        slop: 0.001,
+        separation: 0.002,
+    },
     // 네트(얇은 판)와 기둥(캡슐)의 충돌체 치수. 위치·크기는 takrawNetShape 한 곳에서 court와 합쳐 정하고, 물리와 그림이 그 값을 같이 읽는다.
     netBottom: 0.78,
     netHalfThickness: 0.025,
     post: { gap: 0.12, radius: 0.045, halfLength: 0.74, centerY: 0.79 },
-    // 지상 발차기(서브·받기·토스·세트, v0.23.0~ D-421): 누르는 동안 발이 매 걸음 지금 공(조준으로 옮긴 가상 중심)을 따라간다.
-    // 목표 지점에서 거꾸로 계산한 발 궤적은 없다. 아래 포물선 값(contactHeight·…·minRise)은 AI 조향의 목표(game.js groundKickGoal)와
-    // AI 세트 보정(assistSet)·받기 예측(planReceive)이 읽는다.
     groundToss: {
         contactHeight: 0.75,
+        minPlanTime: 0.08,
+        maxPlanTime: 0.45,
         attackHeight: 3.3,
-        // AI 서브가 겨누는 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.
+        // 서브 발 계획의 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.
+        // 사람·AI 서브 모두 이 계획으로 발을 움직이고 접촉 뒤 공 속도는 덮어쓰지 않는다(v0.19.7부터).
         serveApex: 3.8,
         serveHeight: 0.4,
         // AI 세트의 접촉 뒤 속도 보정(assistSet)을 켠다.
         attackAssist: true,
-        // 발등 접점이 발 중심보다 앞에 있는 거리(m).
         forefoot: 0.08,
-        // 발이 공에 닿은 뒤 같은 누름으로 공을 따라가는 시간(초). 지나면 발은 평소 자세로 돌아간다(떠나는 공을 다시 쫓지 않는다).
+        strokeTime: 0.12,
+        strokeFraction: 0.6,
         followThrough: 0.08,
-        // 공이 다리 범위 밖이거나 엉덩이보다 높을 때 발등이 기다리는 자리(m, 엉덩이 기준): 아래로 below, 공 쪽 수평 방향으로 ahead(D-428).
-        wait: { below: 0.7, ahead: 0.6 },
-        // 발 PD: 위치 이득과, 속도 이득 2√(positionGain·accelerationMass)를 정하는 질량(kg).
         positionGain: 1200,
+        velocityGain: 50,
         accelerationMass: 4.0,
         // 지상 토스(서브·받기·토스·세트) 발의 힘-속도 한계(m/s, 엉덩이에 대한 발 속도): 그 방향으로 더 미는 힘이 (1 - 속도/maxFootSpeed)배로 줄어 이 속도에서 0이 된다.
         // 도움닫기 없이 선 자리에서 차는 다리의 무부하 최대 속도 범위(무릎 펴기 최대 각속도 약 20~25 rad/s × 정강이+발 약 0.5 m ≈ 10~13 m/s, 엉덩이 굽힘이 조금 더한다)의 위쪽 끝.
-        // 발이 공을 따라가는 목표 속도도 공 속도 + 공 쪽으로 이 속도다(다리가 낼 수 있는 만큼 민다). 공중 차기(airKick)에는 걸지 않는다.
-        // 한계는 제어 칸(controlStepMs)마다 그 칸의 예측 발 속도로 다시 계산한다.
+        // 늦게 누를수록 짧은 시간에 휘두르는 발이 이 한계에 걸려 더 빨라지지 못한다. 공중 차기(airKick)에는 걸지 않는다.
         maxFootSpeed: 13,
         orientationStiffness: 1000,
         orientationDamping: 2.0,
@@ -69,6 +98,8 @@ const TAKRAW_PHYSICS = Object.freeze({
         attackApex: 4.2,
         // 패스·세트가 접촉점보다 최소 이만큼(m)은 떠오르게 한다.
         minRise: 0.4,
+        // 따라 차기를 마친 발은 받는 방향 반대로 back(m) 뒤, 높이 height(m)로 거둔다.
+        retract: { back: 0.15, height: 0.12 },
     },
     receive: {
         horizon: 1.4,
@@ -80,6 +111,8 @@ const TAKRAW_PHYSICS = Object.freeze({
         slideContactFractions: [0.75, 0.5],
         moveThreshold: 0.25,
         directionThreshold: 0.5,
+        clearance: 0.16,
+        driveMass: 4,
         lunge: { height: 0.84, lean: 0.28, follow: 0.18 },
         slide: { height: 0.52, lean: 0.7, speed: 1.35, launchScale: 0.5, follow: 0.3 },
     },
@@ -238,6 +271,9 @@ const TAKRAW_PHYSICS = Object.freeze({
         ankleCompensation: 0.7,
         // 공중 준비 자세가 아닐 때의 공중 몸 방향 잡기 세기(준비 자세는 airReady.bodyStrength).
         airBalance: 0.1,
+        // 공을 위로 차 올리는 지상 발차기(_kickCommand): lead초 뒤 공 위치를 노리고, 수평 성분 비율 horizontal(위 성분 1)의
+        // 방향으로 차며, 공 중심에서 그 방향 반대로 behind만큼 뒤를 발 목표로 둔다. 발 목표는 엉덩이에서 reach까지.
+        groundKick: { lead: 0.04, horizontal: 0.48, behind: 0.045, reach: 0.84 },
         // 차는 다리(엉덩이·무릎·발목) 관절 모터 세기.
         kickLegStrength: { air: 0.72, ground: 0.85 },
     },

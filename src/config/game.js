@@ -65,7 +65,14 @@ const TAKRAW_CONFIG = Object.freeze({
     //   시간 설정은 ms로 적고 틱 수로는 gamekit tickTime({ tickRate })로만 맞춘다. 그래서 tickRate를 바꿀 때 다른 설정을 고치지 않는다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
-    simulation: { tickRate: 20, substeps: 2, aiIntervalMs: 66, fixedSeed: 7 },
+    // aiPressReferenceMs: AI 버튼 시각을 틱에 맞출 때 기준으로 삼는 틱 길이(v0.19.12의 60틱). 이보다 긴 틱은 늦어짐이 같게 앞당긴다(game.js aiPressTime).
+    simulation: {
+        tickRate: 20,
+        substeps: 2,
+        aiIntervalMs: 66,
+        aiPressReferenceMs: 1000 / 60,
+        fixedSeed: 7,
+    },
     // 매 틱 입력 바이트열: [x, z, 버튼, 조준x, 조준y] 5바이트(이 기기의 한 명). runtime/input.js가 쓰고 game.js decode가 읽는다.
     // x·z와 조준 x·y는 모두 -1..1을 axisScale배 한 부호 있는 바이트다. 조준은 발차기 버튼 원 안에서 누른 지점(가로 오른쪽 +, 세로 위 +)이고
     // 단계로 나누지 않는다. 발차기를 누르지 않으면 0(가운데)이다.
@@ -120,8 +127,9 @@ const TAKRAW_CONFIG = Object.freeze({
         receiveHeight: 0.75,
         kickHold: 0.34,
         jumpHold: 0.25,
-        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 이 값이 한 틱보다 짧으면 실제로는 누른 한 틱 동안 유지된다(30틱에서 33 ms).
-        shortJumpHoldMs: 17,
+        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 이 값이 한 틱보다 짧으면 실제로는 누른 한 틱 동안 유지된다(v0.19.12의 한 틱, 20틱에서 50 ms).
+        //   한 틱(60틱 16.7 ms)보다 짧아야 60틱에서 v0.19.12처럼 한 틱이 된다. 17이면 60틱에서 두 틱 동안 눌렸다.
+        shortJumpHoldMs: 10,
         // 선수 성향의 범위. 경기 시드·선수·랠리 번호로 값이 정해져 경기마다 상황이 달라진다(simulation/ai-brain.js).
         // reaction: 동료가 받기 시작한 뒤 보조 위치로 움직이기까지의 반응 시간(초), clearance: 공 궤적과 떨어지는 간격(m),
         // depth·lateral: 대기 자리의 앞뒤·옆 흔들림(±m).

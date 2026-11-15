@@ -399,13 +399,17 @@ class TakrawGame {
             intent: input.intent,
             rally: input.rally,
         }));
+        // AI 버튼 시각(kickFrom·kickUntil·jumpUntil)은 틱 사이 값이고 버튼은 틱 시작에만 바뀐다. aiPressTime으로 비교해 늦어짐을 v0.19.12(60틱)와 같게 둔다.
+        const pressAt = this.aiPressTime();
         for (let i = 0; i < 6; i++) {
             const a = this.ai[i];
             const kick =
+                this.state.phase === 'rally' && a.kickUntil > pressAt && a.kickFrom <= pressAt;
+            // 점프를 누르기 시작한 틱은 jumpUntil이 그 틱 안이어도 누른다(짧은 점프 = 한 틱).
+            const jump =
                 this.state.phase === 'rally' &&
-                a.kickUntil > this.state.time &&
-                a.kickFrom <= this.state.time;
-            const jump = this.state.phase === 'rally' && a.jumpUntil > this.state.time;
+                a.jumpUntil > this.state.time &&
+                (a.jumpUntil > pressAt || !a.previousJump);
             this.inputs[i] = {
                 x: this.state.phase === 'rally' ? a.x : 0,
                 z: this.state.phase === 'rally' ? a.z : 0,
@@ -567,6 +571,17 @@ class TakrawGame {
         )
             this.awardPoint(1, 'nextToss');
         this.state.tick = frame.tick + 1;
+    }
+
+    /**
+     * AI 버튼 시각을 비교하는 기준 시각(초). 버튼은 틱 시작에만 바뀌므로 state.time과 비교하면 계획 시각보다 평균 반 틱 늦게 눌린다.
+     * v0.19.12(60틱)의 늦어짐(반 틱 = simulation.aiPressReferenceMs / 2)보다 긴 틱에서는 그 차이만큼 앞당겨, 틱 길이와 무관하게 같은 평균 늦어짐이 되게 한다.
+     * 60틱이면 state.time 그대로다.
+     */
+    aiPressTime() {
+        const tickSeconds = 1 / this.config.simulation.tickRate,
+            reference = this.config.simulation.aiPressReferenceMs / 1000;
+        return this.state.time + Math.max(0, (tickSeconds - reference) / 2);
     }
 
     emit(event) {
@@ -1124,8 +1139,8 @@ class TakrawGame {
             previousActor === controlled
                 ? intends
                 : previousActor &&
-                  this.ai[previousActor.id].kickUntil > this.state.time &&
-                  this.ai[previousActor.id].kickFrom <= this.state.time;
+                  this.ai[previousActor.id].kickUntil > this.aiPressTime() &&
+                  this.ai[previousActor.id].kickFrom <= this.aiPressTime();
         const physicalCommit =
             held &&
             action?.committed &&
@@ -2153,7 +2168,7 @@ class TakrawGame {
                         const from = Math.max(this.state.time, arrivalAt - ground.lead);
                         const until = arrivalAt + ground.followThrough;
                         const strokeHeld =
-                            a.kickFrom <= this.state.time && a.kickUntil > this.state.time;
+                            a.kickFrom <= this.aiPressTime() && a.kickUntil > this.aiPressTime();
                         if (!strokeHeld) a.kickFrom = from;
                         a.kickUntil = strokeHeld ? Math.max(a.kickUntil, until) : until;
                         a.cooldown = a.kickUntil + 0.16;

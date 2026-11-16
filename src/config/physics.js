@@ -23,13 +23,13 @@ const TAKRAW_PHYSICS = Object.freeze({
     receptionMinSpeed: 7.5,
     receptionFullSpeed: 14,
     receptionMaxDuration: 0.66,
-    // Rapier 한 번 적분의 최대 길이(ms). 게임 한 걸음 1000/(tickRate·substeps)이 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
-    // 25 ms(20틱 × substep 2)까지 쓴다. 이 길이에서 발이 공을 지나치는 문제는 ballContact가, 발 PD가 걸음마다 튀는 문제는 footDrive가 맡는다(v0.25.0).
+    // Rapier 한 번 적분의 최대 길이(ms). 게임의 물리 한 걸음 simulation.stepMs가 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
+    // 25 ms(20틱 × 물리 걸음 2)까지 쓴다. 이 길이에서 발이 공을 지나치는 문제는 ballContact가, 발 PD가 걸음마다 튀는 문제는 footDrive가 맡는다(v0.25.0).
     maxStepMs: 25,
     solverIterations: 8,
     ccdSubsteps: 3,
-    // 발 PD(physics.js _footDrive)와 발 방향·무릎 평면 회전 PD(_stablePdGains)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × substep 2).
-    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·substeps를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
+    // 발 PD(physics.js _footDrive)와 발 방향·무릎 평면 회전 PD(_stablePdGains)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × 물리 걸음 2).
+    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·물리 걸음 길이를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
     footDrive: { controlStepMs: 1000 / 120 },
     // 발·정강이와 공의 접촉(physics.js _sweepBallContacts). Rapier는 걸음 시작에만 접촉을 찾아, 한 걸음에 발과 공이 공 지름(19 cm)·발등 폭(15 cm)보다
     // 많이 가까워지면(25 ms × 마주 오는 약 13 m/s ≈ 30 cm) 발이 공을 지나친다. 그래서 이 쌍은 Rapier가 풀지 않고, 걸음 시작·끝 자세를 이어

@@ -60,17 +60,19 @@ const TAKRAW_ROLE_NAMES = Object.freeze({
 const TAKRAW_CONFIG = Object.freeze({
     version: TAKRAW_VERSION,
     status: 'Candidate',
-    // tickRate: 초당 틱(입력·AI·규칙 한 번). 물리 한 걸음은 1000/(tickRate·substeps) ms이고 config/physics.js maxStepMs를 넘지 못한다.
-    //   v0.25.0에서 20 × substep 2(물리 한 걸음 25 ms, D-438). 발차기·AI는 v0.19.12(60틱)와 같고, 발-공 접촉·발 PD를 걸음 길이와 무관하게 푼다.
+    // tickRate: 초당 틱(입력·AI·규칙 한 번). 한 틱 안에서 물리를 stepMs 걸음으로 여러 번 돈다(물리 걸음).
+    //   v0.25.0에서 20틱 × 물리 걸음 2(한 걸음 25 ms, D-438). 발차기·AI는 v0.19.12(60틱)와 같고, 발-공 접촉·발 PD를 걸음 길이와 무관하게 푼다.
     //   시간 설정은 ms로 적고 틱 수로는 gamekit tickTime({ tickRate })로만 맞춘다. 그래서 tickRate를 바꿀 때 다른 설정을 고치지 않는다.
-    // kickStepMs: 차는 구간(발차기 입력·차는 중·맞힌 직후, physics.js fineStepNeeded)이 걸친 틱의 물리 한 걸음(ms). v0.19.12(60틱 × substep 2)와 같은 걸음이라
-    //   발 방향 PD·발 구동·발-공 접촉이 그때와 같은 계산이 된다. 틱 길이를 나누어떨어져야 한다(틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산). 그 밖의 틱은 substeps 걸음이다.
+    // stepMs: 평소 틱의 물리 한 걸음(ms). 틱 길이를 나누어떨어져야 하고 config/physics.js maxStepMs를 넘지 못한다. 틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산한다.
+    //   이 층은 "물리 걸음"이다. Rapier 솔버 반복(physics.solverIterations)은 엔진 안쪽 서브스텝이라 다른 층이다.
+    // kickStepMs: 차는 구간(발차기 입력·차는 중·맞힌 직후, physics.js fineStepNeeded)이 걸친 틱의 물리 한 걸음(ms). v0.19.12(60틱 × 물리 걸음 2)와 같은 걸음이라
+    //   발 방향 PD·발 구동·발-공 접촉이 그때와 같은 계산이 된다. 틱 길이를 나누어떨어져야 한다(틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산). 그 밖의 틱은 stepMs 걸음이다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
     // aiPressReferenceMs: AI 버튼 시각을 틱에 맞출 때 기준으로 삼는 틱 길이(v0.19.12의 60틱). 이보다 긴 틱은 늦어짐이 같게 앞당긴다(game.js aiPressTime).
     simulation: {
         tickRate: 20,
-        substeps: 2,
+        stepMs: 25,
         kickStepMs: 1000 / 120,
         aiIntervalMs: 66,
         aiPressReferenceMs: 1000 / 60,

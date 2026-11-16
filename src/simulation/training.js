@@ -267,7 +267,7 @@ class TakrawTrainingDrill {
         };
     }
 
-    /** 물리 substep마다: 토스 꼭짓점, 공중 발차기 진입·동작, 접촉 직후 공의 나가는 속도. */
+    /** 물리 걸음마다: 토스 꼭짓점, 공중 발차기 진입·동작, 접촉 직후 공의 나가는 속도. */
     observeStep(record, { ball, player }) {
         if (record.setAt !== null && !record.contact)
             record.setApex = Math.max(record.setApex, ball.translation().y);

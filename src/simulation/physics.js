@@ -10,9 +10,9 @@ import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './ro
  */
 function takrawPhysicsSettings(config) {
     const settings = structuredClone(config.physics);
-    // 게임 한 걸음 = 틱 길이 / substeps. 검증한 상한(maxStepMs)을 넘으면 만들지 않는다(조용히 시간이 잘리지 않게).
+    // 게임의 물리 한 걸음은 simulation.stepMs다. 검증한 상한(maxStepMs)을 넘으면 만들지 않는다(조용히 시간이 잘리지 않게).
     // Rapier 적분은 초 단위라 stepSeconds·maxStepSeconds는 여기서 한 번 초로 바꿔 둔 파생값이다.
-    const stepMs = 1000 / (config.simulation.tickRate * config.simulation.substeps);
+    const stepMs = config.simulation.stepMs;
     if (stepMs > settings.maxStepMs + 1e-9)
         throw new RangeError(`physics step ${stepMs}ms exceeds maxStepMs ${settings.maxStepMs}ms`);
     settings.stepSeconds = stepMs / 1000;
@@ -1281,7 +1281,7 @@ class TakrawPhysics {
     }
 
     /**
-     * 선수 한 명의 한 substep 제어. 몸 상태 읽기 → 이동·점프 입력 → 행동 결정 → 자세·이동 → 행동 자세 → 발차기 → 관절 모터.
+     * 선수 한 명의 한 물리 걸음 제어. 몸 상태 읽기 → 이동·점프 입력 → 행동 결정 → 자세·이동 → 행동 자세 → 발차기 → 관절 모터.
      * 단계 순서와 각 단계 안의 Rapier 읽기·쓰기 순서는 하나의 메서드였을 때와 같다.
      */
     _drivePlayer(p, input, dt) {
@@ -1296,14 +1296,14 @@ class TakrawPhysics {
         this._applyJointTargets(p, body, action, targetMap, orientedFoot);
     }
 
-    /** 이번 substep의 몸 상태(뿌리 자세·바닥 접촉·받기 충격 반응)를 읽고 접지·점프 타이머를 갱신한다. */
+    /** 이번 물리 걸음의 몸 상태(뿌리 자세·바닥 접촉·받기 충격 반응)를 읽고 접지·점프 타이머를 갱신한다. */
     _senseBody(p, dt) {
         const drive = p.settings.drive,
             root = p.root,
             pos = root.translation(),
             vel = root.linvel();
         // Force/torque actuation below does not change poses until world.step.
-        // Reuse this substep's root pose for the two IK queries and frame changes.
+        // Reuse this physics step's root pose for the two IK queries and frame changes.
         const rootRotation = root.rotation();
         const contact = this._groundInfo(p),
             up = this._rotate(rootRotation, this._v(0, 1, 0));
@@ -2009,7 +2009,7 @@ class TakrawPhysics {
         };
     }
 
-    /** 지상 발 목표를 지금 다리가 닿는 범위 안으로 옮기고, 다음 substep에 범위를 벗어날 속도는 범위 끝으로 줄인다. */
+    /** 지상 발 목표를 지금 다리가 닿는 범위 안으로 옮기고, 다음 물리 걸음에 범위를 벗어날 속도는 범위 끝으로 줄인다. */
     _limitGroundKickReach(p, suffix, foot, hip, command, dt) {
         const root = p.root;
         const contactNormal = command.contactNormal,
@@ -2234,7 +2234,7 @@ class TakrawPhysics {
     /**
      * 회전 PD(발 방향·무릎 평면)의 한 걸음 이득. 토크 = position × 각도 오차 + velocity × 각속도.
      * v0.19.12의 안정 PD 식 r(kp e - kd w) / (1 + kd dt / I + kp dt^2 / I)를 실제 걸음 dt로 쓴다. 이 식은 PD를 걸음 끝 상태로 푼(암시적) 형태라
-     * 걸음 길이와 상관없이 발산하지 않고, 걸음이 짧아지면 연속 PD로 수렴한다. 60틱 × substep 2이면 v0.19.12와 같은 값이다.
+     * 걸음 길이와 상관없이 발산하지 않고, 걸음이 짧아지면 연속 PD로 수렴한다. 60틱 × 물리 걸음 2이면 v0.19.12와 같은 값이다.
      * (0fc9b71은 칸 n개 응답과 고유값을 맞춘 이득을 썼으나, 관성 I가 실제 발·정강이 결합 관성과 달라 25 ms에서 발 방향이 걸음마다 흔들렸다:
      *  받기 직전 발 각속도 12~23 rad/s, 60틱은 1~3 rad/s. 같은 상태에서 이 식으로 바꾸면 1~4 rad/s로 돌아온다.)
      */
@@ -2501,7 +2501,7 @@ class TakrawPhysics {
     }
 
     /**
-     * 공중 발차기의 발 목표. 계획이 없으면 먼저 세우고(_beginAirPlan), 매 substep 다리 상태 → 접촉 예측 →
+     * 공중 발차기의 발 목표. 계획이 없으면 먼저 세우고(_beginAirPlan), 매 물리 걸음 다리 상태 → 접촉 예측 →
      * 공격 평면 조향 → 타격 전환 → 동작 위상 → 접촉 기하 → 마지막 스트로크 길이 → 발목 궤적 → 다리 길이 제한 →
      * 계획 기록 순으로 계산한다. 이 묶음은 Rapier에 쓰지 않고, 읽기 순서는 하나의 메서드였을 때와 같다.
      */
@@ -2659,7 +2659,7 @@ class TakrawPhysics {
         return { mirror, hip, hipVelocity, sole, soleVelocity, currentAnkle };
     }
 
-    /** 남은 준비 시간을 줄이고 이번 substep의 예상 접촉과 접촉 순간 공 속도를 정한다. 스트로크에 들어서면 고정한다. */
+    /** 남은 준비 시간을 줄이고 이번 물리 걸음의 예상 접촉과 접촉 순간 공 속도를 정한다. 스트로크에 들어서면 고정한다. */
     _aimAirContact(p, plan, ballPos, ballVel, dt, kickAim) {
         const s = this.settings,
             kick = s.airKick;
@@ -2982,7 +2982,7 @@ class TakrawPhysics {
     }
 
     /**
-     * 발목 목표를 다리 길이 범위 안으로 넣고, 다음 substep에 범위를 벗어날 속도면 속도를 투영한다.
+     * 발목 목표를 다리 길이 범위 안으로 넣고, 다음 물리 걸음에 범위를 벗어날 속도면 속도를 투영한다.
      * 범위가 궤적을 바꾸거나 스트로크 전이면 가속도 피드포워드를 끈다.
      */
     _limitAirReach(p, plan, leg, geometry, path, dt) {
@@ -3036,7 +3036,7 @@ class TakrawPhysics {
         return { ankle, reach, contactDistance };
     }
 
-    /** 이번 substep 결과를 동작·계획에 기록하고, 맞기 전이면 발등 밀기 제어를 붙여 발 목표를 돌려준다. */
+    /** 이번 물리 걸음 결과를 동작·계획에 기록하고, 맞기 전이면 발등 밀기 제어를 붙여 발 목표를 돌려준다. */
     _recordAirPlan(p, plan, contact, geometry, path, limit) {
         const kick = this.settings.airKick,
             motion = plan.motion;
@@ -3367,7 +3367,7 @@ class TakrawPhysics {
     _strokeReceivePath(p, plan, ballVel, dt) {
         const s = this.settings,
             toss = this.settings.groundToss;
-        // A plan created after recovery starts now, retaining the first-substep drive.
+        // A plan created after recovery starts now, retaining the first-physics-step drive.
         const elapsed = this.time - plan.startedAt + dt;
         const stroke = Math.min(toss.strokeTime, plan.duration * toss.strokeFraction);
         const beforeStroke = plan.duration - stroke;
@@ -3469,7 +3469,7 @@ class TakrawPhysics {
     step(dt, inputs = []) {
         this.restoredSnapshotBytes = null;
         // maxStepMs(config/physics.js)는 tickRate가 아니라 Rapier 한 번 적분에 허용하는 가장 긴 시간(검증한 한 걸음)이다. 이보다 긴 dt는 잘라서 적분한다(그만큼 시간이 버려진다).
-        // 게임의 한 걸음 1000/(tickRate·substeps) ms가 이 상한을 넘으면 물리 생성이 실패한다(조용히 느려지지 않게). tickRate를 더 낮출 때 이 값을 함께 검증해 올린다.
+        // 게임의 물리 한 걸음 simulation.stepMs가 이 상한을 넘으면 물리 생성이 실패한다(조용히 느려지지 않게). tickRate를 더 낮출 때 이 값을 함께 검증해 올린다.
         // 잘못된 dt(0·NaN)일 때는 게임 한 걸음(stepSeconds)을 쓴다.
         const h =
             Number.isFinite(dt) && dt > 0
@@ -3544,7 +3544,7 @@ class TakrawPhysics {
     }
 
     /**
-     * 걸음 안 비율 s에 처음 닿은 새 접촉을 풀 걸음 안 비율. v0.19.12(60틱 × substep 2, Rapier)는 발이 CCD에 걸리지 않아 공에 들어간 뒤
+     * 걸음 안 비율 s에 처음 닿은 새 접촉을 풀 걸음 안 비율. v0.19.12(60틱 × 물리 걸음 2, Rapier)는 발이 CCD에 걸리지 않아 공에 들어간 뒤
      * 다음 걸음 시작(1000/120 ms 격자)에야 겹친 자리로 접촉을 풀었다. 그래서 걸음 시작부터 ballContact.delayMs 칸 경계 중 처음 닿은 뒤 첫 경계에서 푼다.
      * 1이면 이 걸음 끝 = 다음 걸음 시작이다. 걸음이 한 칸이면 늘 다음 걸음 시작이라 v0.19.12와 같다.
      */

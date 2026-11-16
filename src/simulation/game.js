@@ -42,13 +42,17 @@ class TakrawGame {
         this.time = time;
         this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
-        // 차는 구간의 틱당 물리 걸음 수(DEV-035): 걸음 길이는 simulation.kickStepMs(ms)로 적고, 틱 수는 time(tickTime) 한 곳에서만 받아 여기서 한 번 환산한다.
-        const kickSteps = 1000 / (time.tickRate * config.simulation.kickStepMs);
-        if (Math.abs(kickSteps - Math.round(kickSteps)) > 1e-9 || kickSteps < 1)
-            throw new RangeError(
-                `kickStepMs ${config.simulation.kickStepMs}ms does not divide one tick (${kickSteps} steps)`,
-            );
-        this.kickSteps = Math.round(kickSteps);
+        // 틱당 물리 걸음 수(DEV-035): 걸음 길이는 simulation.stepMs·kickStepMs(ms)로 적고, 틱 수는 time(tickTime) 한 곳에서만 받아 여기서 한 번 환산한다.
+        const stepsPerTick = (name) => {
+            const steps = 1000 / (time.tickRate * config.simulation[name]);
+            if (Math.abs(steps - Math.round(steps)) > 1e-9 || steps < 1)
+                throw new RangeError(
+                    `${name} ${config.simulation[name]}ms does not divide one tick (${steps} steps)`,
+                );
+            return Math.round(steps);
+        };
+        this.steps = stepsPerTick('stepMs');
+        this.kickSteps = stepsPerTick('kickStepMs');
         this.timingJudge = new TakrawTimingJudge(config.timing, config.simulation.tickRate);
         this.drill = new TakrawTrainingDrill();
         this.aiBrain = new AiBrain();
@@ -507,7 +511,7 @@ class TakrawGame {
 
         // 차는 구간이 걸친 틱만 kickStepMs 걸음으로 잘게 돈다(physics.fineStepNeeded). 판정은 틱 시작에 한 번, 시뮬레이션 상태와 이번 틱 입력으로만 한다.
         const fine = this.physics.fineStepNeeded(this.inputs);
-        const count = fine ? this.kickSteps : this.config.simulation.substeps;
+        const count = fine ? this.kickSteps : this.steps;
         if (fine) this.metrics.fineTicks++;
         for (let sub = 0; sub < count; sub++) {
             const beforeBall = this.physics.ball.translation();
@@ -555,7 +559,7 @@ class TakrawGame {
                     this.awardPoint(1 - loser, 'underNet');
                 }
             }
-            // Edge는 논리 틱 첫 물리 substep에서만 소비한다. held는 유지한다.
+            // Edge는 논리 틱 첫 물리 걸음에서만 소비한다. held는 유지한다.
             for (const input of this.inputs) {
                 input.jumpPressed = false;
                 input.kickPressed = false;
@@ -937,7 +941,7 @@ class TakrawGame {
     confirmToss(humans) {
         const pass = this.state.toss;
         if (this.state.phase !== 'rally' || !pass?.pending) return;
-        // CCD can report contact at the end of a substep, before its response is
+        // CCD can report contact at the end of a physics step, before its response is
         // solved. Reserve the receiving ally after the actual upward response.
         if (this.physics.ball.linvel().y <= 1) {
             if (this.state.time - pass.started > 0.1) {

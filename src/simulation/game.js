@@ -787,26 +787,12 @@ class TakrawGame {
             apex = cfg.minApex + (cfg.maxApex - cfg.minApex) * ratio;
         const gravity = Math.abs(this.physics.settings.gravity),
             p = this.physics.ball.translation();
-        const server = this.physics.players[this.serverId(this.state.serving)],
-            move = server.root.linvel(),
-            rise = Math.sqrt(2 * gravity * (apex - p.y));
-        let throwX = move.x,
-            throwZ = move.z;
-        if (aiServing && apex < cfg.jumpApex) {
-            // AI 지상서브: 던진 공이 접촉 높이(groundToss.contactHeight)에 오는 자리가, 지금 선 자리를 받기 자리로 삼는 접촉점
-            // (physics planReceive: 접촉점에서 앞으로 받기 거리, 옆으로 attack.lateral)이 되게 던진다. 던진 뒤 자리 맞추기 이동이 없게.
-            const root = server.root.translation(),
-                n = this.state.serving === 0 ? 1 : -1,
-                height = this.physics.settings.groundToss.contactHeight;
-            const time = (rise + Math.sqrt(rise * rise + 2 * gravity * (p.y - height))) / gravity;
-            const reach = Math.min(
-                this.config.ai.toss.incomingOffset,
-                server.settings.receive.cushionReach,
-            );
-            throwX = (root.x + n * reach - p.x) / time;
-            throwZ = (root.z - n * this.config.ai.toss.attack.lateral - p.z) / time;
-        }
-        this.physics.resetBall(p, { x: throwX, y: rise, z: throwZ });
+        const move = this.physics.players[this.serverId(this.state.serving)].root.linvel();
+        this.physics.resetBall(p, {
+            x: move.x,
+            y: Math.sqrt(2 * gravity * (apex - p.y)),
+            z: move.z,
+        });
         toss.stage = 'thrown';
         toss.apex = apex;
         this.state.lastMessage = message('serveRising');

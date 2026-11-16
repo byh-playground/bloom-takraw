@@ -42,6 +42,17 @@ class TakrawGame {
         this.time = time;
         this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
+        // 틱당 물리 걸음 수(DEV-035): 걸음 길이는 simulation.stepMs·kickStepMs(ms)로 적고, 틱 수는 time(tickTime) 한 곳에서만 받아 여기서 한 번 환산한다.
+        const stepsPerTick = (name) => {
+            const steps = 1000 / (time.tickRate * config.simulation[name]);
+            if (Math.abs(steps - Math.round(steps)) > 1e-9 || steps < 1)
+                throw new RangeError(
+                    `${name} ${config.simulation[name]}ms does not divide one tick (${steps} steps)`,
+                );
+            return Math.round(steps);
+        };
+        this.steps = stepsPerTick('stepMs');
+        this.kickSteps = stepsPerTick('kickStepMs');
         this.timingJudge = new TakrawTimingJudge(config.timing, config.simulation.tickRate);
         this.drill = new TakrawTrainingDrill();
         this.aiBrain = new AiBrain();
@@ -195,6 +206,8 @@ class TakrawGame {
         this.metrics = {
             logicSteps: 0,
             physicsSteps: 0,
+            // 잘게 돈 틱 수(차는 구간). physicsSteps와 함께 계산량을 본다.
+            fineTicks: 0,
             aiSteps: 0,
             contacts: 0,
             spikes: 0,
@@ -496,7 +509,10 @@ class TakrawGame {
             }
         }
 
-        const count = this.config.simulation.substeps;
+        // 차는 구간이 걸친 틱만 kickStepMs 걸음으로 잘게 돈다(physics.fineStepNeeded). 판정은 틱 시작에 한 번, 시뮬레이션 상태와 이번 틱 입력으로만 한다.
+        const fine = this.physics.fineStepNeeded(this.inputs);
+        const count = fine ? this.kickSteps : this.steps;
+        if (fine) this.metrics.fineTicks++;
         for (let sub = 0; sub < count; sub++) {
             const beforeBall = this.physics.ball.translation();
             const events = this.physics.step(dt / count, this.inputs) || [];
@@ -543,7 +559,7 @@ class TakrawGame {
                     this.awardPoint(1 - loser, 'underNet');
                 }
             }
-            // Edge는 논리 틱 첫 물리 substep에서만 소비한다. held는 유지한다.
+            // Edge는 논리 틱 첫 물리 걸음에서만 소비한다. held는 유지한다.
             for (const input of this.inputs) {
                 input.jumpPressed = false;
                 input.kickPressed = false;
@@ -775,26 +791,12 @@ class TakrawGame {
             apex = cfg.minApex + (cfg.maxApex - cfg.minApex) * ratio;
         const gravity = Math.abs(this.physics.settings.gravity),
             p = this.physics.ball.translation();
-        const server = this.physics.players[this.serverId(this.state.serving)],
-            move = server.root.linvel(),
-            rise = Math.sqrt(2 * gravity * (apex - p.y));
-        let throwX = move.x,
-            throwZ = move.z;
-        if (aiServing && apex < cfg.jumpApex) {
-            // AI 지상서브: 던진 공이 접촉 높이(groundToss.contactHeight)에 오는 자리가, 지금 선 자리를 받기 자리로 삼는 접촉점
-            // (physics planReceive: 접촉점에서 앞으로 받기 거리, 옆으로 attack.lateral)이 되게 던진다. 던진 뒤 자리 맞추기 이동이 없게.
-            const root = server.root.translation(),
-                n = this.state.serving === 0 ? 1 : -1,
-                height = this.physics.settings.groundToss.contactHeight;
-            const time = (rise + Math.sqrt(rise * rise + 2 * gravity * (p.y - height))) / gravity;
-            const reach = Math.min(
-                this.config.ai.toss.incomingOffset,
-                server.settings.receive.cushionReach,
-            );
-            throwX = (root.x + n * reach - p.x) / time;
-            throwZ = (root.z - n * this.config.ai.toss.attack.lateral - p.z) / time;
-        }
-        this.physics.resetBall(p, { x: throwX, y: rise, z: throwZ });
+        const move = this.physics.players[this.serverId(this.state.serving)].root.linvel();
+        this.physics.resetBall(p, {
+            x: move.x,
+            y: Math.sqrt(2 * gravity * (apex - p.y)),
+            z: move.z,
+        });
         toss.stage = 'thrown';
         toss.apex = apex;
         this.state.lastMessage = message('serveRising');
@@ -939,7 +941,7 @@ class TakrawGame {
     confirmToss(humans) {
         const pass = this.state.toss;
         if (this.state.phase !== 'rally' || !pass?.pending) return;
-        // CCD can report contact at the end of a substep, before its response is
+        // CCD can report contact at the end of a physics step, before its response is
         // solved. Reserve the receiving ally after the actual upward response.
         if (this.physics.ball.linvel().y <= 1) {
             if (this.state.time - pass.started > 0.1) {

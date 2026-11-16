@@ -23,31 +23,14 @@ const TAKRAW_PHYSICS = Object.freeze({
     receptionMinSpeed: 7.5,
     receptionFullSpeed: 14,
     receptionMaxDuration: 0.66,
-    // Rapier 한 번 적분의 최대 길이(ms). 게임 한 걸음 1000/(tickRate·substeps)이 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
-    // 25 ms(20틱 × substep 2)까지 쓴다. 이 길이에서 발이 공을 지나치는 문제는 ballContact가, 발 PD가 걸음마다 튀는 문제는 footDrive가 맡는다(v0.25.0).
+    // Rapier 한 번 적분의 최대 길이(ms). 게임의 물리 한 걸음 simulation.stepMs가 이 값을 넘으면 TakrawGame 생성이 실패한다(physics.js step의 주석).
+    // 25 ms(20틱 × 물리 걸음 2)까지 쓴다. 이 길이에서 발이 공을 지나치는 문제는 ballContact가, 발 PD가 걸음마다 튀는 문제는 footDrive가 맡는다(v0.25.0).
     maxStepMs: 25,
     solverIterations: 8,
     ccdSubsteps: 3,
-    // 발 PD(physics.js _footDrive)와 발 방향·무릎 평면 회전 PD(_stablePdGains)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × substep 2).
-    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·substeps를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
+    // 발 PD(physics.js _footDrive)와 발 방향·무릎 평면 회전 PD(_stablePdGains)의 제어 칸(ms). 이득은 이 길이 한 칸에서 맞췄다(v0.19.12의 물리 한 걸음, 60틱 × 물리 걸음 2).
+    // 물리 한 걸음이 이보다 길면 걸음 안을 이 길이로 나눠 힘을 계산해, 틱 수·물리 걸음 길이를 바꿔도 발이 같은 시간 동안 같은 힘을 받는다.
     footDrive: { controlStepMs: 1000 / 120 },
-    // 차는 동안 발 방향 계획(physics.js _followFootPlans, D-441). 발 방향은 PD로 쫓지 않고 시작 방향에서 목표 방향으로 가는 시간 함수를 그대로 따른다.
-    // remaining: 시작 뒤 sampleMs마다 남은 각도 비율(1 = 시작, 0 = 목표). v0.19.12 60틱 × substep 2 관전(시드 2·5·9, 60초)에서 실제 발 방향과 목표 방향의
-    // 각도를 걸음마다 기록한 중앙값이다. receive: 지상 받기·토스·서브(목표 고정), air: 공중 차기(목표가 움직임). 따를 때는 누적 최솟값(되돌아가는 출렁임 제외)을
-    // 쓰고 표 끝 값이 목표 도달이 되게 늘린다. 표 뒤는 목표 그대로다.
-    footPlan: {
-        sampleMs: 1000 / 120,
-        remaining: {
-            receive: [
-                1.0, 0.99, 0.99, 0.98, 0.97, 0.96, 0.94, 0.92, 0.9, 0.86, 0.84, 0.77, 0.71, 0.61,
-                0.52, 0.42, 0.37, 0.31, 0.26, 0.24, 0.17, 0.13, 0.11, 0.1, 0.1, 0.11, 0.08, 0.05,
-            ],
-            air: [
-                1.0, 0.73, 0.51, 0.34, 0.13, 0.18, 0.3, 0.29, 0.19, 0.06, 0.09, 0.15, 0.14, 0.09,
-                0.06, 0.08, 0.09, 0.07, 0.04, 0.02,
-            ],
-        },
-    },
     // 발·정강이와 공의 접촉(physics.js _sweepBallContacts). Rapier는 걸음 시작에만 접촉을 찾아, 한 걸음에 발과 공이 공 지름(19 cm)·발등 폭(15 cm)보다
     // 많이 가까워지면(25 ms × 마주 오는 약 13 m/s ≈ 30 cm) 발이 공을 지나친다. 그래서 이 쌍은 Rapier가 풀지 않고, 걸음 시작·끝 자세를 이어
     // 처음 닿는 순간을 찾아 그 순간의 상대 속도로 반발·마찰 충격을 준다(계수는 두 충돌체의 Rapier 값과 결합 규칙 그대로).

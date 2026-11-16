@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.26.0';
+const TAKRAW_VERSION = '0.26.1';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -65,7 +65,7 @@ const TAKRAW_CONFIG = Object.freeze({
     //   시간 설정은 ms로 적고 틱 수로는 gamekit tickTime({ tickRate })로만 맞춘다. 그래서 tickRate를 바꿀 때 다른 설정을 고치지 않는다.
     // stepMs: 평소 틱의 물리 한 걸음(ms). 틱 길이를 나누어떨어져야 하고 config/physics.js maxStepMs를 넘지 못한다. 틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산한다.
     //   이 층은 "물리 걸음"이다. Rapier 솔버 반복(physics.solverIterations)은 엔진 안쪽 서브스텝이라 다른 층이다.
-    // kickStepMs: 차는 구간(발차기 입력·차는 중·맞힌 직후, physics.js fineStepNeeded)이 걸친 틱의 물리 한 걸음(ms). v0.19.12(60틱 × 물리 걸음 2)와 같은 걸음이라
+    // kickStepMs: 차는 구간(발차기 입력·차는 중·맞힌 직후)과 점프 구간(점프 입력·도약~착지, physics.js fineStepNeeded)이 걸친 틱의 물리 한 걸음(ms). v0.19.12(60틱 × 물리 걸음 2)와 같은 걸음이라
     //   발 방향 PD·발 구동·발-공 접촉이 그때와 같은 계산이 된다. 틱 길이를 나누어떨어져야 한다(틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산). 그 밖의 틱은 stepMs 걸음이다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.

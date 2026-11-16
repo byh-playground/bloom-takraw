@@ -3446,8 +3446,10 @@ class TakrawPhysics {
     }
 
     /**
-     * 이번 틱을 잘게(simulation.kickStepMs 걸음) 돌려야 하는지. 차는 구간에만 참이다: 어느 선수든 발차기 입력이 있거나(이 틱 첫 걸음에 차기·받기 계획이 시작된다),
-     * 차는 중이거나(kick.mode·held), 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
+     * 이번 틱을 잘게(simulation.kickStepMs 걸음) 돌려야 하는지. 차는 구간과 점프 구간에 참이다: 어느 선수든
+     * - 발차기 입력이 있거나(이 틱 첫 걸음에 차기·받기 계획이 시작된다), 차는 중이거나(kick.mode·held), 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안이거나,
+     * - 점프 입력이 있거나(이 틱 첫 걸음에 도약한다), 도약해서 다시 바닥에 닿기 전(jump.active)일 때.
+     * 점프 공격은 도약부터 발차기 누름까지가 굵은 걸음이면 누름 시각이 같아도 몸·공 위치가 한두 걸음 어긋나 약하게 맞는다(v0.26.1).
      * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
      */
     fineStepNeeded(inputs = []) {
@@ -3459,7 +3461,10 @@ class TakrawPhysics {
                 input?.kickPressed ||
                 p.kick.held ||
                 p.kick.mode !== 'none' ||
-                this.time - p.lastTouch < follow
+                this.time - p.lastTouch < follow ||
+                input?.jump ||
+                input?.jumpPressed ||
+                p.jump.active
             )
                 return true;
         }

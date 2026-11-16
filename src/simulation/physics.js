@@ -1285,7 +1285,6 @@ class TakrawPhysics {
      * 단계 순서와 각 단계 안의 Rapier 읽기·쓰기 순서는 하나의 메서드였을 때와 같다.
      */
     _drivePlayer(p, input, dt) {
-        p.footPlanActive = false;
         const body = this._senseBody(p, dt);
         const intent = this._readIntent(p, input);
         this._jump(p, input, intent, dt);
@@ -2247,84 +2246,7 @@ class TakrawPhysics {
         };
     }
 
-    /**
-     * 차는 발의 방향 계획을 세우거나 이어 간다(D-441). 발 방향은 PD로 쫓지 않고, 이 차기 구간이 시작될 때의 발 방향에서 지금 목표 방향
-     * (normal = 발 위, forward = 발 앞)으로 가는 시간 함수 q(t)를 world.step 뒤 _followFootPlans가 그대로 따른다. 구간은 이 함수가 걸음마다
-     * 불리는 동안이고, 한 걸음이라도 끊기면 다음 호출에서 새로 시작한다. 목표는 걸음마다 새로 받는다(공중 차기는 움직인다).
-     */
     _orientFootNormal(p, suffix, normal, forward, s, dt, response, angularVelocity) {
-        const body = p.byName['foot' + suffix].body;
-        const target = this._frameQuat(
-            {
-                x: normal.y * forward.z - normal.z * forward.y,
-                y: normal.z * forward.x - normal.x * forward.z,
-                z: normal.x * forward.y - normal.y * forward.x,
-            },
-            normal,
-            forward,
-        );
-        const kind = s === this.settings.airKick ? 'air' : 'receive',
-            plan = p.kick.footPlan;
-        if (
-            !plan ||
-            plan.suffix !== suffix ||
-            plan.kind !== kind ||
-            this.time - plan.last > dt * 1.5
-        )
-            p.kick.footPlan = {
-                suffix,
-                kind,
-                start: this.time,
-                last: this.time,
-                from: { ...body.rotation() },
-                target,
-            };
-        else {
-            plan.last = this.time;
-            plan.target = target;
-            // 계획은 접근(조준)까지만이다. 첫 공 접촉 뒤에는 이 구간의 나머지를 물리(발 방향 PD)로 돌려, 접촉 충격이 발에 준 회전이 남게 한다.
-            if (plan.done) {
-                this._orientFootNormalPd(
-                    p,
-                    suffix,
-                    normal,
-                    forward,
-                    s,
-                    dt,
-                    response,
-                    angularVelocity,
-                );
-                return;
-            }
-        }
-        p.footPlanActive = true;
-    }
-
-    /** 몸체의 선운동량과 점 point 기준 각운동량(자세 rotation, 중심 position, 속도 linear·angular). */
-    _ankleMomentum(body, rotation, position, linear, angular, point) {
-        const frame = this._qmul(rotation, body.principalInertiaLocalFrame()),
-            inertia = body.principalInertia(),
-            mass = body.mass();
-        const local = this._rotate(this._conj(frame), angular);
-        const spin = this._rotate(frame, {
-            x: local.x * inertia.x,
-            y: local.y * inertia.y,
-            z: local.z * inertia.z,
-        });
-        const momentum = this._mul(linear, mass);
-        return {
-            linear: momentum,
-            angular: this._add(spin, this._cross(this._sub(position, point), momentum)),
-        };
-    }
-
-    /** 선수 p의 부위가 공에 닿았다: 따르던 발 방향 계획을 끝낸다(다음 걸음부터 PD). */
-    _endFootPlan(p) {
-        if (p.footPlanActive && p.kick.footPlan) p.kick.footPlan.done = true;
-    }
-
-    /** 발 방향 안정 PD(25edaac). 방향 계획이 첫 공 접촉으로 끝난 뒤 그 차기 구간의 나머지에 쓴다(_orientFootNormal). */
-    _orientFootNormalPd(p, suffix, normal, forward, s, dt, response, angularVelocity) {
         const body = p.byName['foot' + suffix].body;
         const parent = p.byName['lowerLeg' + suffix].body;
         const rotation = body.rotation();
@@ -2395,152 +2317,6 @@ class TakrawPhysics {
         );
         body.applyTorqueImpulse(this._mul(torque, dt), true);
         parent.applyTorqueImpulse(this._mul(torque, -dt), true);
-    }
-
-    /** 오른손 좌표 기저(right, up, forward = 국소 x, y, z)의 회전 사원수. */
-    _frameQuat(right, up, forward) {
-        const m00 = right.x,
-            m01 = up.x,
-            m02 = forward.x;
-        const m10 = right.y,
-            m11 = up.y,
-            m12 = forward.y;
-        const m20 = right.z,
-            m21 = up.z,
-            m22 = forward.z;
-        const trace = m00 + m11 + m22;
-        let q;
-        if (trace > 0) {
-            const t = Math.sqrt(trace + 1) * 2;
-            q = { w: t / 4, x: (m21 - m12) / t, y: (m02 - m20) / t, z: (m10 - m01) / t };
-        } else if (m00 > m11 && m00 > m22) {
-            const t = Math.sqrt(1 + m00 - m11 - m22) * 2;
-            q = { w: (m21 - m12) / t, x: t / 4, y: (m01 + m10) / t, z: (m02 + m20) / t };
-        } else if (m11 > m22) {
-            const t = Math.sqrt(1 + m11 - m00 - m22) * 2;
-            q = { w: (m02 - m20) / t, x: (m01 + m10) / t, y: t / 4, z: (m12 + m21) / t };
-        } else {
-            const t = Math.sqrt(1 + m22 - m00 - m11) * 2;
-            q = { w: (m10 - m01) / t, x: (m02 + m20) / t, y: (m12 + m21) / t, z: t / 4 };
-        }
-        const n = Math.hypot(q.x, q.y, q.z, q.w);
-        return { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n };
-    }
-
-    /** 구면 선형 보간(짧은 쪽). */
-    _slerp(a, b, u) {
-        let d = a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-        let c = b;
-        if (d < 0) {
-            d = -d;
-            c = { x: -b.x, y: -b.y, z: -b.z, w: -b.w };
-        }
-        let wa, wb;
-        if (d > 0.9995) {
-            wa = 1 - u;
-            wb = u;
-        } else {
-            const angle = Math.acos(d),
-                sine = Math.sin(angle);
-            wa = Math.sin((1 - u) * angle) / sine;
-            wb = Math.sin(u * angle) / sine;
-        }
-        const q = {
-            x: a.x * wa + c.x * wb,
-            y: a.y * wa + c.y * wb,
-            z: a.z * wa + c.z * wb,
-            w: a.w * wa + c.w * wb,
-        };
-        const n = Math.hypot(q.x, q.y, q.z, q.w);
-        return { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n };
-    }
-
-    /**
-     * 발 방향 계획의 진행 비율(0 = 시작 방향, 1 = 목표). elapsed는 구간 시작 뒤 초.
-     * config footPlan.remaining 표의 누적 최솟값을 칸 사이 선형 보간하고, 표의 최솟값이 목표 도달(1)이 되게 늘린다.
-     */
-    _footPlanProgress(kind, elapsed) {
-        const c = this.settings.footPlan,
-            table = c.remaining[kind];
-        const at = Math.max(0, (elapsed * 1000) / c.sampleMs),
-            index = Math.floor(at);
-        if (index >= table.length - 1) return 1;
-        let low = 1,
-            end = 1;
-        for (let i = 0; i <= index; i++) low = Math.min(low, table[i]);
-        for (const value of table) end = Math.min(end, value);
-        const next = Math.min(low, table[index + 1]);
-        const remaining = low + (next - low) * (at - index);
-        return this._clamp((1 - remaining) / (1 - end), 0, 1);
-    }
-
-    /** 계획의 시각 time(초) 발 방향과 각속도(1 ms 앞과의 유한 차분). */
-    _footPlanPose(plan, time) {
-        const elapsed = time - plan.start,
-            step = 1e-3;
-        const q = this._slerp(plan.from, plan.target, this._footPlanProgress(plan.kind, elapsed));
-        const ahead = this._slerp(
-            plan.from,
-            plan.target,
-            this._footPlanProgress(plan.kind, elapsed + step),
-        );
-        let delta = this._qmul(ahead, this._conj(q));
-        if (delta.w < 0) delta = { x: -delta.x, y: -delta.y, z: -delta.z, w: -delta.w };
-        const sine = Math.hypot(delta.x, delta.y, delta.z);
-        const scale =
-            sine > 1e-9
-                ? (2 * Math.atan2(sine, this._clamp(delta.w, -1, 1))) / sine / step
-                : 2 / step;
-        return { rotation: q, angular: this._mul(delta, scale) };
-    }
-
-    /**
-     * world.step 뒤, 방향 계획이 있는 발을 발목 점(관절 기준점)은 그대로 두고 계획의 걸음 끝 방향 q(t)로 돌리고 각속도는 q'(t)로 둔다.
-     * 선속도는 발목 점 속도 + 각속도 × (발 중심 - 발목). 근사: 발 회전을 직접 정하므로 그 회전에 드는 토크의 반작용(정강이·몸의 각운동량)은 없다.
-     */
-    _followFootPlans() {
-        for (const p of this.players) {
-            if (!p.footPlanActive) continue;
-            const plan = p.kick.footPlan,
-                body = p.byName['foot' + plan.suffix].body,
-                joint = p.joints.find((item) => item.name === 'ankle' + plan.suffix);
-            const local = joint.joint.anchor2();
-            const ankle = this._add(body.translation(), this._rotate(body.rotation(), local));
-            const ankleVelocity = { ...body.velocityAtPoint(ankle) };
-            const pose = this._footPlanPose(plan, this.time);
-            const position = this._sub(ankle, this._rotate(pose.rotation, local));
-            const before = this._ankleMomentum(
-                body,
-                body.rotation(),
-                body.translation(),
-                body.linvel(),
-                body.angvel(),
-                ankle,
-            );
-            body.setRotation(pose.rotation, true);
-            body.setTranslation(position, true);
-            body.setAngvel(pose.angular, true);
-            body.setLinvel(
-                this._add(ankleVelocity, this._cross(pose.angular, this._sub(position, ankle))),
-                true,
-            );
-            // 반작용: 발을 돌리며 바뀐 발의 운동량(선운동량·발목 점 기준 각운동량)의 반대를 정강이에 발목 점에서 준다.
-            const after = this._ankleMomentum(
-                body,
-                pose.rotation,
-                position,
-                body.linvel(),
-                pose.angular,
-                ankle,
-            );
-            const shin = p.byName['lowerLeg' + plan.suffix].body;
-            shin.applyImpulseAtPoint(
-                this._mul(this._sub(after.linear, before.linear), -1),
-                ankle,
-                true,
-            );
-            shin.applyTorqueImpulse(this._mul(this._sub(after.angular, before.angular), -1), true);
-        }
     }
 
     _pendingJumpHold(p) {
@@ -3669,6 +3445,27 @@ class TakrawPhysics {
         return severity;
     }
 
+    /**
+     * 이번 틱을 잘게(simulation.kickStepMs 걸음) 돌려야 하는지. 차는 구간에만 참이다: 어느 선수든 발차기 입력이 있거나(이 틱 첫 걸음에 차기·받기 계획이 시작된다),
+     * 차는 중이거나(kick.mode·held), 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
+     * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
+     */
+    fineStepNeeded(inputs = []) {
+        const follow = this.settings.groundToss.followThrough;
+        for (const p of this.players) {
+            const input = inputs[p.id];
+            if (
+                input?.kick ||
+                input?.kickPressed ||
+                p.kick.held ||
+                p.kick.mode !== 'none' ||
+                this.time - p.lastTouch < follow
+            )
+                return true;
+        }
+        return false;
+    }
+
     step(dt, inputs = []) {
         this.restoredSnapshotBytes = null;
         // maxStepMs(config/physics.js)는 tickRate가 아니라 Rapier 한 번 적분에 허용하는 가장 긴 시간(검증한 한 걸음)이다. 이보다 긴 dt는 잘라서 적분한다(그만큼 시간이 버려진다).
@@ -3686,7 +3483,6 @@ class TakrawPhysics {
         const sweep = this._captureSweep();
         this.world.step(this.queue);
         this.time += h;
-        this._followFootPlans();
         const events = [],
             contactStarts = [...this.ballContacts.values()].filter(
                 (contact) => contact.kind === 'player' && !contact.confirmed,
@@ -3848,7 +3644,6 @@ class TakrawPhysics {
                 true,
             );
             body.applyImpulseAtPoint(this._mul(impulse, -1), point, true);
-            this._endFootPlan(item.p);
             // 이 걸음의 경로 접촉(_sweepBallContacts)은 공이 처음부터 새 속도였던 것으로 보고, 이 부위는 다시 풀지 않는다.
             sweep.ball.linear = this._add(sweep.ball.linear, change);
             sweep.resolved.add(item.part);
@@ -3927,22 +3722,7 @@ class TakrawPhysics {
         const parts = [];
         for (const p of this.players)
             for (const part of p.parts)
-                if (this._sweptPart(part.name)) {
-                    const entry = { p, part, start: pose(part.body) };
-                    // 방향 계획을 따르는 발: 걸음 안 회전·각속도는 계획 q(t)에서, 위치는 발목 점 경로에서 정한다(_sweepPose).
-                    if (p.footPlanActive && part.name === 'foot' + p.kick.footPlan.suffix) {
-                        const joint = p.joints.find(
-                            (item) => item.name === 'ankle' + p.kick.footPlan.suffix,
-                        );
-                        entry.plan = {
-                            plan: p.kick.footPlan,
-                            local: joint.joint.anchor2(),
-                            from: this.time,
-                            h: this.world.integrationParameters.dt,
-                        };
-                    }
-                    parts.push(entry);
-                }
+                if (this._sweptPart(part.name)) parts.push({ p, part, start: pose(part.body) });
         return { ball: pose(ball), parts, resolved: new Set() };
     }
 
@@ -4007,20 +3787,6 @@ class TakrawPhysics {
     _sweepPose(entry, s) {
         const a = entry.start,
             b = entry.end;
-        if (entry.plan) {
-            const { plan, local, from, h } = entry.plan;
-            const ankleA = this._add(a.position, this._rotate(a.rotation, local)),
-                ankleB = this._add(b.position, this._rotate(b.rotation, local));
-            const ankle = this._add(ankleA, this._mul(this._sub(ankleB, ankleA), s));
-            const pose = this._footPlanPose(plan, from + s * h);
-            return {
-                position: this._sub(ankle, this._rotate(pose.rotation, local)),
-                rotation: pose.rotation,
-                ankle,
-                ankleVelocity: this._mul(this._sub(ankleB, ankleA), 1 / h),
-                angular: pose.angular,
-            };
-        }
         const lerp = (u, v) => ({
             x: u.x + (v.x - u.x) * s,
             y: u.y + (v.y - u.y) * s,
@@ -4180,16 +3946,10 @@ class TakrawPhysics {
             // 부위 속도는 걸음 끝 값이다. Rapier는 걸음 처음에 관절·제약으로 속도를 푼 뒤 그 속도로 위치를 적분하므로(반암시 오일러) 걸음 안에서
             // 부위가 실제로 움직인 속도가 그것이다. 걸음 시작 값은 발 PD·발 방향 충격을 막 받고 관절이 아직 풀지 않은 속도라, 걸음이 길수록
             // 실제 움직임과 멀어진다(25 ms 서브에서 발 각속도 약 39 rad/s 대 걸음 끝 약 23 rad/s).
-            // 방향 계획을 따르는 발은 접촉 순간의 계획 각속도 q'(t)와 발목 점 경로 속도로 정한다.
-            const partVelocity = at.angular
-                ? this._add(
-                      at.ankleVelocity,
-                      this._cross(at.angular, this._sub(contact.point, at.ankle)),
-                  )
-                : this._add(
-                      entry.end.linear,
-                      this._cross(entry.end.angular, this._sub(contact.point, at.position)),
-                  );
+            const partVelocity = this._add(
+                entry.end.linear,
+                this._cross(entry.end.angular, this._sub(contact.point, at.position)),
+            );
             const ballVelocity = ballVelocityAt(s);
             // 공 표면 접촉점의 속도(회전 포함) - 부위 접촉점 속도.
             const arm = this._mul(n, -radius);
@@ -4267,7 +4027,6 @@ class TakrawPhysics {
                 this._rotate(entry.end.rotation, contact.local),
             );
             part.body.applyImpulseAtPoint(this._mul(impulse, -1), endPoint, true);
-            this._endFootPlan(entry.p);
             this._recordSweptContact(entry.p, part, contactStarts, candidates, impulses);
         }
         if (hit.size) {

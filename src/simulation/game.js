@@ -42,6 +42,13 @@ class TakrawGame {
         this.time = time;
         this.seededUnit = takrawSeededUnit(deterministic);
         this.physics = new TakrawPhysics(RAPIER, config);
+        // 차는 구간의 틱당 물리 걸음 수(DEV-035): 걸음 길이는 simulation.kickStepMs(ms)로 적고, 틱 수는 time(tickTime) 한 곳에서만 받아 여기서 한 번 환산한다.
+        const kickSteps = 1000 / (time.tickRate * config.simulation.kickStepMs);
+        if (Math.abs(kickSteps - Math.round(kickSteps)) > 1e-9 || kickSteps < 1)
+            throw new RangeError(
+                `kickStepMs ${config.simulation.kickStepMs}ms does not divide one tick (${kickSteps} steps)`,
+            );
+        this.kickSteps = Math.round(kickSteps);
         this.timingJudge = new TakrawTimingJudge(config.timing, config.simulation.tickRate);
         this.drill = new TakrawTrainingDrill();
         this.aiBrain = new AiBrain();
@@ -195,6 +202,8 @@ class TakrawGame {
         this.metrics = {
             logicSteps: 0,
             physicsSteps: 0,
+            // 잘게 돈 틱 수(차는 구간). physicsSteps와 함께 계산량을 본다.
+            fineTicks: 0,
             aiSteps: 0,
             contacts: 0,
             spikes: 0,
@@ -496,7 +505,10 @@ class TakrawGame {
             }
         }
 
-        const count = this.config.simulation.substeps;
+        // 차는 구간이 걸친 틱만 kickStepMs 걸음으로 잘게 돈다(physics.fineStepNeeded). 판정은 틱 시작에 한 번, 시뮬레이션 상태와 이번 틱 입력으로만 한다.
+        const fine = this.physics.fineStepNeeded(this.inputs);
+        const count = fine ? this.kickSteps : this.config.simulation.substeps;
+        if (fine) this.metrics.fineTicks++;
         for (let sub = 0; sub < count; sub++) {
             const beforeBall = this.physics.ball.translation();
             const events = this.physics.step(dt / count, this.inputs) || [];

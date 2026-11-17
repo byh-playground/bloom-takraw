@@ -56,7 +56,7 @@ const TAKRAW_PHYSICS = Object.freeze({
         minPlanTime: 0.08,
         // 휘두르기 길이(ms): 발은 공 도착 이만큼 전에 휘두르기 시작한다. 그보다 일찍 누르면 그때까지 디딤발로 서서 기다리므로(physics.js _armGroundToss)
         // 일찍 누른 길이가 달라도 접촉 결과가 같다. 이보다 늦게 누르면 남은 시간만큼만 휘두른다(최소 minPlanTime).
-        // AI는 늘 이보다 일찍 누르므로(config/game.js ai.toss.ground.lead 325 ms, 실제 누름 300~350 ms 전) AI의 받기·세트·서브가 모두 이 길이로 나온다.
+        // AI는 늘 이보다 일찍 누르므로(config/game.js ai.toss.ground.leadMs 325, 실제 누름 300~350 ms 전) AI의 받기·세트·서브가 모두 이 길이로 나온다.
         strokeLeadMs: 300,
         attackHeight: 3.3,
         // 서브 발 계획의 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.

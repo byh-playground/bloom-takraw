@@ -2143,7 +2143,8 @@ class TakrawGame {
                 const q = player.root.translation();
                 const setTarget = this.tossTarget(player);
                 const ground = groundBase;
-                const kickLead = setTarget ? ground.lead : 0.2;
+                const groundLead = ground.leadMs / 1000,
+                    kickLead = setTarget ? groundLead : 0.2;
                 const kickWindow = setTarget ? ground.window : 0.36;
                 // 서브: 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브(공중 공격과 같은 점프·발차기), 아니면 지상서브다(사람과 같은 기준).
                 const jumpServe = this.isJumpServe(team);
@@ -2236,7 +2237,7 @@ class TakrawGame {
                         // Re-time BEFORE contact as the ball trajectory changes. The old
                         // cooldown was set at reservation time, so it could prevent a save
                         // even when the foot never made contact. No ball impulse is added.
-                        const from = this.aiPressAt(defense.plan.time - ground.lead);
+                        const from = this.aiPressAt(defense.plan.time - groundLead);
                         const until = this.aiHoldUntil(
                             this.state.time,
                             defense.plan.time + ground.followThrough,

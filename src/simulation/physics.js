@@ -18,6 +18,9 @@ function takrawPhysicsSettings(config) {
     settings.stepSeconds = stepMs / 1000;
     settings.maxStepSeconds = settings.maxStepMs / 1000;
     settings.fineContactWindowSeconds = config.simulation.fineContactWindowMs / 1000;
+    // 지상 토스는 휘두르기가 시작되는 틱부터 잘게 돈다: 틱 시작에 공 도착이 strokeLeadMs + 한 틱 안이면 그 틱 안에서 휘두르기가 시작된다.
+    settings.fineStrokeWindowSeconds =
+        settings.groundToss.strokeLeadMs / 1000 + 1 / config.simulation.tickRate;
     const airKick = settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
@@ -411,6 +414,9 @@ class TakrawPhysics {
             return false;
         const remaining = plan.at + plan.time - this.time;
         if (!(remaining > 0.015 && remaining <= settings.commitment)) return false;
+        // 쿠션·런지는 몸을 옮기지 않는 자세라 휘두르기와 같은 때(공 도착 strokeLeadMs 전) 시작한다. 일찍 누른 길이가 자세 전환·다리 뻗기 진행을 바꾸지 않는다.
+        // 슬라이드는 몸을 던져 가야 하는 거리가 있어 누른 걸음에 시작한다(점프처럼 누른 시각이 몸 궤적을 정한다).
+        if (plan.mode !== 'slide' && !this._strokeDue(p)) return false;
         const root = p.root.translation();
         const direction = this._unit({ x: plan.point.x - root.x, y: 0, z: plan.point.z - root.z });
         if (
@@ -1509,8 +1515,8 @@ class TakrawPhysics {
 
     /**
      * 지상 토스(받기·세트·서브)의 발은 공 도착 groundToss.strokeLeadMs 전에야 휘두르기 시작한다. 그보다 일찍 누르면 그때까지
-     * 차는 다리도 디딤발로 서 있고(계획 없음), 찰 발만 공이 올 자리로 다시 고른다. 그래서 일찍 누른 길이가 달라도 휘두르기는
-     * 같은 길이·같은 시작 자세에서 나온다. true면 아직 기다리는 중이다.
+     * 차는 다리도 디딤발로 서 있고(계획 없음), 찰 발만 공이 올 자리로 다시 고른다. 쿠션·런지 받기 동작도 같은 때 시작한다(_updateReceive).
+     * 그래서 일찍 누른 길이는 휘두르기 길이를 바꾸지 않는다. 슬라이드는 누른 걸음에 몸을 던지므로 예외다. true면 아직 기다리는 중이다.
      */
     _armGroundToss(p, input, pos, rootRotation) {
         const target = input.tossTarget;
@@ -1521,11 +1527,17 @@ class TakrawPhysics {
             !Number.isFinite(target.z)
         )
             return false;
-        const lead = this.settings.groundToss.strokeLeadMs / 1000;
-        if (this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <= lead)
-            return false;
+        // 기다리는 걸음마다, 그리고 계획을 세우는 걸음에도 찰 발을 고른다. 언제 눌렀든 계획은 그 걸음의 공 궤적으로 고른 발에서 시작한다.
         p.kick.side = this._kickSide(p, true, pos, rootRotation);
-        return true;
+        return !this._strokeDue(p);
+    }
+
+    /** 공이 받는 발의 접촉 높이에 오기까지 groundToss.strokeLeadMs 이하로 남았는지(휘두르기를 시작할 때인지). */
+    _strokeDue(p) {
+        return (
+            this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <=
+            this.settings.groundToss.strokeLeadMs / 1000
+        );
     }
 
     /** 관절 목표의 기본값(팔을 조금 굽힌 선 자세). */
@@ -3488,20 +3500,41 @@ class TakrawPhysics {
      * - 발차기·점프 버튼을 누르기 시작했거나 발차기 버튼을 뗀 틱이거나(이 틱 첫 걸음에 차기 계획 시작, 도약 충격량과 첫 추진, 다리 거두기 전환이 들어간다),
      * - 차는 발이 공에 닿을 예정이 창(simulation.fineContactWindowMs) 안이거나(_kickContactIn),
      * - 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
+     * 지상 토스(슬라이드 받기 제외)는 발이 공 도착 strokeLeadMs 전에야 움직이므로(_armGroundToss), 계획이 없는 동안은 누름·뗌 틱과 700 ms 창을 치지 않고
+     * 공 도착이 strokeLeadMs + 한 틱 안인 틱(그 틱 안에서 휘두르기가 시작된다)부터 잘게 돈다. 그래서 일찍 누른 시각이 걸음 크기를 바꾸지 않는다.
      * 버튼을 누른 채 공이 멀리 있거나 이미 맞히고 지나간 동안, 도약 뒤 떠 있는 동안은 굵은 걸음이다(v0.26.3).
      * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
      */
     fineStepNeeded(inputs = []) {
         const follow = this.settings.groundToss.followThrough,
-            window = this.settings.fineContactWindowSeconds;
+            window = this.settings.fineContactWindowSeconds,
+            strokeWindow = this.settings.fineStrokeWindowSeconds;
         for (const p of this.players) {
             const input = inputs[p.id];
+            const target = input?.tossTarget;
+            // 계획이 아직 없는 지상 토스(이 틱에 누르기 시작하는 것 포함). 슬라이드는 누른 걸음에 몸을 던지므로 빼고 이전 조건을 그대로 쓴다.
+            const toss =
+                !!target &&
+                Number.isFinite(target.x) &&
+                Number.isFinite(target.z) &&
+                !p.kick.receivePlan &&
+                !input.jump &&
+                !input.jumpPressed &&
+                input.receive?.mode !== 'slide' &&
+                p.receive?.mode !== 'slide';
+            const waiting =
+                toss &&
+                !!input.kick &&
+                (p.kick.mode === 'ground' || (p.kick.mode === 'none' && p.grounded));
+            const released = toss && !input.kick && p.kick.mode === 'ground';
             if (
-                input?.kickPressed ||
+                (input?.kickPressed && !waiting) ||
                 input?.jumpPressed ||
-                (p.kick.held && !input?.kick) ||
+                (p.kick.held && !input?.kick && !released) ||
                 this.time - p.lastTouch < follow ||
-                this._kickContactIn(p) <= window
+                (waiting
+                    ? this._groundContactIn(p) <= strokeWindow
+                    : this._kickContactIn(p) <= window)
             )
                 return true;
         }
@@ -3519,7 +3552,11 @@ class TakrawPhysics {
             const plan = p.kick.airPlan;
             return plan && plan.phase !== 'follow' ? plan.remaining : Infinity;
         }
-        if (p.kick.mode !== 'ground') return Infinity;
+        return p.kick.mode === 'ground' ? this._groundContactIn(p) : Infinity;
+    }
+
+    /** 지상 차기의 발이 공에 닿기까지 남은 시간(초): 공이 접촉 높이로 내려오기까지, 몸이 닿을 수 없는 자리면 Infinity(_kickContactIn의 지상 몫). */
+    _groundContactIn(p) {
         const s = this.settings,
             ball = this.ball.translation(),
             velocity = this.ball.linvel();

@@ -5,7 +5,8 @@ const ACTION_NAMES = Object.freeze(['left', 'right', 'forward', 'back', 'jump', 
 /**
  * 이 기기의 입력: 키·포인터 장치(createDOMInput), 행동 상태, 터치 패드 축, 발차기 조준, 마우스 카메라 회전, 마지막으로 만든 입력 바이트.
  * 명령(점프·발차기 눌림)의 순서는 세션이 정한다. 여기서는 눌림 엣지만 돌려준다.
- * 발차기 버튼은 누른·뗀 시각을 적어 두었다가, 그 엣지를 읽는 순간까지 지난 시간(ms, 정수)을 함께 돌려준다. 입력은 틱 시작에만 적용되므로
+ * 발차기 버튼은 누른·뗀 시각을 적어 두었다가, 그 엣지가 들어갈 틱의 마감(tickEndMs)까지 남은 시간(ms, 정수)을 함께 돌려준다.
+ * 같은 틱에 들어간 엣지는 같은 마감을 기준으로 재므로, 두 엣지의 값 차이와 틱 수의 합이 실제로 누른 길이다. 입력은 틱 시작에만 적용되므로
  * 시뮬레이션이 "누른 길이가 결과인 것"(서브 공 던지기 모으기)을 틱 수가 아니라 실제 누른 길이로 계산하는 데 쓴다.
  * 발차기와 조준은 화면의 발차기 버튼(touch-controls)에서만 들어온다. 키보드는 조준 값을 만들지 않는다.
  *   onPointer(event): 캔버스 포인터 이벤트마다 부른다(오디오 잠금 해제·리플레이 건너뛰기·카메라 회전은 세션이 정한다).
@@ -43,14 +44,15 @@ class RuntimeInput {
     /**
      * 한 틱의 입력 바이트와 눌림 엣지. allowed가 아니면 바이트는 0이고 엣지도 없다.
      * movement(right, back)는 화면 기준 이동을 월드 축으로 바꾼다(보는 팀 기준).
-     * edges.kickPressMs·kickReleaseMs: 이 표본 구간에 발차기를 누른·뗀 뒤 지금까지 지난 시간(ms, 0~255 정수). 그 엣지가 없으면 -1.
+     * tickEndMs: 이 입력이 들어갈 틱을 계산할 시각(시뮬 루프의 다음 마감 nextDeadlineMs). 버튼 이벤트 직후 바로 표본을 만들어도(observeSoon)
+     *   그 엣지가 실제로 적용될 틱을 기준으로 잰다. 루프가 아직 없으면 지금 시각이다.
+     * edges.kickPressMs·kickReleaseMs: 이 표본 구간에 발차기를 누른·뗀 시각부터 tickEndMs까지(ms, 0~255 정수, 보통 한 틱 이하). 그 엣지가 없으면 -1.
      */
-    sample({ allowed, movement }) {
+    sample({ allowed, movement, tickEndMs = performance.now() }) {
         const input = new Uint8Array(this.size);
         const edges = { jump: false, kick: false, kickPressMs: -1, kickReleaseMs: -1 };
-        const now = performance.now(),
-            elapsed = (stamp) =>
-                stamp === null ? 0 : Math.max(0, Math.min(255, Math.round(now - stamp)));
+        const untilTick = (stamp) =>
+            stamp === null ? 0 : Math.max(0, Math.min(255, Math.round(tickEndMs - stamp)));
         const samples = this.samples;
         for (const name of ACTION_NAMES) this.actions.sampleInto(name, samples[name]);
         if (allowed) {
@@ -69,8 +71,8 @@ class RuntimeInput {
             }
             edges.jump = samples.jump.pressed;
             edges.kick = samples.kick.pressed;
-            if (samples.kick.pressed) edges.kickPressMs = elapsed(this.kickStamp.press);
-            if (samples.kick.released) edges.kickReleaseMs = elapsed(this.kickStamp.release);
+            if (samples.kick.pressed) edges.kickPressMs = untilTick(this.kickStamp.press);
+            if (samples.kick.released) edges.kickReleaseMs = untilTick(this.kickStamp.release);
         }
         this.kickStamp.press = this.kickStamp.release = null;
         this.actions.consume();

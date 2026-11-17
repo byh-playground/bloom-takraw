@@ -238,11 +238,13 @@ class MatchSession {
             });
         }
         // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기 누름(2, 지난 ms), 발차기 뗌(6, 지난 ms)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
-        // 지난 ms는 버튼을 실제로 누른·뗀 뒤 이 입력을 만들 때까지의 시간이다(simulation/game.js decode).
+        // ms는 버튼을 실제로 누른·뗀 시각부터 이 입력이 들어갈 틱의 마감(loop.nextDeadlineMs)까지의 시간이다(simulation/game.js decode).
+        // 이벤트 직후 바로 표본을 만들어도(observeSoon) 기준은 그 틱이다. 입력 지연(온라인 예약 틱)은 누름·뗌에 같게 더해져 누른 길이에서 지워진다.
         const { input: bytes, edges } = this.input.sample({
             allowed: this.controlsAllowed(),
             // Online peers each see their own team from behind. Only world-space input crosses the network.
             movement: (right, back) => this.view.screenMovement(right, back, this.localTeam()),
+            tickEndMs: this.loop?.nextDeadlineMs ?? performance.now(),
         });
         if (edges.jump) {
             commands.push({ payload: Uint8Array.of(1) });

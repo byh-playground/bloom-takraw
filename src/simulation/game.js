@@ -280,7 +280,7 @@ class TakrawGame {
     decode(input, commands) {
         const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
         const has = (n) => commands.some((command) => command.payload?.[0] === n);
-        // 발차기 누름(2)·뗌(6) 명령의 둘째 바이트: 버튼을 실제로 누른·뗀 뒤 이 틱의 입력을 만들 때까지 지난 시간(ms). 없으면 0.
+        // 발차기 누름(2)·뗌(6) 명령의 둘째 바이트: 버튼을 실제로 누른·뗀 시각부터 이 틱이 시작될 때까지의 시간(ms). 없으면 0.
         const elapsed = (n) =>
             (commands.find((command) => command.payload?.[0] === n)?.payload[1] || 0) / 1000;
         return {
@@ -801,7 +801,8 @@ class TakrawGame {
         const held = !aiServing ? !!human?.toss : ready && chargedTicks < aimTicks,
             pressed = !!human?.tossPressed;
         // 모은 힘은 버튼을 실제로 누르고 있던 길이다. 입력은 틱 시작에만 적용되므로 누르고 있는 틱마다 한 틱씩 쌓고,
-        // 누른 틱에는 누른 뒤 이미 지난 시간을 더하고 뗀 틱에는 뗀 뒤 지난 시간을 뺀다(사람 입력이 싣는 값, AI는 0).
+        // 누른 틱에는 누른 시각부터 그 틱 시작까지를 더하고 뗀 틱에는 뗀 시각부터 그 틱 시작까지를 뺀다(사람 입력이 싣는 값, AI는 0).
+        // 그래서 틱 수 × 틱 길이 + 누름 값 − 뗌 값 = 실제로 누른 길이이고, 한 틱 안의 탭도 그 길이가 남는다.
         if (held || pressed) toss.charging = true;
         if (held) toss.charge += dt;
         if (pressed) toss.charge += human.tossPressElapsed || 0;

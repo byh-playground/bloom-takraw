@@ -1413,6 +1413,7 @@ class TakrawPhysics {
         if (mode !== p.kick.mode)
             this._switchKickMode(p, mode, input, pos, rootRotation, continuingGroundKick);
         p.kick.held = kicking;
+        const armed = mode === 'ground' && this._armGroundToss(p, input, pos, rootRotation);
         this._updateLegStretch(p, dt);
         const airTarget =
             mode === 'air' && !fallen
@@ -1466,6 +1467,7 @@ class TakrawPhysics {
             fallen,
             airborne,
             kicking,
+            armed,
             mode,
             airTarget,
             preparing,
@@ -1478,25 +1480,52 @@ class TakrawPhysics {
 
     /** 발차기 모드가 바뀔 때 계획을 비우고, 공(지상 토스는 예측 접촉점) 위치로 찰 발을 고른다. */
     _switchKickMode(p, mode, input, pos, rootRotation, continuingGroundKick) {
-        const s = p.settings;
         p.kick.mode = mode;
         p.kick.receivePlan = null;
         p.kick.airPlan = null;
-        let choose = this.ball.translation();
-        if (mode === 'ground' && input.tossTarget) {
-            const toss = this.settings.groundToss,
-                bv = this.ball.linvel(),
-                height = toss.contactHeight;
-            const disc = bv.y * bv.y + 2 * s.gravity * (choose.y - height);
-            const t = this._clamp(
-                (bv.y + Math.sqrt(Math.max(0, disc))) / s.gravity,
-                0,
-                toss.maxPlanTime,
+        if (!(mode === 'air' && continuingGroundKick))
+            p.kick.side = this._kickSide(
+                p,
+                mode === 'ground' && !!input.tossTarget,
+                pos,
+                rootRotation,
             );
+    }
+
+    /** 찰 발: 공(지상 토스는 공이 접촉 높이에 올 자리)이 몸의 어느 쪽에 있는지로 고른다. */
+    _kickSide(p, tossing, pos, rootRotation) {
+        const s = p.settings;
+        let choose = this.ball.translation();
+        if (tossing) {
+            const bv = this.ball.linvel(),
+                height = this.settings.groundToss.contactHeight;
+            const disc = bv.y * bv.y + 2 * s.gravity * (choose.y - height);
+            const t = Math.max(0, (bv.y + Math.sqrt(Math.max(0, disc))) / s.gravity);
             choose = { x: choose.x + bv.x * t, y: height, z: choose.z + bv.z * t };
         }
         const ballLocal = this._rotate(this._conj(rootRotation), this._sub(choose, pos));
-        if (!(mode === 'air' && continuingGroundKick)) p.kick.side = this._groundSide(ballLocal.x);
+        return this._groundSide(ballLocal.x);
+    }
+
+    /**
+     * 지상 토스(받기·세트·서브)의 발은 공 도착 groundToss.strokeLeadMs 전에야 휘두르기 시작한다. 그보다 일찍 누르면 그때까지
+     * 차는 다리도 디딤발로 서 있고(계획 없음), 찰 발만 공이 올 자리로 다시 고른다. 그래서 일찍 누른 길이가 달라도 휘두르기는
+     * 같은 길이·같은 시작 자세에서 나온다. true면 아직 기다리는 중이다.
+     */
+    _armGroundToss(p, input, pos, rootRotation) {
+        const target = input.tossTarget;
+        if (
+            p.kick.receivePlan ||
+            !target ||
+            !Number.isFinite(target.x) ||
+            !Number.isFinite(target.z)
+        )
+            return false;
+        const lead = this.settings.groundToss.strokeLeadMs / 1000;
+        if (this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <= lead)
+            return false;
+        p.kick.side = this._kickSide(p, true, pos, rootRotation);
+        return true;
     }
 
     /** 관절 목표의 기본값(팔을 조금 굽힌 선 자세). */
@@ -1611,14 +1640,14 @@ class TakrawPhysics {
             gait = s.drive.gait;
         const { pos, rootRotation, muscleResponse } = body;
         const { move, moving } = intent;
-        const { receive, motion, receiveBlend, fallen, kicking } = action;
+        const { receive, motion, receiveBlend, fallen, kicking, armed } = action;
         p.gait += dt * (moving > s.drive.gaitInput ? gait.rate : 0);
         const facing = this._yaw(p.desiredYaw);
         for (const [suffix, side] of [
             ['L', -1],
             ['R', 1],
         ]) {
-            if (kicking && suffix === p.kick.side && !fallen) continue;
+            if (kicking && !armed && suffix === p.kick.side && !fallen) continue;
             const phase = p.gait + (side < 0 ? 0 : Math.PI);
             const localFoot = { x: side * gait.width, y: 0, z: gait.forward };
             const spread = this._rotate(facing, localFoot);
@@ -1751,9 +1780,9 @@ class TakrawPhysics {
     _driveKick(p, input, body, action, targetMap, dt) {
         const root = p.root;
         const { pos, rootRotation, muscleResponse } = body;
-        const { fallen, kicking, mode, airTarget } = action;
+        const { fallen, kicking, armed, mode, airTarget } = action;
         let orientedFoot = '';
-        if (kicking && !fallen) {
+        if (kicking && !armed && !fallen) {
             const suffix = p.kick.side,
                 foot = p.byName['foot' + suffix];
             const hip = this._point(root, { x: suffix === 'L' ? -0.12 : 0.12, y: -0.06, z: 0 });
@@ -2063,7 +2092,7 @@ class TakrawPhysics {
     _applyJointTargets(p, body, action, targetMap, orientedFoot) {
         const s = p.settings;
         const { muscleResponse } = body;
-        const { fallen, kicking, mode, preparing, muscle } = action;
+        const { fallen, kicking, armed, mode, preparing, muscle } = action;
         for (const j of p.joints) {
             let strength = muscle;
             if (
@@ -2083,6 +2112,7 @@ class TakrawPhysics {
                 strength = s.airKick.motion.poseStrength * muscleResponse;
             if (
                 kicking &&
+                !armed &&
                 !fallen &&
                 (j.name === 'hip' + p.kick.side ||
                     j.name === 'knee' + p.kick.side ||
@@ -3077,17 +3107,13 @@ class TakrawPhysics {
     }
 
     /**
-     * 지상 토스(받기·세트)의 발 목표. 계획이 없거나 아직 추적 중이면 계획을 세우고(_beginReceivePlan),
+     * 지상 토스(받기·세트)의 발 목표. 계획이 없으면 세우고(_beginReceivePlan. 공 도착 strokeLeadMs 안에서만 불린다: _armGroundToss),
      * 맞은 뒤 따라 차기가 끝났으면 발을 거두고, 아니면 받기 종류에 맞는 궤적을 고른다.
      */
     _receiveFootTarget(p, input, ballPos, ballVel, dt) {
         const toss = this.settings.groundToss;
-        // An early held input can prepare the real foot while the ball is still
-        // outside the stroke horizon. Commit the stroke only once its actual
-        // predicted arrival enters that horizon. Once committed, retain the
-        // stroke instead of replanning around the outgoing ball.
-        if (!p.kick.receivePlan || p.kick.receivePlan.tracking)
-            this._beginReceivePlan(p, input, ballPos, ballVel);
+        // Once committed, retain the stroke instead of replanning around the outgoing ball.
+        if (!p.kick.receivePlan) this._beginReceivePlan(p, input, ballPos, ballVel);
         const plan = p.kick.receivePlan;
         if (
             p.receive?.hitAt !== null &&
@@ -3105,7 +3131,7 @@ class TakrawPhysics {
     _beginReceivePlan(p, input, ballPos, ballVel) {
         const toss = this.settings.groundToss;
         const pass = this._predictReceivePass(p, input, ballPos, ballVel);
-        const { duration, tracking, incoming, impact, attacking } = pass;
+        const { duration, incoming, impact, attacking } = pass;
         const { normal, surface, approach, velocity } = this._receiveStrike(
             p,
             pass.wanted,
@@ -3144,7 +3170,6 @@ class TakrawPhysics {
             forward,
             point,
             velocity,
-            tracking,
             attackSet: attacking,
             dynamicReceive,
             incoming,
@@ -3153,22 +3178,34 @@ class TakrawPhysics {
         };
     }
 
+    /** 받는 발의 접촉 높이: 슬라이드는 그 받기 점 높이, 나머지는 groundToss.contactHeight. */
+    _receiveHeight(p) {
+        return p.receive?.mode === 'slide' && p.receive.phase !== 'recover'
+            ? p.receive.point.y
+            : this.settings.groundToss.contactHeight;
+    }
+
+    /** 공이 받는 발의 접촉 높이로 내려오기까지 남은 시간(초, 포물선). */
+    _receiveArrival(p, ballPos, ballVel) {
+        const g = this.settings.gravity;
+        const disc = ballVel.y * ballVel.y + 2 * g * (ballPos.y - this._receiveHeight(p));
+        return (ballVel.y + Math.sqrt(Math.max(0, disc))) / g;
+    }
+
     /** 공이 접촉 높이에 오는 시각·위치·속도와, 목표 선수에게 보낼 패스에 필요한 공 속도. */
     _predictReceivePass(p, input, ballPos, ballVel) {
         const s = this.settings,
             toss = this.settings.groundToss;
-        const height =
-            p.receive?.mode === 'slide' && p.receive.phase !== 'recover'
-                ? p.receive.point.y
-                : toss.contactHeight;
-        const disc = ballVel.y * ballVel.y + 2 * s.gravity * (ballPos.y - height);
-        const arrival = (ballVel.y + Math.sqrt(Math.max(0, disc))) / s.gravity;
-        const duration = this._clamp(arrival, toss.minPlanTime, toss.maxPlanTime);
-        const tracking = arrival > toss.maxPlanTime;
-        const prediction = tracking ? arrival : duration;
-        const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * prediction, z: ballVel.z };
-        const impact = this._add(ballPos, this._mul(ballVel, prediction));
-        impact.y -= 0.5 * s.gravity * prediction * prediction;
+        const height = this._receiveHeight(p);
+        // 계획 길이 = 지금부터 공 도착까지. strokeLeadMs보다 일찍 누른 발은 기다렸다가(_armGroundToss) 그 길이로 시작한다.
+        const duration = this._clamp(
+            this._receiveArrival(p, ballPos, ballVel),
+            toss.minPlanTime,
+            toss.strokeLeadMs / 1000,
+        );
+        const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * duration, z: ballVel.z };
+        const impact = this._add(ballPos, this._mul(ballVel, duration));
+        impact.y -= 0.5 * s.gravity * duration * duration;
         const attacking = takrawIsAttacker(input.tossTarget.playerId);
         // 서브 목표(playerId -1)는 동료에게 주는 패스가 아니라 상대 코트 바닥으로 보내는 공이다: 꼭짓점 serveApex를 지나 serveHeight로 내려오는 포물선.
         const serving = input.tossTarget.playerId === -1;
@@ -3190,7 +3227,7 @@ class TakrawPhysics {
             y: upSpeed,
             z: (input.tossTarget.z - impact.z) / flight,
         };
-        return { duration, tracking, incoming, impact, attacking, wanted };
+        return { duration, incoming, impact, attacking, wanted };
     }
 
     /**

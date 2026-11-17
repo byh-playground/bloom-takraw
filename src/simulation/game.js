@@ -2177,6 +2177,20 @@ class TakrawGame {
                     dist > (anticipating ? 0.08 : 0.12)
                         ? moveZ / Math.max(Math.hypot(moveX, moveZ), approachRadius)
                         : 0;
+                if (mode === 'receive' && dist > 0.12 && dx * player.toward < 0) {
+                    // 받는 선수가 뒤로 물러나는 중이면(설 자리가 지금보다 네트에서 멀다) 공이 닿기 전에 그 자리까지 가는 데 필요한 속도 비율
+                    // (남은 거리 ÷ 남은 시간 ÷ 이동 속도)보다 입력을 줄이지 않는다. 위의 제동은 자리에 멈춰 서기 위한 것이라 자리에서 1 m쯤 앞부터 입력을 줄이는데,
+                    // 깊은 공격은 자리에 못 미친 채 공이 먼저 와서 몸이 접촉점 위에 남고 공이 몸·정강이에 맞는다(v0.26.2). 앞으로 나가는 받기는 그대로 제동한다
+                    // (공 쪽으로 달리던 속도가 남은 채 맞으면 정강이에 맞는다).
+                    const needed = Math.min(
+                        1,
+                        dist / (Math.max(defense.plan.time, 1e-3) * player.settings.movementSpeed),
+                    );
+                    if (Math.hypot(a.x, a.z) < needed) {
+                        a.x = (dx / dist) * needed;
+                        a.z = (dz / dist) * needed;
+                    }
+                }
                 const drift = Math.hypot(
                     dx - velocity.x * aerial.time,
                     dz - velocity.z * aerial.time,

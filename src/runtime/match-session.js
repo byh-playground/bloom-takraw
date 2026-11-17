@@ -237,25 +237,28 @@ class MatchSession {
                 ),
             });
         }
-        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기 누름(2, 지난 ms), 발차기 뗌(6, 지난 ms)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
-        // ms는 버튼을 실제로 누른·뗀 시각부터 이 입력이 들어갈 틱의 마감(loop.nextDeadlineMs)까지의 시간이다(simulation/game.js decode).
-        // 이벤트 직후 바로 표본을 만들어도(observeSoon) 기준은 그 틱이다. 입력 지연(온라인 예약 틱)은 누름·뗌에 같게 더해져 누른 길이에서 지워진다.
+        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2), 발차기 뗌(6, 누른 길이 ms 하위·상위 바이트)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
+        // 누른 길이는 버튼 이벤트 시각 차이라 루프 마감·입력 지연과 무관하다(simulation/game.js decode). 누른 시각을 모르면 [6]만 보낸다.
         const { input: bytes, edges } = this.input.sample({
             allowed: this.controlsAllowed(),
             // Online peers each see their own team from behind. Only world-space input crosses the network.
             movement: (right, back) => this.view.screenMovement(right, back, this.localTeam()),
-            tickEndMs: this.loop?.nextDeadlineMs ?? performance.now(),
         });
         if (edges.jump) {
             commands.push({ payload: Uint8Array.of(1) });
             this.view.frameMetrics.count('jump', 1);
         }
         if (edges.kick) {
-            commands.push({ payload: Uint8Array.of(2, edges.kickPressMs) });
+            commands.push({ payload: Uint8Array.of(2) });
             this.view.frameMetrics.count('kick', 1);
         }
-        if (edges.kickReleaseMs >= 0)
-            commands.push({ payload: Uint8Array.of(6, edges.kickReleaseMs) });
+        if (edges.kickReleased)
+            commands.push({
+                payload:
+                    edges.kickHoldMs >= 0
+                        ? Uint8Array.of(6, edges.kickHoldMs & 255, edges.kickHoldMs >> 8)
+                        : Uint8Array.of(6),
+            });
         return { input: bytes, commands };
     }
 

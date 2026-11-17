@@ -280,9 +280,10 @@ class TakrawGame {
     decode(input, commands) {
         const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
         const has = (n) => commands.some((command) => command.payload?.[0] === n);
-        // 발차기 누름(2)·뗌(6) 명령의 둘째 바이트: 버튼을 실제로 누른·뗀 시각부터 이 틱이 시작될 때까지의 시간(ms). 없으면 0.
-        const elapsed = (n) =>
-            (commands.find((command) => command.payload?.[0] === n)?.payload[1] || 0) / 1000;
+        // 발차기 뗌(6) 명령의 둘째·셋째 바이트: 버튼을 실제로 누르고 있던 길이(ms, 하위·상위 바이트). 없으면 null(틱 수로 센다).
+        const release = commands.find((command) => command.payload?.[0] === 6)?.payload;
+        const holdSeconds =
+            release && release.length >= 3 ? (release[1] | (release[2] << 8)) / 1000 : null;
         return {
             x: signed(input[0] || 0),
             z: signed(input[1] || 0),
@@ -292,8 +293,7 @@ class TakrawGame {
             aim: { x: signed(input[3] || 0), y: signed(input[4] || 0) },
             jumpPressed: has(1),
             kickPressed: has(2),
-            kickPressElapsed: elapsed(2),
-            kickReleaseElapsed: elapsed(6),
+            kickHoldSeconds: holdSeconds,
             restart: has(4),
             trainingLesson:
                 TAKRAW_TRAINING_LESSONS.find((lesson) => has(lesson.command))?.id || null,
@@ -376,8 +376,7 @@ class TakrawGame {
                 kickPressed: false,
                 toss: server.kick,
                 tossPressed: server.kickPressed,
-                tossPressElapsed: server.kickPressElapsed,
-                tossReleaseElapsed: server.kickReleaseElapsed,
+                tossHoldSeconds: server.kickHoldSeconds,
             };
 
         // Claim/release is an input edge. Re-evaluate that change immediately,
@@ -800,20 +799,22 @@ class TakrawGame {
                 this.state.time - toss.stillSince >= cfg.settle.stillMs / 1000);
         const held = !aiServing ? !!human?.toss : ready && chargedTicks < aimTicks,
             pressed = !!human?.tossPressed;
-        // 모은 힘은 버튼을 실제로 누르고 있던 길이다. 입력은 틱 시작에만 적용되므로 누르고 있는 틱마다 한 틱씩 쌓고,
-        // 누른 틱에는 누른 시각부터 그 틱 시작까지를 더하고 뗀 틱에는 뗀 시각부터 그 틱 시작까지를 뺀다(사람 입력이 싣는 값, AI는 0).
-        // 그래서 틱 수 × 틱 길이 + 누름 값 − 뗌 값 = 실제로 누른 길이이고, 한 틱 안의 탭도 그 길이가 남는다.
-        if (held || pressed) toss.charging = true;
-        if (held) toss.charge += dt;
-        if (pressed) toss.charge += human.tossPressElapsed || 0;
+        // 누르는 동안은 틱마다 한 틱씩 쌓는다(공이 올라가는 표시). 사람이 이 공을 들고 있는 동안 누르기 시작했으면(timed),
+        // 뗀 틱에 뗌 명령이 실은 실제로 누르고 있던 길이로 확정한다(틱 경계·루프 밀림·입력 지연과 무관, 한 틱 안의 탭도 그 길이).
+        // 공을 들기 전부터 누르고 있었으면 그 앞 시간은 모은 힘이 아니므로 틱 수로 센 길이를 쓴다.
+        if (pressed && !toss.charging) toss.timed = true;
+        if (held || pressed) {
+            toss.charging = true;
+            toss.charge += dt;
+        }
         const idle = this.state.time - this.rallyStart > cfg.maxHold;
         if (!(toss.charging && !held) && !idle) {
             this.holdServeBall();
             return;
         }
-        if (human?.tossReleaseElapsed > 0) {
-            // 뗀 뒤 지난 시간만큼은 모으지 않은 것이다. 공도 그 힘의 자리에서 던진다.
-            toss.charge = Math.max(0, toss.charge - human.tossReleaseElapsed);
+        if (toss.timed && human?.tossHoldSeconds !== null && human?.tossHoldSeconds !== undefined) {
+            toss.charge = human.tossHoldSeconds;
+            // 공도 그 힘의 자리에서 던진다(틱 수로 센 높이와 많아야 한 틱만큼 다르다).
             this.holdServeBall();
         }
         const ratio = Math.min(1, toss.charge / cfg.fullCharge),

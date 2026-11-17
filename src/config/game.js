@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.26.3';
+const TAKRAW_VERSION = '0.27.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -71,14 +71,12 @@ const TAKRAW_CONFIG = Object.freeze({
     //   지상 받기 physics.groundToss.maxPlanTime 0.45초)보다 짧지 않게 두어, 발이 공으로 가기 시작한 뒤로는 늘 잘게 돈다(450이면 공중 차기 첫 구간이 굵어져 점프 공격이 약해졌다). 버튼을 누르고 있어도 공이 이보다 멀면 굵은 걸음이다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
-    // aiPressReferenceMs: AI 버튼 시각을 틱에 맞출 때 기준으로 삼는 틱 길이(v0.19.12의 60틱). 이보다 긴 틱은 늦어짐이 같게 앞당긴다(game.js aiPressTime).
     simulation: {
         tickRate: 20,
         stepMs: 25,
         kickStepMs: 1000 / 120,
         fineContactWindowMs: 700,
         aiIntervalMs: 66,
-        aiPressReferenceMs: 1000 / 60,
         fixedSeed: 7,
     },
     // 매 틱 입력 바이트열: [x, z, 버튼, 조준x, 조준y] 5바이트(이 기기의 한 명). runtime/input.js가 쓰고 game.js decode가 읽는다.
@@ -135,8 +133,8 @@ const TAKRAW_CONFIG = Object.freeze({
         receiveHeight: 0.75,
         kickHold: 0.34,
         jumpHold: 0.25,
-        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 이 값이 한 틱보다 짧으면 실제로는 누른 한 틱 동안 유지된다(v0.19.12의 한 틱, 20틱에서 50 ms).
-        //   한 틱(60틱 16.7 ms)보다 짧아야 60틱에서 v0.19.12처럼 한 틱이 된다. 17이면 60틱에서 두 틱 동안 눌렸다.
+        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 버튼은 틱 시작에만 바뀌므로 가장 가까운 틱 수만큼, 최소 한 틱 동안 누른다(game.js aiHoldUntil).
+        //   한 틱의 절반보다 짧으면 실제로는 누른 한 틱 동안 유지된다(20틱에서 50 ms, 60틱에서 16.7 ms).
         shortJumpHoldMs: 10,
         // 선수 성향의 범위. 경기 시드·선수·랠리 번호로 값이 정해져 경기마다 상황이 달라진다(simulation/ai-brain.js).
         // reaction: 동료가 받기 시작한 뒤 보조 위치로 움직이기까지의 반응 시간(초), clearance: 공 궤적과 떨어지는 간격(m),

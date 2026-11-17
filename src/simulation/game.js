@@ -30,6 +30,8 @@ const message = (id, values = {}) => ({ id, values });
 
 /** 부호 있는 바이트(int8)의 최댓값. 이보다 큰 바이트는 음수(b - 256)다. */
 const INT8_MAX = 127;
+/** 틱 경계 시각을 비교·환산할 때의 부동소수 여유(틱 길이에 대한 비율). */
+const AI_BOUNDARY_SLACK = 1e-6;
 
 /** 경기와 판정의 유일한 소유자. 사람/AI/네트워크가 같은 물리 입력을 사용한다. */
 class TakrawGame {
@@ -278,6 +280,9 @@ class TakrawGame {
     decode(input, commands) {
         const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
         const has = (n) => commands.some((command) => command.payload?.[0] === n);
+        // 발차기 누름(2)·뗌(6) 명령의 둘째 바이트: 버튼을 실제로 누른·뗀 뒤 이 틱의 입력을 만들 때까지 지난 시간(ms). 없으면 0.
+        const elapsed = (n) =>
+            (commands.find((command) => command.payload?.[0] === n)?.payload[1] || 0) / 1000;
         return {
             x: signed(input[0] || 0),
             z: signed(input[1] || 0),
@@ -287,6 +292,8 @@ class TakrawGame {
             aim: { x: signed(input[3] || 0), y: signed(input[4] || 0) },
             jumpPressed: has(1),
             kickPressed: has(2),
+            kickPressElapsed: elapsed(2),
+            kickReleaseElapsed: elapsed(6),
             restart: has(4),
             trainingLesson:
                 TAKRAW_TRAINING_LESSONS.find((lesson) => has(lesson.command))?.id || null,
@@ -369,6 +376,8 @@ class TakrawGame {
                 kickPressed: false,
                 toss: server.kick,
                 tossPressed: server.kickPressed,
+                tossPressElapsed: server.kickPressElapsed,
+                tossReleaseElapsed: server.kickReleaseElapsed,
             };
 
         // Claim/release is an input edge. Re-evaluate that change immediately,
@@ -412,17 +421,11 @@ class TakrawGame {
             intent: input.intent,
             rally: input.rally,
         }));
-        // AI 버튼 시각(kickFrom·kickUntil·jumpUntil)은 틱 사이 값이고 버튼은 틱 시작에만 바뀐다. aiPressTime으로 비교해 늦어짐을 v0.19.12(60틱)와 같게 둔다.
-        const pressAt = this.aiPressTime();
+        // AI 버튼 시각(kickFrom·kickUntil·jumpUntil)은 판단할 때 이미 틱 경계로 정해 둔 값이다(aiPressAt·aiHoldUntil). 여기서는 그 경계에 왔는지만 본다.
         for (let i = 0; i < 6; i++) {
             const a = this.ai[i];
-            const kick =
-                this.state.phase === 'rally' && a.kickUntil > pressAt && a.kickFrom <= pressAt;
-            // 점프를 누르기 시작한 틱은 jumpUntil이 그 틱 안이어도 누른다(짧은 점프 = 한 틱).
-            const jump =
-                this.state.phase === 'rally' &&
-                a.jumpUntil > this.state.time &&
-                (a.jumpUntil > pressAt || !a.previousJump);
+            const kick = this.state.phase === 'rally' && this.aiKickHeld(a);
+            const jump = this.state.phase === 'rally' && !this.aiTimeReached(a.jumpUntil);
             this.inputs[i] = {
                 x: this.state.phase === 'rally' ? a.x : 0,
                 z: this.state.phase === 'rally' ? a.z : 0,
@@ -590,14 +593,32 @@ class TakrawGame {
     }
 
     /**
-     * AI 버튼 시각을 비교하는 기준 시각(초). 버튼은 틱 시작에만 바뀌므로 state.time과 비교하면 계획 시각보다 평균 반 틱 늦게 눌린다.
-     * v0.19.12(60틱)의 늦어짐(반 틱 = simulation.aiPressReferenceMs / 2)보다 긴 틱에서는 그 차이만큼 앞당겨, 틱 길이와 무관하게 같은 평균 늦어짐이 되게 한다.
-     * 60틱이면 state.time 그대로다.
+     * AI 버튼은 틱 시작에만 적용된다. AI는 그 지연을 계산에 넣어, 버튼 시각을 처음부터 실제로 적용될 틱 경계로 정한다.
+     * aiPressAt(delay): 지금부터 delay초 뒤에 누르고 싶을 때 실제로 누를 경계 = 누를 수 있는 틱 시작(지금 틱 포함) 가운데 그 시각에 가장 가까운 것.
+     *   원하던 시각과의 차이는 ±반 틱이고 평균 0이다. 받기·세트·서브·공중 차기의 발 계획은 접촉 시각을 공에 맞추므로(physics.js _predictReceivePass·_beginAirPlan)
+     *   이 차이는 접촉 시각이 아니라 계획 길이(준비 시간)로만 나타난다. 계획 길이는 발 세기에 영향을 주므로 원하던 길이에 가장 가까운 경계를 고른다
+     *   (늘 이른 경계를 고르면 계획이 평균 반 틱 길어져 서브·세트가 약해졌다).
+     * aiHoldUntil(from, hold): from(경계)에 누른 버튼을 hold초 누르고 뗄 경계 = from + hold에 가장 가까운 틱 시작(최소 한 틱은 누른다).
+     * 반환 값은 state.time과 같은 시계(초)다. 경계와 지금의 비교는 aiTimeReached가 부동소수 여유 안에서 한다.
      */
-    aiPressTime() {
-        const tickSeconds = 1 / this.config.simulation.tickRate,
-            reference = this.config.simulation.aiPressReferenceMs / 1000;
-        return this.state.time + Math.max(0, (tickSeconds - reference) / 2);
+    aiPressAt(delay) {
+        const tick = 1 / this.time.tickRate;
+        return this.state.time + Math.round(Math.max(0, delay) / tick) * tick;
+    }
+
+    aiHoldUntil(from, hold) {
+        const tick = 1 / this.time.tickRate;
+        return from + Math.max(1, Math.round(hold / tick)) * tick;
+    }
+
+    /** 이번 틱의 시작이 경계 시각 at에 왔거나 지났는가. */
+    aiTimeReached(at) {
+        return at <= this.state.time + AI_BOUNDARY_SLACK / this.time.tickRate;
+    }
+
+    /** AI가 이번 틱에 발차기 버튼을 누르고 있는가(kickFrom 경계부터 kickUntil 경계 전까지). */
+    aiKickHeld(a) {
+        return this.aiTimeReached(a.kickFrom) && !this.aiTimeReached(a.kickUntil);
     }
 
     emit(event) {
@@ -760,32 +781,39 @@ class TakrawGame {
         const human = humans[this.state.serving],
             cfg = this.config.ai.serve.toss;
         if (this.callServeFootFault()) return;
-        // AI는 모은 힘이 aimCharge에 닿는 틱에 던진다. 틱이 길면 그만큼 평균 더 모으므로, aiPressTime과 같이 v0.19.12(60틱)의 평균 넘침이 되게 앞당긴다.
-        const early = Math.max(0, (dt - this.config.simulation.aiPressReferenceMs / 1000) / 2);
+        // 모은 힘은 누르고 있던 틱 수 × 틱 길이로만 쌓인다. AI는 aimCharge에 가장 가까운 틱 수만큼 모으고 던진다
+        const aimTicks = Math.round(toss.aimCharge / dt),
+            chargedTicks = Math.round(toss.charge / dt);
         const aiServing = !this.humanServes(this.state.serving);
         if (aiServing && !toss.charging) {
-            // AI 서버는 멈춰 선 채 stillMs가 지나야 모으기 시작한다. 멈춘 시각은 aiPressTime 기준(버튼 시각과 같은 원칙)이다.
+            // AI 서버는 멈춰 선 채 stillMs가 지나야 모으기 시작한다.
             const id = this.serverId(this.state.serving),
                 v = this.physics.players[id].root.linvel(),
                 settle = cfg.settle;
             const still = Math.hypot(v.x, v.z) < settle.speed;
-            toss.stillSince = still ? (toss.stillSince ?? this.aiPressTime()) : null;
+            toss.stillSince = still ? (toss.stillSince ?? this.state.time) : null;
         }
         const ready =
             toss.charging ||
             (toss.stillSince !== null &&
                 toss.stillSince !== undefined &&
-                this.aiPressTime() - toss.stillSince >= cfg.settle.stillMs / 1000);
-        const held = !aiServing ? !!human?.toss : ready && toss.charge + early < toss.aimCharge,
+                this.state.time - toss.stillSince >= cfg.settle.stillMs / 1000);
+        const held = !aiServing ? !!human?.toss : ready && chargedTicks < aimTicks,
             pressed = !!human?.tossPressed;
-        if (held || pressed) {
-            toss.charging = true;
-            toss.charge += dt;
-        }
+        // 모은 힘은 버튼을 실제로 누르고 있던 길이다. 입력은 틱 시작에만 적용되므로 누르고 있는 틱마다 한 틱씩 쌓고,
+        // 누른 틱에는 누른 뒤 이미 지난 시간을 더하고 뗀 틱에는 뗀 뒤 지난 시간을 뺀다(사람 입력이 싣는 값, AI는 0).
+        if (held || pressed) toss.charging = true;
+        if (held) toss.charge += dt;
+        if (pressed) toss.charge += human.tossPressElapsed || 0;
         const idle = this.state.time - this.rallyStart > cfg.maxHold;
         if (!(toss.charging && !held) && !idle) {
             this.holdServeBall();
             return;
+        }
+        if (human?.tossReleaseElapsed > 0) {
+            // 뗀 뒤 지난 시간만큼은 모으지 않은 것이다. 공도 그 힘의 자리에서 던진다.
+            toss.charge = Math.max(0, toss.charge - human.tossReleaseElapsed);
+            this.holdServeBall();
         }
         const ratio = Math.min(1, toss.charge / cfg.fullCharge),
             apex = cfg.minApex + (cfg.maxApex - cfg.minApex) * ratio;
@@ -1168,9 +1196,7 @@ class TakrawGame {
         const held =
             previousActor === controlled
                 ? intends
-                : previousActor &&
-                  this.ai[previousActor.id].kickUntil > this.aiPressTime() &&
-                  this.ai[previousActor.id].kickFrom <= this.aiPressTime();
+                : previousActor && this.aiKickHeld(this.ai[previousActor.id]);
         const physicalCommit =
             held &&
             action?.committed &&
@@ -2208,16 +2234,16 @@ class TakrawGame {
                         // Re-time BEFORE contact as the ball trajectory changes. The old
                         // cooldown was set at reservation time, so it could prevent a save
                         // even when the foot never made contact. No ball impulse is added.
-                        const arrivalAt = this.state.time + defense.plan.time;
-                        const from = Math.max(this.state.time, arrivalAt - ground.lead);
-                        const until = arrivalAt + ground.followThrough;
-                        const strokeHeld =
-                            a.kickFrom <= this.aiPressTime() && a.kickUntil > this.aiPressTime();
+                        const from = this.aiPressAt(defense.plan.time - ground.lead);
+                        const until = this.aiHoldUntil(
+                            this.state.time,
+                            defense.plan.time + ground.followThrough,
+                        );
+                        const strokeHeld = this.aiKickHeld(a);
                         if (!strokeHeld) a.kickFrom = from;
                         a.kickUntil = strokeHeld ? Math.max(a.kickUntil, until) : until;
                         a.cooldown = a.kickUntil + 0.16;
-                    } else if (this.aiPressTime() >= a.cooldown) {
-                        // 재사용 대기(cooldown)도 버튼 시각이다: 틱 시작에서만 풀리므로 aiPressTime으로 비교해, 긴 틱에서 다음 차기 결정이 v0.19.12(60틱)보다 늦어지지 않게 한다.
+                    } else if (this.aiTimeReached(a.cooldown)) {
                         if (
                             highContact &&
                             settled &&
@@ -2226,15 +2252,16 @@ class TakrawGame {
                             (player.grounded || (player.supportAge < 0.065 && !player.jump.active))
                         ) {
                             a.attack = { until: this.state.time + aerial.time };
-                            a.jumpUntil =
-                                this.state.time +
-                                (shortJump
+                            a.jumpUntil = this.aiHoldUntil(
+                                this.state.time,
+                                shortJump
                                     ? this.config.ai.shortJumpHoldMs / 1000
-                                    : this.config.ai.jumpHold);
-                            a.kickFrom =
-                                this.state.time +
-                                (shortJump ? lowAttack.kickDelay : attack.kickDelay);
-                            a.kickUntil = a.kickFrom + 0.65;
+                                    : this.config.ai.jumpHold,
+                            );
+                            a.kickFrom = this.aiPressAt(
+                                shortJump ? lowAttack.kickDelay : attack.kickDelay,
+                            );
+                            a.kickUntil = this.aiHoldUntil(a.kickFrom, 0.65);
                             a.cooldown = a.kickFrom + 0.9;
                             a.x = 0;
                             a.z = 0;
@@ -2246,12 +2273,14 @@ class TakrawGame {
                             p.y > 0.28 &&
                             v.y < 1.5
                         ) {
-                            a.kickFrom = this.state.time + Math.max(0, intercept.time - kickLead);
-                            a.kickUntil =
-                                a.kickFrom +
-                                (setTarget
-                                    ? kickLead + ground.followThrough
-                                    : this.config.ai.kickHold);
+                            a.kickFrom = this.aiPressAt(intercept.time - kickLead);
+                            // 세트는 공이 닿은 뒤 followThrough까지 누른다(누름이 일러도 접촉 시각은 그대로다). 되받아치기는 누른 길이(kickHold)다.
+                            a.kickUntil = setTarget
+                                ? this.aiHoldUntil(
+                                      this.state.time,
+                                      Math.max(intercept.time, kickLead) + ground.followThrough,
+                                  )
+                                : this.aiHoldUntil(a.kickFrom, this.config.ai.kickHold);
                             a.cooldown = a.kickUntil + 0.25;
                         }
                     }

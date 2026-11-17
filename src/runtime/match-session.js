@@ -237,7 +237,8 @@ class MatchSession {
                 ),
             });
         }
-        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
+        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기 누름(2, 지난 ms), 발차기 뗌(6, 지난 ms)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
+        // 지난 ms는 버튼을 실제로 누른·뗀 뒤 이 입력을 만들 때까지의 시간이다(simulation/game.js decode).
         const { input: bytes, edges } = this.input.sample({
             allowed: this.controlsAllowed(),
             // Online peers each see their own team from behind. Only world-space input crosses the network.
@@ -248,9 +249,11 @@ class MatchSession {
             this.view.frameMetrics.count('jump', 1);
         }
         if (edges.kick) {
-            commands.push({ payload: Uint8Array.of(2) });
+            commands.push({ payload: Uint8Array.of(2, edges.kickPressMs) });
             this.view.frameMetrics.count('kick', 1);
         }
+        if (edges.kickReleaseMs >= 0)
+            commands.push({ payload: Uint8Array.of(6, edges.kickReleaseMs) });
         return { input: bytes, commands };
     }
 

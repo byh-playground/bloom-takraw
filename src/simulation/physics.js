@@ -19,8 +19,7 @@ function takrawPhysicsSettings(config) {
     settings.maxStepSeconds = settings.maxStepMs / 1000;
     settings.fineContactWindowSeconds = config.simulation.fineContactWindowMs / 1000;
     // 지상 토스는 휘두르기가 시작되는 틱부터 잘게 돈다: 틱 시작에 공 도착이 strokeLeadMs + 한 틱 안이면 그 틱 안에서 휘두르기가 시작된다.
-    settings.fineStrokeWindowSeconds =
-        settings.groundToss.strokeLeadMs / 1000 + 1 / config.simulation.tickRate;
+    settings.tickSeconds = 1 / config.simulation.tickRate;
     const airKick = settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
@@ -416,7 +415,8 @@ class TakrawPhysics {
         if (!(remaining > 0.015 && remaining <= settings.commitment)) return false;
         // 쿠션·런지는 몸을 옮기지 않는 자세라 휘두르기와 같은 때(공 도착 strokeLeadMs 전) 시작한다. 일찍 누른 길이가 자세 전환·다리 뻗기 진행을 바꾸지 않는다.
         // 슬라이드는 몸을 던져 가야 하는 거리가 있어 누른 걸음에 시작한다(점프처럼 누른 시각이 몸 궤적을 정한다).
-        if (plan.mode !== 'slide' && !this._strokeDue(p)) return false;
+        // 토스 목표가 없는 지상 차기는 발이 기다리지 않고 바로 차므로(_armGroundToss) 받기 자세도 미루지 않는다.
+        if (plan.mode !== 'slide' && this._tossing(input) && !this._strokeDue(p)) return false;
         const root = p.root.translation();
         const direction = this._unit({ x: plan.point.x - root.x, y: 0, z: plan.point.z - root.z });
         if (
@@ -1519,24 +1519,26 @@ class TakrawPhysics {
      * 그래서 일찍 누른 길이는 휘두르기 길이를 바꾸지 않는다. 슬라이드는 누른 걸음에 몸을 던지므로 예외다. true면 아직 기다리는 중이다.
      */
     _armGroundToss(p, input, pos, rootRotation) {
-        const target = input.tossTarget;
-        if (
-            p.kick.receivePlan ||
-            !target ||
-            !Number.isFinite(target.x) ||
-            !Number.isFinite(target.z)
-        )
-            return false;
+        if (p.kick.receivePlan || !this._tossing(input)) return false;
         // 기다리는 걸음마다, 그리고 계획을 세우는 걸음에도 찰 발을 고른다. 언제 눌렀든 계획은 그 걸음의 공 궤적으로 고른 발에서 시작한다.
         p.kick.side = this._kickSide(p, true, pos, rootRotation);
         return !this._strokeDue(p);
     }
 
-    /** 공이 받는 발의 접촉 높이에 오기까지 groundToss.strokeLeadMs 이하로 남았는지(휘두르기를 시작할 때인지). */
-    _strokeDue(p) {
+    /** 입력에 지상 토스 목표(동료·서브 목표 자리)가 있는지. 있으면 발이 휘두르기 시작까지 기다린다(_armGroundToss). */
+    _tossing(input) {
+        const target = input?.tossTarget;
+        return !!target && Number.isFinite(target.x) && Number.isFinite(target.z);
+    }
+
+    /**
+     * 공이 받는 발의 접촉 높이에 오기까지 groundToss.strokeLeadMs(+ margin초) 이하로 남았는지. margin 0이면 휘두르기를 시작할 때인지이고,
+     * 잘게 도는 틱 판정(fineStepNeeded)은 한 틱을 더한 같은 계산을 쓴다.
+     */
+    _strokeDue(p, margin = 0) {
         return (
             this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <=
-            this.settings.groundToss.strokeLeadMs / 1000
+            this.settings.groundToss.strokeLeadMs / 1000 + margin
         );
     }
 
@@ -3501,40 +3503,36 @@ class TakrawPhysics {
      * - 차는 발이 공에 닿을 예정이 창(simulation.fineContactWindowMs) 안이거나(_kickContactIn),
      * - 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
      * 지상 토스(슬라이드 받기 제외)는 발이 공 도착 strokeLeadMs 전에야 움직이므로(_armGroundToss), 계획이 없는 동안은 누름·뗌 틱과 700 ms 창을 치지 않고
-     * 공 도착이 strokeLeadMs + 한 틱 안인 틱(그 틱 안에서 휘두르기가 시작된다)부터 잘게 돈다. 그래서 일찍 누른 시각이 걸음 크기를 바꾸지 않는다.
+     * 공 도착이 strokeLeadMs + 한 틱 안인 틱(그 틱 안에서 휘두르기가 시작된다)부터 잘게 돈다. 도착 시간은 휘두르기 시작 판정과 같은 계산(_strokeDue)이다.
+     * 그래서 일찍 누른 시각도, 기다리다 뗀 시각도 걸음 크기를 바꾸지 않는다.
      * 버튼을 누른 채 공이 멀리 있거나 이미 맞히고 지나간 동안, 도약 뒤 떠 있는 동안은 굵은 걸음이다(v0.26.3).
      * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
      */
     fineStepNeeded(inputs = []) {
         const follow = this.settings.groundToss.followThrough,
             window = this.settings.fineContactWindowSeconds,
-            strokeWindow = this.settings.fineStrokeWindowSeconds;
+            tick = this.settings.tickSeconds;
         for (const p of this.players) {
             const input = inputs[p.id];
-            const target = input?.tossTarget;
-            // 계획이 아직 없는 지상 토스(이 틱에 누르기 시작하는 것 포함). 슬라이드는 누른 걸음에 몸을 던지므로 빼고 이전 조건을 그대로 쓴다.
-            const toss =
-                !!target &&
-                Number.isFinite(target.x) &&
-                Number.isFinite(target.z) &&
+            // 계획이 아직 없는 지상 토스: 누르고 있거나(이 틱에 누르기 시작하는 것 포함) 기다리다 이 틱에 뗀 것. 발이 아직 디딤발이라 누름·뗌 틱에 바뀌는 것이 없다.
+            // 슬라이드는 누른 걸음에 몸을 던지므로 빼고 이전 조건을 그대로 쓴다.
+            const waiting =
+                this._tossing(input) &&
                 !p.kick.receivePlan &&
                 !input.jump &&
                 !input.jumpPressed &&
                 input.receive?.mode !== 'slide' &&
-                p.receive?.mode !== 'slide';
-            const waiting =
-                toss &&
-                !!input.kick &&
-                (p.kick.mode === 'ground' || (p.kick.mode === 'none' && p.grounded));
-            const released = toss && !input.kick && p.kick.mode === 'ground';
+                p.receive?.mode !== 'slide' &&
+                (p.kick.mode === 'ground' ||
+                    (!!input.kick && p.kick.mode === 'none' && p.grounded));
             if (
-                (input?.kickPressed && !waiting) ||
                 input?.jumpPressed ||
-                (p.kick.held && !input?.kick && !released) ||
                 this.time - p.lastTouch < follow ||
                 (waiting
-                    ? this._groundContactIn(p) <= strokeWindow
-                    : this._kickContactIn(p) <= window)
+                    ? this._strokeDue(p, tick)
+                    : input?.kickPressed ||
+                      (p.kick.held && !input?.kick) ||
+                      this._kickContactIn(p) <= window)
             )
                 return true;
         }
@@ -3552,11 +3550,7 @@ class TakrawPhysics {
             const plan = p.kick.airPlan;
             return plan && plan.phase !== 'follow' ? plan.remaining : Infinity;
         }
-        return p.kick.mode === 'ground' ? this._groundContactIn(p) : Infinity;
-    }
-
-    /** 지상 차기의 발이 공에 닿기까지 남은 시간(초): 공이 접촉 높이로 내려오기까지, 몸이 닿을 수 없는 자리면 Infinity(_kickContactIn의 지상 몫). */
-    _groundContactIn(p) {
+        if (p.kick.mode !== 'ground') return Infinity;
         const s = this.settings,
             ball = this.ball.translation(),
             velocity = this.ball.linvel();

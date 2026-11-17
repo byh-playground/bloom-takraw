@@ -206,7 +206,7 @@ class TakrawGame {
         this.metrics = {
             logicSteps: 0,
             physicsSteps: 0,
-            // 잘게 돈 틱 수(차는 구간). physicsSteps와 함께 계산량을 본다.
+            // 잘게 돈 틱 수(접촉이 임박한 틱). physicsSteps와 함께 계산량을 본다.
             fineTicks: 0,
             aiSteps: 0,
             contacts: 0,
@@ -509,7 +509,7 @@ class TakrawGame {
             }
         }
 
-        // 차는 구간이 걸친 틱만 kickStepMs 걸음으로 잘게 돈다(physics.fineStepNeeded). 판정은 틱 시작에 한 번, 시뮬레이션 상태와 이번 틱 입력으로만 한다.
+        // 접촉이 임박한 틱만 kickStepMs 걸음으로 잘게 돈다(physics.fineStepNeeded). 판정은 틱 시작에 한 번, 시뮬레이션 상태와 이번 틱 입력으로만 한다.
         const fine = this.physics.fineStepNeeded(this.inputs);
         const count = fine ? this.kickSteps : this.steps;
         if (fine) this.metrics.fineTicks++;

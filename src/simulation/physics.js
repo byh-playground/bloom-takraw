@@ -17,6 +17,7 @@ function takrawPhysicsSettings(config) {
         throw new RangeError(`physics step ${stepMs}ms exceeds maxStepMs ${settings.maxStepMs}ms`);
     settings.stepSeconds = stepMs / 1000;
     settings.maxStepSeconds = settings.maxStepMs / 1000;
+    settings.fineContactWindowSeconds = config.simulation.fineContactWindowMs / 1000;
     const airKick = settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
@@ -3446,29 +3447,64 @@ class TakrawPhysics {
     }
 
     /**
-     * 이번 틱을 잘게(simulation.kickStepMs 걸음) 돌려야 하는지. 차는 구간과 점프 구간에 참이다: 어느 선수든
-     * - 발차기 입력이 있거나(이 틱 첫 걸음에 차기·받기 계획이 시작된다), 차는 중이거나(kick.mode·held), 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안이거나,
-     * - 점프 입력이 있거나(이 틱 첫 걸음에 도약한다), 도약해서 다시 바닥에 닿기 전(jump.active)일 때.
-     * 점프 공격은 도약부터 발차기 누름까지가 굵은 걸음이면 누름 시각이 같아도 몸·공 위치가 한두 걸음 어긋나 약하게 맞는다(v0.26.1).
+     * 이번 틱을 잘게(simulation.kickStepMs 걸음) 돌려야 하는지. 버튼을 누르고 있다는 사실이 아니라 걸음 크기에 민감한 구간에만 참이다. 어느 선수든
+     * - 발차기·점프 버튼을 누르기 시작했거나 발차기 버튼을 뗀 틱이거나(이 틱 첫 걸음에 차기 계획 시작, 도약 충격량과 첫 추진, 다리 거두기 전환이 들어간다),
+     * - 차는 발이 공에 닿을 예정이 창(simulation.fineContactWindowMs) 안이거나(_kickContactIn),
+     * - 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
+     * 버튼을 누른 채 공이 멀리 있거나 이미 맞히고 지나간 동안, 도약 뒤 떠 있는 동안은 굵은 걸음이다(v0.26.3).
      * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
      */
     fineStepNeeded(inputs = []) {
-        const follow = this.settings.groundToss.followThrough;
+        const follow = this.settings.groundToss.followThrough,
+            window = this.settings.fineContactWindowSeconds;
         for (const p of this.players) {
             const input = inputs[p.id];
             if (
-                input?.kick ||
                 input?.kickPressed ||
-                p.kick.held ||
-                p.kick.mode !== 'none' ||
-                this.time - p.lastTouch < follow ||
-                input?.jump ||
                 input?.jumpPressed ||
-                p.jump.active
+                (p.kick.held && !input?.kick) ||
+                this.time - p.lastTouch < follow ||
+                this._kickContactIn(p) <= window
             )
                 return true;
         }
         return false;
+    }
+
+    /**
+     * 차는 발이 공에 닿기까지 남은 시간(초)의 예측. 차는 중이 아니거나 닿을 예정이 없으면 Infinity다.
+     * 공중 차기는 계획의 남은 준비 시간(airPlan.remaining)이고, 맞힌 뒤(follow)에는 예정이 없다.
+     * 지상 차기는 공이 접촉 높이(groundToss.contactHeight)로 내려오기까지의 포물선 시간이다(받기 계획 _predictReceivePass와 같은 식).
+     * 이미 그 아래에서 떠 있는 공은 0이고, 바닥에 놓인 공과 그 시간 안에 몸이 닿지 못할 자리로 오는 공은 예정이 없다. 맞고 올라간 공은 다시 내려올 때까지 멀다.
+     */
+    _kickContactIn(p) {
+        if (p.kick.mode === 'air') {
+            const plan = p.kick.airPlan;
+            return plan && plan.phase !== 'follow' ? plan.remaining : Infinity;
+        }
+        if (p.kick.mode !== 'ground') return Infinity;
+        const s = this.settings,
+            ball = this.ball.translation(),
+            velocity = this.ball.linvel();
+        const drop = ball.y - s.groundToss.contactHeight;
+        const time =
+            drop > 0
+                ? (velocity.y + Math.sqrt(velocity.y * velocity.y + 2 * s.gravity * drop)) /
+                  s.gravity
+                : ball.y > s.ballRadius * 2
+                  ? 0
+                  : Infinity;
+        if (time === Infinity) return time;
+        // 그 시간 안에 몸이 갈 수 있는 거리(슬라이딩 속도)와 뻗은 다리 길이로도 공이 오는 자리에 못 닿으면 예정이 없다.
+        const root = p.root.translation(),
+            reach =
+                p.settings.receive.slideReach * p.settings.legStretch.maxScale +
+                p.settings.movementSpeed * p.settings.receive.slide.speed * time;
+        const away = Math.hypot(
+            ball.x + velocity.x * time - root.x,
+            ball.z + velocity.z * time - root.z,
+        );
+        return away <= reach ? time : Infinity;
     }
 
     step(dt, inputs = []) {

@@ -5,6 +5,8 @@ const ACTION_NAMES = Object.freeze(['left', 'right', 'forward', 'back', 'jump', 
 /**
  * 이 기기의 입력: 키·포인터 장치(createDOMInput), 행동 상태, 터치 패드 축, 발차기 조준, 마우스 카메라 회전, 마지막으로 만든 입력 바이트.
  * 명령(점프·발차기 눌림)의 순서는 세션이 정한다. 여기서는 눌림 엣지만 돌려준다.
+ * 발차기 버튼은 누른 시각을 적어 두었다가, 뗄 때 실제로 누르고 있던 길이(ms, 뗀 시각 − 누른 시각)를 뗌 엣지와 함께 돌려준다.
+ * 루프 마감·틱 경계·입력 지연과 무관한 값이라, 시뮬레이션이 "누른 길이가 결과인 것"(서브 공 던지기 모으기)을 틱 수가 아니라 실제 누른 길이로 계산하는 데 쓴다.
  * 발차기와 조준은 화면의 발차기 버튼(touch-controls)에서만 들어온다. 키보드는 조준 값을 만들지 않는다.
  *   onPointer(event): 캔버스 포인터 이벤트마다 부른다(오디오 잠금 해제·리플레이 건너뛰기·카메라 회전은 세션이 정한다).
  */
@@ -18,6 +20,8 @@ class RuntimeInput {
         this.aim = { x: 0, y: 0 };
         this.cameraDrag = { pointer: null, x: 0, y: 0 };
         this.lastInput = new Uint8Array(this.size);
+        // 발차기 버튼을 마지막으로 누른·뗀 시각(performance.now, ms). sample이 엣지를 읽을 때 지난 시간으로 바꾸고 지운다.
+        this.kickStamp = { press: null, release: null };
         this.actions = new ActionState();
         canvas.tabIndex = 0;
         this.device = createDOMInput({
@@ -39,10 +43,12 @@ class RuntimeInput {
     /**
      * 한 틱의 입력 바이트와 눌림 엣지. allowed가 아니면 바이트는 0이고 엣지도 없다.
      * movement(right, back)는 화면 기준 이동을 월드 축으로 바꾼다(보는 팀 기준).
+     * edges.kickReleased: 이 표본 구간에 발차기를 뗐는가. edges.kickHoldMs: 그때 실제로 누르고 있던 길이(ms, 0~65535 정수).
+     *   누른 시각을 모르면(조작 불가 중에 눌렀거나 표본 사이에 놓쳤다) -1이고, 시뮬레이션은 틱 수로 센 길이를 쓴다.
      */
     sample({ allowed, movement }) {
         const input = new Uint8Array(this.size);
-        const edges = { jump: false, kick: false };
+        const edges = { jump: false, kick: false, kickReleased: false, kickHoldMs: -1 };
         const samples = this.samples;
         for (const name of ACTION_NAMES) this.actions.sampleInto(name, samples[name]);
         if (allowed) {
@@ -61,7 +67,16 @@ class RuntimeInput {
             }
             edges.jump = samples.jump.pressed;
             edges.kick = samples.kick.pressed;
+            edges.kickReleased = samples.kick.released;
+            if (samples.kick.released && this.kickStamp.press !== null)
+                edges.kickHoldMs = Math.max(
+                    0,
+                    Math.min(65535, Math.round(this.kickStamp.release - this.kickStamp.press)),
+                );
         }
+        // 누른 시각은 뗄 때까지 둔다(누르고 있는 동안 표본이 여러 번이다). 뗀 표본 뒤에는 지운다.
+        if (samples.kick.released || !samples.kick.held) this.kickStamp.press = null;
+        this.kickStamp.release = null;
         this.actions.consume();
         this.lastInput = input.slice();
         return { input, edges };
@@ -69,6 +84,11 @@ class RuntimeInput {
 
     /** 터치 버튼(점프·발차기) 하나의 눌림. source는 손가락 식별자다. */
     setTouch(action, source, down) {
+        // 누른 시각은 처음 누른 때, 뗀 시각은 마지막으로 뗀 때다.
+        if (action === 'kick') {
+            if (down) this.kickStamp.press ??= performance.now();
+            else this.kickStamp.release = performance.now();
+        }
         this.actions.set(action, `touch:${source}`, Boolean(down));
     }
 
@@ -113,6 +133,7 @@ class RuntimeInput {
         this.aim.x = 0;
         this.aim.y = 0;
         this.cameraDrag.pointer = null;
+        this.kickStamp.press = this.kickStamp.release = null;
         this.canvas.classList.remove('is-orbiting');
         this.actions.releaseAll();
         this.device.releaseAll();

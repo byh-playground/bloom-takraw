@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.26.2';
+const TAKRAW_VERSION = '0.27.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -69,13 +69,12 @@ const TAKRAW_CONFIG = Object.freeze({
     //   발 방향 PD·발 구동·발-공 접촉이 그때와 같은 계산이 된다. 틱 길이를 나누어떨어져야 한다(틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산). 그 밖의 틱은 stepMs 걸음이다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
-    // aiPressReferenceMs: AI 버튼 시각을 틱에 맞출 때 기준으로 삼는 틱 길이(v0.19.12의 60틱). 이보다 긴 틱은 늦어짐이 같게 앞당긴다(game.js aiPressTime).
+    //   이 걸음 격자가 버튼 edge(점프·발차기 누름·뗌)의 위상 격자이기도 하다(simulation/input-edges.js): 사람·AI의 edge는 틱 안 위상(칸 번호)을 싣고 그 칸의 걸음 시작에 적용된다.
     simulation: {
         tickRate: 20,
         stepMs: 25,
         kickStepMs: 1000 / 120,
         aiIntervalMs: 66,
-        aiPressReferenceMs: 1000 / 60,
         fixedSeed: 7,
     },
     // 매 틱 입력 바이트열: [x, z, 버튼, 조준x, 조준y] 5바이트(이 기기의 한 명). runtime/input.js가 쓰고 game.js decode가 읽는다.
@@ -93,7 +92,8 @@ const TAKRAW_CONFIG = Object.freeze({
     // 출시 전 임시 경기 길이: 7점, 6:6부터 기존 듀스 방식으로 9점 상한, 단판.
     rules: { contacts: 3, points: 7, deuce: 6, cap: 9, sets: 1, ready: 1.25, point: 2 },
     // 접촉 타이밍 등급 창(ms). 오차 크기가 perfect 창 이하면 perfect, good 창 이하면 good, 그 외 normal.
-    // 입력은 틱 시작에 모이므로 누른 시각이 최대 한 틱 늦게 잡힌다. 창은 사람 오차 windowsMs에 반 틱(500/tickRate ms)을 더한 값이다
+    // 창은 사람 오차 windowsMs에 반 틱(500/tickRate ms)을 더한 값이다. 이 여유는 누른 시각이 최대 한 틱 늦게 잡히던 때(v0.26까지) 정한 값이다.
+    // v0.27.0부터 누름은 위상에 실려 화면에서 누른 시각보다 늘 한 틱 뒤에 적용된다(오차는 누른 위상의 걸음 기준). 여유 크기는 그대로 두었다
     // (simulation/timing.js). 60틱(v0.19)에서 perfect 20 ms·good 40 ms였던 창이 그대로 나오게 12·32로 두었고, 30틱에서는 약 29·49 ms다.
     // 사람 플레이로 재보정 대상이다. maxAge: 입력 기록이 접촉 판정에 유효한 최대 경과 시간(초).
     timing: {
@@ -132,9 +132,9 @@ const TAKRAW_CONFIG = Object.freeze({
         receiveHeight: 0.75,
         kickHold: 0.34,
         jumpHold: 0.25,
-        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 이 값이 한 틱보다 짧으면 실제로는 누른 한 틱 동안 유지된다(v0.19.12의 한 틱, 20틱에서 50 ms).
-        //   한 틱(60틱 16.7 ms)보다 짧아야 60틱에서 v0.19.12처럼 한 틱이 된다. 17이면 60틱에서 두 틱 동안 눌렸다.
-        shortJumpHoldMs: 10,
+        // 짧은 점프(낮은 공격)의 점프 버튼 유지 시간(ms). 버튼 뗌이 위상에 실려 이 시간 그대로(위상 한 칸 단위로 올림) 유지된다.
+        //   v0.26까지는 10으로 적혀 있었지만 뗌이 틱 시작에만 적용돼 실제로는 한 틱(20틱에서 50 ms) 동안 눌렸다. 그 실제 값을 적었다(v0.27.0).
+        shortJumpHoldMs: 50,
         // 선수 성향의 범위. 경기 시드·선수·랠리 번호로 값이 정해져 경기마다 상황이 달라진다(simulation/ai-brain.js).
         // reaction: 동료가 받기 시작한 뒤 보조 위치로 움직이기까지의 반응 시간(초), clearance: 공 궤적과 떨어지는 간격(m),
         // depth·lateral: 대기 자리의 앞뒤·옆 흔들림(±m).
@@ -142,7 +142,7 @@ const TAKRAW_CONFIG = Object.freeze({
         serve: {
             // 사람이 서브할 때 공격수가 서는 자리(자기 코트 방향 좌표, m). 엔드라인(6.7 m) 뒤.
             spot: { x: -7.2, z: -0.3 },
-            // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
+            // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js stepServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
             // 던지기를 떼면 위로 던져진다(앞뒤·좌우 속도는 던지는 순간 서버의 이동 속도 그대로). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). jumpApex(m) 이상으로 던지면 AI는 점프서브를 한다. maxHold(초) 안에 안 던지면 자동으로 던진다.
             // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이지만,
             // 실제 발은 계획보다 세게·가파르게 맞아 가운데 조준 공이 목표보다 약 2~3 m 깊게 떨어진다. 사람 서브도 같은 계획이라, 이 값에서 늦게 눌러 다리 속도 상한
@@ -200,7 +200,9 @@ const TAKRAW_CONFIG = Object.freeze({
             // 세트 목표점이 공격수 기준점 둘레의 직사각형 안에서 흩어지는 반 길이(m): 능력별 [토스 능력 기본값(50), 최대값(100)]. 앞뒤(x)는 좁고 좌우(z)는 넓다(simulation/game.js tossSpread).
             spread: { half: { x: [0.3, 0.1], z: [1.0, 0.25] } },
             ground: { lead: 0.3, followThrough: 0.15, window: 0.45 },
-            lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
+            // kickDelay(초): 점프 뒤 발차기를 누르는 시각. AI의 누름이 위상에 실려 이 시각 이후 첫 걸음에 적용된다.
+            //   v0.26까지는 0.16(attack은 0.08)으로 적혀 있었지만 누름이 틱 시작에만 적용돼 실제로는 점프 0.15초(attack은 0.1초) 뒤에 눌렸다. 그 실제 값을 적었다(v0.27.0).
+            lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.15 },
             attack: {
                 offset: 0.65,
                 lateral: 0.1,
@@ -208,7 +210,7 @@ const TAKRAW_CONFIG = Object.freeze({
                 minLead: 0.16,
                 maxLead: 0.65,
                 checkLead: 0.6,
-                kickDelay: 0.08,
+                kickDelay: 0.1,
                 minHeight: 3.1,
                 maxHeight: 3.7,
                 preparation: { brakeLead: 0.3, driftRadius: 0.35, apexMargin: 0.3 },

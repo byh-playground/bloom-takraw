@@ -223,7 +223,7 @@ class TakrawTrainingDrill {
      * 사람 선수의 점프·발차기 입력 순간을 시도마다 처음 한 번씩 기록한다.
      * kickError는 점프 기록을 쓴 뒤에 계산해야 같은 값이므로 함수로 받는다.
      */
-    recordInput(record, { input, guide, time, jumpError, kickError }) {
+    recordInput(record, { input, guide, jumpTime, kickTime, jumpError, kickError }) {
         if (input.jumpPressed && record.jumpAt === null) {
             // Remember the displayed low/high preparation for this jump. The ball's
             // prediction can change later, but an airborne player cannot redo it.
@@ -236,11 +236,11 @@ class TakrawTrainingDrill {
                       kickDelay: guide.kickDelay,
                   }
                 : null;
-            record.jumpAt = time;
+            record.jumpAt = jumpTime;
             record.jumpOffset = jumpError;
         }
         if ((input.kickPressed || input.kick) && record.kickAt === null) {
-            record.kickAt = time;
+            record.kickAt = kickTime;
             record.kickOffset = kickError();
         }
     }

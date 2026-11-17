@@ -567,6 +567,7 @@ async function bootTakraw() {
         input = new RuntimeInput({
             canvas: ui.canvas,
             config,
+            time,
             onPointer(event) {
                 if (event.type === 'down') audio.unlock();
                 if (event.type === 'down' && match.replayActive) {

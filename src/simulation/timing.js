@@ -7,7 +7,7 @@ import { TAKRAW_TIMING_GRADES } from '../config/game.js';
  * 연습의 안내 문구와 접촉 효과가 같은 공식을 쓰도록 계산식을 여기에만 둔다.
  */
 class TakrawTimingJudge {
-    /** settings: config.timing. tickRate: 입력이 모이는 틱 빈도(누른 시각이 최대 한 틱 늦게 잡히는 만큼 창을 반 틱 넓힌다). */
+    /** settings: config.timing. tickRate: 틱 빈도(창을 반 틱 넓힌다. config/game.js timing 주석). */
     constructor(settings, tickRate) {
         this.settings = settings;
         const quantizationMs = 500 / tickRate;

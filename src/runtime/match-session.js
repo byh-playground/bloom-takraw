@@ -4,6 +4,7 @@ import { TAKRAW_VERSION } from '../config/game.js';
 import { TAKRAW_MODE_POLICY, TAKRAW_RUNTIME } from '../config/runtime.js';
 import { TAKRAW_MODES } from '../simulation/modes.js';
 import { takrawEncodeIdentity, takrawIdentitySchools } from '../simulation/identity.js';
+import { TAKRAW_EDGE_COMMANDS } from '../simulation/input-edges.js';
 import { RUNTIME } from '../i18n/messages/runtime.js';
 import { PresentationFeed } from './presentation-feed.js';
 import { MatchEventJournal } from './match-events.js';
@@ -237,19 +238,25 @@ class MatchSession {
                 ),
             });
         }
-        // 명령 순서: [대기 명령..., 팀 알림?, 점프(1), 발차기(2)]. 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
+        // 명령 순서: [대기 명령..., 팀 알림?, 점프 누름·뗌, 발차기 누름·뗌]. 버튼 edge는 [코드, 위상]이다(simulation/input-edges.js). 바꾸면 네트워크·경기 기록 바이트가 바뀐다.
         const { input: bytes, edges } = this.input.sample({
             allowed: this.controlsAllowed(),
             // Online peers each see their own team from behind. Only world-space input crosses the network.
             movement: (right, back) => this.view.screenMovement(right, back, this.localTeam()),
+            // 이 입력은 시뮬 루프의 다음 마감에 계산되는 틱에 들어간다. 그 마감 앞 한 틱이 화면에 보이던 구간이다(표시는 한 틱 늦은 보간).
+            tickEndMs: this.loop?.nextDeadlineMs ?? performance.now(),
         });
-        if (edges.jump) {
-            commands.push({ payload: Uint8Array.of(1) });
-            this.view.frameMetrics.count('jump', 1);
-        }
-        if (edges.kick) {
-            commands.push({ payload: Uint8Array.of(2) });
-            this.view.frameMetrics.count('kick', 1);
+        const code = TAKRAW_EDGE_COMMANDS;
+        for (const [name, press, release] of [
+            ['jump', code.jumpPress, code.jumpRelease],
+            ['kick', code.kickPress, code.kickRelease],
+        ]) {
+            const edge = edges[name];
+            if (edge.press >= 0) {
+                commands.push({ payload: Uint8Array.of(press, edge.press) });
+                this.view.frameMetrics.count(name, 1);
+            }
+            if (edge.release >= 0) commands.push({ payload: Uint8Array.of(release, edge.release) });
         }
         return { input: bytes, commands };
     }

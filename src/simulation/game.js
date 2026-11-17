@@ -8,6 +8,16 @@ import {
     TakrawTrainingDrill,
 } from './training.js';
 import { takrawDecodeIdentity } from './identity.js';
+import {
+    TAKRAW_EDGE_COMMANDS,
+    TAKRAW_NO_STROKE,
+    takrawDecodeStroke,
+    takrawPhaseCount,
+    takrawStrokeActive,
+    takrawStrokeFromWant,
+    takrawStrokeHeld,
+    takrawStrokePhased,
+} from './input-edges.js';
 import { takrawModeProfile } from './modes.js';
 import { takrawSeededUnit } from './random.js';
 import { TAKRAW_ROLE } from '../config/game.js';
@@ -52,7 +62,13 @@ class TakrawGame {
             return Math.round(steps);
         };
         this.steps = stepsPerTick('stepMs');
-        this.kickSteps = stepsPerTick('kickStepMs');
+        // 잘게 도는 틱의 걸음 격자가 버튼 edge의 위상 격자다(input-edges.js). 같은 설정(kickStepMs)에서 나온다.
+        this.kickSteps = takrawPhaseCount(config.simulation, time.tickRate);
+        // 이번 틱 선수별 버튼 동작(stroke). 매 틱 입력에서 다시 만들고 걸음마다 this.inputs의 버튼 값으로 풀어 쓰므로 저장하지 않는다.
+        this.strokes = Array.from({ length: 6 }, () => ({
+            kick: TAKRAW_NO_STROKE,
+            jump: TAKRAW_NO_STROKE,
+        }));
         this.timingJudge = new TakrawTimingJudge(config.timing, config.simulation.tickRate);
         this.drill = new TakrawTrainingDrill();
         this.aiBrain = new AiBrain();
@@ -278,15 +294,35 @@ class TakrawGame {
     decode(input, commands) {
         const signed = (b) => (b > INT8_MAX ? b - 256 : b) / this.config.input.axisScale;
         const has = (n) => commands.some((command) => command.payload?.[0] === n);
+        // 버튼 edge 명령은 [코드, 위상]이다. 버튼마다 첫 누름·첫 뗌만 읽고, 위상은 칸 수 안으로 자른다(두 피어가 같은 값을 얻는다).
+        const phase = (code) => {
+            const command = commands.find((item) => item.payload?.[0] === code);
+            return command ? Math.min(command.payload[1] || 0, this.kickSteps - 1) : -1;
+        };
+        const edge = TAKRAW_EDGE_COMMANDS;
+        const buttons = input[2] || 0;
+        const jumpStroke = takrawDecodeStroke(
+                phase(edge.jumpPress),
+                phase(edge.jumpRelease),
+                !!(buttons & 1),
+            ),
+            kickStroke = takrawDecodeStroke(
+                phase(edge.kickPress),
+                phase(edge.kickRelease),
+                !!(buttons & 2),
+            );
         return {
             x: signed(input[0] || 0),
             z: signed(input[1] || 0),
-            jump: !!((input[2] || 0) & 1),
-            kick: !!((input[2] || 0) & 2),
+            // jump·kick은 이 틱 어느 걸음에서든 눌려 있는지(틱 단위 판단용), Pressed는 이 틱에 누름 edge가 있는지다. 걸음별 값은 stroke가 정한다.
+            jump: takrawStrokeActive(jumpStroke),
+            kick: takrawStrokeActive(kickStroke),
+            jumpStroke,
+            kickStroke,
             // 조준도 이동 축과 같은 부호 있는 바이트다. 원 밖 값(-128)은 물리 aimedContact가 상한으로 자른다.
             aim: { x: signed(input[3] || 0), y: signed(input[4] || 0) },
-            jumpPressed: has(1),
-            kickPressed: has(2),
+            jumpPressed: jumpStroke.on >= 0,
+            kickPressed: kickStroke.on >= 0,
             restart: has(4),
             trainingLesson:
                 TAKRAW_TRAINING_LESSONS.find((lesson) => has(lesson.command))?.id || null,
@@ -367,8 +403,8 @@ class TakrawGame {
                 ...server,
                 kick: false,
                 kickPressed: false,
-                toss: server.kick,
-                tossPressed: server.kickPressed,
+                kickStroke: TAKRAW_NO_STROKE,
+                tossStroke: server.kickStroke,
             };
 
         // Claim/release is an input edge. Re-evaluate that change immediately,
@@ -412,24 +448,28 @@ class TakrawGame {
             intent: input.intent,
             rally: input.rally,
         }));
-        // AI 버튼 시각(kickFrom·kickUntil·jumpUntil)은 틱 사이 값이고 버튼은 틱 시작에만 바뀐다. aiPressTime으로 비교해 늦어짐을 v0.19.12(60틱)와 같게 둔다.
-        const pressAt = this.aiPressTime();
+        // AI 버튼 시각(kickFrom·kickUntil·jumpUntil)은 틱 사이 값이다. 사람과 같은 위상 입력으로 만든다: 원하는 시각 이후 첫 걸음에 edge를 둔다(늦어짐 0~한 칸).
+        const rally = this.state.phase === 'rally',
+            phases = this.kickSteps;
         for (let i = 0; i < 6; i++) {
             const a = this.ai[i];
-            const kick =
-                this.state.phase === 'rally' && a.kickUntil > pressAt && a.kickFrom <= pressAt;
-            // 점프를 누르기 시작한 틱은 jumpUntil이 그 틱 안이어도 누른다(짧은 점프 = 한 틱).
-            const jump =
-                this.state.phase === 'rally' &&
-                a.jumpUntil > this.state.time &&
-                (a.jumpUntil > pressAt || !a.previousJump);
+            const kickStroke = takrawStrokeFromWant(a.previousKick, phases, (phase) =>
+                    this.aiKickWanted(a, this.phaseTime(phase)),
+                ),
+                jumpStroke = takrawStrokeFromWant(
+                    a.previousJump,
+                    phases,
+                    (phase) => rally && a.jumpUntil > this.phaseTime(phase),
+                );
+            this.strokes[i].kick = kickStroke;
+            this.strokes[i].jump = jumpStroke;
             this.inputs[i] = {
-                x: this.state.phase === 'rally' ? a.x : 0,
-                z: this.state.phase === 'rally' ? a.z : 0,
-                jump,
-                kick,
-                jumpPressed: jump && !a.previousJump,
-                kickPressed: kick && !a.previousKick,
+                x: rally ? a.x : 0,
+                z: rally ? a.z : 0,
+                jump: takrawStrokeActive(jumpStroke),
+                kick: takrawStrokeActive(kickStroke),
+                jumpPressed: jumpStroke.on >= 0,
+                kickPressed: kickStroke.on >= 0,
                 // AI는 늘 가운데(발이 가던 방향 그대로 공 중심)를 찬다. 사람과 같은 aimedContact를 탄다.
                 aim: { x: 0, y: 0 },
                 receive:
@@ -437,19 +477,21 @@ class TakrawGame {
                         ? { ...a.receive, allowSlide: true }
                         : null,
             };
-            a.previousJump = jump;
-            a.previousKick = kick;
+            a.previousJump = takrawStrokeHeld(jumpStroke, phases);
+            a.previousKick = takrawStrokeHeld(kickStroke, phases);
         }
 
         for (let team = 0; team < 2; team++) {
             if (!humans[team]) continue;
             const id = this.state.selected[team];
             const h = humans[team];
+            this.strokes[id].kick = h.kickStroke;
+            this.strokes[id].jump = h.jumpStroke;
             this.inputs[id] = {
                 x: h.x,
                 z: h.z,
-                jump: h.jump || h.jumpPressed,
-                kick: h.kick || h.kickPressed,
+                jump: h.jump,
+                kick: h.kick,
                 jumpPressed: h.jumpPressed,
                 kickPressed: h.kickPressed,
                 aim: h.aim,
@@ -464,16 +506,24 @@ class TakrawGame {
             this.state.lastTouch < 0 &&
             !humans[this.state.serving]
         ) {
+            const suppress =
+                serveToss.stage !== 'hold' &&
+                !this.isJumpServe(this.state.serving) &&
+                this.physics.ball.linvel().y > 0;
             if (serveToss.stage === 'hold') this.inputs[aiServerId] = this.emptyInput();
-            else if (!this.isJumpServe(this.state.serving) && this.physics.ball.linvel().y > 0)
+            else if (suppress)
                 Object.assign(this.inputs[aiServerId], {
                     jump: false,
                     kick: false,
                     jumpPressed: false,
                     kickPressed: false,
                 });
+            if (serveToss.stage === 'hold' || suppress) {
+                this.strokes[aiServerId].kick = TAKRAW_NO_STROKE;
+                this.strokes[aiServerId].jump = TAKRAW_NO_STROKE;
+            }
         }
-        this.updateServeToss(humans, dt);
+        const tossStroke = this.serveTossStroke(humans);
         if (this.profile.drill) this.recordTrainingInput();
         this.observeTiming(humans);
 
@@ -510,10 +560,29 @@ class TakrawGame {
         }
 
         // 차는 구간이 걸친 틱만 kickStepMs 걸음으로 잘게 돈다(physics.fineStepNeeded). 판정은 틱 시작에 한 번, 시뮬레이션 상태와 이번 틱 입력으로만 한다.
-        const fine = this.physics.fineStepNeeded(this.inputs);
+        // 틱 시작이 아닌 위상에 버튼 edge가 있는 틱은 위상 격자로 돌아야 그 걸음에 적용된다. fineStepNeeded의 조건과 무관하게 여기서 보장한다.
+        // 이동 축·조준처럼 이어지는 입력은 위상이 없어 이 조건이 되지 않는다.
+        const phased =
+            (!!tossStroke && takrawStrokePhased(tossStroke)) ||
+            this.strokes.some(
+                (stroke) => takrawStrokePhased(stroke.kick) || takrawStrokePhased(stroke.jump),
+            );
+        const fine = phased || this.physics.fineStepNeeded(this.inputs);
         const count = fine ? this.kickSteps : this.steps;
         if (fine) this.metrics.fineTicks++;
         for (let sub = 0; sub < count; sub++) {
+            // 이 걸음의 위상. 굵은 걸음 틱은 edge가 모두 위상 0이라 첫 걸음만 위상 0이고 나머지는 틱 끝 상태(마지막 칸)다.
+            const phase = fine || sub === 0 ? sub : this.kickSteps - 1;
+            const edgeStep = fine || sub === 0;
+            for (let id = 0; id < 6; id++) {
+                const input = this.inputs[id],
+                    stroke = this.strokes[id];
+                input.kick = takrawStrokeHeld(stroke.kick, phase);
+                input.jump = takrawStrokeHeld(stroke.jump, phase);
+                input.kickPressed = edgeStep && stroke.kick.on === phase;
+                input.jumpPressed = edgeStep && stroke.jump.on === phase;
+            }
+            if (tossStroke) this.stepServeToss(takrawStrokeHeld(tossStroke, phase), dt / count);
             const beforeBall = this.physics.ball.translation();
             const events = this.physics.step(dt / count, this.inputs) || [];
             this.metrics.physicsSteps++;
@@ -559,11 +628,15 @@ class TakrawGame {
                     this.awardPoint(1 - loser, 'underNet');
                 }
             }
-            // Edge는 논리 틱 첫 물리 걸음에서만 소비한다. held는 유지한다.
-            for (const input of this.inputs) {
-                input.jumpPressed = false;
-                input.kickPressed = false;
-            }
+        }
+        // 틱이 끝난 뒤 this.inputs의 버튼은 틱 끝에 눌려 있는지다(다음 틱의 previous·저장 값). edge는 남기지 않는다.
+        for (let id = 0; id < 6; id++) {
+            const input = this.inputs[id],
+                stroke = this.strokes[id];
+            input.kick = takrawStrokeHeld(stroke.kick, this.kickSteps);
+            input.jump = takrawStrokeHeld(stroke.jump, this.kickSteps);
+            input.kickPressed = false;
+            input.jumpPressed = false;
         }
         const velocity = this.physics.ball.linvel();
         this.state.ballSpeed = Math.hypot(velocity.x, velocity.y, velocity.z);
@@ -590,14 +663,16 @@ class TakrawGame {
     }
 
     /**
-     * AI 버튼 시각을 비교하는 기준 시각(초). 버튼은 틱 시작에만 바뀌므로 state.time과 비교하면 계획 시각보다 평균 반 틱 늦게 눌린다.
-     * v0.19.12(60틱)의 늦어짐(반 틱 = simulation.aiPressReferenceMs / 2)보다 긴 틱에서는 그 차이만큼 앞당겨, 틱 길이와 무관하게 같은 평균 늦어짐이 되게 한다.
-     * 60틱이면 state.time 그대로다.
+     * 이번 틱 위상 phase의 걸음이 시작하는 시각(초, AI 계획 시각과 같은 시계). step이 state.time을 먼저 올리므로 틱 시작이 state.time이다.
+     * 계획 시각이 걸음 시각과 같은 값이면 그 걸음에 들도록 아주 작은 여유를 더한다.
      */
-    aiPressTime() {
-        const tickSeconds = 1 / this.config.simulation.tickRate,
-            reference = this.config.simulation.aiPressReferenceMs / 1000;
-        return this.state.time + Math.max(0, (tickSeconds - reference) / 2);
+    phaseTime(phase) {
+        return this.state.time + (phase * this.config.simulation.kickStepMs) / 1000 + 1e-9;
+    }
+
+    /** AI가 시각 at에 발차기를 누르고 있으려는지(kickFrom 이상 kickUntil 미만). */
+    aiKickWanted(a, at = this.phaseTime(0)) {
+        return this.state.phase === 'rally' && a.kickFrom <= at && a.kickUntil > at;
     }
 
     emit(event) {
@@ -747,8 +822,55 @@ class TakrawGame {
      * 서브의 공 던지기(사람·AI 같은 규칙): 모으는 동안 힘(charge)이 쌓이고, 끝나는 순간 공을 위로만 던진다. 사람은 발차기 버튼을 떼는 순간, AI는 charge가 aimCharge에 닿는 순간이다.
      * 꼭짓점은 charge 0이면 minApex, fullCharge초 이상이면 maxApex이고 그 사이는 선형이다. 앞뒤·좌우 속도는 서버가 던지는 순간 움직이던 속도 그대로라, 서 있으면 제자리에 떨어지고 달리면서 던지면 그 방향으로 날아간다. 던진 뒤 공은 일반 물리로 움직인다.
      * 상태는 state.serveToss(저장됨)에만 있어 롤백해도 같다.
+     *
+     * serveTossStroke는 이번 틱의 던지기 버튼 동작(input-edges.js stroke)을 낸다. 던지기 전이 아니면 null이다.
+     * 사람은 발차기 버튼의 동작 그대로이고, AI는 같은 형식으로 만든다. 걸음마다 stepServeToss가 그 걸음의 눌림으로 진행한다.
      */
-    updateServeToss(humans, dt) {
+    serveTossStroke(humans) {
+        const toss = this.state.serveToss;
+        if (
+            !toss ||
+            toss.stage === 'thrown' ||
+            this.state.phase !== 'rally' ||
+            this.state.lastTouch >= 0
+        )
+            return null;
+        if (this.humanServes(this.state.serving))
+            return humans[this.state.serving]?.tossStroke || TAKRAW_NO_STROKE;
+        const cfg = this.config.ai.serve.toss,
+            phases = this.kickSteps,
+            cell = this.config.simulation.kickStepMs / 1000;
+        if (!toss.charging) {
+            // AI 서버는 멈춰 선 채 stillMs가 지나야 모으기 시작한다.
+            const id = this.serverId(this.state.serving),
+                v = this.physics.players[id].root.linvel();
+            const still = Math.hypot(v.x, v.z) < cfg.settle.speed;
+            toss.stillSince = still ? (toss.stillSince ?? this.state.time) : null;
+            if (toss.stillSince === null) return TAKRAW_NO_STROKE;
+        }
+        // 모으기 시작하는 칸(멈춘 뒤 stillMs가 지난 첫 걸음)과 모으는 칸 수(charge가 aimCharge에 닿는 첫 걸음까지)로 버튼 동작을 만든다. 사람이 버튼을 누르고 떼는 것과 같은 형식이다.
+        const begin = toss.charging
+            ? 0
+            : Math.max(
+                  0,
+                  Math.ceil(
+                      (toss.stillSince + cfg.settle.stillMs / 1000 - this.state.time) / cell - 1e-6,
+                  ),
+              );
+        const hold = Math.max(0, Math.ceil((toss.aimCharge - toss.charge) / cell - 1e-6));
+        if (begin >= phases || (!toss.charging && hold === 0)) return TAKRAW_NO_STROKE;
+        const end = begin + hold;
+        return {
+            start: !!toss.charging,
+            on: toss.charging ? -1 : begin,
+            off: end < phases ? end : -1,
+        };
+    }
+
+    /**
+     * 공 던지기의 물리 한 걸음(초 h). held는 이 걸음에 던지기 버튼이 눌려 있는지다. 모으던 버튼이 떨어진 걸음의 시작에 공을 던진다.
+     */
+    stepServeToss(held, h) {
         const toss = this.state.serveToss;
         if (
             !toss ||
@@ -757,30 +879,11 @@ class TakrawGame {
             this.state.lastTouch >= 0
         )
             return;
-        const human = humans[this.state.serving],
-            cfg = this.config.ai.serve.toss;
+        const cfg = this.config.ai.serve.toss;
         if (this.callServeFootFault()) return;
-        // AI는 모은 힘이 aimCharge에 닿는 틱에 던진다. 틱이 길면 그만큼 평균 더 모으므로, aiPressTime과 같이 v0.19.12(60틱)의 평균 넘침이 되게 앞당긴다.
-        const early = Math.max(0, (dt - this.config.simulation.aiPressReferenceMs / 1000) / 2);
-        const aiServing = !this.humanServes(this.state.serving);
-        if (aiServing && !toss.charging) {
-            // AI 서버는 멈춰 선 채 stillMs가 지나야 모으기 시작한다. 멈춘 시각은 aiPressTime 기준(버튼 시각과 같은 원칙)이다.
-            const id = this.serverId(this.state.serving),
-                v = this.physics.players[id].root.linvel(),
-                settle = cfg.settle;
-            const still = Math.hypot(v.x, v.z) < settle.speed;
-            toss.stillSince = still ? (toss.stillSince ?? this.aiPressTime()) : null;
-        }
-        const ready =
-            toss.charging ||
-            (toss.stillSince !== null &&
-                toss.stillSince !== undefined &&
-                this.aiPressTime() - toss.stillSince >= cfg.settle.stillMs / 1000);
-        const held = !aiServing ? !!human?.toss : ready && toss.charge + early < toss.aimCharge,
-            pressed = !!human?.tossPressed;
-        if (held || pressed) {
+        if (held) {
             toss.charging = true;
-            toss.charge += dt;
+            toss.charge += h;
         }
         const idle = this.state.time - this.rallyStart > cfg.maxHold;
         if (!(toss.charging && !held) && !idle) {
@@ -1168,9 +1271,7 @@ class TakrawGame {
         const held =
             previousActor === controlled
                 ? intends
-                : previousActor &&
-                  this.ai[previousActor.id].kickUntil > this.aiPressTime() &&
-                  this.ai[previousActor.id].kickFrom <= this.aiPressTime();
+                : previousActor && this.aiKickWanted(this.ai[previousActor.id]);
         const physicalCommit =
             held &&
             action?.committed &&
@@ -1697,14 +1798,29 @@ class TakrawGame {
         const input = this.inputs[this.state.selected[0]],
             guide = this.getAttackGuides()[0];
         const player = this.physics.players[this.state.selected[0]];
+        const stroke = this.strokes[player.id];
         this.drill.recordInput(training, {
             input,
             guide,
-            time: this.state.time,
-            jumpError: this.timingJudge.jumpError(guide),
+            jumpTime: this.state.time + this.pressDelay(stroke.jump),
+            kickTime: this.state.time + this.pressDelay(stroke.kick),
+            jumpError: this.pressError(this.timingJudge.jumpError(guide), stroke.jump),
             kickError: () =>
-                this.kickTimingError(player, guide, this.drill.lesson(training).prehold),
+                this.pressError(
+                    this.kickTimingError(player, guide, this.drill.lesson(training).prehold),
+                    stroke.kick,
+                ),
         });
+    }
+
+    /** 이번 틱 시작부터 버튼 누름 위상까지의 시간(초). 누름 edge가 없으면 0이다. */
+    pressDelay(stroke) {
+        return (Math.max(0, stroke.on) * this.config.simulation.kickStepMs) / 1000;
+    }
+
+    /** 틱 시작 기준으로 잰 타이밍 오차를 누른 위상의 오차로 옮긴다(오차는 시간이 갈수록 같은 만큼 커진다). 오차가 없으면 null 그대로다. */
+    pressError(error, stroke) {
+        return error === null ? null : error + this.pressDelay(stroke);
     }
 
     /** 발차기 입력 시점의 타이밍 오차. 연습 기록과 접촉 판정이 같은 식을 쓴다. */
@@ -1733,22 +1849,23 @@ class TakrawGame {
                 input = this.inputs[player.id];
             if (!input.jumpPressed && !input.kickPressed) continue;
             guides ??= this.getAttackGuides();
-            const guide = guides[team];
+            const guide = guides[team],
+                stroke = this.strokes[player.id];
             if (input.jumpPressed)
                 this.timingJudge.record(
                     this.state.timing,
                     team,
                     'jump',
-                    this.timingJudge.jumpError(guide),
-                    this.state.time,
+                    this.pressError(this.timingJudge.jumpError(guide), stroke.jump),
+                    this.state.time + this.pressDelay(stroke.jump),
                 );
             if (input.kickPressed)
                 this.timingJudge.record(
                     this.state.timing,
                     team,
                     'kick',
-                    this.kickTimingError(player, guide, prehold),
-                    this.state.time,
+                    this.pressError(this.kickTimingError(player, guide, prehold), stroke.kick),
+                    this.state.time + this.pressDelay(stroke.kick),
                 );
         }
     }
@@ -2211,13 +2328,11 @@ class TakrawGame {
                         const arrivalAt = this.state.time + defense.plan.time;
                         const from = Math.max(this.state.time, arrivalAt - ground.lead);
                         const until = arrivalAt + ground.followThrough;
-                        const strokeHeld =
-                            a.kickFrom <= this.aiPressTime() && a.kickUntil > this.aiPressTime();
+                        const strokeHeld = this.aiKickWanted(a);
                         if (!strokeHeld) a.kickFrom = from;
                         a.kickUntil = strokeHeld ? Math.max(a.kickUntil, until) : until;
                         a.cooldown = a.kickUntil + 0.16;
-                    } else if (this.aiPressTime() >= a.cooldown) {
-                        // 재사용 대기(cooldown)도 버튼 시각이다: 틱 시작에서만 풀리므로 aiPressTime으로 비교해, 긴 틱에서 다음 차기 결정이 v0.19.12(60틱)보다 늦어지지 않게 한다.
+                    } else if (this.phaseTime(0) >= a.cooldown) {
                         if (
                             highContact &&
                             settled &&

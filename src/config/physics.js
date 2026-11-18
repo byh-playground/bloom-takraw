@@ -149,7 +149,6 @@ const TAKRAW_PHYSICS = Object.freeze({
             netClearance: 0.18,
             downwardGain: 2,
             preparationTime: 0.08,
-            driveMass: 8,
             // 공을 향한 발의 접근 속도 하한(m/s).
             minClosingSpeed: 0.1,
             // 마지막 스트로크 길이(초)의 범위. 다리가 이미 닿는 거리면 terminalMax.

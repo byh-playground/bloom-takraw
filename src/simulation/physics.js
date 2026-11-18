@@ -1015,8 +1015,6 @@ class TakrawPhysics {
             ),
             cell = dt / cells,
             mass = part.body.mass();
-        const contactScale =
-            contactDrive?.power && p.effects.power ? 1 + p.effects.power * contactDrive.weight : 1;
         // 계획 목표는 걸음 끝 시각의 값이다(계획 함수가 this.time + dt로 계산). 칸마다 그 칸 끝의 목표가 되도록 목표 속도로 첫 칸 끝까지 되짚는다.
         let error = this._sub(
                 cells > 1 ? this._sub(target, this._mul(desiredVelocity, dt - cell)) : target,
@@ -1046,7 +1044,7 @@ class TakrawPhysics {
                     this._mul(normal, (normalForce - this._dot(requested, normal)) * weight),
                 );
             }
-            const limited = this._limit(requested, maxForce * contactScale);
+            const limited = this._limit(requested, maxForce);
             const force = speedLimit
                 ? this._forceVelocityLimit(
                       limited,
@@ -1093,7 +1091,7 @@ class TakrawPhysics {
         return this._sub(force, this._mul(direction, along * Math.min(1, speed / maxSpeed)));
     }
 
-    _instepDrive(p, normal, targetClosing, forefoot, settings, power = false) {
+    _instepDrive(p, normal, targetClosing, forefoot, settings) {
         const foot = p.byName['foot' + p.kick.side].body,
             ball = this.ball.translation();
         const sole = this._point(foot, this._v(0, 0.055, forefoot)),
@@ -1121,7 +1119,6 @@ class TakrawPhysics {
             weight:
                 this._clamp((range - gap) / radius, 0, 1) * this._clamp((face - 0.85) / 0.1, 0, 1),
             mass: settings.driveMass,
-            power,
         };
     }
 
@@ -2057,7 +2054,9 @@ class TakrawPhysics {
             foot,
             driveTarget,
             targetVelocity,
-            (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
+            (mode === 'air'
+                ? s.airKick.force * (airTarget.striking ? 1 + p.effects.power : 1)
+                : s.groundKickForce) * muscleResponse,
             dt,
             (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
             (groundToss
@@ -2077,7 +2076,7 @@ class TakrawPhysics {
                         this.settings.groundToss.accelerationMass * muscleResponse,
                     )
                   : null,
-            mode === 'air' ? airTarget.contactDrive : groundContactDrive,
+            groundContactDrive,
             // 지상 토스(서브·받기·토스·세트) 발만 다리의 힘-속도 한계를 받는다. 공중 차기(airKick 제어)는 그대로다.
             groundToss
                 ? {
@@ -3227,11 +3226,13 @@ class TakrawPhysics {
         return { ankle, reach, contactDistance };
     }
 
-    /** 이번 물리 걸음 결과를 동작·계획에 기록하고, 맞기 전이면 발등 밀기 제어를 붙여 발 목표를 돌려준다. */
+    /**
+     * 이번 물리 걸음 결과를 동작·계획에 기록하고 발 목표를 돌려준다. 공으로 다가가는 속도는 마지막 스트로크(_airStrokePath)의 시계 하나가 정한다
+     * (v0.29.0. 그전에는 공이 발등 앞 2r + clearance 안에 들면 발등 밀기가 법선 힘을 바꿔 계획 시계보다 먼저 휘둘렀다).
+     */
     _recordAirPlan(p, plan, contact, geometry, path, limit) {
-        const kick = this.settings.airKick,
-            motion = plan.motion;
-        const { correction, closingSpeed } = geometry;
+        const motion = plan.motion;
+        const { correction } = geometry;
         const { ankle, reach, contactDistance } = limit;
         motion.point = { ...path.rawAnkle };
         motion.reachError = Math.max(0, contactDistance - reach);
@@ -3244,22 +3245,12 @@ class TakrawPhysics {
         plan.point = ankle;
         plan.normal = contact.normal;
         plan.forward = contact.forward;
-        const contactDrive =
-            plan.phase !== 'follow'
-                ? this._instepDrive(
-                      p,
-                      contact.normal,
-                      closingSpeed * this._dot(contact.approach, contact.normal),
-                      kick.forefoot,
-                      { clearance: kick.clearance, driveMass: kick.contact.driveMass },
-                      true,
-                  )
-                : null;
         return {
             target: ankle,
             velocity: path.desiredVelocity,
             acceleration: path.acceleration,
-            contactDrive,
+            // 마지막 스트로크(준비 궤적이 끝난 뒤)부터 실제로 맞힐 때까지 참이다. 타격 능력치의 발 힘 상한 배율이 이 구간에 걸린다(_driveKickFoot).
+            striking: plan.phase !== 'follow' && motion.age >= path.prepDuration,
             ankle,
             normal: contact.normal,
             forward: contact.forward,

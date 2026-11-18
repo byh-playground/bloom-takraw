@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.27.1';
+const TAKRAW_VERSION = '0.28.0';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -68,7 +68,7 @@ const TAKRAW_CONFIG = Object.freeze({
     // kickStepMs: 접촉이 임박한 틱(physics.js fineStepNeeded)의 물리 한 걸음(ms). v0.19.12(60틱 × 물리 걸음 2)와 같은 걸음이라
     //   발 방향 PD·발 구동·발-공 접촉이 그때와 같은 계산이 된다. 틱 길이를 나누어떨어져야 한다(틱당 걸음 수는 game.js가 tickTime의 tickRate로 한 번 환산). 그 밖의 틱은 stepMs 걸음이다.
     // fineContactWindowMs: 차는 발이 공에 닿을 예정이 이 시간 안이면 그 틱을 잘게 돈다(physics.js _kickContactIn). 차기 계획의 가장 긴 준비 시간(공중 차기 physics.airKick.contact.horizon 0.7초,
-    //   지상 토스는 휘두르기 시작 physics.groundToss.strokeLeadMs 300 ms + 한 틱 안일 때만)보다 짧지 않게 두어, 발이 공으로 가기 시작한 뒤로는 늘 잘게 돈다(450이면 공중 차기 첫 구간이 굵어져 점프 공격이 약해졌다). 버튼을 누르고 있어도 공이 이보다 멀면 굵은 걸음이다.
+    //   지상 토스는 이 창을 쓰지 않고 휘두르기 시작(physics.js _strokeDue, 길어야 physics.groundToss.strokeLeadMs 300 ms) + 한 틱 안일 때만)보다 짧지 않게 두어, 발이 공으로 가기 시작한 뒤로는 늘 잘게 돈다(450이면 공중 차기 첫 구간이 굵어져 점프 공격이 약해졌다). 버튼을 누르고 있어도 공이 이보다 멀면 굵은 걸음이다.
     // aiIntervalMs: AI 판단 주기(정수 ms). 틱 간격으로 나누어떨어지지 않으면 나머지를 이월한다(평균 약 초당 15번).
     // fixedSeed: 시드를 받지 않은 경기(생성 직후·연습)의 고정 시드. 연습은 같은 상황이 반복되어야 한다.
     simulation: {
@@ -145,9 +145,9 @@ const TAKRAW_CONFIG = Object.freeze({
             spot: { x: -7.2, z: -0.3 },
             // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
             // 던지기를 떼면 위로 던져진다(앞뒤·좌우 속도는 던지는 순간 서버의 이동 속도 그대로). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). jumpApex(m) 이상으로 던지면 AI는 점프서브를 한다. maxHold(초) 안에 안 던지면 자동으로 던진다.
-            // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이지만,
-            // 실제 발은 계획보다 세게·가파르게 맞아 가운데 조준 공이 목표보다 약 2~3 m 깊게 떨어진다. 사람 서브도 같은 계획이라, 이 값에서 늦게 눌러 다리 속도 상한
-            // (groundToss.maxFootSpeed)에 걸린 사람 가운데 서브가 엔드라인 안쪽(x 약 6.4 m), AI 지상 서브가 x 약 3.7~6.6 m에 떨어진다(v0.19.9 고정 사례로 다시 맞춤).
+            // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이다.
+            // v0.28.0(다리 관절 계획)부터 발이 계획 속도로 맞아, 접촉 뒤 공 속도가 계획의 약 1.08배다(이전 약 1.15~1.25배). 가운데 조준 공은 목표보다 약 1.5 m 깊게,
+            // AI 지상 서브는 x 약 2.7~5.5 m(중앙 4.0 m)에, 일찍 누른 사람 서브는 x 약 4.1 m에 떨어진다(이전에는 약 0.3~6.9 m, 중앙 5.4 m). 값은 그대로 두었다.
             groundAim: { x: 2.7 },
             toss: {
                 offset: 0.65,
@@ -200,8 +200,9 @@ const TAKRAW_CONFIG = Object.freeze({
             aim: { dx: 0.7, dz: 0 },
             // 세트 목표점이 공격수 기준점 둘레의 직사각형 안에서 흩어지는 반 길이(m): 능력별 [토스 능력 기본값(50), 최대값(100)]. 앞뒤(x)는 좁고 좌우(z)는 넓다(simulation/game.js tossSpread).
             spread: { half: { x: [0.3, 0.1], z: [1.0, 0.25] } },
-            // leadMs: 지상 받기·세트·서브에서 공 도착 이만큼 전에 발차기를 누른다(가장 가까운 틱 경계라 ±반 틱). 발은 physics.groundToss.strokeLeadMs(300 ms) 전에야
-            // 휘두르기 시작하므로, 가장 늦은 누름(leadMs − 반 틱)이 그보다 늦지 않게 둔다. 그보다 이른 누름은 휘두르기를 바꾸지 않는다. followThrough·window는 초.
+            // leadMs: 토스 목표가 없는 지상 차기(마지막 터치의 되받아치기)에서 공 도착 이만큼 전에 발차기를 누른다(가장 가까운 틱 경계라 ±반 틱).
+            // 받기·세트·서브(토스 목표가 있는 지상 차기)는 이 값을 쓰지 않고 물리에서 파생한다: 발이 가장 길게 휘두르는 길이(physics.groundToss.strokeLeadMs)
+            // + 반 틱 전에 누른다(simulation/game.js decideAI). 그보다 이른 누름은 휘두르기를 바꾸지 않는다. followThrough·window는 초.
             ground: { leadMs: 325, followThrough: 0.15, window: 0.45 },
             lowAttack: { minHeight: 2.65, maxHeight: 3.0, contactLead: 0.64, kickDelay: 0.16 },
             attack: {

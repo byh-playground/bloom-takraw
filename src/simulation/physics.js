@@ -2,6 +2,17 @@ import { TAKRAW_ROLE, takrawAthleteEffects } from '../config/game.js';
 import { TakrawMotionMatcher } from '../motion/matcher.js';
 import { takrawNetShape } from '../config/physics.js';
 import { HUMAN_JOINT_LIMITS } from './joint-limits.js';
+import {
+    legPlanModel,
+    legAnkle,
+    legJoints,
+    legJointVelocity,
+    legAnkleVelocity,
+    legTorques,
+    legActuation,
+    legPlanSolve,
+    legPlanAdvance,
+} from './leg-plan.js';
 import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
 
 /**
@@ -18,8 +29,11 @@ function takrawPhysicsSettings(config) {
     settings.stepSeconds = stepMs / 1000;
     settings.maxStepSeconds = settings.maxStepMs / 1000;
     settings.fineContactWindowSeconds = config.simulation.fineContactWindowMs / 1000;
-    // 지상 토스는 휘두르기가 시작되는 틱부터 잘게 돈다: 틱 시작에 공 도착이 strokeLeadMs + 한 틱 안이면 그 틱 안에서 휘두르기가 시작된다.
+    // 지상 토스는 휘두르기가 시작될 수 있는 틱부터 잘게 돈다: 틱 시작에 공 도착이 가장 긴 휘두르기 길이(strokeLeadMs) + 한 틱 안일 때.
     settings.tickSeconds = 1 / config.simulation.tickRate;
+    // 다리 관절 계획이 휘두르기 길이를 고르는 범위: 가장 짧은 계획 길이부터 가장 긴 휘두르기 길이까지.
+    settings.legPlan.minTime = settings.groundToss.minPlanTime;
+    settings.legPlan.maxTime = settings.groundToss.strokeLeadMs / 1000;
     const airKick = settings.airKick;
     airKick.velocityGain = 2 * Math.sqrt(airKick.positionGain * airKick.trackingMass);
     return settings;
@@ -188,6 +202,20 @@ class TakrawPhysics {
             velocity.z += value.z * weight;
         }
         return velocity;
+    }
+    /** 차는 다리(허벅지·정강이·발)를 뺀 몸의 질량 중심 속도. 다리가 밀고 당기는 반작용으로 골반만 흔들리는 속도를 빼고 몸이 가는 속도를 본다. */
+    _supportVelocity(p, suffix) {
+        const velocity = this._v();
+        let mass = 0;
+        for (const part of p.parts) {
+            if (/^(upperLeg|lowerLeg|foot)/.test(part.name) && part.name.endsWith(suffix)) continue;
+            const value = part.body.linvel();
+            velocity.x += value.x * part.mass;
+            velocity.y += value.y * part.mass;
+            velocity.z += value.z * part.mass;
+            mass += part.mass;
+        }
+        return this._mul(velocity, 1 / mass);
     }
     _groups(member, filter = 0xffff) {
         return ((member << 16) | filter) >>> 0;
@@ -376,7 +404,7 @@ class TakrawPhysics {
         return slides.find((plan) => plan?.reachable) || normal || slides.find(Boolean) || null;
     }
 
-    _updateReceive(p, input, move) {
+    _updateReceive(p, input, move, strokeDue) {
         const settings = p.settings.receive;
         if (
             p.jump.active ||
@@ -413,10 +441,10 @@ class TakrawPhysics {
             return false;
         const remaining = plan.at + plan.time - this.time;
         if (!(remaining > 0.015 && remaining <= settings.commitment)) return false;
-        // 쿠션·런지는 몸을 옮기지 않는 자세라 휘두르기와 같은 때(공 도착 strokeLeadMs 전) 시작한다. 일찍 누른 길이가 자세 전환·다리 뻗기 진행을 바꾸지 않는다.
+        // 쿠션·런지는 몸을 옮기지 않는 자세라 휘두르기와 같은 때(_strokeDue) 시작한다. 일찍 누른 길이가 자세 전환·다리 뻗기 진행을 바꾸지 않는다.
         // 슬라이드는 몸을 던져 가야 하는 거리가 있어 누른 걸음에 시작한다(점프처럼 누른 시각이 몸 궤적을 정한다).
         // 토스 목표가 없는 지상 차기는 발이 기다리지 않고 바로 차므로(_armGroundToss) 받기 자세도 미루지 않는다.
-        if (plan.mode !== 'slide' && this._tossing(input) && !this._strokeDue(p)) return false;
+        if (plan.mode !== 'slide' && this._tossing(input) && !strokeDue()) return false;
         const root = p.root.translation();
         const direction = this._unit({ x: plan.point.x - root.x, y: 0, z: plan.point.z - root.z });
         if (
@@ -807,18 +835,40 @@ class TakrawPhysics {
         this.colliderMeta.set(collider.handle, { kind: 'ball' });
     }
 
-    _motor(j, target, strength) {
+    /** 관절 모터가 세기 strength에서 쓰는 강성·감쇠·최대 토크. 모터 설정(_motor)과 다리 관절 계획의 토크 한계(_legPlanModel)가 같이 읽는다. */
+    _motorGains(j, strength) {
+        return {
+            stiffness: j.stiffness * strength,
+            damping: j.damping * Math.max(0.16, Math.sqrt(strength)),
+            cap: j.maxForce * Math.max(0.08, strength),
+        };
+    }
+
+    /**
+     * 관절 모터에 목표각을 건다. track = { velocity, torque }(축별 배열)를 주면 목표 각속도를 함께 걸고, 궤적이 요구하는 토크를
+     * 목표각 오프셋(토크 ÷ 강성)으로 앞먹인다. 모터 토크 = 강성 × (목표각 − 각) + 감쇠 × (목표 각속도 − 각속도)이고 최대 토크에서 잘린다.
+     */
+    _motor(j, target, strength, track = null) {
         j.target = target;
         const R = this.R,
-            k = j.stiffness * strength,
-            d = j.damping * Math.max(0.16, Math.sqrt(strength));
-        const cap = j.maxForce * Math.max(0.08, strength);
+            { stiffness, damping, cap } = this._motorGains(j, strength);
+        const lead = (i) => (track && stiffness > 0 ? track.torque[i] / stiffness : 0);
         if (j.hinge) {
-            j.joint.configureMotorPosition(target[0], k, d);
+            if (track)
+                j.joint.configureMotor(target[0] + lead(0), track.velocity[0], stiffness, damping);
+            else j.joint.configureMotorPosition(target[0], stiffness, damping);
             j.joint.setMotorMaxForce(cap);
         } else {
             [R.JointAxis.AngX, R.JointAxis.AngY, R.JointAxis.AngZ].forEach((axis, i) => {
-                j.joint.configureMotorPosition(axis, target[i], k, d);
+                if (track)
+                    j.joint.configureMotor(
+                        axis,
+                        target[i] + lead(i),
+                        track.velocity[i],
+                        stiffness,
+                        damping,
+                    );
+                else j.joint.configureMotorPosition(axis, target[i], stiffness, damping);
                 j.joint.setMotorMaxForce(axis, cap);
             });
         }
@@ -1299,8 +1349,8 @@ class TakrawPhysics {
         const targetMap = this._restTargets(p);
         this._driveStance(p, body, intent, action, targetMap, dt);
         this._driveActionPose(p, body, action, targetMap, dt);
-        const orientedFoot = this._driveKick(p, input, body, action, targetMap, dt);
-        this._applyJointTargets(p, body, action, targetMap, orientedFoot);
+        const kick = this._driveKick(p, input, body, action, targetMap, dt);
+        this._applyJointTargets(p, body, action, targetMap, kick);
     }
 
     /** 이번 물리 걸음의 몸 상태(뿌리 자세·바닥 접촉·받기 충격 반응)를 읽고 접지·점프 타이머를 갱신한다. */
@@ -1312,17 +1362,15 @@ class TakrawPhysics {
         // Force/torque actuation below does not change poses until world.step.
         // Reuse this physics step's root pose for the two IK queries and frame changes.
         const rootRotation = root.rotation();
+        // 이번 걸음에 거는 충격량(몸 세우기·뜨는 힘·디딤발 반작용)이 골반 속도를 바꾸기 전의 각속도. 관절 각속도와 엉덩이 속도를 풀린 상태에서 읽는다.
+        const rootAngularVelocity = { ...root.angvel() };
         const contact = this._groundInfo(p),
             up = this._rotate(rootRotation, this._v(0, 1, 0));
         p.freeTime = contact.any ? 0 : p.freeTime + dt;
         if (p.freeTime > drive.landing.freeTime && p.airTime > drive.landing.airTime)
             p.landArmed = true;
         p.reaction.remaining = Math.max(0, p.reaction.remaining - dt);
-        const reactionWeight =
-            p.reaction.duration > 0
-                ? p.reaction.severity *
-                  Math.min(1, p.reaction.remaining / (p.reaction.duration * drive.reaction.hold))
-                : 0;
+        const reactionWeight = this._reactionWeight(p);
         const muscleResponse = 1 - reactionWeight * drive.reaction.muscleLoss;
         const balanceResponse = 1 - reactionWeight * drive.reaction.balanceLoss;
         p.jump.cooldown = Math.max(0, p.jump.cooldown - dt);
@@ -1332,7 +1380,25 @@ class TakrawPhysics {
         p.grounded = supported && up.y > drive.grounded.up && pos.y > drive.grounded.height;
         if (contact.any && p.jump.time > drive.jump.endTime && vel.y < drive.jump.endRiseSpeed)
             p.jump.active = false;
-        return { pos, vel, rootRotation, contact, up, muscleResponse, balanceResponse };
+        return {
+            pos,
+            vel,
+            rootRotation,
+            rootAngularVelocity,
+            contact,
+            up,
+            muscleResponse,
+            balanceResponse,
+        };
+    }
+
+    /** 받기 충격 반응의 지금 세기(0~1). 근육·균형 제어가 이만큼의 비율로 빠진다. */
+    _reactionWeight(p) {
+        const reaction = p.settings.drive.reaction;
+        return p.reaction.duration > 0
+            ? p.reaction.severity *
+                  Math.min(1, p.reaction.remaining / (p.reaction.duration * reaction.hold))
+            : 0;
     }
 
     /** 입력의 이동 방향과 점프·발차기 유지 의도. 점프가 발차기 모드를 바꾸기 전에 읽는다. */
@@ -1394,7 +1460,10 @@ class TakrawPhysics {
         const s = p.settings;
         const { pos, vel, rootRotation, contact, up, muscleResponse } = body;
         const { move, moving, continuingGroundKick } = intent;
-        const receive = this._updateReceive(p, input, move) ? p.receive : null;
+        // 휘두르기 시작 판정(_strokeDue)은 이 걸음에 받기 동작과 발 계획이 같이 쓴다. 한 번만 풀어 둘이 같은 답을 본다.
+        let due = null;
+        const strokeDue = () => (due ??= this._strokeDue(p, input, dt));
+        const receive = this._updateReceive(p, input, move, strokeDue) ? p.receive : null;
         const receiving = receive && receive.mode !== 'cushion';
         const motion = receive && receive.mode !== 'cushion' ? s.receive[receive.mode] : null;
         const receiveBlend = motion
@@ -1419,7 +1488,8 @@ class TakrawPhysics {
         if (mode !== p.kick.mode)
             this._switchKickMode(p, mode, input, pos, rootRotation, continuingGroundKick);
         p.kick.held = kicking;
-        const armed = mode === 'ground' && this._armGroundToss(p, input, pos, rootRotation);
+        const armed =
+            mode === 'ground' && this._armGroundToss(p, input, pos, rootRotation, strokeDue);
         this._updateLegStretch(p, dt);
         const airTarget =
             mode === 'air' && !fallen
@@ -1514,15 +1584,15 @@ class TakrawPhysics {
     }
 
     /**
-     * 지상 토스(받기·세트·서브)의 발은 공 도착 groundToss.strokeLeadMs 전에야 휘두르기 시작한다. 그보다 일찍 누르면 그때까지
+     * 지상 토스(받기·세트·서브)의 발은 휘두르는 데 걸리는 시간만큼만 공 도착보다 먼저 움직이기 시작한다(_strokeDue). 그보다 일찍 누르면 그때까지
      * 차는 다리도 디딤발로 서 있고(계획 없음), 찰 발만 공이 올 자리로 다시 고른다. 쿠션·런지 받기 동작도 같은 때 시작한다(_updateReceive).
-     * 그래서 일찍 누른 길이는 휘두르기 길이를 바꾸지 않는다. 슬라이드는 누른 걸음에 몸을 던지므로 예외다. true면 아직 기다리는 중이다.
+     * 그래서 일찍 누른 길이는 휘두르기를 바꾸지 않는다. 슬라이드는 누른 걸음에 몸을 던지므로 예외다. true면 아직 기다리는 중이다.
      */
-    _armGroundToss(p, input, pos, rootRotation) {
+    _armGroundToss(p, input, pos, rootRotation, strokeDue) {
         if (p.kick.receivePlan || !this._tossing(input)) return false;
         // 기다리는 걸음마다, 그리고 계획을 세우는 걸음에도 찰 발을 고른다. 언제 눌렀든 계획은 그 걸음의 공 궤적으로 고른 발에서 시작한다.
         p.kick.side = this._kickSide(p, true, pos, rootRotation);
-        return !this._strokeDue(p);
+        return !strokeDue();
     }
 
     /** 입력에 지상 토스 목표(동료·서브 목표 자리)가 있는지. 있으면 발이 휘두르기 시작까지 기다린다(_armGroundToss). */
@@ -1531,15 +1601,26 @@ class TakrawPhysics {
         return !!target && Number.isFinite(target.x) && Number.isFinite(target.z);
     }
 
+    /** 몸을 던지는 받기(런지·슬라이드)를 하고 있거나, 받기 예측이 그 동작을 고른 상태인지. 이 받기의 발은 관절 계획이 아니라 기존 발 궤적을 쓴다. */
+    _bodyReceive(p, input) {
+        const mode = p.receive
+            ? p.receive.mode
+            : input?.receive?.reachable
+              ? input.receive.mode
+              : 'cushion';
+        return mode !== 'cushion';
+    }
+
     /**
-     * 공이 받는 발의 접촉 높이에 오기까지 groundToss.strokeLeadMs(+ margin초) 이하로 남았는지. margin 0이면 휘두르기를 시작할 때인지이고,
-     * 잘게 도는 틱 판정(fineStepNeeded)은 한 틱을 더한 같은 계산을 쓴다.
+     * 지금 휘두르기를 시작해야 하는지. 서서 차는 지상 토스는 다리 관절 계획이 계산한 길이(_strokeLead)를 쓴다: 이번 걸음(step초)을 넘기면
+     * 공 도착까지 남은 시간이 그보다 짧아질 때 참이다. 몸을 던지는 받기는 groundToss.strokeLeadMs 이하로 남았을 때다.
+     * 어느 쪽이든 공 도착이 strokeLeadMs + 한 걸음보다 멀면 거짓이다(길이는 strokeLeadMs를 넘지 않는다). 잘게 도는 틱 판정(fineStepNeeded)은 이 한계를 쓴다.
      */
-    _strokeDue(p, margin = 0) {
-        return (
-            this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <=
-            this.settings.groundToss.strokeLeadMs / 1000 + margin
-        );
+    _strokeDue(p, input, step) {
+        const arrival = this._receiveArrival(p, this.ball.translation(), this.ball.linvel()),
+            longest = this.settings.groundToss.strokeLeadMs / 1000;
+        if (this._bodyReceive(p, input)) return arrival <= longest;
+        return arrival < longest + step && arrival < this._strokeLead(p, input) + step;
     }
 
     /** 관절 목표의 기본값(팔을 조금 굽힌 선 자세). */
@@ -1790,79 +1871,119 @@ class TakrawPhysics {
         }
     }
 
-    /** 차는 발을 목표 위치·속도로 끌고 접촉면 방향을 맞춘다. 발 방향을 제어한 발('L'|'R'|'')을 돌려준다. */
+    /**
+     * 차는 발을 목표 위치·속도로 끌고 접촉면 방향을 맞춘다. { orientedFoot, legJoints }를 돌려준다:
+     * orientedFoot은 발 방향을 제어한 발('L'|'R'|''), legJoints는 관절 계획이 모터에 걸 기준(없으면 null)이다.
+     */
     _driveKick(p, input, body, action, targetMap, dt) {
         const root = p.root;
         const { pos, rootRotation, muscleResponse } = body;
         const { fallen, kicking, armed, mode, airTarget } = action;
-        let orientedFoot = '';
-        if (kicking && !armed && !fallen) {
-            const suffix = p.kick.side,
-                foot = p.byName['foot' + suffix];
-            const hip = this._point(root, { x: suffix === 'L' ? -0.12 : 0.12, y: -0.06, z: 0 });
-            const command = this._kickCommand(p, input, mode, airTarget, hip, dt);
-            // The air controller already projects position and velocity together
-            // into the current leg workspace. Ground reception keeps its own path.
-            if (mode !== 'air') this._limitGroundKickReach(p, suffix, foot, hip, command, dt);
-            const target = command.target,
-                contactNormal = command.contactNormal,
-                contactForward = command.contactForward,
-                faceControl = command.faceControl;
-            let targetVelocity = command.targetVelocity;
-            const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
-            // Controlled contacts drive the actual ankle. Convert the planned foot
-            // centre to that anchor, cancelling _legTargets' standing COM offset.
-            const ikTarget = this._kickIkTarget(
-                mode,
-                airTarget,
-                target,
-                ankleDriven ? contactNormal : null,
-                contactForward,
-                rootRotation,
-            );
-            this._setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap);
-            if (contactNormal) orientedFoot = suffix;
-            const forcePoint = ankleDriven
-                ? this._point(foot.body, this._v(0, 0.065, -0.085))
-                : null;
-            const driveTarget =
-                mode !== 'air' && ankleDriven
-                    ? this._sub(ikTarget, this._rotate(rootRotation, this._v(0, 0, 0.055)))
-                    : target;
-            if (mode === 'ground' && ankleDriven)
-                targetVelocity = this._groundStrokeVelocity(
-                    p,
-                    foot,
-                    forcePoint,
-                    targetVelocity,
-                    dt,
-                );
-            // Both controls read the same solved state. A point impulse temporarily
-            // changes free-body omega before the ankle joint is solved again.
-            const angularVelocity = ankleDriven ? foot.body.angvel() : null;
-            this._driveKickFoot(p, foot, command, {
-                mode,
-                airTarget,
-                driveTarget,
-                targetVelocity,
-                forcePoint,
-                hip,
-                muscleResponse,
-                dt,
-            });
-            if (contactNormal)
-                this._orientFootNormal(
-                    p,
-                    suffix,
-                    contactNormal,
-                    contactForward,
-                    faceControl,
-                    dt,
-                    muscleResponse,
-                    angularVelocity,
-                );
+        if (!kicking || armed || fallen) return { orientedFoot: '', legJoints: null };
+        const suffix = p.kick.side,
+            foot = p.byName['foot' + suffix];
+        const hip = this._point(root, this._hipAnchor(suffix));
+        const command = this._kickCommand(p, input, mode, airTarget, hip, body, dt);
+        if (command.legJoints) {
+            this._driveJointKick(p, suffix, foot, hip, command, body, targetMap, dt);
+            return { orientedFoot: suffix, legJoints: command.legJoints };
         }
-        return orientedFoot;
+        // The air controller already projects position and velocity together
+        // into the current leg workspace. Ground reception keeps its own path.
+        if (mode !== 'air') this._limitGroundKickReach(p, suffix, foot, hip, command, dt);
+        const target = command.target,
+            contactNormal = command.contactNormal,
+            contactForward = command.contactForward,
+            faceControl = command.faceControl;
+        let targetVelocity = command.targetVelocity;
+        const ankleDriven = mode === 'air' || !!p.kick.receivePlan;
+        // Controlled contacts drive the actual ankle. Convert the planned foot
+        // centre to that anchor, cancelling _legTargets' standing COM offset.
+        const ikTarget = this._kickIkTarget(
+            mode,
+            airTarget,
+            target,
+            ankleDriven ? contactNormal : null,
+            contactForward,
+            rootRotation,
+        );
+        this._setKickLegPose(p, suffix, ikTarget, mode, pos, rootRotation, targetMap);
+        const forcePoint = ankleDriven ? this._point(foot.body, this._v(0, 0.065, -0.085)) : null;
+        const driveTarget =
+            mode !== 'air' && ankleDriven
+                ? this._sub(ikTarget, this._rotate(rootRotation, this._v(0, 0, 0.055)))
+                : target;
+        if (mode === 'ground' && ankleDriven)
+            targetVelocity = this._groundStrokeVelocity(p, foot, forcePoint, targetVelocity, dt);
+        // Both controls read the same solved state. A point impulse temporarily
+        // changes free-body omega before the ankle joint is solved again.
+        const angularVelocity = ankleDriven ? foot.body.angvel() : null;
+        this._driveKickFoot(p, foot, command, {
+            mode,
+            airTarget,
+            driveTarget,
+            targetVelocity,
+            forcePoint,
+            hip,
+            muscleResponse,
+            dt,
+        });
+        if (contactNormal)
+            this._orientFootNormal(
+                p,
+                suffix,
+                contactNormal,
+                contactForward,
+                faceControl,
+                dt,
+                muscleResponse,
+                angularVelocity,
+            );
+        return { orientedFoot: contactNormal ? suffix : '', legJoints: null };
+    }
+
+    /**
+     * 관절 계획 지상 토스의 구동. 엉덩이·무릎 모터가 계획의 관절 기준을 따라가고(_applyJointTargets), 모터가 못 내는 몫과 발목 위치·속도 오차는
+     * 발-골반 힘이 맡는다. 발목 목표는 그 관절 기준의 순기구학이라 모터와 발-골반 힘이 같은 궤적을 따른다. 발목 관절은 발 방향 제어가 맡는다.
+     */
+    _driveJointKick(p, suffix, foot, hip, command, body, targetMap, dt) {
+        const s = p.settings,
+            toss = this.settings.groundToss;
+        const { muscleResponse } = body;
+        const { position } = command.legJoints;
+        targetMap['hip' + suffix] = [position[0], 0, position[1]];
+        targetMap['knee' + suffix] = [position[2], 0, 0];
+        const forcePoint = this._point(foot.body, this._v(0, 0.065, -0.085)),
+            angularVelocity = foot.body.angvel();
+        this._footDrive(
+            p,
+            foot,
+            command.target,
+            command.targetVelocity,
+            s.groundKickForce * muscleResponse,
+            dt,
+            toss.positionGain * muscleResponse,
+            2 * Math.sqrt(toss.positionGain * toss.accelerationMass) * muscleResponse,
+            forcePoint,
+            command.footForce,
+            null,
+            { reference: p.root.velocityAtPoint(hip), maxSpeed: toss.maxFootSpeed },
+        );
+        this._orientFootNormal(
+            p,
+            suffix,
+            command.contactNormal,
+            command.contactForward,
+            command.faceControl,
+            dt,
+            muscleResponse,
+            angularVelocity,
+        );
+    }
+
+    /** 골반 좌표의 엉덩이 관절 자리. */
+    _hipAnchor(suffix) {
+        return { x: suffix === 'L' ? -0.12 : 0.12, y: -0.06, z: 0 };
     }
 
     /** 차는 발의 IK 목표(발목 기준점). 공중은 공중 계획 발목, 지상 접촉은 발 중심에서 발목으로 옮긴 점, 그 밖은 목표 그대로다. */
@@ -1968,7 +2089,7 @@ class TakrawPhysics {
     }
 
     /** 차는 발의 목표: 공중은 공중 발 계획, 지상 토스는 받기 계획, 그 밖의 지상 발차기는 공을 위로 차 올리는 방향. */
-    _kickCommand(p, input, mode, airTarget, hip, dt) {
+    _kickCommand(p, input, mode, airTarget, hip, body, dt) {
         const s = p.settings;
         const ballPos = this.ball.translation(),
             ballVel = this.ball.linvel();
@@ -1980,7 +2101,9 @@ class TakrawPhysics {
             groundAcceleration = null,
             contactNormal = null,
             contactForward = null,
-            groundContactDrive = null;
+            groundContactDrive = null,
+            legJoints = null,
+            footForce = null;
         let footControl = null,
             faceControl = null;
         if (mode === 'air') {
@@ -1994,11 +2117,13 @@ class TakrawPhysics {
             const teammate = input.tossTarget;
             const tossing = teammate && Number.isFinite(teammate.x) && Number.isFinite(teammate.z);
             if (tossing) {
-                const receive = this._receiveFootTarget(p, input, ballPos, ballVel, dt);
+                const receive = this._receiveFootTarget(p, input, ballPos, ballVel, body, dt);
                 target = receive.target;
                 targetVelocity = receive.velocity;
                 groundAcceleration = receive.acceleration;
                 groundContactDrive = receive.contactDrive || null;
+                legJoints = receive.joints || null;
+                footForce = receive.force || null;
                 contactNormal = receive.normal;
                 contactForward = p.kick.receivePlan.forward;
                 footControl = this.settings.groundToss;
@@ -2050,6 +2175,8 @@ class TakrawPhysics {
             groundContactDrive,
             footControl,
             faceControl,
+            legJoints,
+            footForce,
         };
     }
 
@@ -2102,8 +2229,11 @@ class TakrawPhysics {
         command.targetVelocity = targetVelocity;
     }
 
-    /** 관절 모터에 목표를 건다. 발 방향 제어가 맡은 발목·엉덩이는 모터 힘을 0으로 둔다. */
-    _applyJointTargets(p, body, action, targetMap, orientedFoot) {
+    /**
+     * 관절 모터에 목표를 건다. 발 방향 제어가 맡은 발목과, 발 궤적 힘이 엉덩이 방향을 맡는 차기의 엉덩이는 모터 힘을 0으로 둔다.
+     * 관절 계획(legJoints)이 있는 차기는 엉덩이·무릎 모터가 그 기준 각·각속도·토크를 따라간다.
+     */
+    _applyJointTargets(p, body, action, targetMap, { orientedFoot, legJoints }) {
         const s = p.settings;
         const { muscleResponse } = body;
         const { fallen, kicking, armed, mode, preparing, muscle } = action;
@@ -2136,6 +2266,22 @@ class TakrawPhysics {
                     (mode === 'air'
                         ? s.drive.kickLegStrength.air
                         : s.drive.kickLegStrength.ground) * muscleResponse;
+            if (legJoints && j.name === 'hip' + orientedFoot) {
+                const { velocity, torque } = legJoints;
+                this._motor(j, targetMap[j.name], strength, {
+                    velocity: [velocity[0], 0, velocity[1]],
+                    torque: [torque[0], 0, torque[1]],
+                });
+                continue;
+            }
+            if (legJoints && j.name === 'knee' + orientedFoot) {
+                const { velocity, torque } = legJoints;
+                this._motor(j, targetMap[j.name], strength, {
+                    velocity: [velocity[2]],
+                    torque: [torque[2]],
+                });
+                continue;
+            }
             if (
                 orientedFoot &&
                 (j.name === 'ankle' + orientedFoot ||
@@ -3124,10 +3270,10 @@ class TakrawPhysics {
      * 지상 토스(받기·세트)의 발 목표. 계획이 없으면 세우고(_beginReceivePlan. 공 도착 strokeLeadMs 안에서만 불린다: _armGroundToss),
      * 맞은 뒤 따라 차기가 끝났으면 발을 거두고, 아니면 받기 종류에 맞는 궤적을 고른다.
      */
-    _receiveFootTarget(p, input, ballPos, ballVel, dt) {
+    _receiveFootTarget(p, input, ballPos, ballVel, body, dt) {
         const toss = this.settings.groundToss;
         // Once committed, retain the stroke instead of replanning around the outgoing ball.
-        if (!p.kick.receivePlan) this._beginReceivePlan(p, input, ballPos, ballVel);
+        if (!p.kick.receivePlan) this._beginReceivePlan(p, input, ballPos, ballVel, body);
         const plan = p.kick.receivePlan;
         if (
             p.receive?.hitAt !== null &&
@@ -3135,16 +3281,87 @@ class TakrawPhysics {
             this.time - p.receive.hitAt >= toss.followThrough
         )
             return this._retractReceiveFoot(p, plan, dt);
-        if (plan.dynamicReceive && p.receive?.mode !== 'slide')
-            return this._dynamicReceivePath(p, plan, ballVel, dt);
-        if (plan.attackSet || !plan.dynamicReceive) return this._cushionReceivePath(plan, dt);
+        if (plan.joints) return this._jointTossPath(p, plan, body, dt);
+        if (p.receive?.mode !== 'slide') return this._dynamicReceivePath(p, plan, ballVel, dt);
+        if (plan.attackSet) return this._cushionReceivePath(plan, dt);
         return this._strokeReceivePath(p, plan, ballVel, dt);
     }
 
-    /** 받기 계획: 공 도착 예측, 원하는 패스 속도, 그 속도를 낼 접촉면 방향·발 속도, 발 방향, 시작점. */
-    _beginReceivePlan(p, input, ballPos, ballVel) {
+    /**
+     * 받기 계획: 접촉 조건(_tossContact)과 발이 거기까지 가는 길. 서서 차는 토스(서브·세트·쿠션 받기)는 다리 관절 계획이다: 지금 관절 상태에서
+     * 접촉 관절 상태(joints.end)까지의 길이와 낼 수 있는 접촉 속도를 legPlanSolve가 정하고, joints가 걸음마다 나아가는 기준 상태다(_jointTossPath).
+     * 몸을 던지는 받기(런지·슬라이드)는 발 중심의 시작점·시작 속도에서 가는 기존 발 궤적이다.
+     */
+    _beginReceivePlan(p, input, ballPos, ballVel, body) {
+        const dynamicReceive = !!p.receive && p.receive.mode !== 'cushion';
+        const contact = this._tossContact(p, input, ballPos, ballVel, !dynamicReceive);
+        const plan = {
+            duration: contact.duration,
+            startedAt: this.time,
+            normal: contact.normal,
+            approach: contact.approach,
+            forward: contact.forward,
+            point: contact.point,
+            velocity: contact.velocity,
+            attackSet: contact.attacking,
+            dynamicReceive,
+            incoming: contact.incoming,
+        };
+        p.kick.receivePlan = plan;
+        if (dynamicReceive) {
+            const foot = p.byName['foot' + p.kick.side].body;
+            const ankle = this._point(foot, this._v(0, 0.065, -0.085));
+            // Every pass drives the ankle. Curves use foot-centre coordinates;
+            // subtract the same contact anchor offset at the starting boundary.
+            plan.start = this._sub(ankle, this._ankleOffset(plan));
+            plan.startVelocity = { ...foot.velocityAtPoint(ankle) };
+            return;
+        }
+        // 관절 계획은 이 골반 방향을 기준으로 세운다. 휘두르는 동안 골반이 기울어도 다리는 세계 좌표에서 이 방향 기준으로 간다(_jointTossAnkle).
+        plan.rotation = { ...body.rootRotation };
+        const suffix = p.kick.side,
+            { rootRotation, muscleResponse } = body;
+        const model = this._legPlanModel(p, suffix, rootRotation, muscleResponse);
+        const state = this._legJointState(p, suffix, rootRotation, body.rootAngularVelocity, model);
+        const contactJoints = this._tossContactJoints(p, suffix, plan, plan.duration, rootRotation);
+        const solved = legPlanSolve(
+            model,
+            state,
+            contactJoints,
+            plan.duration,
+            this.settings.legPlan,
+        );
+        plan.duration = solved.duration;
+        // 계획의 발 속도는 낼 수 있는 속도다: 끝 상태의 관절 각속도가 내는 발목 속도에 그때의 엉덩이 속도 예상을 더한다.
+        plan.velocity = this._add(
+            contactJoints.hipVelocity,
+            this._rotate(
+                rootRotation,
+                legAnkleVelocity(model, solved.end.position, solved.end.velocity),
+            ),
+        );
+        plan.joints = {
+            position: state.position,
+            velocity: state.velocity,
+            acceleration: [0, 0, 0],
+            // 기준 상태의 시각. 계획이 돌지 않은 걸음(차기 구동이 빠진 걸음)이 있어도 기준은 시각으로 나아가 같은 곡선 위에 있다.
+            at: this.time,
+            end: solved.end,
+        };
+    }
+
+    /** 발 중심에서 발목 관절까지(접촉면 방향 기준). 계획의 발 중심 좌표를 발목 좌표로 옮길 때 더한다. */
+    _ankleOffset(contact) {
+        return this._add(this._mul(contact.normal, 0.065), this._mul(contact.forward, -0.085));
+    }
+
+    /**
+     * 지상 토스의 접촉 조건: 공 도착 예측, 원하는 패스 속도, 그 속도를 낼 접촉면 방향(normal)·발 속도(velocity), 발 방향(forward), 발 중심 자리(point).
+     * standing이면 서서 차는 토스(계획 길이 = 공 도착까지), 아니면 몸을 던지는 받기(계획 길이 ≤ strokeLeadMs)다.
+     */
+    _tossContact(p, input, ballPos, ballVel, standing) {
         const toss = this.settings.groundToss;
-        const pass = this._predictReceivePass(p, input, ballPos, ballVel);
+        const pass = this._predictReceivePass(p, input, ballPos, ballVel, standing);
         const { duration, incoming, impact, attacking } = pass;
         const { normal, surface, approach, velocity } = this._receiveStrike(
             p,
@@ -3168,27 +3385,308 @@ class TakrawPhysics {
             this._sub(surface, this._mul(normal, 0.055)),
             this._mul(forward, toss.forefoot),
         );
-        const foot = p.byName['foot' + p.kick.side].body;
-        const dynamicReceive = !!p.receive && p.receive.mode !== 'cushion';
-        const ankle = this._point(foot, this._v(0, 0.065, -0.085));
-        const ankleOffset = this._add(this._mul(normal, 0.065), this._mul(forward, -0.085));
-        // Every pass drives the ankle. Curves use foot-centre coordinates;
-        // subtract the same contact anchor offset at the starting boundary.
-        const start = this._sub(ankle, ankleOffset);
-        const startVelocity = { ...foot.velocityAtPoint(ankle) };
-        p.kick.receivePlan = {
-            duration,
-            startedAt: this.time,
-            normal,
-            approach,
-            forward,
-            point,
-            velocity,
-            attackSet: attacking,
-            dynamicReceive,
-            incoming,
-            start,
-            startVelocity,
+        return { duration, incoming, attacking, normal, approach, velocity, forward, point };
+    }
+
+    /**
+     * 차는 다리의 관절 계획 모델(leg-plan.js): 실제 몸 부위의 질량·길이·관성, 실제 모터 설정(_motorGains)의 최대 토크, 발-골반 힘의 상한과
+     * 힘-속도 한계(_driveJointKick이 거는 값과 같다), 무릎 경첩 범위, 다리가 닿는 거리. 계획에만 쓰는 값은 없다.
+     */
+    _legPlanModel(p, suffix, rootRotation, muscleResponse) {
+        const s = p.settings;
+        const upper = p.byName['upperLeg' + suffix],
+            lower = p.byName['lowerLeg' + suffix],
+            scale = p.legs[suffix].scale;
+        const joint = (name) => p.joints.find((item) => item.name === name + suffix);
+        const strength = s.drive.kickLegStrength.ground * muscleResponse,
+            knee = joint('knee');
+        return legPlanModel({
+            upper: upper.restLength * scale,
+            lower: lower.restLength * scale,
+            upperMass: upper.mass,
+            lowerMass: lower.mass,
+            footMass: p.byName['foot' + suffix].mass,
+            upperInertia: upper.body.principalInertia().x,
+            lowerInertia: lower.body.principalInertia().x,
+            hipTorque: this._motorGains(joint('hip'), strength).cap,
+            kneeTorque: this._motorGains(knee, strength).cap,
+            footForce: s.groundKickForce * muscleResponse,
+            maxFootSpeed: this.settings.groundToss.maxFootSpeed,
+            kneeMin: knee.joint.limitsMin(),
+            kneeMax: knee.joint.limitsMax(),
+            reachMin: this._legMinReach(p, suffix),
+            reachMax: this._legReach(p, suffix),
+            gravity: s.gravity,
+            down: this._rotate(this._conj(rootRotation), this._v(0, -1, 0)),
+        });
+    }
+
+    /** 차는 다리의 지금 관절 각·각속도(leg-plan.js 좌표: 엉덩이 굽힘·벌림, 무릎). 몸체의 상대 회전과 상대 각속도에서 읽는다. */
+    _legJointState(p, suffix, rootRotation, rootAngularVelocity, model) {
+        const upper = p.byName['upperLeg' + suffix].body,
+            lower = p.byName['lowerLeg' + suffix].body;
+        const upperRotation = upper.rotation(),
+            upperInverse = this._conj(upperRotation);
+        let hip = this._qmul(this._conj(rootRotation), upperRotation);
+        if (hip.w < 0) hip = { x: -hip.x, y: -hip.y, z: -hip.z, w: -hip.w };
+        const pitch = 2 * Math.asin(this._clamp(hip.x, -1, 1)),
+            spread = 2 * Math.asin(this._clamp(hip.z, -1, 1));
+        // 상대 각속도(허벅지 좌표) ω에서 상대 사원수의 변화율 ½ q ⊗ ω를 얻고, 허수부 = sin(각/2)를 미분해 각속도로 바꾼다.
+        const omega = this._rotate(upperInverse, this._sub(upper.angvel(), rootAngularVelocity));
+        const rateX = 0.5 * (hip.w * omega.x + hip.y * omega.z - hip.z * omega.y),
+            rateZ = 0.5 * (hip.w * omega.z + hip.x * omega.y - hip.y * omega.x);
+        const bend = this._qmul(upperInverse, lower.rotation());
+        const knee = 2 * Math.atan2(bend.x * Math.sign(bend.w || 1), Math.abs(bend.w));
+        const kneeRate = this._rotate(upperInverse, this._sub(lower.angvel(), upper.angvel())).x;
+        const inside = knee > model.kneeMin && knee < model.kneeMax;
+        return {
+            position: [pitch, spread, this._clamp(knee, model.kneeMin, model.kneeMax)],
+            velocity: [
+                (2 * rateX) / Math.max(1e-6, Math.cos(pitch / 2)),
+                (2 * rateZ) / Math.max(1e-6, Math.cos(spread / 2)),
+                inside ? kneeRate : 0,
+            ],
+        };
+    }
+
+    /**
+     * 지금부터 time초 뒤까지 엉덩이가 가는 거리(offset)와 그때의 엉덩이 속도(velocity)의 예상(세계 좌표). 차는 선수는 디딤발로 서서 차므로, 지금 몸 속도
+     * (차는 다리를 뺀 몸, _supportVelocity)의 수평 성분이 이동 제어(_groundMovement)의 movementAcceleration 비율로 0까지 줄어든다고 본다.
+     * 수직은 서 있는 높이를 유지한다고 본다. 이동 입력은 넣지 않는다: 누르는 순간의 입력은 휘두르는 동안 바뀌어(AI는 차기 시작하면 멈춘다) 예상을 더 틀리게 한다.
+     */
+    _hipTravel(p, suffix, time) {
+        const velocity = this._supportVelocity(p, suffix),
+            rate = p.settings.movementAcceleration,
+            decay = Math.exp(-rate * time);
+        velocity.y = 0;
+        return {
+            offset: this._mul(velocity, (1 - decay) / rate),
+            velocity: this._mul(velocity, decay),
+        };
+    }
+
+    /**
+     * 접촉 조건을 다리 계획의 좌표로 바꾼다: 접촉 순간 발목 자리(발 중심 point에서 발목까지 옮긴 점)와 발 속도를, remaining초 뒤의 엉덩이 예상(_hipTravel) 기준
+     * 골반 좌표로 옮긴다. 발 속도는 발목이 엉덩이 둘레를 도는 몫(swing)과 엉덩이에서 멀어지거나 가까워지는 몫(reach)으로 나눠 준다
+     * (legPlanSolve가 못 내는 몫을 reach부터 줄인다). hipVelocity는 그때의 엉덩이 속도 예상(세계 좌표)이다.
+     */
+    _tossContactJoints(p, suffix, contact, remaining, rootRotation) {
+        const hip = this._point(p.root, this._hipAnchor(suffix)),
+            travel = this._hipTravel(p, suffix, remaining),
+            inverse = this._conj(rootRotation);
+        const ankle = this._rotate(
+                inverse,
+                this._sub(
+                    this._sub(this._add(contact.point, this._ankleOffset(contact)), hip),
+                    travel.offset,
+                ),
+            ),
+            velocity = this._rotate(inverse, this._sub(contact.velocity, travel.velocity));
+        const outward = this._unit(ankle),
+            away = this._mul(outward, this._dot(velocity, outward));
+        return {
+            ankle,
+            swing: this._sub(velocity, away),
+            reach: away,
+            hipVelocity: travel.velocity,
+        };
+    }
+
+    /**
+     * 서서 차는 지상 토스의 휘두르기 길이(초): 지금 관절 상태에서 접촉 관절 상태까지 가는 곡선이 구동 한계(모터 최대 토크·발-골반 힘·발 속도 한계)를
+     * 가장 덜 쓰는 길이다(legPlanSolve의 lead, minPlanTime ~ strokeLeadMs 안). 휘두르기 시작(_strokeDue)이 쓴다.
+     */
+    _strokeLead(p, input) {
+        const rootRotation = p.root.rotation(),
+            suffix = this._kickSide(p, true, p.root.translation(), rootRotation);
+        const strike = this._tossContact(
+            p,
+            input,
+            this.ball.translation(),
+            this.ball.linvel(),
+            true,
+        );
+        const model = this._legPlanModel(
+            p,
+            suffix,
+            rootRotation,
+            1 - this._reactionWeight(p) * p.settings.drive.reaction.muscleLoss,
+        );
+        const state = this._legJointState(p, suffix, rootRotation, p.root.angvel(), model);
+        const contact = this._tossContactJoints(p, suffix, strike, strike.duration, rootRotation);
+        return legPlanSolve(model, state, contact, Infinity, this.settings.legPlan).lead;
+    }
+
+    /**
+     * 지상 토스(받기·세트·서브)의 발이 공 도착보다 가장 일찍 움직이기 시작하는 시간(초). 이보다 일찍 누르면 결과가 같고, 늦게 누르면 남은 시간만큼만 휘두른다.
+     * AI가 누를 시각을 정할 때 읽는다.
+     */
+    groundTossLead() {
+        return this.settings.groundToss.strokeLeadMs / 1000;
+    }
+
+    /**
+     * 관절 계획의 한 걸음. 두 가지를 따로 낸다.
+     * - 앞먹임: 계획이 세운 관절 기준 궤적(joints: 각·각속도·각가속도)에서만 낸다. 기준 상태를 접촉 관절 상태(joints.end)로 가는 곡선(legCurve) 위에서 걸음 끝 시각까지
+     *   나아가고(기준 상태의 시각 joints.at부터. 구동이 빠진 걸음이 있어도 같은 곡선 위다), 그 상태가 요구하는 토크를 모터 몫과 발-골반 힘 몫으로 나눈다(legActuation). 이 궤적은 계획 때 한계 검사를 거친 매끄러운 곡선이다(한계 안의 계획을 못 찾으면 원래 요청 그대로이고, 그때는 실제로 거는 토크·힘이 상한에서 잘린다).
+     *   접촉 시각 뒤에는 기준이 끝 상태에 머문다: followThrough 동안은 접촉 순간의 각·각속도·각가속도 그대로이고(발이 계획보다 조금 늦게 닿아도 앞먹임이
+     *   접촉 순간의 값으로 이어진다), 그 뒤에는 각속도·각가속도가 0이다. 끝 상태는 계획이 정한 값이다. 관절 각을 접촉 뒤로 늘여 가지 않는다
+     *   (관절 좌표를 각속도로 늘이면 엉덩이 회전이 좌표가 나타낼 수 있는 영역 |굽힘| + |벌림| ≤ π를 벗어난다). 따라 차기는 발목 목표가 맡는다
+     *   (_jointTossAnkle: 접촉점에서 계획의 발 속도로 곧게). 기준 다리는 계획 때의 골반 방향(plan.rotation)에서 본 것이라 모델의 중력 방향과
+     *   발-골반 힘 방향도 그 방향 기준이다.
+     * - 되먹임 목표: 기준은 계획을 세울 때의 골반 방향과 내다본 엉덩이 기준이라, 실제 골반이 다르게 움직인 만큼 발목 목표를 고치고(_jointTossAnkle), 발등이
+     *   계획 속도로 닿게 발의 회전 몫을 빼고(_groundStrokeVelocity), 다리가 닿는 거리 안으로 자른다(_reachLimited). 그 하나의 발목 목표(자리·속도)에서
+     *   모터 기준(관절 각·각속도)과 발-골반 힘의 목표가 같이 나온다. 고친 목표를 미분해 앞먹임을 만들지 않는다: 몸 움직임으로 고치는 몫과 그 가속은 되먹임이 맡는다.
+     * 돌려주는 값: 모터 기준(joints: 관절 각·각속도와 모터 앞먹임 토크), 발목 목표(target·velocity, 세계 좌표), 발-골반 힘 앞먹임(force).
+     */
+    _jointTossPath(p, plan, body, dt) {
+        const toss = this.settings.groundToss,
+            suffix = p.kick.side,
+            joints = plan.joints;
+        const { pos, vel, rootRotation, rootAngularVelocity, muscleResponse } = body;
+        const model = this._legPlanModel(p, suffix, plan.rotation, muscleResponse);
+        const elapsed = this.time - plan.startedAt,
+            remaining = plan.duration - elapsed,
+            after = elapsed + dt - plan.duration;
+        if (remaining > dt)
+            legPlanAdvance(
+                joints,
+                joints.end,
+                plan.startedAt + plan.duration - joints.at,
+                this.time + dt - joints.at,
+            );
+        else
+            for (let j = 0; j < 3; j++) {
+                joints.position[j] = joints.end.position[j];
+                const following = after < toss.followThrough;
+                joints.velocity[j] = following ? joints.end.velocity[j] : 0;
+                joints.acceleration[j] = following ? joints.end.acceleration[j] : 0;
+            }
+        joints.at = this.time + dt;
+        const knee = this._clamp(joints.position[2], model.kneeMin, model.kneeMax);
+        if (knee !== joints.position[2]) {
+            joints.position[2] = knee;
+            joints.velocity[2] = 0;
+            joints.acceleration[2] = 0;
+        }
+        // 앞먹임: 기준 궤적의 관절 상태가 요구하는 토크를 모터와 발-골반 힘에 나눈다.
+        const actuation = { motor: [0, 0, 0], force: this._v() };
+        legActuation(
+            model,
+            joints.position,
+            joints.velocity,
+            legTorques(model, joints.position, joints.velocity, joints.acceleration),
+            actuation,
+        );
+        // 걸음 끝의 엉덩이 예상 자리(풀린 속도로 한 걸음)와 몸 속도.
+        const hip = this._point(p.root, this._hipAnchor(suffix)),
+            hipVelocity = this._add(vel, this._cross(rootAngularVelocity, this._sub(hip, pos))),
+            frame = {
+                hip: this._add(hip, this._mul(hipVelocity, dt)),
+                velocity: this._supportVelocity(p, suffix),
+            };
+        const ankle = this._jointTossAnkle(p, plan, model, frame, after);
+        // 계획의 접촉 속도는 발등의 속도다. 발이 돌고 있으면 발등과 발목의 속도가 다르므로 그 차이를 발목 목표에서 뺀다(접촉 직전 strokeTime 동안 점점 크게).
+        const foot = p.byName['foot' + suffix];
+        ankle.velocity = this._groundStrokeVelocity(
+            p,
+            foot,
+            this._point(foot.body, this._v(0, 0.065, -0.085)),
+            ankle.velocity,
+            dt,
+        );
+        // 지금 골반 좌표의 발목 목표: 골반이 도는 속도만큼 상대 속도를 빼고, 다리가 닿는 거리 안으로 자른다. 모터와 발-골반 힘이 이 같은 목표를 따른다.
+        const inverse = this._conj(rootRotation),
+            reach = this._reachLimited(
+                model,
+                this._rotate(inverse, ankle.offset),
+                this._rotate(
+                    inverse,
+                    this._sub(ankle.velocity, this._cross(rootAngularVelocity, ankle.offset)),
+                ),
+            );
+        const position = legJoints(model, reach.offset),
+            velocity = legJointVelocity(model, position, reach.velocity),
+            offset = this._rotate(rootRotation, reach.offset);
+        return {
+            target: this._add(frame.hip, offset),
+            velocity: this._add(
+                frame.velocity,
+                this._add(
+                    this._rotate(rootRotation, reach.velocity),
+                    this._cross(rootAngularVelocity, offset),
+                ),
+            ),
+            normal: plan.normal,
+            joints: { position, velocity, torque: actuation.motor },
+            // 다리가 거의 곧으면 모터의 모자란 몫을 내는 발목 힘이 끝없이 커진다. 실제로 걸 수 있는 크기까지만 앞먹인다.
+            force: this._limit(this._rotate(plan.rotation, actuation.force), model.footForce),
+        };
+    }
+
+    /**
+     * 엉덩이 기준 발목 자리·속도(골반 좌표)를 다리가 닿는 거리(reachMin ~ reachMax) 안으로 자른다. 거리 밖이면 그 거리의 자리로 옮기고,
+     * 거리 밖으로 더 나가는 속도 몫을 뺀다(다리는 그 이상 펴지거나 접히지 못한다).
+     */
+    _reachLimited(model, offset, velocity) {
+        const length = this._length(offset);
+        if (length < 1e-9) return { offset, velocity };
+        const outward = this._mul(offset, 1 / length),
+            leaving = this._dot(velocity, outward);
+        // 한계에 닿았거나 넘은 자리에서는 그 밖으로 나가는 속도 몫이 없다(한계에 정확히 있는 자리도 같다).
+        const blocked =
+            (length >= model.reachMax && leaving > 0) || (length <= model.reachMin && leaving < 0);
+        return {
+            offset: this._mul(outward, this._clamp(length, model.reachMin, model.reachMax)),
+            velocity: blocked ? this._sub(velocity, this._mul(outward, leaving)) : velocity,
+        };
+    }
+
+    /**
+     * 걸음 끝 시각의 발목 목표: 엉덩이에서 발목까지의 벡터(offset)와 엉덩이에 대한 발목 속도(velocity). 모두 세계 좌표 축이다.
+     * after는 걸음 끝이 접촉 시각을 지난 시간(초, 음수면 아직 전)이다.
+     * 접촉 전: 기준 발목(관절 기준의 순기구학)을 계획을 세울 때의 골반 방향(plan.rotation)으로 놓는다. 골반이 기울거나 돌아도 다리는 세계 좌표에서 계획한 방향으로 간다.
+     *   거기에, 지금 다시 내다본 접촉 순간의 발목 자리·속도(실제 엉덩이 기준)와 계획 때 내다본 것의 차이를 더한다. 더하는 비율은 진행도 u의 3u² − 2u³로
+     *   0에서 1까지 매끄럽게 커진다. 그래서 몸이 계획과 다르게 움직여도 접촉 시각에는 발목이 세계 좌표의 접촉점·접촉 속도에 맞고, 남은 시간이 줄어도 고치는 양이
+     *   급해지지 않는다(끝점을 걸음마다 다시 풀면 남은 시간에 반비례해 가속이 커진다).
+     * 접촉 뒤: 세계 좌표의 접촉점에서 계획의 발 속도로 곧게 나아간 자리. followThrough 뒤에는 그 자리에 멈춘다. 다리가 닿는 거리 밖으로 나가는 몫은
+     *   _reachLimited가 자르고, 관절 목표는 그 자리의 역기구학이라 늘 유효한 관절 각이다.
+     */
+    _jointTossAnkle(p, plan, model, frame, after) {
+        const suffix = p.kick.side,
+            joints = plan.joints,
+            toss = this.settings.groundToss;
+        const contact = this._add(plan.point, this._ankleOffset(plan)),
+            planned = (local) => this._rotate(plan.rotation, local);
+        const reached = planned(legAnkle(model, joints.end.position)),
+            stroke = planned(legAnkleVelocity(model, joints.end.position, joints.end.velocity));
+        if (after >= 0)
+            // 접촉 뒤: 세계 좌표의 접촉점에서 계획의 발 속도(엉덩이 속도 예상 + 엉덩이에 대한 발목 속도)로 followThrough 동안 곧게 나아가다 멈춘다.
+            return {
+                offset: this._sub(
+                    this._add(
+                        contact,
+                        this._mul(plan.velocity, Math.min(after, toss.followThrough)),
+                    ),
+                    frame.hip,
+                ),
+                velocity: this._sub(
+                    after < toss.followThrough ? plan.velocity : this._v(),
+                    frame.velocity,
+                ),
+            };
+        const travel = this._hipTravel(p, suffix, -after);
+        const shift = this._sub(this._sub(this._sub(contact, frame.hip), travel.offset), reached);
+        const rate = this._sub(this._sub(plan.velocity, travel.velocity), stroke);
+        const u = 1 + after / plan.duration,
+            weight = u * u * (3 - 2 * u),
+            weightRate = (6 * u * (1 - u)) / plan.duration;
+        return {
+            offset: this._add(planned(legAnkle(model, joints.position)), this._mul(shift, weight)),
+            velocity: this._add(
+                planned(legAnkleVelocity(model, joints.position, joints.velocity)),
+                this._add(this._mul(rate, weight), this._mul(shift, weightRate)),
+            ),
         };
     }
 
@@ -3207,15 +3705,16 @@ class TakrawPhysics {
     }
 
     /** 공이 접촉 높이에 오는 시각·위치·속도와, 목표 선수에게 보낼 패스에 필요한 공 속도. */
-    _predictReceivePass(p, input, ballPos, ballVel) {
+    _predictReceivePass(p, input, ballPos, ballVel, standing) {
         const s = this.settings,
             toss = this.settings.groundToss;
         const height = this._receiveHeight(p);
-        // 계획 길이 = 지금부터 공 도착까지. strokeLeadMs보다 일찍 누른 발은 기다렸다가(_armGroundToss) 그 길이로 시작한다.
+        // 계획 길이 = 지금부터 공 도착까지(최소 minPlanTime). 일찍 누른 발은 기다렸다가(_armGroundToss) 시작한다.
+        // 몸을 던지는 받기는 strokeLeadMs를 넘지 않는다.
         const duration = this._clamp(
             this._receiveArrival(p, ballPos, ballVel),
             toss.minPlanTime,
-            toss.strokeLeadMs / 1000,
+            standing ? Infinity : toss.strokeLeadMs / 1000,
         );
         const incoming = { x: ballVel.x, y: ballVel.y - s.gravity * duration, z: ballVel.z };
         const impact = this._add(ballPos, this._mul(ballVel, duration));
@@ -3362,7 +3861,7 @@ class TakrawPhysics {
         return { target, velocity, normal: plan.normal, contactDrive };
     }
 
-    /** 쿠션 받기와 높은 세트: 끝점 속도를 패스 속도로 둔 하나의 연속 접근 궤적. */
+    /** 슬라이드로 올리는 세트: 끝점 속도를 패스 속도로 둔 하나의 연속 접근 궤적. */
     _cushionReceivePath(plan, dt) {
         const toss = this.settings.groundToss;
         // Cushion receptions and high sets share a continuous approach, with
@@ -3503,7 +4002,9 @@ class TakrawPhysics {
      * - 차는 발이 공에 닿을 예정이 창(simulation.fineContactWindowMs) 안이거나(_kickContactIn),
      * - 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
      * 지상 토스(슬라이드 받기 제외)는 발이 공 도착 strokeLeadMs 전에야 움직이므로(_armGroundToss), 계획이 없는 동안은 누름·뗌 틱과 700 ms 창을 치지 않고
-     * 공 도착이 strokeLeadMs + 한 틱 안인 틱(그 틱 안에서 휘두르기가 시작된다)부터 잘게 돈다. 도착 시간은 휘두르기 시작 판정과 같은 계산(_strokeDue)이다.
+     * 공 도착이 strokeLeadMs + 한 틱 안인 틱부터 잘게 돈다. 휘두르기 길이는 걸음마다 자세에 따라 다시 계산되지만 strokeLeadMs를 넘지 않으므로,
+     * 가장 긴 길이를 기준으로 삼으면 휘두르기는 늘 잘게 도는 틱 안에서 시작된다(그 틱에 계산한 길이를 쓰면 틱 안에서 자세가 바뀌어 굵은 걸음에 시작하는 일이 있었다).
+     * 도착 시간은 휘두르기 시작 판정(_strokeDue)과 같은 계산(_receiveArrival)이다.
      * 그래서 일찍 누른 시각도, 기다리다 뗀 시각도 걸음 크기를 바꾸지 않는다.
      * 버튼을 누른 채 공이 멀리 있거나 이미 맞히고 지나간 동안, 도약 뒤 떠 있는 동안은 굵은 걸음이다(v0.26.3).
      * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
@@ -3529,7 +4030,8 @@ class TakrawPhysics {
                 input?.jumpPressed ||
                 this.time - p.lastTouch < follow ||
                 (waiting
-                    ? this._strokeDue(p, tick)
+                    ? this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <=
+                      this.settings.groundToss.strokeLeadMs / 1000 + tick
                     : input?.kickPressed ||
                       (p.kick.held && !input?.kick) ||
                       this._kickContactIn(p) <= window)

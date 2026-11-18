@@ -2143,7 +2143,12 @@ class TakrawGame {
                 const q = player.root.translation();
                 const setTarget = this.tossTarget(player);
                 const ground = groundBase;
-                const groundLead = ground.leadMs / 1000,
+                // 토스 목표가 있는 지상 차기(받기·세트·서브)는 발이 가장 길게 휘두르는 길이(physics.groundTossLead)보다 반 틱 일찍 누른다. 누름은 가장 가까운
+                // 틱 경계라 ±반 틱이고, 발은 스스로 고른 길이만큼만 공 도착보다 먼저 움직이므로 그보다 일찍 누른 길이는 휘두르기를 바꾸지 않는다.
+                // 목표가 없는 지상 차기(마지막 터치)는 발이 기다리지 않고 바로 차므로 leadMs 그대로다.
+                const groundLead = setTarget
+                        ? this.physics.groundTossLead() + 0.5 / this.time.tickRate
+                        : ground.leadMs / 1000,
                     kickLead = setTarget ? groundLead : 0.2;
                 const kickWindow = setTarget ? ground.window : 0.36;
                 // 서브: 던진 공의 꼭짓점이 jumpApex 이상이면 점프서브(공중 공격과 같은 점프·발차기), 아니면 지상서브다(사람과 같은 기준).

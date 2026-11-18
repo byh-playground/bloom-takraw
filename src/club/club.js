@@ -73,7 +73,7 @@ const TAKRAW_CLUB_RULES = Object.freeze({
             id: 'power',
             name: { ko: '타격', en: 'Power' },
             radar: true,
-            effect: { ko: '공중 차기 휘두르기의 힘 상한', en: 'Maximum force of the air kick swing' },
+            effect: { ko: '발등 근접 타격의 힘 상한', en: 'Maximum force of close instep strikes' },
         },
         {
             id: 'flexibility',

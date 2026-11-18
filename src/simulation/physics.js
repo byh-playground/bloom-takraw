@@ -32,7 +32,7 @@ function takrawPhysicsSettings(config) {
     settings.stepSeconds = stepMs / 1000;
     settings.maxStepSeconds = settings.maxStepMs / 1000;
     settings.fineContactWindowSeconds = config.simulation.fineContactWindowMs / 1000;
-    // 지상 토스는 휘두르기가 시작되는 틱부터 잘게 돈다: 틱 시작에 공 도착이 휘두르기 길이(_strokeDue) + 한 틱 안이면 그 틱 안에서 휘두르기가 시작된다.
+    // 지상 토스는 휘두르기가 시작될 수 있는 틱부터 잘게 돈다: 틱 시작에 공 도착이 가장 긴 휘두르기 길이(strokeLeadMs) + 한 틱 안일 때.
     settings.tickSeconds = 1 / config.simulation.tickRate;
     // 다리 관절 계획이 휘두르기 길이를 고르는 범위: 가장 짧은 계획 길이부터 가장 긴 휘두르기 길이까지.
     settings.legPlan.minTime = settings.groundToss.minPlanTime;
@@ -1615,16 +1615,15 @@ class TakrawPhysics {
     }
 
     /**
-     * 지금 휘두르기를 시작해야 하는지. 서서 차는 지상 토스는 다리 관절 계획이 계산한 걸리는 시간(_strokeLead)을 쓴다: 이번 걸음(step초)을 넘기면
+     * 지금 휘두르기를 시작해야 하는지. 서서 차는 지상 토스는 다리 관절 계획이 계산한 길이(_strokeLead)를 쓴다: 이번 걸음(step초)을 넘기면
      * 공 도착까지 남은 시간이 그보다 짧아질 때 참이다. 몸을 던지는 받기는 groundToss.strokeLeadMs 이하로 남았을 때다.
-     * margin(초)은 더 일찍 참이 되게 하는 여유이고, 잘게 도는 틱 판정(fineStepNeeded)이 한 틱을 넣어 같은 계산을 쓴다.
+     * 어느 쪽이든 공 도착이 strokeLeadMs + 한 걸음보다 멀면 거짓이다(길이는 strokeLeadMs를 넘지 않는다). 잘게 도는 틱 판정(fineStepNeeded)은 이 한계를 쓴다.
      */
-    _strokeDue(p, input, step, margin = 0) {
-        const arrival = this._receiveArrival(p, this.ball.translation(), this.ball.linvel());
-        if (this._bodyReceive(p, input))
-            return arrival <= this.settings.groundToss.strokeLeadMs / 1000 + margin;
-        if (arrival >= this.settings.legPlan.maxTime + step + margin) return false;
-        return arrival < this._strokeLead(p, input) + step + margin;
+    _strokeDue(p, input, step) {
+        const arrival = this._receiveArrival(p, this.ball.translation(), this.ball.linvel()),
+            longest = this.settings.groundToss.strokeLeadMs / 1000;
+        if (this._bodyReceive(p, input)) return arrival <= longest;
+        return arrival < longest + step && arrival < this._strokeLead(p, input) + step;
     }
 
     /** 관절 목표의 기본값(팔을 조금 굽힌 선 자세). */
@@ -3497,7 +3496,7 @@ class TakrawPhysics {
 
     /**
      * 서서 차는 지상 토스의 휘두르기 길이(초): 지금 관절 상태에서 접촉 관절 상태까지 가는 곡선이 구동 한계(모터 최대 토크·발-골반 힘·발 속도 한계)를
-     * 가장 덜 쓰는 길이다(legPlanSolve의 lead, minPlanTime ~ strokeLeadMs 안). 휘두르기 시작(_strokeDue)과 잘게 도는 틱(fineStepNeeded)이 같이 쓴다.
+     * 가장 덜 쓰는 길이다(legPlanSolve의 lead, minPlanTime ~ strokeLeadMs 안). 휘두르기 시작(_strokeDue)이 쓴다.
      */
     _strokeLead(p, input) {
         const rootRotation = p.root.rotation(),
@@ -4048,7 +4047,9 @@ class TakrawPhysics {
      * - 차는 발이 공에 닿을 예정이 창(simulation.fineContactWindowMs) 안이거나(_kickContactIn),
      * - 공을 맞힌 뒤 따라 차기 시간(groundToss.followThrough) 안일 때.
      * 지상 토스(슬라이드 받기 제외)는 발이 공 도착 strokeLeadMs 전에야 움직이므로(_armGroundToss), 계획이 없는 동안은 누름·뗌 틱과 700 ms 창을 치지 않고
-     * 공 도착이 strokeLeadMs + 한 틱 안인 틱(그 틱 안에서 휘두르기가 시작된다)부터 잘게 돈다. 도착 시간은 휘두르기 시작 판정과 같은 계산(_strokeDue)이다.
+     * 공 도착이 strokeLeadMs + 한 틱 안인 틱부터 잘게 돈다. 휘두르기 길이는 걸음마다 자세에 따라 다시 계산되지만 strokeLeadMs를 넘지 않으므로,
+     * 가장 긴 길이를 기준으로 삼으면 휘두르기는 늘 잘게 도는 틱 안에서 시작된다(그 틱에 계산한 길이를 쓰면 틱 안에서 자세가 바뀌어 굵은 걸음에 시작하는 일이 있었다).
+     * 도착 시간은 휘두르기 시작 판정(_strokeDue)과 같은 계산(_receiveArrival)이다.
      * 그래서 일찍 누른 시각도, 기다리다 뗀 시각도 걸음 크기를 바꾸지 않는다.
      * 버튼을 누른 채 공이 멀리 있거나 이미 맞히고 지나간 동안, 도약 뒤 떠 있는 동안은 굵은 걸음이다(v0.26.3).
      * 물리 상태와 이번 틱 입력만 읽으므로 같은 상태·입력이면 늘 같은 답이다(롤백·리플레이에서 같은 걸음으로 다시 돈다).
@@ -4074,7 +4075,8 @@ class TakrawPhysics {
                 input?.jumpPressed ||
                 this.time - p.lastTouch < follow ||
                 (waiting
-                    ? this._strokeDue(p, input, this.settings.stepSeconds, tick)
+                    ? this._receiveArrival(p, this.ball.translation(), this.ball.linvel()) <=
+                      this.settings.groundToss.strokeLeadMs / 1000 + tick
                     : input?.kickPressed ||
                       (p.kick.held && !input?.kick) ||
                       this._kickContactIn(p) <= window)

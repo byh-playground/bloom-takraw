@@ -222,29 +222,24 @@ function legAnkleAcceleration(model, q, qd, qdd, out = {}) {
 
 /**
  * 발목이 자리 ankle을 속도 velocity·가속 acceleration으로 지날 때의 관절 각가속도(발목 가속 = J q̈ + J̇ q̇를 푼 값).
- * DIFFERENCE_MS 뒤의 발목 자리·속도에서 관절 각속도를 다시 풀어 그 차이로 구한다.
+ * 그 길의 DIFFERENCE_MS 앞·지금·뒤 자리를 각각 역기구학으로 풀어 관절 각의 차분으로 구한다. 세 자리 모두 다리가 닿는 거리로 잘리므로(legJoints)
+ * 닿는 거리 밖으로 나가는 길에서는 거리 한계를 따라 도는 길의 각가속도가 나온다(자리·속도·가속이 같은 잘린 길에서 나온다).
  */
 function legJointAcceleration(model, ankle, velocity, acceleration, out = [0, 0, 0]) {
-    legJointVelocity(
-        model,
-        legJoints(model, ankle, accelerationAngles),
-        velocity,
-        accelerationRate,
-    );
-    for (const axis of AXES) {
-        accelerationNow[axis] =
-            ankle[axis] +
-            velocity[axis] * DIFFERENCE +
-            0.5 * acceleration[axis] * DIFFERENCE * DIFFERENCE;
-        accelerationAfter[axis] = velocity[axis] + acceleration[axis] * DIFFERENCE;
-    }
-    legJointVelocity(
-        model,
-        legJoints(model, accelerationNow, accelerationAngles),
-        accelerationAfter,
-        out,
-    );
-    for (let j = 0; j < 3; j++) out[j] = (out[j] - accelerationRate[j]) / DIFFERENCE;
+    const at = (sign, angles) => {
+        for (const axis of AXES)
+            accelerationNow[axis] =
+                ankle[axis] +
+                sign * velocity[axis] * DIFFERENCE +
+                0.5 * acceleration[axis] * DIFFERENCE * DIFFERENCE;
+        return legJoints(model, accelerationNow, angles);
+    };
+    at(-1, accelerationAngles);
+    at(1, accelerationRate);
+    legJoints(model, ankle, out);
+    for (let j = 0; j < 3; j++)
+        out[j] =
+            (accelerationRate[j] - 2 * out[j] + accelerationAngles[j]) / (DIFFERENCE * DIFFERENCE);
     return out;
 }
 

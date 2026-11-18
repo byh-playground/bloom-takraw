@@ -198,50 +198,6 @@ function legAnkleVelocity(model, q, qd, out = {}) {
 /** 시간 차분(관절 각속도·각가속도, 방향 벡터의 가속)의 간격(ms). */
 const DIFFERENCE_MS = 1;
 const DIFFERENCE = DIFFERENCE_MS / 1000;
-const accelerationAngles = [0, 0, 0],
-    accelerationNow = vector(),
-    accelerationBefore = vector(),
-    accelerationAfter = vector(),
-    accelerationRate = [0, 0, 0];
-
-/** 관절 각·각속도·각가속도로 가는 발목의 가속(엉덩이 기준, 골반 좌표). 궤적을 DIFFERENCE_MS 앞뒤로 옮긴 차분이다. */
-function legAnkleAcceleration(model, q, qd, qdd, out = {}) {
-    legAnkle(model, q, accelerationNow);
-    for (let j = 0; j < 3; j++)
-        accelerationAngles[j] = q[j] - qd[j] * DIFFERENCE + 0.5 * qdd[j] * DIFFERENCE * DIFFERENCE;
-    legAnkle(model, accelerationAngles, accelerationBefore);
-    for (let j = 0; j < 3; j++)
-        accelerationAngles[j] = q[j] + qd[j] * DIFFERENCE + 0.5 * qdd[j] * DIFFERENCE * DIFFERENCE;
-    legAnkle(model, accelerationAngles, accelerationAfter);
-    for (const axis of AXES)
-        out[axis] =
-            (accelerationAfter[axis] - 2 * accelerationNow[axis] + accelerationBefore[axis]) /
-            (DIFFERENCE * DIFFERENCE);
-    return out;
-}
-
-/**
- * 발목이 자리 ankle을 속도 velocity·가속 acceleration으로 지날 때의 관절 각가속도(발목 가속 = J q̈ + J̇ q̇를 푼 값).
- * 그 길의 DIFFERENCE_MS 앞·지금·뒤 자리를 각각 역기구학으로 풀어 관절 각의 차분으로 구한다. 세 자리 모두 다리가 닿는 거리로 잘리므로(legJoints)
- * 닿는 거리 밖으로 나가는 길에서는 거리 한계를 따라 도는 길의 각가속도가 나온다(자리·속도·가속이 같은 잘린 길에서 나온다).
- */
-function legJointAcceleration(model, ankle, velocity, acceleration, out = [0, 0, 0]) {
-    const at = (sign, angles) => {
-        for (const axis of AXES)
-            accelerationNow[axis] =
-                ankle[axis] +
-                sign * velocity[axis] * DIFFERENCE +
-                0.5 * acceleration[axis] * DIFFERENCE * DIFFERENCE;
-        return legJoints(model, accelerationNow, angles);
-    };
-    at(-1, accelerationAngles);
-    at(1, accelerationRate);
-    legJoints(model, ankle, out);
-    for (let j = 0; j < 3; j++)
-        out[j] =
-            (accelerationRate[j] - 2 * out[j] + accelerationAngles[j]) / (DIFFERENCE * DIFFERENCE);
-    return out;
-}
 
 const strokePoint = {},
     strokeNow = [0, 0, 0],
@@ -250,14 +206,14 @@ const strokePoint = {},
 
 /**
  * 발목이 엉덩이 기준 자리 ankle을 속도 velocity로 지나 곧게 나아갈 때, 지난 뒤 time초의 관절 상태(out = { position, velocity, acceleration }).
+ * 발목 자리를 역기구학으로 푼 것이라 관절 각은 늘 유효한 값이다(엉덩이 회전은 좌표가 나타낼 수 있는 영역 안, 무릎은 닿는 거리가 정하는 범위 안).
  * 다리가 닿는 거리 밖으로 나가는 곧은 길은 그 거리에서 잘려(legJoints) 엉덩이 둘레를 도는 길이 된다. 그래서 다리가 다 펴진 자리에서는 멀어지는 속도 몫이
- * 저절로 빠진다. 각속도·각가속도는 그 길을 DIFFERENCE_MS 간격으로 푼 차분이다.
+ * 저절로 빠진다. 각속도·각가속도는 그 길을 DIFFERENCE_MS 간격으로 푼 차분이다. 거리에서 잘리기 시작하는 순간은 길이 꺾여 각가속도 차분이 크므로,
+ * 각가속도는 접촉 순간(계획의 끝 상태)에만 쓴다.
  */
 function legStroke(model, ankle, velocity, time, out) {
     const at = (offset, angles) => {
-        strokePoint.x = ankle.x + velocity.x * (time + offset);
-        strokePoint.y = ankle.y + velocity.y * (time + offset);
-        strokePoint.z = ankle.z + velocity.z * (time + offset);
+        for (const axis of AXES) strokePoint[axis] = ankle[axis] + velocity[axis] * (time + offset);
         return legJoints(model, strokePoint, angles);
     };
     at(0, strokeNow);
@@ -275,7 +231,7 @@ function legStroke(model, ankle, velocity, time, out) {
 
 /**
  * 관절 하나의 궤적: 지금 상태(각 from, 각속도 rate)에서 remaining초 뒤의 끝 상태(각 to, 각속도 final, 각가속도 curve)로 가는 4차 곡선의 진행도 u(0~1) 값.
- * 끝의 각가속도까지 맞추므로 접촉을 지나 곧게 나아가는 따라 차기(legStroke)와 각·각속도·각가속도가 이어진다: 접촉 직전에 급히 꺾이지 않고, 발이 조금 늦게 닿아도
+ * 끝의 각가속도까지 맞추므로 발목이 접촉점을 곧게 지나가는 끝 상태(legStroke)에 각·각속도·각가속도가 이어진다: 접촉 직전에 급히 꺾이지 않고, 발이 조금 늦게 닿아도
  * 속도가 같다. 곡선 위의 어느 상태에서 다시 풀어도 같은 곡선이다. out = [각, 각속도, 각가속도].
  */
 function legCurve(from, rate, to, final, curve, remaining, u, out) {
@@ -483,7 +439,6 @@ function legPlanUsage(model, start, end, duration, samples) {
  *   end: 끝 상태 { position, velocity, acceleration }: 발목이 접촉 자리를 낼 수 있는 속도로 지나가는 관절 상태(legStroke)다. 한계·시간 때문에
  *     원하던 대로 못 하면 곧게 지나가기, reach 몫, 속도 전체 순서로 내준 것이다. 무엇을 내줘도 한계 안에 못 들면 원하던 대로 두며,
  *     그때는 구동이 상한에 걸려 발이 계획보다 늦는다.
- *   straight: 끝 상태가 접촉을 곧게 지나가는가(거짓이면 접촉 각속도 그대로 호를 그린다). 접촉 뒤 따라 차기도 같은 길을 가야 한다.
  */
 function legPlanSolve(model, start, contact, available, search) {
     const { minTime, maxTime, samples, bisection } = search;
@@ -570,12 +525,7 @@ function legPlanSolve(model, start, contact, available, search) {
     aim();
     fit(() => easiest(false).usage <= 1);
     const best = easiest(true);
-    const result = (duration) => ({
-        lead: best.time,
-        duration,
-        end,
-        straight: give.straight === 1,
-    });
+    const result = (duration) => ({ lead: best.time, duration, end });
     if (available === Infinity) return result(best.time);
     // 실제 길이(남은 시간)는 고른 길이와 다르다: 길면 곡선이 달라지고, 짧으면(늦은 누름) 시간이 모자란다. 그 길이로 다시 보고 낼 수 있는 접촉 조건으로 맞춘다.
     let duration = Math.max(available, minTime);
@@ -623,9 +573,6 @@ export {
     legJoints,
     legJointVelocity,
     legAnkleVelocity,
-    legAnkleAcceleration,
-    legJointAcceleration,
-    legStroke,
     legTorques,
     legActuation,
     legPlanSolve,

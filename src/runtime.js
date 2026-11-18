@@ -330,9 +330,9 @@ async function bootTakraw() {
     });
 
     const renderLoop = new RenderLoop({
-        hz: TAKRAW_RUNTIME.clock.renderHz,
+        minHz: TAKRAW_RUNTIME.clock.minFrameHz,
         blocked: () => match.failed,
-        onFrame: (now, frameAt) => match.frame(now, frameAt),
+        onFrame: (frameTimeMs) => match.frame(frameTimeMs),
     });
 
     /**

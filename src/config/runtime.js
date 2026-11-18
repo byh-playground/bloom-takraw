@@ -189,8 +189,10 @@ const TAKRAW_RUNTIME = Object.freeze({
         stallMs: 1000,
     },
     // maxCatchupMs: 한 번의 루프 깨움에서 따라잡는 시뮬레이션 시간 상한(ms). 롤백 세션 프로필의 maxCatchupSteps(틱 수)로는 올림해 넘긴다(runtime/match-setup.js).
-    // baseHz는 tickRate(config/game.js)·inputHz·renderHz로 나누어떨어져야 한다(gamekit simloop clockRates).
-    clock: { baseHz: 120, inputHz: 60, renderHz: 60, maxCatchupMs: 66 },
+    // baseHz는 tickRate(config/game.js)·inputHz로 나누어떨어져야 한다(gamekit simloop clockRates).
+    // minFrameHz: 그리는 빈도의 최소 목표. 화면 주사 k번마다 한 번 그리고, k는 빈도가 이 값 이상으로 남는 가장 큰 정수다
+    // (60·90 Hz 화면은 매번, 120·144·165 Hz는 2번마다 = 60·72·82.5 fps). 화면 주사율로 정해지므로 baseHz의 약수일 필요가 없다(gamekit FramePacer).
+    clock: { baseHz: 120, inputHz: 60, minFrameHz: 60, maxCatchupMs: 66 },
     network: {
         // 신호 릴레이에서 방을 찾는 이름공간(게임 식별자). 다른 게임과 방 코드가 섞이지 않게 한다.
         namespace: TAKRAW_ID,

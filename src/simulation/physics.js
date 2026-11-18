@@ -114,6 +114,8 @@ class TakrawPhysics {
         this.netContacts = new Set();
         this.lastBallTouch = null;
         this.time = 0;
+        // 선수별로 마지막에 푼 휘두르기 길이(_strokeLead). 같은 시각의 되물음에만 쓰는 임시 기록이다.
+        this.strokeLeads = [];
         this._buildCourt();
         for (let id = 0; id < 6; id++) this.players.push(this._buildPlayer(id));
         this.setAthletes(profiles);
@@ -253,6 +255,7 @@ class TakrawPhysics {
 
     setAthletes(profiles) {
         this.restoredSnapshotBytes = null;
+        this.strokeLeads = [];
         if (!Array.isArray(profiles) || profiles.length !== 6)
             throw new Error('여섯 명의 선수 프로필이 필요합니다.');
         const values = profiles.map((profile, id) => this._athleteProfile(profile, id));
@@ -879,6 +882,7 @@ class TakrawPhysics {
     /** starts: 선수 id → {x, z}. 지정한 선수만 기본 자리(home) 대신 그 자리에서 시작한다(유저 서브 위치). */
     resetPlayers(starts = null) {
         this.restoredSnapshotBytes = null;
+        this.strokeLeads = [];
         this.ballContacts.clear();
         this.netContacts.clear();
         this.lastBallTouch = null;
@@ -3344,6 +3348,7 @@ class TakrawPhysics {
             velocity: state.velocity,
             acceleration: [0, 0, 0],
             end: solved.end,
+            straight: solved.straight,
         };
     }
 
@@ -3494,15 +3499,29 @@ class TakrawPhysics {
      * 가장 덜 쓰는 길이다(legPlanSolve의 lead, minPlanTime ~ strokeLeadMs 안). 휘두르기 시작(_strokeDue)과 잘게 도는 틱(fineStepNeeded)이 같이 쓴다.
      */
     _strokeLead(p, input) {
+        const ball = this.ball.translation(),
+            ballVelocity = this.ball.linvel();
+        // 같은 시각에 같은 공·같은 목표로 다시 물으면(틱 시작의 잘게 돌기 판정, 그 걸음의 받기 동작·휘두르기 시작 판정) 풀었던 값을 쓴다.
+        // 몸 상태는 걸음(시각)이 넘어가야 바뀌고, 리셋·불러오기는 이 기록을 비운다. 저장하지 않는 값이라 스냅샷에 들지 않는다.
+        const key = [
+            this.time,
+            ball.x,
+            ball.y,
+            ball.z,
+            ballVelocity.x,
+            ballVelocity.y,
+            ballVelocity.z,
+            input.tossTarget.x,
+            input.tossTarget.z,
+            input.tossTarget.playerId,
+            input.aim.x,
+            input.aim.y,
+        ];
+        const solved = this.strokeLeads[p.id];
+        if (solved && solved.key.every((value, index) => value === key[index])) return solved.lead;
         const rootRotation = p.root.rotation(),
             suffix = this._kickSide(p, true, p.root.translation(), rootRotation);
-        const strike = this._tossContact(
-            p,
-            input,
-            this.ball.translation(),
-            this.ball.linvel(),
-            true,
-        );
+        const strike = this._tossContact(p, input, ball, ballVelocity, true);
         const model = this._legPlanModel(
             p,
             suffix,
@@ -3511,7 +3530,9 @@ class TakrawPhysics {
         );
         const state = this._legJointState(p, suffix, rootRotation, p.root.angvel(), model);
         const contact = this._tossContactJoints(p, suffix, strike, strike.duration, rootRotation);
-        return legPlanSolve(model, state, contact, Infinity, this.settings.legPlan).lead;
+        const lead = legPlanSolve(model, state, contact, Infinity, this.settings.legPlan).lead;
+        this.strokeLeads[p.id] = { key, lead };
+        return lead;
     }
 
     /**
@@ -3523,10 +3544,11 @@ class TakrawPhysics {
     }
 
     /**
-     * 관절 계획의 한 걸음. 기준 상태(joints)를 접촉 관절 상태(joints.end)로 가는 곡선(legCurve) 위에서 dt만큼 나아가고, 접촉 시각 뒤에는 접촉 순간의 발목 속도 그대로
-     * followThrough 동안 곧게 나아간다(legStroke).
-     * followThrough 뒤에는 멈춘다. 기준은 계획을 세울 때의 골반 방향과 내다본 엉덩이 기준이라, 실제 골반이 다르게 움직인 만큼 발목 목표를 고치고(_jointTossAnkle)
-     * 그 발목을 지금 골반 좌표의 관절 각·각속도로 다시 푼다. 그 관절 상태와 기준 각가속도가 요구하는 토크를 모터 몫과 발-골반 힘 몫으로 나눠(legActuation) 앞먹임으로 쓴다.
+     * 관절 계획의 한 걸음. 기준 상태(joints)를 접촉 관절 상태(joints.end)로 가는 곡선(legCurve) 위에서 dt만큼 나아가고, 접촉 시각 뒤에는 계획이 정한 대로
+     * followThrough 동안 나아가다 멈춘다: 곧게 지나가는 계획(joints.straight)은 접촉 순간의 발목 속도 그대로 곧게(legStroke), 그것을 내준 계획은 접촉 각속도 그대로 호를 그린다.
+     * 기준은 계획을 세울 때의 골반 방향과 내다본 엉덩이 기준이라, 실제 골반이 다르게 움직인 만큼 발목 목표를 고치고(_jointTossAnkle), 발등이 계획 속도로 닿게
+     * 발의 회전 몫을 빼고(_groundStrokeVelocity), 다리가 닿는 거리 안으로 자른다(_reachLimited). 그 하나의 발목 목표에서 모터 기준(관절 각·각속도)과 발-골반 힘의 목표가
+     * 같이 나온다. 그 관절 상태와 각가속도(기준 + 고치는 몫)가 요구하는 토크를 모터 몫과 발-골반 힘 몫으로 나눠(legActuation) 앞먹임으로 쓴다.
      * 돌려주는 값: 모터 기준(joints: 관절 각·각속도와 모터 앞먹임 토크), 발목 목표(target·velocity, 세계 좌표), 발-골반 힘 앞먹임(force).
      */
     _jointTossPath(p, plan, body, dt) {
@@ -3540,16 +3562,24 @@ class TakrawPhysics {
             after = elapsed + dt - plan.duration;
         if (remaining > dt) legPlanAdvance(joints, joints.end, remaining, dt);
         else {
-            // 접촉 시각을 지난다: 접촉 순간의 발목 속도 그대로 followThrough 동안 곧게 나아가다 멈춘다(계획 때의 골반 좌표에서).
-            legStroke(
-                model,
-                legAnkle(model, joints.end.position),
-                legAnkleVelocity(model, joints.end.position, joints.end.velocity),
-                Math.min(after, toss.followThrough),
-                joints,
-            );
-            if (after >= toss.followThrough)
-                for (let j = 0; j < 3; j++) joints.velocity[j] = joints.acceleration[j] = 0;
+            // 접촉 시각을 지난다: 계획의 끝 상태가 정한 길(곧게 또는 호)로 followThrough 동안 나아가다 멈춘다.
+            const past = Math.min(after, toss.followThrough);
+            if (joints.straight)
+                legStroke(
+                    model,
+                    legAnkle(model, joints.end.position),
+                    legAnkleVelocity(model, joints.end.position, joints.end.velocity),
+                    past,
+                    joints,
+                );
+            for (let j = 0; j < 3; j++) {
+                if (!joints.straight) {
+                    joints.position[j] = joints.end.position[j] + joints.end.velocity[j] * past;
+                    joints.velocity[j] = joints.end.velocity[j];
+                    joints.acceleration[j] = 0;
+                }
+                if (after >= toss.followThrough) joints.velocity[j] = joints.acceleration[j] = 0;
+            }
         }
         const knee = this._clamp(joints.position[2], model.kneeMin, model.kneeMax);
         if (knee !== joints.position[2]) {
@@ -3565,29 +3595,52 @@ class TakrawPhysics {
                 velocity: this._supportVelocity(p, suffix),
             };
         const ankle = this._jointTossAnkle(p, plan, model, frame, after);
-        // 지금 골반 좌표의 관절 목표: 골반이 도는 속도만큼 발목의 상대 속도를 뺀다.
+        // 계획의 접촉 속도는 발등의 속도다. 발이 돌고 있으면 발등과 발목의 속도가 다르므로 그 차이를 발목 목표에서 뺀다(접촉 직전 strokeTime 동안 점점 크게).
+        const foot = p.byName['foot' + suffix];
+        ankle.velocity = this._groundStrokeVelocity(
+            p,
+            foot,
+            this._point(foot.body, this._v(0, 0.065, -0.085)),
+            ankle.velocity,
+            dt,
+        );
+        // 지금 골반 좌표의 발목 목표: 골반이 도는 속도만큼 상대 속도를 빼고, 다리가 닿는 거리 안으로 자른다. 모터와 발-골반 힘이 이 같은 목표를 따른다.
         const inverse = this._conj(rootRotation),
-            position = legJoints(model, this._rotate(inverse, ankle.offset)),
-            velocity = legJointVelocity(
+            reach = this._reachLimited(
                 model,
-                position,
+                this._rotate(inverse, ankle.offset),
                 this._rotate(
                     inverse,
                     this._sub(ankle.velocity, this._cross(rootAngularVelocity, ankle.offset)),
                 ),
             );
-        // 앞먹임: 고친 관절 각·각속도(지금 골반 기준이라 중력 방향이 맞다)와 기준 궤적의 각가속도가 요구하는 토크를 모터와 발-골반 힘에 나눈다.
-        const actuation = { motor: [0, 0, 0], force: this._v() };
+        const position = legJoints(model, reach.offset),
+            velocity = legJointVelocity(model, position, reach.velocity),
+            offset = this._rotate(rootRotation, reach.offset);
+        // 앞먹임: 그 관절 각·각속도(지금 골반 기준이라 중력 방향이 맞다)와 각가속도(기준 궤적 + 발목 목표를 고치는 몫)가 요구하는 토크를 모터와 발-골반 힘에 나눈다.
+        const extra = legJointVelocity(model, position, this._rotate(inverse, ankle.acceleration)),
+            actuation = { motor: [0, 0, 0], force: this._v() };
         legActuation(
             model,
             position,
             velocity,
-            legTorques(model, position, velocity, joints.acceleration),
+            legTorques(
+                model,
+                position,
+                velocity,
+                joints.acceleration.map((value, j) => value + extra[j]),
+            ),
             actuation,
         );
         return {
-            target: this._add(frame.hip, ankle.offset),
-            velocity: this._add(frame.velocity, ankle.velocity),
+            target: this._add(frame.hip, offset),
+            velocity: this._add(
+                frame.velocity,
+                this._add(
+                    this._rotate(rootRotation, reach.velocity),
+                    this._cross(rootAngularVelocity, offset),
+                ),
+            ),
             normal: plan.normal,
             joints: { position, velocity, torque: actuation.motor },
             // 다리가 거의 곧으면 모터의 모자란 몫을 내는 발목 힘이 끝없이 커진다. 실제로 걸 수 있는 크기까지만 앞먹인다.
@@ -3596,52 +3649,79 @@ class TakrawPhysics {
     }
 
     /**
-     * 걸음 끝 시각의 발목 목표: 엉덩이에서 발목까지의 벡터(offset)와 엉덩이에 대한 발목 속도(velocity), 둘 다 세계 좌표 축이다.
+     * 엉덩이 기준 발목 자리·속도(골반 좌표)를 다리가 닿는 거리(reachMin ~ reachMax) 안으로 자른다. 거리 밖이면 그 거리의 자리로 옮기고,
+     * 거리 밖으로 더 나가는 속도 몫을 뺀다(다리는 그 이상 펴지거나 접히지 못한다).
+     */
+    _reachLimited(model, offset, velocity) {
+        const length = this._length(offset),
+            bound = this._clamp(length, model.reachMin, model.reachMax);
+        if (bound === length || length < 1e-9) return { offset, velocity };
+        const outward = this._mul(offset, 1 / length),
+            leaving = this._dot(velocity, outward) * Math.sign(length - bound);
+        return {
+            offset: this._mul(outward, bound),
+            velocity:
+                leaving > 0
+                    ? this._sub(velocity, this._mul(outward, this._dot(velocity, outward)))
+                    : velocity,
+        };
+    }
+
+    /**
+     * 걸음 끝 시각의 발목 목표: 엉덩이에서 발목까지의 벡터(offset), 엉덩이에 대한 발목 속도(velocity), 기준 궤적에 더해지는 가속(acceleration). 모두 세계 좌표 축이다.
      * after는 걸음 끝이 접촉 시각을 지난 시간(초, 음수면 아직 전)이다.
      * 접촉 전: 기준 발목(관절 기준의 순기구학)을 계획을 세울 때의 골반 방향(plan.rotation)으로 놓는다. 골반이 기울거나 돌아도 다리는 세계 좌표에서 계획한 방향으로 간다.
      *   거기에, 지금 다시 내다본 접촉 순간의 발목 자리·속도(실제 엉덩이 기준)와 계획 때 내다본 것의 차이를 더한다. 더하는 비율은 진행도 u의 3u² − 2u³로
      *   0에서 1까지 매끄럽게 커진다. 그래서 몸이 계획과 다르게 움직여도 접촉 시각에는 발목이 세계 좌표의 접촉점·접촉 속도에 맞고, 남은 시간이 줄어도 고치는 양이
-     *   급해지지 않는다(끝점을 걸음마다 다시 풀면 남은 시간에 반비례해 가속이 커진다).
-     * 접촉 뒤: 세계 좌표의 접촉점에서 접촉 속도로 followThrough 동안 곧게 나아간 자리.
+     *   급해지지 않는다(끝점을 걸음마다 다시 풀면 남은 시간에 반비례해 가속이 커진다). 그 비율이 변하며 생기는 가속이 acceleration이다.
+     * 접촉 뒤: 세계 좌표의 접촉점에서, 기준 발목이 접촉 뒤로 간 만큼(계획이 정한 따라 차기) 나아간 자리. 계획이 내다본 엉덩이 속도만큼 함께 흐른다.
      */
     _jointTossAnkle(p, plan, model, frame, after) {
         const suffix = p.kick.side,
-            joints = plan.joints;
-        const contact = this._add(plan.point, this._ankleOffset(plan));
-        const toss = this.settings.groundToss,
+            joints = plan.joints,
+            toss = this.settings.groundToss;
+        const contact = this._add(plan.point, this._ankleOffset(plan)),
             planned = (local) => this._rotate(plan.rotation, local);
-        if (after >= 0)
+        const reached = planned(legAnkle(model, joints.end.position)),
+            stroke = planned(legAnkleVelocity(model, joints.end.position, joints.end.velocity));
+        if (after >= 0) {
+            // 계획이 내다본 접촉 순간의 엉덩이 속도(계획의 발 속도 − 그때 엉덩이에 대한 발목 속도).
+            const drift = this._sub(plan.velocity, stroke),
+                following = after < toss.followThrough;
             return {
                 offset: this._sub(
                     this._add(
-                        contact,
-                        this._mul(plan.velocity, Math.min(after, toss.followThrough)),
+                        this._add(contact, this._mul(drift, Math.min(after, toss.followThrough))),
+                        this._sub(planned(legAnkle(model, joints.position)), reached),
                     ),
                     frame.hip,
                 ),
                 velocity: this._sub(
-                    after < toss.followThrough ? plan.velocity : this._v(),
+                    following
+                        ? this._add(
+                              drift,
+                              planned(legAnkleVelocity(model, joints.position, joints.velocity)),
+                          )
+                        : this._v(),
                     frame.velocity,
                 ),
+                acceleration: this._v(),
             };
+        }
         const travel = this._hipTravel(p, suffix, -after);
-        const shift = this._sub(
-            this._sub(this._sub(contact, frame.hip), travel.offset),
-            planned(legAnkle(model, joints.end.position)),
-        );
-        const rate = this._sub(
-            this._sub(plan.velocity, travel.velocity),
-            planned(legAnkleVelocity(model, joints.end.position, joints.end.velocity)),
-        );
+        const shift = this._sub(this._sub(this._sub(contact, frame.hip), travel.offset), reached);
+        const rate = this._sub(this._sub(plan.velocity, travel.velocity), stroke);
         const u = 1 + after / plan.duration,
             weight = u * u * (3 - 2 * u),
-            weightRate = (6 * u * (1 - u)) / plan.duration;
+            weightRate = (6 * u * (1 - u)) / plan.duration,
+            weightCurve = (6 * (1 - 2 * u)) / (plan.duration * plan.duration);
         return {
             offset: this._add(planned(legAnkle(model, joints.position)), this._mul(shift, weight)),
             velocity: this._add(
                 planned(legAnkleVelocity(model, joints.position, joints.velocity)),
                 this._add(this._mul(rate, weight), this._mul(shift, weightRate)),
             ),
+            acceleration: this._add(this._mul(shift, weightCurve), this._mul(rate, 2 * weightRate)),
         };
     }
 
@@ -5242,6 +5322,7 @@ class TakrawPhysics {
         // All body/joint bindings and controller data are ready before the swap.
         this.world.free();
         this.world = restore.world;
+        this.strokeLeads = [];
         this.queue.free();
         this.queue = restore.queue;
         this.time = data.time;

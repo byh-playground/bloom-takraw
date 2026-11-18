@@ -16,6 +16,7 @@ const TAKRAW_PHYSICS = Object.freeze({
     jumpSpeed: 5.4,
     jumpHoldAcceleration: 7.5,
     jumpHoldTime: 0.16,
+    // 지상 발차기의 발-골반 힘 상한(N). 지상 토스의 다리 관절 계획도 이 값을 구동 한계로 읽는다(physics.js _legPlanModel).
     groundKickForce: 380,
     groundKickSpeed: 7.5,
     footPositionGain: 200,
@@ -47,6 +48,9 @@ const TAKRAW_PHYSICS = Object.freeze({
         slop: 0.001,
         separation: 0.002,
     },
+    // 다리 관절 계획(simulation/leg-plan.js)의 수치 해상도. samples: 궤적이 구동 한계 안에 드는지 보는 표본 수.
+    // bisection: 걸리는 시간·속도 배율을 찾는 사다리 칸 수이자 이분법 횟수. 찾는 길이 범위는 groundToss.minPlanTime ~ receive.horizon이다.
+    legPlan: { samples: 8, bisection: 8 },
     // 네트(얇은 판)와 기둥(캡슐)의 충돌체 치수. 위치·크기는 takrawNetShape 한 곳에서 court와 합쳐 정하고, 물리와 그림이 그 값을 같이 읽는다.
     netBottom: 0.78,
     netHalfThickness: 0.025,
@@ -54,9 +58,11 @@ const TAKRAW_PHYSICS = Object.freeze({
     groundToss: {
         contactHeight: 0.75,
         minPlanTime: 0.08,
-        // 휘두르기 길이(ms): 발은 공 도착 이만큼 전에 휘두르기 시작한다. 그보다 일찍 누르면 그때까지 디딤발로 서서 기다리므로(physics.js _armGroundToss)
-        // 일찍 누른 길이가 달라도 접촉 결과가 같다. 이보다 늦게 누르면 남은 시간만큼만 휘두른다(최소 minPlanTime).
-        // AI는 늘 이보다 일찍 누르므로(config/game.js ai.toss.ground.leadMs 325, 실제 누름 300~350 ms 전) AI의 받기·세트·서브가 모두 이 길이로 나온다.
+        // 가장 긴 휘두르기 길이(ms). 서서 차는 토스(서브·세트·쿠션 받기)의 발은 다리 관절 계획(simulation/leg-plan.js)이 minPlanTime ~ 이 값 안에서
+        // 구동 한계를 가장 덜 쓰는 길이를 고르고(physics.js _strokeLead), 공 도착 그만큼 전에 휘두르기 시작한다. 몸을 던지는 받기(런지·슬라이드)는 이 길이 그대로다.
+        // 그보다 일찍 누르면 그때까지 디딤발로 서서 기다리므로(_armGroundToss) 일찍 누른 길이가 달라도 접촉 결과가 같다. 늦게 누르면 남은 시간만큼만 휘두른다(최소 minPlanTime).
+        // 상한이 필요한 이유: 느린 접촉(받기)은 길수록 한계를 덜 써서 상한이 없으면 길이가 끝없이 늘고, 한계에 딱 맞는 가장 짧은 길이는 추종 오차를 고칠 여유가 없다.
+        // AI는 이 값보다 반 틱 일찍 누른다(game.js decideAI, physics.groundTossLead).
         strokeLeadMs: 300,
         attackHeight: 3.3,
         // 서브 발 계획의 포물선: 꼭짓점 serveApex(m, 접촉점보다 최소 0.6 m 위)를 지나 상대 코트 목표(ai.serve.groundAim)를 serveHeight(m) 높이로 지난다.
@@ -72,9 +78,9 @@ const TAKRAW_PHYSICS = Object.freeze({
         positionGain: 1200,
         velocityGain: 50,
         accelerationMass: 4.0,
-        // 지상 토스(서브·받기·토스·세트) 발의 힘-속도 한계(m/s, 엉덩이에 대한 발 속도): 그 방향으로 더 미는 힘이 (1 - 속도/maxFootSpeed)배로 줄어 이 속도에서 0이 된다.
+        // 지상 토스(서브·받기·토스·세트) 발의 힘-속도 한계(m/s, 엉덩이에 대한 발 속도): 발-골반 힘이 그 방향으로 더 미는 몫이 (1 - 속도/maxFootSpeed)배로 줄어 이 속도에서 0이 된다.
         // 도움닫기 없이 선 자리에서 차는 다리의 무부하 최대 속도 범위(무릎 펴기 최대 각속도 약 20~25 rad/s × 정강이+발 약 0.5 m ≈ 10~13 m/s, 엉덩이 굽힘이 조금 더한다)의 위쪽 끝.
-        // 늦게 누를수록 짧은 시간에 휘두르는 발이 이 한계에 걸려 더 빨라지지 못한다. 공중 차기(airKick)에는 걸지 않는다.
+        // 다리 관절 계획도 같은 값을 한계로 읽어(physics.js _legPlanModel) 이 속도를 넘는 접촉은 계획하지 않는다. 공중 차기(airKick)에는 걸지 않는다.
         maxFootSpeed: 13,
         orientationStiffness: 1000,
         orientationDamping: 2.0,
@@ -260,7 +266,7 @@ const TAKRAW_PHYSICS = Object.freeze({
         // 공을 위로 차 올리는 지상 발차기(_kickCommand): lead초 뒤 공 위치를 노리고, 수평 성분 비율 horizontal(위 성분 1)의
         // 방향으로 차며, 공 중심에서 그 방향 반대로 behind만큼 뒤를 발 목표로 둔다. 발 목표는 엉덩이에서 reach까지.
         groundKick: { lead: 0.04, horizontal: 0.48, behind: 0.045, reach: 0.84 },
-        // 차는 다리(엉덩이·무릎·발목) 관절 모터 세기.
+        // 차는 다리(엉덩이·무릎·발목) 관절 모터 세기. 지상 토스의 다리 관절 계획은 이 세기의 모터 최대 토크를 구동 한계로 읽는다(physics.js _motorGains).
         kickLegStrength: { air: 0.72, ground: 0.85 },
     },
     // Scale units per second: full extension takes 250 ms, return 500 ms.

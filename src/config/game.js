@@ -148,7 +148,7 @@ const TAKRAW_CONFIG = Object.freeze({
             // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이다.
             // v0.28.1: serveApex 4.6과 함께 2.7 → 4.0으로 올렸다. v0.28.0(다리 관절 계획)에서 발이 계획 속도로 맞게 되면서 서브가 얕아진 것(착지 중앙 5.4 → 4.0 m)을 되돌리는 값이다.
             // AI 지상 서브는 x 약 4.2~5.9 m(중앙 4.8 m)에 떨어지고(접촉 뒤 속도의 포물선 계산, 14시드), 코트 밖은 87개 중 3개였다. 일찍 누른 가운데 조준 사람 서브는 공 속력 11.7 m/s다.
-            // 예전 깊이(중앙 5.4 m)까지 올리지 않은 이유는 config/physics.js groundToss.serveApex 주석에 있다(다리 한계 경계를 넘어 코트 밖이 17%로 늘어난다).
+            // 예전 깊이(중앙 5.4 m)까지 올리지 않은 이유는 config/physics.js groundToss.serveApex 주석에 있다(다리 한계 경계를 넘어 코트 밖·네트 서브가 90개 중 15개(17%)로 늘어난다).
             groundAim: { x: 4.0 },
             toss: {
                 offset: 0.65,

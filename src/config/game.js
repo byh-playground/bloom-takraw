@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.28.0';
+const TAKRAW_VERSION = '0.28.1';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -146,9 +146,10 @@ const TAKRAW_CONFIG = Object.freeze({
             // 서브의 공 던지기(사람·AI 같은 규칙, AI는 판마다 다른 모으는 시간을 쓴다)(발차기 버튼. 누르는 동안 공이 lift(m)까지 올라가 높이가 보인다)(simulation/game.js updateServeToss): 공은 서버 앞 offset(m)·높이 height(m) 손 자리에 있다가,
             // 던지기를 떼면 위로 던져진다(앞뒤·좌우 속도는 던지는 순간 서버의 이동 속도 그대로). 꼭짓점은 짧게 누르면 minApex(m), fullCharge(초) 이상 누르면 maxApex(m). jumpApex(m) 이상으로 던지면 AI는 점프서브를 한다. maxHold(초) 안에 안 던지면 자동으로 던진다.
             // groundAim.x: 서브 발 계획(physics _predictReceivePass)이 겨누는 상대 코트 x(m). 계획은 이 점을 groundToss.serveHeight 높이로 지나는 포물선이다.
-            // v0.28.0(다리 관절 계획)부터 발이 계획 속도로 맞아, 접촉 뒤 공 속도가 계획의 약 1.08배다(이전 약 1.15~1.25배). 가운데 조준 공은 목표보다 약 1.5 m 깊게,
-            // AI 지상 서브는 x 약 2.7~5.5 m(중앙 4.0 m)에, 일찍 누른 사람 서브는 x 약 4.1 m에 떨어진다(이전에는 약 0.3~6.9 m, 중앙 5.4 m). 값은 그대로 두었다.
-            groundAim: { x: 2.7 },
+            // v0.28.1: serveApex 4.6과 함께 2.7 → 4.0으로 올렸다. v0.28.0(다리 관절 계획)에서 발이 계획 속도로 맞게 되면서 서브가 얕아진 것(착지 중앙 5.4 → 4.0 m)을 되돌리는 값이다.
+            // AI 지상 서브는 x 약 4.2~5.9 m(중앙 4.8 m)에 떨어지고(접촉 뒤 속도의 포물선 계산, 14시드), 코트 밖은 87개 중 3개였다. 일찍 누른 가운데 조준 사람 서브는 공 속력 11.7 m/s다.
+            // 예전 깊이(중앙 5.4 m)까지 올리지 않은 이유는 config/physics.js groundToss.serveApex 주석에 있다(다리 한계 경계를 넘어 코트 밖·네트 서브가 90개 중 15개(17%)로 늘어난다).
+            groundAim: { x: 4.0 },
             toss: {
                 offset: 0.65,
                 height: 1.0,

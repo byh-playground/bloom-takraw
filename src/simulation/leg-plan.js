@@ -198,6 +198,56 @@ function legAnkleVelocity(model, q, qd, out = {}) {
 /** 시간 차분(관절 각속도·각가속도, 방향 벡터의 가속)의 간격(ms). */
 const DIFFERENCE_MS = 1;
 const DIFFERENCE = DIFFERENCE_MS / 1000;
+const accelerationAngles = [0, 0, 0],
+    accelerationNow = vector(),
+    accelerationBefore = vector(),
+    accelerationAfter = vector(),
+    accelerationRate = [0, 0, 0];
+
+/** 관절 각·각속도·각가속도로 가는 발목의 가속(엉덩이 기준, 골반 좌표). 궤적을 DIFFERENCE_MS 앞뒤로 옮긴 차분이다. */
+function legAnkleAcceleration(model, q, qd, qdd, out = {}) {
+    legAnkle(model, q, accelerationNow);
+    for (let j = 0; j < 3; j++)
+        accelerationAngles[j] = q[j] - qd[j] * DIFFERENCE + 0.5 * qdd[j] * DIFFERENCE * DIFFERENCE;
+    legAnkle(model, accelerationAngles, accelerationBefore);
+    for (let j = 0; j < 3; j++)
+        accelerationAngles[j] = q[j] + qd[j] * DIFFERENCE + 0.5 * qdd[j] * DIFFERENCE * DIFFERENCE;
+    legAnkle(model, accelerationAngles, accelerationAfter);
+    for (const axis of AXES)
+        out[axis] =
+            (accelerationAfter[axis] - 2 * accelerationNow[axis] + accelerationBefore[axis]) /
+            (DIFFERENCE * DIFFERENCE);
+    return out;
+}
+
+/**
+ * 발목이 자리 ankle을 속도 velocity·가속 acceleration으로 지날 때의 관절 각가속도(발목 가속 = J q̈ + J̇ q̇를 푼 값).
+ * DIFFERENCE_MS 뒤의 발목 자리·속도에서 관절 각속도를 다시 풀어 그 차이로 구한다.
+ */
+function legJointAcceleration(model, ankle, velocity, acceleration, out = [0, 0, 0]) {
+    legJointVelocity(
+        model,
+        legJoints(model, ankle, accelerationAngles),
+        velocity,
+        accelerationRate,
+    );
+    for (const axis of AXES) {
+        accelerationNow[axis] =
+            ankle[axis] +
+            velocity[axis] * DIFFERENCE +
+            0.5 * acceleration[axis] * DIFFERENCE * DIFFERENCE;
+        accelerationAfter[axis] = velocity[axis] + acceleration[axis] * DIFFERENCE;
+    }
+    legJointVelocity(
+        model,
+        legJoints(model, accelerationNow, accelerationAngles),
+        accelerationAfter,
+        out,
+    );
+    for (let j = 0; j < 3; j++) out[j] = (out[j] - accelerationRate[j]) / DIFFERENCE;
+    return out;
+}
+
 const strokePoint = {},
     strokeNow = [0, 0, 0],
     strokeNext = [0, 0, 0],
@@ -578,6 +628,8 @@ export {
     legJoints,
     legJointVelocity,
     legAnkleVelocity,
+    legAnkleAcceleration,
+    legJointAcceleration,
     legStroke,
     legTorques,
     legActuation,

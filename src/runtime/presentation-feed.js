@@ -1,8 +1,14 @@
 import { PresentationRuntime, RenderObject } from '@bloom-gamekit/interpolation';
 
 /**
- * 시뮬레이션 뷰를 보간 표시(gamekit PresentationRuntime)에 넘기는 통로. 신체 pose 캐시와 게시 리비전·순번을 소유한다.
+ * 시뮬레이션 뷰를 보간 표시(gamekit PresentationRuntime)에 넘기는 통로. 신체 pose 캐시와 게시 리비전·순번, 표시 시계를 소유한다.
  * reset()마다 새 PresentationRuntime과 새 BodyPose 클래스를 만든다(이전 리셋의 pose가 섞이지 않게).
+ * 표시 시계(clockAt)는 그리는 프레임의 시각으로 흐른다(advance·frame). 게시(publish)는 지금 표시 시계에 표본을 넣는다.
+ * 틱이 실제로 끝난 시각(타이머 지연·틱 소요만큼 흔들린다)을 표시 시계에 섞지 않으므로, 표시 시각은 프레임 시각과 같은 양만큼 늘어난다.
+ * 표시가 최신 틱에 닿으면(보간을 새로 시작한 직후, 틱이 늦을 때) 거기서 멈췄다가 다음 틱에서 이어 간다(gamekit bounded 시계).
+ * 그때는 다음 틱을 그 틱의 예정 시각(dueAt)에 이어 붙인다. 이전 프레임 시각에 붙이면 표시가 틱 예정보다 최대 한 프레임 앞서
+ * 나중에 한 번 더 멈춘다. 예정 시각에 붙이면 표시는 틱 예정보다 정확히 한 틱 뒤를 따라가고, 프레임마다 그 시각까지 밀린 틱을
+ * 먼저 진행하므로 시뮬이 뒤처지지 않는 한 다시 멈추지 않는다.
  * 타이머·구독은 없다. dispose()는 보간 런타임과 pose 캐시를 놓는다.
  */
 class PresentationFeed {
@@ -17,6 +23,8 @@ class PresentationFeed {
         this.presentationRevision = 0;
         this.presentationSequence = 0;
         this.resetMode = 'reset';
+        this.clockAt = performance.now();
+        this.shownMs = -Infinity; // 마지막으로 그린 보간 프레임의 표시 시각(시뮬레이션 ms)
     }
 
     /** 보간을 처음부터 다시 시작한다(경기 시작·처음 화면 복귀). */
@@ -47,6 +55,7 @@ class PresentationFeed {
         this.presentationRevision += 1;
         this.presentationSequence = 0;
         this.resetMode = 'reset';
+        this.shownMs = -Infinity;
         this.BodyPose = BodyPose;
     }
 
@@ -60,8 +69,16 @@ class PresentationFeed {
         this.resetMode = kind;
     }
 
-    /** 시뮬레이션 뷰 하나를 보간 버퍼에 넣는다. 같은 틱·같은 리비전이면 force가 아닐 때 건너뛴다. */
-    publish(view, force = false, now = performance.now()) {
+    /** 표시 시계를 at까지 보낸다(되돌리지 않는다). 그리는 프레임의 시각, 확인용 장면은 가상 시계의 시각이다. */
+    advance(at) {
+        if (at > this.clockAt) this.clockAt = at;
+    }
+
+    /**
+     * 시뮬레이션 뷰 하나를 보간 버퍼에 넣는다. 같은 틱·같은 리비전이면 force가 아닐 때 건너뛴다.
+     * dueAt: 이 틱의 예정 시각(시뮬 루프의 누적 시계). 표시가 직전 최신 틱에 닿아 멈춰 있을 때만 읽는다(클래스 주석).
+     */
+    publish(view, force = false, dueAt = this.clockAt) {
         if (!this.presentation || !view) return;
         const tick = view.state.tick;
         if (
@@ -111,6 +128,7 @@ class PresentationFeed {
             poseEntities.push({ id: entity.id, generation: 0, type: this.BodyPose, source });
         }
         for (const id of poseCache.keys()) if (!liveIds.has(id)) poseCache.delete(id);
+        if (this.shownMs >= this.publishedTick * this.stepMs) this.advance(dueAt);
         this.presentation.capture(
             {
                 revision: this.presentationRevision,
@@ -119,16 +137,19 @@ class PresentationFeed {
                 mode: this.resetMode || 'continuous',
                 entities: poseEntities,
             },
-            now,
+            this.clockAt,
         );
         this.publishedTick = tick;
         this.gameRevision = view.revision;
         this.resetMode = null;
     }
 
-    /** 지금 시각의 보간 pose. */
-    frame(now) {
-        return this.presentation.frame(now);
+    /** 표시 시계를 at까지 보내고 그 시각의 보간 pose를 준다. */
+    frame(at) {
+        this.advance(at);
+        const frame = this.presentation.frame(this.clockAt);
+        this.shownMs = frame.timeMs;
+        return frame;
     }
 
     /** 런타임 종료: 보간 런타임과 pose 캐시를 놓는다. 그 뒤 ready는 false다. */

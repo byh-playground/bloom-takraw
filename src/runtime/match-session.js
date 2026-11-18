@@ -84,6 +84,7 @@ class MatchSession {
         this.observationPending = false;
         this.releasing = false;
         this.stats = { frames: 0, steps: 0, simulationMs: 0, maxSimulationMs: 0, backlogDrops: 0 };
+        this.frameAt = 0; // frame()가 받은 화면 프레임 시각(RAF timestamp). 시뮬 루프의 render 단계가 표시 시각으로 넘긴다.
         this.simBegin = 0; // frame()가 loop.frame을 부르기 직전의 시각(진단 stage sim의 시작)
         this.hud = new HudClock();
         this.highlight = new HighlightController({
@@ -323,16 +324,16 @@ class MatchSession {
         this.hud.invalidate();
     }
 
-    /** 재생 장면을 그린다. 그릴 장면이 없으면(끝남·첫 장면 대기) false라 멈춘 실제 경기를 그대로 그린다. */
-    renderHighlight(now) {
-        const replay = this.highlight.frame(now, this.paused);
+    /** 재생 장면을 그린다. 그릴 장면이 없으면(끝남·첫 장면 대기) false라 멈춘 실제 경기를 그대로 그린다. at은 표시 시각(render 참고)이다. */
+    renderHighlight(now, at) {
+        const replay = this.highlight.frame(at, this.paused);
         if (!replay) return false;
         const latestView = this.latestView;
         this.events?.update(now);
         this.view.render(
             replay.poses,
             { ...latestView, state: { ...latestView.state, ...replay.state } },
-            now,
+            at,
             {
                 team: this.localTeam(),
                 mode: this.mode,
@@ -342,22 +343,28 @@ class MatchSession {
         return true;
     }
 
-    /** 한 장면을 그린다(시뮬 루프의 render 단계, 세션이 없으면 그리기 주기가 직접). */
-    render(now = performance.now()) {
+    /**
+     * 한 장면을 그린다(시뮬 루프의 render 단계, 세션이 없으면 그리기 주기가 직접).
+     * at은 표시 시각이다: 보간 자세·리플레이 재생·뷰의 프레임 간격(카메라·공 늘이기)이 읽는다. 그리기 주기는 화면 프레임 시각(RAF
+     * timestamp)을 넘겨 화면 주사와 같은 간격으로 흐르게 하고, 그 밖의 호출(부팅·확인용 장면)은 now와 같다.
+     * now(콜백이 도는 시각)는 표시 이벤트 큐와 HUD 주기가 읽는다.
+     */
+    render(now = performance.now(), at = now) {
         const { view, feed, highlight } = this;
         if (!view || !feed?.ready || !this.latestView) return;
         if (highlight.active && !highlight.running) highlight.end();
-        if (highlight.active && this.renderHighlight(now)) {
+        if (highlight.active && this.renderHighlight(now, at)) {
             this.stats.frames += 1;
             return;
         }
         const latestView = this.latestView;
-        feed.publish(latestView, false, now);
+        feed.advance(at);
+        feed.publish(latestView);
         this.events.confirm(this.session);
         this.events.update(now);
         if (TAKRAW_MODE_POLICY[this.mode]?.announcesTeam)
             view.setSchools(takrawIdentitySchools(latestView.teamSchools));
-        view.render(feed.frame(now), latestView, now, { team: this.localTeam(), mode: this.mode });
+        view.render(feed.frame(at), latestView, at, { team: this.localTeam(), mode: this.mode });
         this.stats.frames += 1;
         if (this.hud.due(now, this.mode) && this.mode) this.ui.update(this.hudModel());
     }
@@ -368,15 +375,16 @@ class MatchSession {
      * 화면이 보이는 동안은 프레임마다 밀린 틱을 따라잡는다. 진행 조건(canAdvance)·따라잡기 상한은 두 경로가 같다.
      * 진단 stage `sim`은 이 시각부터 그리기 콜백(createSimLoop의 render)이 시작될 때까지(입력 관찰·틱 진행)다.
      */
-    frame(now) {
+    frame(now, frameAt) {
         const view = this.view;
         view.beginFrame();
         try {
             const loop = this.loop;
             if (loop) {
                 this.simBegin = performance.now();
+                this.frameAt = frameAt;
                 loop.frame(now);
-            } else this.render(now);
+            } else this.render(now, frameAt);
         } catch (error) {
             this.simulationFailed(error);
         } finally {
@@ -386,6 +394,7 @@ class MatchSession {
 
     /** 확인용 장면: 가상 시계로 틱을 직접 진행한다. */
     pulse(now) {
+        this.feed.advance(now);
         this.loop.pulse(now, { render: false, input: false });
     }
 
@@ -618,7 +627,7 @@ class MatchSession {
 
     /** open 2단계: 세션을 진행하는 시뮬 루프. 진행 조건은 세션 준비·실패 없음·상대 대기(waitsForPeers)·멈춤(holdsSimulation)이다. */
     createSimLoop(session, token, flags, policy) {
-        return createLoop({
+        const loop = createLoop({
             session,
             rates: {
                 baseHz: TAKRAW_RUNTIME.clock.baseHz,
@@ -635,7 +644,8 @@ class MatchSession {
                     (!policy.holdsSimulation || (!this.paused && !this.highlight.active)),
                 ),
             onAdvance: () => {
-                this.feed.publish(this.latestView);
+                // 방금 끝난 틱의 예정 시각: 루프의 누적 시계(마지막 깨움 시각 - 남은 누적 시간).
+                this.feed.publish(this.latestView, false, loop.simulationTimeMs);
                 this.events.confirm(this.session);
                 this.observeMatchResult();
                 this.observeMetricsMatch();
@@ -650,9 +660,10 @@ class MatchSession {
             render: () => {
                 const now = performance.now();
                 this.view.frameMetrics.stage('sim', now - this.simBegin);
-                this.render(now);
+                this.render(now, this.frameAt);
             },
         });
+        return loop;
     }
 
     /** open 3단계: 루프 마감에 맞춰 입력·진행·연결 정비를 부르는 pump. 입장 대기 중에는 방 정비만 inputHz로 돈다. */

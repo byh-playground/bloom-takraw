@@ -2054,9 +2054,7 @@ class TakrawPhysics {
             foot,
             driveTarget,
             targetVelocity,
-            (mode === 'air'
-                ? s.airKick.force * (airTarget.striking ? 1 + p.effects.power : 1)
-                : s.groundKickForce) * muscleResponse,
+            (mode === 'air' ? s.airKick.force : s.groundKickForce) * muscleResponse,
             dt,
             (footControl ? footControl.positionGain : s.footPositionGain) * muscleResponse,
             (groundToss
@@ -2584,7 +2582,10 @@ class TakrawPhysics {
             this._unit(this._v(heading.x, -kick.downward, heading.z)),
         );
         const transfer = kick.effectiveFootMass / (kick.effectiveFootMass + s.ballMass);
-        const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
+        // 타격 능력치(effects.power)는 접촉 순간의 발 속도 목표에 곱한다. 곱하는 자리는 여기 하나이고, 접근 속도(closingSpeed)·스트로크 길이·
+        // 스트로크 시작점·따라 차기 속도는 모두 이 velocity에서 나온다. 다리 길이와 발 힘 상한은 그대로라 못 내는 만큼은 못 낸다.
+        const strikeSpeed =
+            (this._length(delta) / ((1 + s.ballRestitution) * transfer)) * (1 + p.effects.power);
         const { normal, surface } = this.aimedContact(p, impact, approach, aim);
         // 발은 조준과 상관없이 approach 방향 그대로 공으로 간다. 조준은 닿는 면(normal·surface)만 바꾼다.
         const velocity = this._add(incoming, this._mul(approach, strikeSpeed));
@@ -3249,8 +3250,6 @@ class TakrawPhysics {
             target: ankle,
             velocity: path.desiredVelocity,
             acceleration: path.acceleration,
-            // 마지막 스트로크(준비 궤적이 끝난 뒤)부터 실제로 맞힐 때까지 참이다. 타격 능력치의 발 힘 상한 배율이 이 구간에 걸린다(_driveKickFoot).
-            striking: plan.phase !== 'follow' && motion.age >= path.prepDuration,
             ankle,
             normal: contact.normal,
             forward: contact.forward,
@@ -3752,7 +3751,10 @@ class TakrawPhysics {
         const pitchInertia = (mass * (extent.y * extent.y + extent.z * extent.z)) / 3;
         const contactMass = 1 / (1 / mass + (toss.forefoot * toss.forefoot) / pitchInertia);
         const transfer = contactMass / (contactMass + s.ballMass);
-        const strikeSpeed = this._length(delta) / ((1 + s.ballRestitution) * transfer);
+        // 타격 능력치(effects.power)는 접촉 순간의 발 속도 목표에 곱한다. 곱하는 자리는 여기 하나이고, 접근 속도(closingSpeed)·스트로크 길이·
+        // 스트로크 시작점·따라 차기 속도는 모두 이 velocity에서 나온다. 다리 길이와 발 힘 상한은 그대로라 못 내는 만큼은 못 낸다.
+        const strikeSpeed =
+            (this._length(delta) / ((1 + s.ballRestitution) * transfer)) * (1 + p.effects.power);
         const { normal, surface } = this.aimedContact(p, impact, approach, aim);
         const velocity = this._add(incoming, this._mul(approach, strikeSpeed));
         return { normal, surface, approach, velocity };

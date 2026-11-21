@@ -5090,26 +5090,6 @@ class TakrawPhysics {
         return { x: p.toward * forward, y: Math.max(0.5, up), z: incoming.z * 0.3 };
     }
 
-    /**
-     * 공격수에게 보내는 세트: 세터 발이 공을 맞힌 직후 공 속도를, 꼭짓점 attackApex를 지나 attackHeight로 내려올 때 목표 (x, z)에 닿는 포물선으로 맞춘다.
-     * 발 접촉만으로는 같은 계획에서도 세트 수직 속도가 6~11 m/s로 흔들려 공이 목표에서 1~4 m 벗어났다(공격수가 서 있는 곳이 아니라 한쪽으로 쏠림).
-     * 접촉 위치와 목표만으로 정해지는 값이라 저장할 상태가 없다. 발이 이미 공을 맞힌 뒤의 보정이므로 접촉·터치 판정은 그대로다.
-     * AI 세터의 접촉에만 부른다. 사람이 찬 세트는 접촉 물리 그대로다(game.js).
-     */
-    assistSet(p, position, target) {
-        const toss = this.settings.groundToss,
-            g = this.settings.gravity;
-        if (!toss.attackAssist) return false;
-        const up = Math.sqrt(2 * g * Math.max(toss.minRise, toss.attackApex - position.y));
-        const flight =
-            (up + Math.sqrt(Math.max(0, up * up + 2 * g * (position.y - toss.attackHeight)))) / g;
-        this.ball.setLinvel(
-            { x: (target.x - position.x) / flight, y: up, z: (target.z - position.z) / flight },
-            true,
-        );
-        return true;
-    }
-
     getEntities() {
         const entities = [];
         for (const p of this.players)

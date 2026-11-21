@@ -72,8 +72,6 @@ const TAKRAW_PHYSICS = Object.freeze({
         // 4.6으로 올린 이 값은 그 경계 근처다(AI 지상 서브 속력 중앙 11.1 m/s, 꼭짓점 중앙 5.4 m). 더 올리면 코트 밖 서브가 늘어난다(4.8 + groundAim 4.4: 코트 밖·네트 90개 중 15개, 17%).
         serveApex: 4.6,
         serveHeight: 0.4,
-        // AI 세트의 접촉 뒤 속도 보정(assistSet)을 켠다.
-        attackAssist: true,
         forefoot: 0.08,
         strokeTime: 0.12,
         strokeFraction: 0.6,

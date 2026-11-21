@@ -3,27 +3,59 @@
  * (docs/architecture.md "공중 차기의 몸 회전 기준 궤적"). 물리 엔진·설정을 모른다. 한계(각속도 상한, 시각마다의 토크 상한, 축 둘레 관성)는 부르는 쪽이
  * 실제 구동 설정과 실제 몸에서 읽어 넣는다. 계획에만 쓰는 값은 없다.
  *
- * 곡선은 다리 관절 계획과 같은 4차 곡선(legCurve)이다: 지금 상태(각, 각속도)에서 접촉 시각의 끝 상태(각, 각속도, 각가속도 0)로 간다.
- * 끝의 각가속도가 0이라 접촉을 일정한 각속도로 지나간다.
+ * 곡선은 5차 곡선이다: 지금 상태(각, 각속도, 각가속도)에서 접촉 시각의 끝 상태(각, 각속도, 각가속도 0)로 간다. 끝의 각가속도가 0이라 접촉을 일정한
+ * 각속도로 지나간다. 시작 각가속도도 정해 둘 수 있어야 한다: 몸 회전 토크의 상한은 계획 시작에서 0이었다가 오르므로(지지, _airTurnSupport)
+ * 시작 각가속도가 0이 아닌 곡선은 처음 몇 걸음의 토크를 낼 수 없다. 처음 시작은 각가속도 0이다. 곡선 위의 어느 상태(각, 각속도, 각가속도)에서
+ * 다시 풀어도 같은 곡선이다.
  */
-import { legCurve } from './leg-plan.js';
 
 const sample = [0, 0, 0];
+
+/**
+ * 5차 곡선: 각 from, 각속도 rate, 각가속도 accel에서 remaining초 뒤의 각 to, 각속도 final, 각가속도 0으로 가는 진행도 u(0~1)의 값.
+ * out = [각, 각속도, 각가속도].
+ */
+function turnCurve(from, rate, accel, to, final, remaining, u, out) {
+    const h1 = rate * remaining,
+        h2 = (accel * remaining * remaining) / 2;
+    const d0 = to - from - h1 - h2,
+        d1 = final * remaining - h1 - 2 * h2,
+        d2 = -2 * h2;
+    const c3 = 10 * d0 - 4 * d1 + 0.5 * d2,
+        c4 = -15 * d0 + 7 * d1 - d2,
+        c5 = 6 * d0 - 3 * d1 + 0.5 * d2;
+    out[0] = from + u * (h1 + u * (h2 + u * (c3 + u * (c4 + u * c5))));
+    out[1] = (h1 + u * (2 * h2 + u * (3 * c3 + u * (4 * c4 + u * 5 * c5)))) / remaining;
+    out[2] = (2 * h2 + u * (6 * c3 + u * (12 * c4 + u * 20 * c5))) / (remaining * remaining);
+    return out;
+}
 
 /**
  * 시작 상태 start = { angle, rate }에서 끝 상태 end = { angle, rate }까지 duration초의 곡선이 한계를 얼마나 쓰는지(1 이하면 한계 안).
  * limit = { rate, inertia, torque }: 각속도 상한(rad/s), 축 둘레 관성(kg·m²), 계획 시작 뒤 time초의 토크 상한을 내는 함수(N·m).
  * 표본마다 각속도 ÷ 상한과 관성 × |각가속도| ÷ 토크 상한 가운데 큰 값이다. 되돌아가는 곡선은 1을 넘는 것으로 센다: 각속도가 0보다
  * (이미 거꾸로 돌고 있던 몸이면 그 시작 각속도보다) 낮아지는 곡선이다. 거꾸로 돌던 몸이 앞으로 돌아서기까지의 구간은 되돌아가는 것이 아니다.
- * 표본은 시작 순간을 빼고 고르게 samples개다: 토크는 걸음 끝의 기준 상태로 걸리므로 시작 순간의 각가속도는 걸리지 않는다
- * (시작 순간에는 토크 상한이 0에서 오르기 시작해 나눌 수도 없다).
+ * 표본은 고르게 나눈 samples칸의 가운데 지점과 끝이다. 시작 순간은 뺀다: 토크 상한이 0에서 오르기 시작해 나눌 수 없고, 시작 각가속도가 0인
+ * 곡선이라 그 순간에 거는 토크도 0이다. 상한이 오르는 구간(지지 시간)도 칸 가운데 지점이 가장 이른 걸음의 요구를 본다.
  */
 function bodyTurnUsage(start, end, duration, limit, samples) {
     const floor = Math.min(0, start.rate);
     let usage = 0;
-    for (let index = 1; index <= samples; index++) {
-        const u = index / samples;
-        legCurve(start.angle, start.rate, end.angle, end.rate, 0, duration, u, sample);
+    for (let index = 0; index <= samples + 1; index++) {
+        // 첫 표본(index 0)은 시작 직후의 아주 이른 지점이다: 시작 각가속도가 0인 곡선의 요구와 오르는 토크 상한은 둘 다 시간에 비례하므로
+        // 그 비가 시작 근처에서 가장 크다. 이른 걸음의 토크 부족은 거기서 본다.
+        const u =
+            index === 0 ? 0.5 / (samples * samples) : index > samples ? 1 : (index - 0.5) / samples;
+        turnCurve(
+            start.angle,
+            start.rate,
+            start.acceleration ?? 0,
+            end.angle,
+            end.rate,
+            duration,
+            u,
+            sample,
+        );
         const rate = sample[1],
             demand = limit.inertia * Math.abs(sample[2]);
         usage = Math.max(
@@ -126,12 +158,12 @@ function bodyTurnAdvance(turn, to) {
     const { end } = turn;
     if (to < end.at) {
         const remaining = end.at - turn.at;
-        legCurve(
+        turnCurve(
             turn.angle,
             turn.rate,
+            turn.acceleration,
             end.angle,
             end.rate,
-            0,
             remaining,
             (to - turn.at) / remaining,
             sample,
@@ -146,4 +178,4 @@ function bodyTurnAdvance(turn, to) {
     turn.at = to;
 }
 
-export { bodyTurnPlan, bodyTurnUsage, bodyTurnAdvance };
+export { bodyTurnPlan, bodyTurnUsage, bodyTurnAdvance, turnCurve };

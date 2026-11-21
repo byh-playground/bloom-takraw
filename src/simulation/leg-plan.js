@@ -575,7 +575,6 @@ export {
     legAnkleVelocity,
     legTorques,
     legActuation,
-    legCurve,
     legPlanSolve,
     legPlanAdvance,
 };

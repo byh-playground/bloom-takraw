@@ -915,17 +915,7 @@ class TakrawGame {
                 /^(foot|lowerLeg)/.test(event.part || '') &&
                 this.physics.players[event.playerId].kick.mode === 'ground' &&
                 !spike;
-            // 접촉 뒤 공 속도를 목표 포물선으로 덮어쓰는 보정은 AI 세트에만 둔다. 이 틱에 사람 입력이 들어간 선수(그 팀의 조종 선수)가
-            // 찬 세트는 발과 공의 접촉 물리가 정한 그대로 나간다(조준 오프셋이 결과에 남는다). 서브는 사람·AI 모두 덮어쓰지 않는다:
-            // 서브 발의 계획(physics _predictReceivePass의 서브 포물선)이 접촉 물리만으로 공을 상대 코트에 보낸다.
-            const human =
-                !!humans[event.team] && event.playerId === this.state.selected[event.team];
-            if (!human && set && takrawIsAttacker(target.playerId))
-                this.physics.assistSet(
-                    this.physics.players[event.playerId],
-                    event.position,
-                    target,
-                );
+            // 세트·서브 모두 접촉 뒤 공 속도를 덮어쓰지 않는다(v0.31.0~). 사람·AI가 같은 발 계획(physics _predictReceivePass)과 접촉 물리로 공을 보낸다.
             const intent = this.inputs[event.playerId]?.intent;
             this.state.play = {
                 team: event.team,

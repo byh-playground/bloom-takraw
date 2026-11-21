@@ -13,6 +13,7 @@ import {
     legPlanSolve,
     legPlanAdvance,
 } from './leg-plan.js';
+import { bodyTurnPlan, bodyTurnAdvance } from './body-turn.js';
 import { TAKRAW_ROLES, takrawIsAttacker, takrawSlotOf, takrawTeamOf } from './roster.js';
 
 /**
@@ -1496,6 +1497,7 @@ class TakrawPhysics {
                       continuingGroundKick,
                       input.motionPreference || 'auto',
                       input.aim,
+                      muscleResponse,
                   )
                 : null;
         if (airTarget) p.jump.airKickStarted = true;
@@ -2299,12 +2301,21 @@ class TakrawPhysics {
         }
     }
 
+    /**
+     * 공중 차기의 몸 회전: 골반·몸통에 축 둘레 외부 토크를 건다(반작용 없음). 계획이 세운 몸 회전 기준 궤적(plan.body)을 따라간다.
+     * - 앞먹임은 기준 궤적에서만 낸다: 기준 상태를 걸음 끝 시각까지 나아가고(bodyTurnAdvance) 관성 × 기준 각가속도를 토크로 더한다.
+     * - 되먹임은 지금 설정 그대로다: 기준 각속도 + rootGain × (기준 각 − 잰 각)을 각속도 상한으로 자른 목표 각속도를 damping으로 따라간다.
+     *   잰 값(골반이 돈 각, 부위의 각속도)은 되먹임에만 쓴다.
+     * - 접촉 시각 뒤 strokeTime까지는 접촉 각속도를 그대로 따라가고, 그 뒤와 맞힌 뒤(follow)에는 지지를 대부분 푼다.
+     */
     _rotateOverhead(p, dt, response) {
         const plan = p.kick.airPlan,
             rotation = plan.rotation,
-            s = this.settings.airKick.rotation;
+            kick = this.settings.airKick,
+            s = kick.rotation;
         const motion = plan.motion,
-            settings = this.settings.airKick.motion,
+            settings = kick.motion,
+            turn = plan.body,
             root = p.root;
         // Accumulate the actual quaternion increment so a 540-degree reference
         // does not wrap into the shortest 180-degree turn. No render pose is read.
@@ -2318,11 +2329,13 @@ class TakrawPhysics {
         rotation.angle += this._dot(increment, rotation.axis);
         rotation.previous = { ...root.rotation() };
         const axis = rotation.axis;
-        rotation.target = motion.pose.body.angle;
+        bodyTurnAdvance(turn, this.time + dt);
+        rotation.target = turn.angle;
+        const limits = this._airTurnLimits(response);
         const speed = this._clamp(
-            motion.angularVelocity + settings.rootGain * (rotation.target - rotation.angle),
-            -s.speed * settings.angularSpeed,
-            s.speed * settings.angularSpeed,
+            turn.rate + settings.rootGain * (rotation.target - rotation.angle),
+            -limits.rate,
+            limits.rate,
         );
         const desired = this._qmul(
             { ...this._mul(axis, Math.sin(rotation.target / 2)), w: Math.cos(rotation.target / 2) },
@@ -2334,8 +2347,14 @@ class TakrawPhysics {
         ];
         // The physical hit releases most of the pose support. The ragdoll keeps
         // its momentum on descent; an animation cannot pull it through a landing.
-        const support =
-            plan.phase === 'follow' ? 0.15 : Math.min(1, motion.age / settings.transition);
+        // 맞히지 못해도 계획 접촉 시각에서 strokeTime이 지나면 같이 푼다.
+        const released =
+            plan.phase === 'follow' || this.time + dt > turn.end.at + kick.contact.strokeTime;
+        const support = released ? 0.15 : this._airTurnSupport(motion.age);
+        // 두 부위에 거는 토크는 아래에서 response × support배가 된다. 기준 궤적의 토크(관성 × 각가속도)가 그대로 걸리게 그만큼 나눠 둔다:
+        // 계획이 본 토크 상한(_airTurnLimits)이 s.torque × response × support라, 한계 안의 기준이면 이 값은 s.torque를 넘지 않는다.
+        const drive = response * support;
+        const feedforward = released || drive <= 0 ? 0 : (turn.inertia * turn.acceleration) / drive;
         for (const { body, weight } of bodies) {
             let error = this._qmul(desired, this._conj(body.rotation()));
             if (error.w < 0) error = { x: -error.x, y: -error.y, z: -error.z, w: -error.w };
@@ -2350,7 +2369,7 @@ class TakrawPhysics {
             const offAxis = this._sub(omega, this._mul(axis, spin));
             const torque = this._limit(
                 this._add(
-                    this._mul(axis, (speed - spin) * s.damping),
+                    this._mul(axis, feedforward + (speed - spin) * s.damping),
                     this._sub(
                         this._mul(plane, s.planeStiffness),
                         this._mul(offAxis, s.planeDamping),
@@ -2358,8 +2377,103 @@ class TakrawPhysics {
                 ),
                 s.torque,
             );
-            body.applyTorqueImpulse(this._mul(torque, dt * weight * response * support), true);
+            body.applyTorqueImpulse(this._mul(torque, dt * weight * drive), true);
         }
+    }
+
+    /** 몸 회전 지지가 계획 시작 뒤 age초에 오른 비율(0~1). 구동(_rotateOverhead)과 계획의 토크 상한(_airTurnLimits)이 같이 읽는다. */
+    _airTurnSupport(age) {
+        return Math.min(1, age / this.settings.airKick.motion.transition);
+    }
+
+    /**
+     * 몸 회전 구동의 한계: 목표 각속도 상한(rad/s)과, 계획 시작 뒤 time초에 실제로 걸리는 토크 상한(N·m)을 내는 함수.
+     * _rotateOverhead가 거는 값과 같은 식이다(계획 전용 값 없음).
+     */
+    _airTurnLimits(response) {
+        const kick = this.settings.airKick;
+        return {
+            rate: kick.rotation.speed * kick.motion.angularSpeed,
+            torque: (time) => kick.rotation.torque * response * this._airTurnSupport(time),
+        };
+    }
+
+    /**
+     * 차는 다리(suffix)를 뺀 몸이 질량 중심을 지나는 축(axis, 단위 벡터) 둘레로 도는 상태: 관성(kg·m²)과 각속도(각운동량 ÷ 관성, rad/s).
+     * 몸 회전 토크가 돌리는 것이 이 몸이다. 차는 다리는 발-골반 힘이 세계 좌표의 발목 목표로 끌고 가므로 몸과 같이 돌지 않는다.
+     */
+    _turnState(p, suffix, axis) {
+        const parts = p.parts.filter(
+            (part) => !(/^(upperLeg|lowerLeg|foot)/.test(part.name) && part.name.endsWith(suffix)),
+        );
+        let mass = 0,
+            center = this._v(),
+            velocity = this._v();
+        for (const part of parts) {
+            mass += part.mass;
+            center = this._add(center, this._mul(part.body.worldCom(), part.mass));
+            velocity = this._add(velocity, this._mul(part.body.linvel(), part.mass));
+        }
+        center = this._mul(center, 1 / mass);
+        velocity = this._mul(velocity, 1 / mass);
+        let inertia = 0,
+            momentum = 0;
+        for (const part of parts) {
+            const body = part.body,
+                arm = this._sub(body.worldCom(), center),
+                lever = this._cross(axis, arm);
+            inertia += part.mass * this._dot(lever, lever);
+            momentum +=
+                part.mass * this._dot(axis, this._cross(arm, this._sub(body.linvel(), velocity)));
+            // 부위 자신의 관성: 주축(세계 좌표)마다 주관성 × (주축·축)².
+            const frame = this._qmul(body.rotation(), body.principalInertiaLocalFrame()),
+                principal = body.principalInertia(),
+                spin = body.angvel();
+            for (const key of ['x', 'y', 'z']) {
+                const direction = this._rotate(frame, { x: 0, y: 0, z: 0, [key]: 1 }),
+                    along = this._dot(direction, axis);
+                inertia += principal[key] * along * along;
+                momentum += principal[key] * along * this._dot(direction, spin);
+            }
+        }
+        return { inertia, rate: momentum / inertia };
+    }
+
+    /**
+     * 몸 회전 기준 궤적(plan.body)을 세운다: 지금 몸이 도는 상태에서 접촉 시각(duration초 뒤)의 끝 상태로 가는 곡선.
+     * 원하는 끝 상태는 동작 클립에서 읽는다: 접촉 각은 클립의 접촉 위상 각, 접촉 각속도의 상한은 클립이 접촉 뒤에 도는 평균 각속도(남은 각 ÷ 남은 시간)다.
+     * 한계 안에서 낼 수 있는 끝 상태는 bodyTurnPlan이 고른다. 기준 상태는 유한한 수만 담아 스냅샷에 그대로 실린다.
+     */
+    _airBodyTurn(p, pose, axis, duration, response) {
+        const state = this._turnState(p, p.kick.side, axis);
+        const limit = { ...this._airTurnLimits(response), inertia: state.inertia };
+        const contactAngle = Math.max(
+            pose.body.angle,
+            this.motionMatcher.sample(pose.id, pose.contactPhase).body.angle,
+        );
+        const end = bodyTurnPlan(
+            { angle: pose.body.angle, rate: state.rate },
+            {
+                angle: contactAngle,
+                rate: Math.min(
+                    limit.rate,
+                    (pose.body.totalAngle - contactAngle) /
+                        ((1 - pose.contactPhase) * pose.duration),
+                ),
+            },
+            duration,
+            limit,
+            this.settings.legPlan,
+        );
+        return {
+            angle: pose.body.angle,
+            rate: state.rate,
+            acceleration: 0,
+            at: this.time,
+            end: { angle: end.angle, rate: end.rate, at: this.time + duration },
+            top: pose.body.totalAngle,
+            inertia: state.inertia,
+        };
     }
 
     _orientKickPlane(p, dt, response) {
@@ -2696,11 +2810,19 @@ class TakrawPhysics {
      * 공격 평면 조향 → 타격 전환 → 동작 위상 → 접촉 기하 → 마지막 스트로크 길이 → 발목 궤적 → 다리 길이 제한 →
      * 계획 기록 순으로 계산한다. 이 묶음은 Rapier에 쓰지 않고, 읽기 순서는 하나의 메서드였을 때와 같다.
      */
-    _airFootTarget(p, dt, continuingGroundKick, preference, kickAim) {
+    _airFootTarget(p, dt, continuingGroundKick, preference, kickAim, response) {
         const ballPos = this.ball.translation(),
             ballVel = this.ball.linvel();
         if (!p.kick.airPlan)
-            this._beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference, kickAim);
+            this._beginAirPlan(
+                p,
+                ballPos,
+                ballVel,
+                continuingGroundKick,
+                preference,
+                kickAim,
+                response,
+            );
         const plan = p.kick.airPlan;
         const leg = this._airKickLeg(p);
         const aim = this._aimAirContact(p, plan, ballPos, ballVel, dt, kickAim);
@@ -2779,8 +2901,8 @@ class TakrawPhysics {
         return { rotationAxis, initialAngle, unrotate };
     }
 
-    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 몸 회전 기준, 준비 시간. */
-    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference, kickAim) {
+    /** 공중 발차기 계획을 세운다: 찰 발, 공격 평면, 동작 클립과 시작 위상, 준비 시간, 몸 회전 기준과 그 기준 궤적. */
+    _beginAirPlan(p, ballPos, ballVel, continuingGroundKick, preference, kickAim, response) {
         const s = this.settings,
             kick = s.airKick,
             root = p.root,
@@ -2794,15 +2916,16 @@ class TakrawPhysics {
         const { query, selection, pose } = this._selectAirMotion(p, axis, preheld, preference);
         const { rotationAxis, initialAngle, unrotate } = this._airPlanRotation(pose, mirror, axis);
         const ankle = this._point(p.byName['foot' + p.kick.side].body, this._v(0, 0.065, -0.085));
+        const remaining = this._clamp(
+            query.timeToContact,
+            kick.contact.preparationTime,
+            kick.contact.horizon,
+        );
         p.kick.airPlan = {
             phase: preheld ? 'align' : 'lift',
             entry: preheld ? 'downward' : 'swing',
             axis,
-            remaining: this._clamp(
-                query.timeToContact,
-                kick.contact.preparationTime,
-                kick.contact.horizon,
-            ),
+            remaining,
             motion: {
                 ...selection,
                 pose,
@@ -2814,14 +2937,9 @@ class TakrawPhysics {
                 startVelocity: {
                     ...p.byName['foot' + p.kick.side].body.velocityAtPoint(ankle),
                 },
-                duration: this._clamp(
-                    query.timeToContact,
-                    kick.contact.preparationTime,
-                    kick.contact.horizon,
-                ),
+                duration: remaining,
                 startPhase: selection.phase,
                 point: { ...ankle },
-                angularVelocity: 0,
                 reachError: 0,
                 adaptation: 0,
                 adaptationLimit: kick.reach * settings.adaptation,
@@ -2833,6 +2951,7 @@ class TakrawPhysics {
                 previous: { ...root.rotation() },
                 target: initialAngle,
             },
+            body: this._airBodyTurn(p, pose, rotationAxis, remaining, response),
         };
     }
 
@@ -2928,7 +3047,7 @@ class TakrawPhysics {
         return surface;
     }
 
-    /** 동작 클립 위상을 진행하되 단계별 상한을 넘지 않게 하고, 몸 회전 각도가 되돌아가지 않게 한다. */
+    /** 동작 클립 위상을 진행하되 단계별 상한을 넘지 않게 한다. 몸 회전은 클립 각도가 아니라 계획의 기준 궤적(plan.body)을 따른다. */
     _advanceAirMotion(p, plan, dt) {
         const settings = this.settings.airKick.motion,
             motion = plan.motion,
@@ -2944,13 +3063,6 @@ class TakrawPhysics {
                   (plan.phase === 'strike' ? settings.phaseMargin : -settings.phaseMargin);
         motion.phase = Math.min(motion.phase, cap);
         motion.pose = this.motionMatcher.sample(motion.id, motion.phase);
-        // Decoder approximation can wiggle by a fraction of a degree. Preserve
-        // the selected sweep direction, including its unwrapped 540-degree end.
-        motion.pose.body.angle =
-            motion.phase === 1
-                ? motion.pose.body.totalAngle
-                : Math.max(previousPose.body.angle, motion.pose.body.angle);
-        motion.angularVelocity = (motion.pose.body.angle - previousPose.body.angle) / dt;
     }
 
     /** 클립의 접촉 자세, 공 표면에 맞출 발목 위치, 클립 대비 보정량, 발이 공으로 가는 방향(approach)의 접근 속도. */

@@ -2779,7 +2779,11 @@ class TakrawPhysics {
             radius = this._legReach(p, p.kick.side) * contact.reachRatio;
         let best = contact.arrivalMin,
             bestDistance = Infinity;
-        for (let time = contact.arrivalMin; time <= contact.arrivalMax + 1e-9; time += contact.arrivalStep) {
+        for (
+            let time = contact.arrivalMin;
+            time <= contact.arrivalMax + 1e-9;
+            time += contact.arrivalStep
+        ) {
             const at = this._add(ball, this._mul(velocity, time));
             at.y -= 0.5 * s.gravity * time * time;
             const distance = this._length(this._sub(at, this._airHipAt(p, hip, time)));

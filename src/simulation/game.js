@@ -2266,6 +2266,8 @@ class TakrawGame {
                         } else if (
                             !defense &&
                             !highContact &&
+                            // 서브 공을 든 동안은 발이 칠 공이 아니다(입력도 비워진다). 이 계획이 쿨다운을 앞으로 밀면 던진 뒤 점프 창을 놓친다.
+                            this.state.serveToss?.stage !== 'hold' &&
                             dist < 0.4 &&
                             intercept.time < kickWindow &&
                             p.y > 0.28 &&

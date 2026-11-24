@@ -2972,6 +2972,7 @@ class TakrawPhysics {
                 target: initialAngle,
             },
             body: this._airBodyTurn(p, pose, rotationAxis, remaining, response),
+            response,
         };
     }
 
@@ -3085,6 +3086,95 @@ class TakrawPhysics {
         motion.pose = this.motionMatcher.sample(motion.id, motion.phase);
     }
 
+    /**
+     * 공중 차기의 접촉 조건을 다리 계획 좌표로(_tossContactJoints, 지상과 같은 계산). 몸은 회전 기준 궤적(plan.body)이 접촉 시각에 낼 방향·각속도로 돌고,
+     * 엉덩이는 자유 낙하(점프 누름 가속 포함)로 간다. 공중에서는 몸과 다리가 같이 떨어져 다리 모델에 중력이 걸리지 않는다(모델 gravity 0).
+     */
+    _airContactJoints(p, suffix, plan, target, remaining) {
+        const turn = plan.body,
+            rotation = plan.rotation,
+            angle = turn.end.angle,
+            now = p.root.rotation(),
+            contactRotation = this._qmul(
+                { ...this._mul(rotation.axis, Math.sin(angle / 2)), w: Math.cos(angle / 2) },
+                rotation.start,
+            ),
+            angularVelocity = this._mul(rotation.axis, turn.end.rate);
+        const anchor = this._hipAnchor(suffix),
+            hip = this._point(p.root, anchor);
+        // 엉덩이: 몸 중심은 자유 낙하하고 앵커는 접촉 때 방향으로 돈다.
+        const fall = this._sub(this._airHipAt(p, hip, remaining), hip),
+            turned = this._sub(this._rotate(contactRotation, anchor), this._rotate(now, anchor));
+        const held = Math.min(remaining, this._pendingJumpHold(p)),
+            bodyVelocity = this._add(
+                this._bodyVelocity(p),
+                this._v(
+                    0,
+                    -this.settings.gravity * remaining + this.settings.jumpHoldAcceleration * held,
+                    0,
+                ),
+            );
+        const travel = {
+            offset: this._add(fall, turned),
+            velocity: this._add(
+                bodyVelocity,
+                this._cross(angularVelocity, this._rotate(contactRotation, anchor)),
+            ),
+        };
+        const joints = this._tossContactJoints(p, suffix, target, travel, {
+            rotation: contactRotation,
+            angularVelocity,
+        });
+        return { joints, rotation: contactRotation };
+    }
+
+    /**
+     * 다리 관절 계획이 접촉 때 낼 수 있는 발의 접근 속도(공 쪽으로 다가가는 속도, m/s). 접촉 조건은 desiredContact와 원하던 접촉 발 속도이고,
+     * 남은 시간 안에 구동 한계(모터 최대 토크·발-골반 힘·발 속도 한계)로 못 내면 legPlanSolve가 속도를 줄여 낼 수 있는 값을 준다.
+     * 스트로크에 들어서면(plan.strokeContact) 그때 값을 고정한다.
+     */
+    _airPlannedClosing(p, plan, leg, aim, desiredContact, incomingAtImpact) {
+        if (plan.plannedClosing !== undefined) return plan.plannedClosing;
+        const suffix = p.kick.side,
+            contact = aim.contact;
+        const { joints, rotation } = this._airContactJoints(
+            p,
+            suffix,
+            plan,
+            { ankle: desiredContact, velocity: contact.velocity },
+            Math.max(0, aim.lead),
+        );
+        // 구동은 공중 차기가 실제로 거는 것이다(계획 전용 값 없음): 엉덩이 모터는 꺼져 있어(_driveJointKick의 공중 엉덩이) 엉덩이는 발-골반 힘 airKick.force가
+        // 맡고, 발 속도 한계는 접촉 속도 상한이며, 몸과 다리가 같이 떨어져 중력은 걸리지 않는다. 지상의 엉덩이 모터 최대 토크를 쓰면 낼 수 있는 접촉을
+        // 못 낸다고 잘못 판정한다(접촉 직전 걸음의 40~50%).
+        const model = this._legPlanModel(p, suffix, p.root.rotation(), plan.response ?? 1, {
+            force: this.settings.airKick.force,
+            hipTorque: 0,
+            maxFootSpeed: this.settings.airKick.contact.maxSpeed,
+            gravity: 0,
+        });
+        const state = this._legJointState(p, suffix, p.root.rotation(), p.root.angvel(), model);
+        // 풀이는 가장 긴 휘두르기 길이(legPlan.maxTime) 안에서만 한다: 지상은 그보다 일찍 누르면 기다렸다가 휘두르는데, 공중은 접촉이 더 먼 걸음에도
+        // 마지막 휘두르기가 그 길이 안이라고 본다(더 긴 곡선은 시작 속도가 큰 채 한참 떠돌아 한계를 넘는 것으로 잘못 판정된다).
+        const solved = legPlanSolve(
+            model,
+            state,
+            joints,
+            Math.min(Math.max(0, aim.lead), this.settings.legPlan.maxTime),
+            this.settings.legPlan,
+        );
+        const velocity = this._add(
+            joints.hipVelocity,
+            this._rotate(
+                rotation,
+                legAnkleVelocity(model, solved.end.position, solved.end.velocity),
+            ),
+        );
+        const closing = this._dot(this._sub(velocity, incomingAtImpact), contact.approach);
+        if (plan.strokeContact) plan.plannedClosing = closing;
+        return closing;
+    }
+
     /** 클립의 접촉 자세, 공 표면에 맞출 발목 위치, 클립 대비 보정량, 발이 공으로 가는 방향(approach)의 접근 속도. */
     _airContactGeometry(p, plan, leg, aim, surface) {
         const kick = this.settings.airKick,
@@ -3107,9 +3197,17 @@ class TakrawPhysics {
         const error = this._sub(this._sub(desiredContact, hip), referenceContact);
         const correction = this._limit(error, motion.adaptationLimit);
         const strikeVelocity = contact.velocity;
-        const closingSpeed = Math.max(
+        const wantedClosing = Math.max(
             kick.contact.minClosingSpeed,
             this._dot(this._sub(strikeVelocity, incomingAtImpact), contact.approach),
+        );
+        // 계획이 약속하는 접근 속도: 다리 관절 계획이 접촉 때 낼 수 있는 만큼까지만(_airPlannedClosing).
+        const closingSpeed = Math.max(
+            kick.contact.minClosingSpeed,
+            Math.min(
+                wantedClosing,
+                this._airPlannedClosing(p, plan, leg, aim, desiredContact, incomingAtImpact),
+            ),
         );
         return { contactPose, ankleOffset, desiredContact, correction, closingSpeed };
     }
@@ -3445,7 +3543,13 @@ class TakrawPhysics {
             { rootRotation, muscleResponse } = body;
         const model = this._legPlanModel(p, suffix, rootRotation, muscleResponse);
         const state = this._legJointState(p, suffix, rootRotation, body.rootAngularVelocity, model);
-        const contactJoints = this._tossContactJoints(p, suffix, plan, plan.duration, rootRotation);
+        const contactJoints = this._groundContactJoints(
+            p,
+            suffix,
+            plan,
+            plan.duration,
+            rootRotation,
+        );
         const solved = legPlanSolve(
             model,
             state,
@@ -3514,7 +3618,7 @@ class TakrawPhysics {
      * 차는 다리의 관절 계획 모델(leg-plan.js): 실제 몸 부위의 질량·길이·관성, 실제 모터 설정(_motorGains)의 최대 토크, 발-골반 힘의 상한과
      * 힘-속도 한계(_driveJointKick이 거는 값과 같다), 무릎 경첩 범위, 다리가 닿는 거리. 계획에만 쓰는 값은 없다.
      */
-    _legPlanModel(p, suffix, rootRotation, muscleResponse) {
+    _legPlanModel(p, suffix, rootRotation, muscleResponse, actuation = null) {
         const s = p.settings;
         const upper = p.byName['upperLeg' + suffix],
             lower = p.byName['lowerLeg' + suffix],
@@ -3530,15 +3634,15 @@ class TakrawPhysics {
             footMass: p.byName['foot' + suffix].mass,
             upperInertia: upper.body.principalInertia().x,
             lowerInertia: lower.body.principalInertia().x,
-            hipTorque: this._motorGains(joint('hip'), strength).cap,
+            hipTorque: actuation?.hipTorque ?? this._motorGains(joint('hip'), strength).cap,
             kneeTorque: this._motorGains(knee, strength).cap,
-            footForce: s.groundKickForce * muscleResponse,
-            maxFootSpeed: this.settings.groundToss.maxFootSpeed,
+            footForce: (actuation?.force ?? s.groundKickForce) * muscleResponse,
+            maxFootSpeed: actuation?.maxFootSpeed ?? this.settings.groundToss.maxFootSpeed,
             kneeMin: knee.joint.limitsMin(),
             kneeMax: knee.joint.limitsMax(),
             reachMin: this._legMinReach(p, suffix),
             reachMax: this._legReach(p, suffix),
-            gravity: s.gravity,
+            gravity: actuation ? actuation.gravity : s.gravity,
             down: this._rotate(this._conj(rootRotation), this._v(0, -1, 0)),
         });
     }
@@ -3588,30 +3692,44 @@ class TakrawPhysics {
     }
 
     /**
-     * 접촉 조건을 다리 계획의 좌표로 바꾼다: 접촉 순간 발목 자리(발 중심 point에서 발목까지 옮긴 점)와 발 속도를, remaining초 뒤의 엉덩이 예상(_hipTravel) 기준
-     * 골반 좌표로 옮긴다. 발 속도는 발목이 엉덩이 둘레를 도는 몫(swing)과 엉덩이에서 멀어지거나 가까워지는 몫(reach)으로 나눠 준다
-     * (legPlanSolve가 못 내는 몫을 reach부터 줄인다). hipVelocity는 그때의 엉덩이 속도 예상(세계 좌표)이다.
+     * 접촉 조건을 다리 계획의 좌표로 바꾼다: 접촉 순간 발목 자리(target.ankle)와 발 속도(target.velocity, 둘 다 세계 좌표)를, 접촉 때의 엉덩이 예상
+     * (travel: 지금 엉덩이에서 간 거리 offset과 그때의 속도 velocity)과 몸 예상(body: 접촉 순간의 골반 방향 rotation과 각속도 angularVelocity) 기준
+     * 골반 좌표로 옮긴다. 서서 차는 지상 토스는 몸이 돌지 않아 지금 방향·각속도 0이고, 공중 차기는 몸 회전 기준 궤적의 접촉 순간 값이다 — 한 계산이다.
+     * 발 속도는 발목이 엉덩이 둘레를 도는 몫(swing)과 엉덩이에서 멀어지거나 가까워지는 몫(reach)으로 나눠 준다(legPlanSolve가 못 내는 몫을 reach부터 줄인다).
+     * hipVelocity는 접촉 때 엉덩이 예상 속도에 몸 회전이 발목 자리에서 내는 속도를 더한 세계 좌표 속도다(발 속도 = hipVelocity + 골반 좌표 다리 속도를 세계로 돌린 것).
      */
-    _tossContactJoints(p, suffix, contact, remaining, rootRotation) {
+    _tossContactJoints(p, suffix, target, travel, body) {
         const hip = this._point(p.root, this._hipAnchor(suffix)),
-            travel = this._hipTravel(p, suffix, remaining),
-            inverse = this._conj(rootRotation);
-        const ankle = this._rotate(
+            inverse = this._conj(body.rotation);
+        const offset = this._sub(this._sub(target.ankle, hip), travel.offset),
+            spin = this._cross(body.angularVelocity, offset);
+        const ankle = this._rotate(inverse, offset),
+            velocity = this._rotate(
                 inverse,
-                this._sub(
-                    this._sub(this._add(contact.point, this._ankleOffset(contact)), hip),
-                    travel.offset,
-                ),
-            ),
-            velocity = this._rotate(inverse, this._sub(contact.velocity, travel.velocity));
+                this._sub(this._sub(target.velocity, travel.velocity), spin),
+            );
         const outward = this._unit(ankle),
             away = this._mul(outward, this._dot(velocity, outward));
         return {
             ankle,
             swing: this._sub(velocity, away),
             reach: away,
-            hipVelocity: travel.velocity,
+            hipVelocity: this._add(travel.velocity, spin),
         };
+    }
+
+    /** 서서 차는 지상 토스의 접촉 조건: 접촉 발목 자리·속도, 엉덩이 예상(_hipTravel), 몸은 지금 방향에서 돌지 않는다. */
+    _groundContactJoints(p, suffix, contact, remaining, rootRotation) {
+        return this._tossContactJoints(
+            p,
+            suffix,
+            {
+                ankle: this._add(contact.point, this._ankleOffset(contact)),
+                velocity: contact.velocity,
+            },
+            this._hipTravel(p, suffix, remaining),
+            { rotation: rootRotation, angularVelocity: this._v() },
+        );
     }
 
     /**
@@ -3635,7 +3753,7 @@ class TakrawPhysics {
             1 - this._reactionWeight(p) * p.settings.drive.reaction.muscleLoss,
         );
         const state = this._legJointState(p, suffix, rootRotation, p.root.angvel(), model);
-        const contact = this._tossContactJoints(p, suffix, strike, strike.duration, rootRotation);
+        const contact = this._groundContactJoints(p, suffix, strike, strike.duration, rootRotation);
         return legPlanSolve(model, state, contact, Infinity, this.settings.legPlan).lead;
     }
 

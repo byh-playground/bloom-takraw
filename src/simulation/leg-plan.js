@@ -299,7 +299,9 @@ function legActuation(model, q, qd, torque, out) {
             rest = torque[j] - (jacobian[j] * fx + jacobian[3 + j] * fy + jacobian[6 + j] * fz);
         motor[j] = clamp(rest, -cap, cap);
         // 모터가 최대 토크까지 쓰는 것은 한계 안이다. 발목 힘으로도 못 채워 남은 몫만 한계를 넘은 것으로 센다.
-        if (Math.abs(rest) > cap * (1 + 1e-6)) usage = Math.max(usage, Math.abs(rest) / cap);
+        // 모터가 꺼진 관절(cap 0)은 발목 힘이 전부 맡는다: 나눔의 부동소수 오차(1e-6 N·m 이하)는 남은 몫으로 세지 않는다.
+        if (Math.abs(rest) > cap * (1 + 1e-6) + 1e-6)
+            usage = Math.max(usage, Math.abs(rest) / Math.max(cap, 1e-6));
     }
     // 엉덩이에 대한 발목 속도(J q̇).
     const vx = jacobian[0] * qd[0] + jacobian[1] * qd[1] + jacobian[2] * qd[2],

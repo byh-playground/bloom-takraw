@@ -2754,6 +2754,44 @@ class TakrawPhysics {
         );
     }
 
+    /**
+     * 엉덩이의 lead초 뒤 예상 자리: 지금 몸 속도로 가고 중력으로 떨어지며, 점프를 누르고 있는 동안은 위로 가속한다(_pendingJumpHold).
+     * 몸 회전으로 엉덩이 앵커가 도는 몫은 넣지 않는다.
+     */
+    _airHipAt(p, hip, lead) {
+        const s = this.settings,
+            predicted = this._add(hip, this._mul(this._bodyVelocity(p), lead));
+        predicted.y -= 0.5 * s.gravity * lead * lead;
+        const heldTime = Math.min(lead, this._pendingJumpHold(p));
+        predicted.y += s.jumpHoldAcceleration * heldTime * (lead - 0.5 * heldTime);
+        return predicted;
+    }
+
+    /**
+     * 공이 엉덩이 예상 자리에서 다리 닿는 거리의 reachRatio배 안으로 처음 들어오는 시각(초). 공과 엉덩이는 둘 다 중력으로 움직이는 자유 물체라
+     * 계산은 표본(arrivalStep)마다 두 예상 자리의 거리를 본다. 들어오지 못하면 가장 가까워지는 시각이다.
+     */
+    _airArrival(p, hip) {
+        const s = this.settings,
+            contact = s.airKick.contact,
+            ball = this.ball.translation(),
+            velocity = this.ball.linvel(),
+            radius = this._legReach(p, p.kick.side) * contact.reachRatio;
+        let best = contact.arrivalMin,
+            bestDistance = Infinity;
+        for (let time = contact.arrivalMin; time <= contact.arrivalMax + 1e-9; time += contact.arrivalStep) {
+            const at = this._add(ball, this._mul(velocity, time));
+            at.y -= 0.5 * s.gravity * time * time;
+            const distance = this._length(this._sub(at, this._airHipAt(p, hip, time)));
+            if (distance <= radius) return time;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = time;
+            }
+        }
+        return best;
+    }
+
     _motionQuery(p, axis, preheld = false) {
         const root = p.root,
             suffix = p.kick.side,
@@ -2768,38 +2806,16 @@ class TakrawPhysics {
         });
         const relative = this._sub(this.ball.translation(), hip);
         const velocity = this._sub(this.ball.linvel(), root.velocityAtPoint(hip));
-        const arrivalVelocity = this.ball.linvel().y - this._bodyVelocity(p).y;
         const up = this._rotate(root.rotation(), this._v(0, 1, 0));
         const reach = this.settings.airKick.reach;
-        // Predict arrival at the upper leg workspace, rather than giving the
-        // matcher the short 100 ms servo horizon. Both free bodies share gravity.
-        let arrival =
-            arrivalVelocity < -0.1
-                ? (reach * 0.75 - relative.y) / arrivalVelocity
-                : this._length(this._sub(this.ball.translation(), ankle)) /
-                  this.settings.airKick.speed;
-        // A pre-held kick starts on the jump's first step. Include the remaining
-        // held-jump acceleration, just as a later airborne click already observes
-        // its accumulated velocity. Otherwise the pre-held deadline is too late.
-        const hold = this._pendingJumpHold(p),
-            acceleration = this.settings.jumpHoldAcceleration;
-        const height = relative.y - reach * 0.75;
-        if (hold > 0 && height > 0 && acceleration > 0) {
-            const duringHold =
-                (arrivalVelocity +
-                    Math.sqrt(arrivalVelocity * arrivalVelocity + 2 * acceleration * height)) /
-                acceleration;
-            const afterSpeed = acceleration * hold - arrivalVelocity;
-            if (duringHold <= hold) arrival = duringHold;
-            else if (afterSpeed > 0.1)
-                arrival = (height + 0.5 * acceleration * hold * hold) / afterSpeed;
-        }
+        // 접촉 시각: 공이 (엉덩이 예상 기준) 다리가 닿는 범위 안에 들어오는 때. 높이만 보지 않고 옆으로 먼 공도 거리로 본다.
+        const arrival = this._airArrival(p, hip);
         return {
             ball: local(relative),
             foot: local(this._sub(ankle, hip)),
             velocity: local(velocity),
             body: { up: up.y, forward: this._dot(up, axis), spin: this._dot(root.angvel(), side) },
-            timeToContact: this._clamp(arrival, 0.04, 0.8),
+            timeToContact: arrival,
             preheld,
             legLength: reach,
         };

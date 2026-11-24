@@ -152,6 +152,12 @@ const TAKRAW_PHYSICS = Object.freeze({
             // 마지막 스트로크 길이(초)의 범위. 다리가 이미 닿는 거리면 terminalMax.
             terminalMin: 0.04,
             terminalMax: 0.06,
+            // 접촉 시각을 푸는 법(_airArrival): 공이 엉덩이 예상 자리에서 다리 닿는 거리(reach)의 reachRatio배 안으로 처음 들어오는 때.
+            // 1에 가까울수록 다리를 쭉 펴서 치고, 작을수록 접어서 친다. arrivalMin~arrivalMax는 찾는 범위(초), arrivalStep은 표본 간격(초)이다.
+            reachRatio: 0.75,
+            arrivalMin: 0.04,
+            arrivalMax: 0.8,
+            arrivalStep: 0.004,
         },
         motion: {
             // The authored path supplies the swing shape; its contact endpoint is

@@ -2355,6 +2355,19 @@ class TakrawPhysics {
         // 계획이 본 토크 상한(_airTurnLimits)이 s.torque × response × support라, 한계 안의 기준이면 이 값은 s.torque를 넘지 않는다.
         const drive = response * support;
         const feedforward = released || drive <= 0 ? 0 : (turn.inertia * turn.acceleration) / drive;
+        // 축이 몸의 주축이 아니면 그 축 둘레로만 도는 데에도 축 밖 토크가 든다(없으면 몸이 계획 축에서 기운다). 도는 몸의 관성에서
+        // 계산해 같이 앞먹인다: 각가속도 × 관성곱 + 각속도² × (축 × 관성곱). 값은 축 앞먹임과 같이 기준 궤적의 각속도·각가속도다.
+        let tilt = this._v();
+        if (!released && drive > 0) {
+            const { product } = this._turnState(p, p.kick.side, axis);
+            tilt = this._mul(
+                this._add(
+                    this._mul(product, turn.acceleration),
+                    this._mul(this._cross(axis, product), turn.rate * turn.rate),
+                ),
+                1 / drive,
+            );
+        }
         for (const { body, weight } of bodies) {
             let error = this._qmul(desired, this._conj(body.rotation()));
             if (error.w < 0) error = { x: -error.x, y: -error.y, z: -error.z, w: -error.w };
@@ -2369,7 +2382,7 @@ class TakrawPhysics {
             const offAxis = this._sub(omega, this._mul(axis, spin));
             const torque = this._limit(
                 this._add(
-                    this._mul(axis, feedforward + (speed - spin) * s.damping),
+                    this._add(this._mul(axis, feedforward + (speed - spin) * s.damping), tilt),
                     this._sub(
                         this._mul(plane, s.planeStiffness),
                         this._mul(offAxis, s.planeDamping),
@@ -2401,6 +2414,7 @@ class TakrawPhysics {
     /**
      * 차는 다리(suffix)를 뺀 몸이 질량 중심을 지나는 축(axis, 단위 벡터) 둘레로 도는 상태: 관성(kg·m²)과 각속도(각운동량 ÷ 관성, rad/s).
      * 몸 회전 토크가 돌리는 것이 이 몸이다. 차는 다리는 발-골반 힘이 세계 좌표의 발목 목표로 끌고 가므로 몸과 같이 돌지 않는다.
+     * product는 관성 텐서 × axis에서 축 성분(inertia)을 뺀 나머지(관성곱 벡터, kg·m²)다. axis가 주축이면 0이다.
      */
     _turnState(p, suffix, axis) {
         const parts = p.parts.filter(
@@ -2417,12 +2431,15 @@ class TakrawPhysics {
         center = this._mul(center, 1 / mass);
         velocity = this._mul(velocity, 1 / mass);
         let inertia = 0,
-            momentum = 0;
+            momentum = 0,
+            // 관성 텐서 × axis.
+            column = this._v();
         for (const part of parts) {
             const body = part.body,
                 arm = this._sub(body.worldCom(), center),
                 lever = this._cross(axis, arm);
             inertia += part.mass * this._dot(lever, lever);
+            column = this._add(column, this._mul(this._cross(arm, lever), part.mass));
             momentum +=
                 part.mass * this._dot(axis, this._cross(arm, this._sub(body.linvel(), velocity)));
             // 부위 자신의 관성: 주축(세계 좌표)마다 주관성 × (주축·축)².
@@ -2433,10 +2450,12 @@ class TakrawPhysics {
                 const direction = this._rotate(frame, { x: 0, y: 0, z: 0, [key]: 1 }),
                     along = this._dot(direction, axis);
                 inertia += principal[key] * along * along;
+                column = this._add(column, this._mul(direction, principal[key] * along));
                 momentum += principal[key] * along * this._dot(direction, spin);
             }
         }
-        return { inertia, rate: momentum / inertia };
+        const product = this._sub(column, this._mul(axis, inertia));
+        return { inertia, product, rate: momentum / inertia };
     }
 
     /**

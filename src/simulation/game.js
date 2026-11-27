@@ -807,8 +807,10 @@ class TakrawGame {
             toss.charging = true;
             toss.charge += dt;
         }
+        // AI는 목표가 0틱이면 힘을 모으는 틱 없이 준비가 끝난 순간 던진다.
+        const released = !held && (aiServing ? ready : toss.charging);
         const idle = this.state.time - this.rallyStart > cfg.maxHold;
-        if (!(toss.charging && !held) && !idle) {
+        if (!released && !idle) {
             this.holdServeBall();
             return;
         }

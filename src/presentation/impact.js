@@ -534,7 +534,8 @@ class TakrawImpactEffects {
     poseHold(node) {
         if (!node?.displayHold) return 0;
         const elapsed = Math.max(0, node.age - node.firstFrameAge - node.displayHold);
-        const catchUp = node.displayHold * this.impact.displayCatchUp;
+        const catchUp =
+            node.displayHold * (node.style.displayCatchUp ?? this.impact.displayCatchUp);
         return elapsed === 0 ? 1 : Math.max(0, 1 - elapsed / catchUp) ** 2;
     }
 

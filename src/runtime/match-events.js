@@ -22,7 +22,9 @@ function contactDuration(payload) {
         impact = visual.impact.styles[impactStyleKey(visual.impact.styles, payload)];
     const effect = Math.max(
         (impact.hold + impact.life * Math.sqrt(visual.impact.intensity.max)) * 1000,
-        (impact.displayHold ?? 0) * (1 + visual.impact.displayCatchUp) * 1000,
+        (impact.displayHold ?? 0) *
+            (1 + (impact.displayCatchUp ?? visual.impact.displayCatchUp)) *
+            1000,
     );
     if (!payload.timing && !payload.spike) return Math.max(duration, effect);
     return Math.max(

@@ -20,11 +20,10 @@ function contactDuration(payload) {
     const { duration, badge } = TAKRAW_RUNTIME.feedback;
     const { visual } = TAKRAW_CONFIG,
         impact = visual.impact.styles[impactStyleKey(visual.impact.styles, payload)];
+    const hitstop = visual.impact.spikeHitstop;
     const effect = Math.max(
         (impact.hold + impact.life * Math.sqrt(visual.impact.intensity.max)) * 1000,
-        (impact.displayHold ?? 0) *
-            (1 + (impact.displayCatchUp ?? visual.impact.displayCatchUp)) *
-            1000,
+        payload.spike ? hitstop.holdMs + hitstop.recoveryMs : 0,
     );
     if (!payload.timing && !payload.spike) return Math.max(duration, effect);
     return Math.max(

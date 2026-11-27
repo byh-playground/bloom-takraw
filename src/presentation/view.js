@@ -919,7 +919,7 @@ class TakrawView {
         this.replayImpacts.sync(viewData.state?.replay ?? null);
         const hit = this.reducedMotion()
             ? null
-            : this.impacts.latestKick(Boolean(context.replay), viewData.state?.tick);
+            : this.impacts.latestSpike(Boolean(context.replay), viewData.state?.tick);
         const hold = this.impacts.poseHold(hit);
         const apply = (model, id) => {
             const mesh = this.meshes.get(id);

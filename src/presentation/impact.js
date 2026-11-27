@@ -247,6 +247,7 @@ class TakrawImpactEffects {
         node.tick = payload.tick;
         node.sequence = payload.sequence;
         node.kick = kick;
+        node.spike = kick && payload.spike === true;
         node.groundPulse = !reduced && payload.kind === 'ground';
         node.waveStrength = reduced ? 0 : (style.wave || 0) * strength;
         node.shadeStrength = reduced ? 0 : (style.shade || 0) * strength;
@@ -266,7 +267,7 @@ class TakrawImpactEffects {
                 fl0 > 0.5 ? fv0.z / fl0 : 0,
             );
         node.hold = reduced ? 0 : style.hold;
-        node.displayHold = !reduced && kick ? (style.displayHold ?? 0) * 1000 : 0;
+        node.displayHold = !reduced && node.spike ? this.impact.spikeHitstop.holdMs : 0;
         node.shake = style.shake && !reduced ? style.shake : null;
         node.group.position.set(payload.position.x, payload.position.y, payload.position.z);
         // tick과 sequence가 같으면 두 피어와 재확정에서 같은 방향이 나온다.
@@ -507,10 +508,10 @@ class TakrawImpactEffects {
     }
 
     /**
-     * 한 번에 공과 마지막으로 찬 선수 한 명이 반응한다. 같은 틱 안의 연속 접촉은 sequence로 가른다.
+     * 마지막 발·정강이 접촉이 스파이크일 때 공과 찬 선수가 반응한다. 같은 틱의 접촉은 sequence로 가른다.
      * 보간 화면에 막 도착한 타격의 표시 시간은 첫 렌더부터 잰다. 밀린 프레임에서 이미 지나간 타격은 저널 시각을 따른다.
      */
-    latestKick(replay, tick) {
+    latestSpike(replay, tick) {
         let latest = null;
         for (const node of this.active) {
             if (!node.kick || node.replay !== replay) continue;
@@ -521,7 +522,8 @@ class TakrawImpactEffects {
             )
                 latest = node;
         }
-        if (latest && latest.firstFrameAge === null) {
+        if (!latest?.spike) return null;
+        if (latest.firstFrameAge === null) {
             // 이벤트 틱이 적용된 뒤 tick이 1 증가하고, 라이브 포즈는 한 틱 늦게 보간한다.
             const ticksSinceKick = tick - latest.tick;
             const justDisplayed = !replay && ticksSinceKick >= 1 && ticksSinceKick <= 2;
@@ -534,8 +536,7 @@ class TakrawImpactEffects {
     poseHold(node) {
         if (!node?.displayHold) return 0;
         const elapsed = Math.max(0, node.age - node.firstFrameAge - node.displayHold);
-        const catchUp =
-            node.displayHold * (node.style.displayCatchUp ?? this.impact.displayCatchUp);
+        const catchUp = this.impact.spikeHitstop.recoveryMs;
         return elapsed === 0 ? 1 : Math.max(0, 1 - elapsed / catchUp) ** 2;
     }
 

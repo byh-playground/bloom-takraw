@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.31.5';
+const TAKRAW_VERSION = '0.31.6';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -287,7 +287,7 @@ const TAKRAW_CONFIG = Object.freeze({
                 minPixels: 6,
                 max: 5,
             },
-            // 접촉 순간 ms 동안 공과 닿은 부위의 재질을 흰색 glow(emissive 세기)만큼 밝게(몸에 맞은 접촉은 제외).
+            // 발이 공에 닿으면 ms 동안 공과 찬 선수의 재질을 흰색 glow(emissive 세기)만큼 밝게.
             flash: { ms: 75, glow: 0.4 },
             // 바닥 튕김 직후 life 초 동안 공 그림자가 scale만큼 커지고 opacity만큼 진해졌다 돌아온다.
             shadow: { life: 0.25, scale: 0.7, opacity: 0.6 },
@@ -316,7 +316,7 @@ const TAKRAW_CONFIG = Object.freeze({
             displayCatchUp: 2,
             // styles 공통: life(초), wave: 왜곡 세기 배율(없으면 파동 없음), shade: 명암 세기 배율(wave와 함께), waveScale: 파동 최대 크기 배율, hold: 효과를 첫 모습으로 유지하는 시간(초),
             //   shake: 카메라 진동(CSS px, 초), fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구,
-            //   displayHold: 표시 전용 히트스톱(초, 내 화면의 선수·공 포즈만 멈춘다), intensity: 세기 원천(foot·ball·incoming, 없으면 1).
+            //   displayHold: 화면에서 공과 찬 선수의 포즈를 잠깐 고정하는 시간(초), intensity: 세기 원천(foot·ball·incoming, 없으면 1).
             // styles 선택: squashDecay·squashFreq: 눌림 복원 감쇠(1/초)·진동(rad/초, 기본 13·34), squashAxis: 'up'이면 위아래로 눌린다(기본 발 속도 축).
             styles: {
                 [TAKRAW_TIMING_GRADES.normal]: {
@@ -329,6 +329,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0,
                     squash: 0.12,
                     pop: null,
+                    displayHold: 0.035,
                 },
                 [TAKRAW_TIMING_GRADES.good]: {
                     life: 0.32,
@@ -340,6 +341,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.012,
                     squash: 0.17,
                     pop: null,
+                    displayHold: 0.05,
                     intensity: 'foot',
                 },
                 [TAKRAW_TIMING_GRADES.perfect]: {
@@ -379,6 +381,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.01,
                     squash: 0.2,
                     pop: null,
+                    displayHold: 0.05,
                     intensity: 'ball',
                 },
                 // 리시브: 들어온 공을 죽인다. 바깥으로 터지는 파동 대신 깊게 눌렸다 느리게 복원한다.
@@ -394,6 +397,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     squashDecay: 7,
                     squashFreq: 18,
                     pop: null,
+                    displayHold: 0.035,
                     intensity: 'incoming',
                 },
                 // 아슬아슬한 받아내기(clutchHeight 아래): 리시브보다 한 단계 강하게, 짧게 멈춘다.
@@ -425,6 +429,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     squashDecay: 18,
                     squashFreq: 42,
                     pop: null,
+                    displayHold: 0.025,
                     intensity: 'ball',
                 },
                 // 스파이크가 아닌 공격성 접촉(세 번째 넘기기·공중 발차기): good 등급 정도.
@@ -438,6 +443,7 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.008,
                     squash: 0.18,
                     pop: null,
+                    displayHold: 0.05,
                     intensity: 'foot',
                 },
                 // 발이 아닌 몸(허벅지·몸통·머리): 둔탁하게. 파동·반짝임 없이 공 눌림만.
@@ -469,14 +475,13 @@ const TAKRAW_CONFIG = Object.freeze({
                     intensity: 'ball',
                 },
                 // 득점 착지: 바닥에 닿은 점에서 접촉 파동보다 넓고 느리게 퍼지는 큰 파동 하나. 반짝임·눌림·진동·확대 없이 왜곡과 명암만. 경기를 가리지 않도록 작고 옅게 둔다
-                // (flash: false면 닿은 부위 반짝임 없음, maxScreen: 이 파동만 쓰는 반지름 상한).
+                // maxScreen은 이 파동만 쓰는 반지름 상한.
                 scoreLand: {
                     life: 1,
                     wave: 1,
                     shade: 1,
                     waveScale: 8,
                     maxScreen: 0.28,
-                    flash: false,
                     hold: 0,
                     shake: null,
                     fovPunch: 0,

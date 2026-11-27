@@ -53,6 +53,7 @@ class TakrawImpactEffects {
         this.scene = scene;
         this.impact = config.visual.impact;
         this.styles = config.visual.impact.styles;
+        this.tickMs = 1000 / config.simulation.tickRate;
         this.shakeCap = config.visual.shakeCap;
         this.seed = config.visual.effectSeed;
         this.reducedMotion = reducedMotion;
@@ -82,6 +83,7 @@ class TakrawImpactEffects {
         this.scale = new THREE.Vector3();
         this.nodes = [];
         this.active = new Set();
+        this.nextImpactId = 0;
         this.pool = new ObjectPool(
             () => this.createNode(),
             (node) => this.resetNode(node),
@@ -138,11 +140,9 @@ class TakrawImpactEffects {
             waveStrength: 0,
             shadeStrength: 0,
             waveScale: 1,
-            flashFrames: false,
             groundPulse: false,
             maxScreen: 0,
             playerId: -1,
-            part: '',
             elementForward: new T.Vector3(),
             age: 0,
         };
@@ -179,6 +179,9 @@ class TakrawImpactEffects {
     start(payload) {
         const node = this.pool.acquire();
         this.active.add(node);
+        node.id = ++this.nextImpactId;
+        node.replay = false;
+        node.firstFrameAge = null;
         node.age = 0;
         this.configure(node, payload);
         this.apply(node, 0);
@@ -191,6 +194,7 @@ class TakrawImpactEffects {
      */
     startReplay(payload) {
         const node = this.start(payload);
+        node.replay = true;
         node.displayHold = 0;
         node.shake = null;
         node.fov = 0;
@@ -238,9 +242,12 @@ class TakrawImpactEffects {
         node.strength = strength;
         node.life = style.life * Math.sqrt(strength);
         // 물체 자체 반응(표시 전용): 켜진 것만 이 노드에 기록하고 view가 경과 시간으로 읽는다. 동작 줄이기에서는 왜곡·히트스톱·진동·반짝임·눌림을 끈다.
+        const kick =
+            payload.type === 'touch' && payload.playerId >= 0 && FOOT_PART.test(payload.part);
         node.playerId = payload.playerId ?? -1;
-        node.part = payload.part ?? '';
-        node.flashFrames = !reduced && key !== 'body' && style.flash !== false;
+        node.tick = payload.tick;
+        node.sequence = payload.sequence;
+        node.kick = kick;
         node.groundPulse = !reduced && payload.kind === 'ground';
         node.waveStrength = reduced ? 0 : (style.wave || 0) * strength;
         node.shadeStrength = reduced ? 0 : (style.shade || 0) * strength;
@@ -260,7 +267,7 @@ class TakrawImpactEffects {
                 fl0 > 0.5 ? fv0.z / fl0 : 0,
             );
         node.hold = reduced ? 0 : style.hold;
-        node.displayHold = reduced ? 0 : (style.displayHold || 0) * 1000;
+        node.displayHold = !reduced && kick ? (style.displayHold ?? 0) * 1000 : 0;
         node.shake = style.shake && !reduced ? style.shake : null;
         node.group.position.set(payload.position.x, payload.position.y, payload.position.z);
         // tick과 sequence가 같으면 두 피어와 재확정에서 같은 방향이 나온다.
@@ -419,15 +426,6 @@ class TakrawImpactEffects {
         }
     }
 
-    /** 접촉 순간(flash.ms 동안) 밝아져야 하는 물체 이름을 keys(Set)에 더한다: 공 'ball'과 닿은 부위 'p{선수}:{부위}'. */
-    collectFlash(keys) {
-        for (const node of this.active) {
-            if (!node.flashFrames || node.age >= this.impact.flash.ms) continue;
-            keys.add('ball');
-            if (node.playerId >= 0 && node.part) keys.add(`p${node.playerId}:${node.part}`);
-        }
-    }
-
     /** 공 그림자 반응: 바닥 튕김 직후 0→1→0으로 오르내리는 값(여러 개면 가장 큰 값). */
     shadowPulse() {
         let best = 0;
@@ -510,20 +508,35 @@ class TakrawImpactEffects {
     }
 
     /**
-     * 표시 전용 히트스톱의 포즈 고정 비율(0~1). 1이면 내 화면의 선수·공 포즈를 멈춘 그대로 두고,
-     * 0과 1 사이면 멈춘 포즈에서 지금 포즈로 따라잡는 중이다. 시뮬레이션·입력·네트워크·효과 시계는 멈추지 않는다.
+     * 한 번에 공과 마지막으로 찬 선수 한 명이 반응한다. 같은 틱 안의 연속 접촉은 sequence로 가른다.
+     * 라이브 저널은 첫 렌더 전에 한 틱 가까이 경과할 수 있어 그만큼만 표시 반응의 시작을 맞춘다.
      */
-    poseHold() {
-        let hold = 0;
+    latestKick(replay) {
+        let latest = null;
         for (const node of this.active) {
-            if (!node.displayHold) continue;
-            const h = node.displayHold,
-                catchUp = h * this.impact.displayCatchUp;
-            const value =
-                node.age < h ? 1 : node.age < h + catchUp ? (1 - (node.age - h) / catchUp) ** 2 : 0;
-            hold = Math.max(hold, value);
+            if (!node.kick || node.replay !== replay) continue;
+            if (
+                !latest ||
+                node.tick > latest.tick ||
+                (node.tick === latest.tick && node.sequence > latest.sequence)
+            )
+                latest = node;
         }
-        return hold;
+        if (latest && latest.firstFrameAge === null)
+            latest.firstFrameAge = replay ? 0 : Math.min(latest.age, this.tickMs);
+        return latest;
+    }
+
+    /** 1이면 포즈를 고정하고, 0까지 줄어드는 동안 보간 포즈로 돌아간다. */
+    poseHold(node) {
+        if (!node?.displayHold) return 0;
+        const elapsed = Math.max(0, node.age - node.firstFrameAge - node.displayHold);
+        const catchUp = node.displayHold * this.impact.displayCatchUp;
+        return elapsed === 0 ? 1 : Math.max(0, 1 - elapsed / catchUp) ** 2;
+    }
+
+    blinkPlayer(node) {
+        return node && node.age - node.firstFrameAge < this.impact.flash.ms ? node.playerId : null;
     }
 
     /**

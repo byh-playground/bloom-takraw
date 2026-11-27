@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.31.8';
+const TAKRAW_VERSION = '0.31.9';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -287,8 +287,9 @@ const TAKRAW_CONFIG = Object.freeze({
                 minPixels: 6,
                 max: 5,
             },
-            // 발이 공에 닿으면 ms 동안 공과 찬 선수의 재질을 흰색 glow(emissive 세기)만큼 밝게.
+            // 스파이크 순간 공과 찬 선수의 재질을 흰색 glow(emissive 세기)만큼 밝게.
             flash: { ms: 75, glow: 0.4 },
+            spikeHitstop: { holdMs: 150, recoveryMs: 180 },
             // 바닥 튕김 직후 life 초 동안 공 그림자가 scale만큼 커지고 opacity만큼 진해졌다 돌아온다.
             shadow: { life: 0.25, scale: 0.7, opacity: 0.6 },
             // 사용자 팀 접촉의 기기 진동. byStyle[이름] = { ms: 진동 길이, strong·weak: 게임패드 진동 세기 0~1 }. 동작 줄이기에서는 끈다.
@@ -312,11 +313,9 @@ const TAKRAW_CONFIG = Object.freeze({
             intensity: { referenceSpeed: 10, footWeight: 2, min: 0.65, max: 1.5 },
             // 아슬아슬한 받아내기: 서브가 아닌 발 접촉이 이 높이(m, 공 중심)보다 낮으면 save로 한 단계 강조한다.
             clutchHeight: 0.5,
-            // 표시 전용 히트스톱 뒤 따라잡기: 멈춘 시간 × displayCatchUp 동안 멈춘 포즈에서 지금 포즈로 섞는다. 스타일에서 배율을 덮어쓸 수 있다.
-            displayCatchUp: 2,
             // styles 공통: life(초), wave: 왜곡 세기 배율(없으면 파동 없음), shade: 명암 세기 배율(wave와 함께), waveScale: 파동 최대 크기 배율, hold: 효과를 첫 모습으로 유지하는 시간(초),
             //   shake: 카메라 진동(CSS px, 초), fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구,
-            //   displayHold: 화면에서 공과 찬 선수의 포즈를 잠깐 고정하는 시간(초), intensity: 세기 원천(foot·ball·incoming, 없으면 1).
+            //   intensity: 세기 원천(foot·ball·incoming, 없으면 1).
             // styles 선택: squashDecay·squashFreq: 눌림 복원 감쇠(1/초)·진동(rad/초, 기본 13·34), squashAxis: 'up'이면 위아래로 눌린다(기본 발 속도 축).
             styles: {
                 [TAKRAW_TIMING_GRADES.normal]: {
@@ -329,7 +328,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0,
                     squash: 0.12,
                     pop: null,
-                    displayHold: 0.035,
                 },
                 [TAKRAW_TIMING_GRADES.good]: {
                     life: 0.32,
@@ -341,7 +339,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.012,
                     squash: 0.17,
                     pop: null,
-                    displayHold: 0.05,
                     intensity: 'foot',
                 },
                 [TAKRAW_TIMING_GRADES.perfect]: {
@@ -354,7 +351,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.025,
                     squash: 0.24,
                     pop: null,
-                    displayHold: 0.07,
                     intensity: 'foot',
                 },
                 spike: {
@@ -367,8 +363,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.06,
                     squash: 0.34,
                     pop: 'SPIKE!',
-                    displayHold: 0.15,
-                    displayCatchUp: 1.2, // 150 ms 정지 뒤 기존 180 ms 동안 따라잡는다.
                     intensity: 'foot',
                 },
                 // 서브 차기: 랠리의 시작. 일반 접촉보다 크고 스파이크보다 작다.
@@ -382,7 +376,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.01,
                     squash: 0.2,
                     pop: null,
-                    displayHold: 0.05,
                     intensity: 'ball',
                 },
                 // 리시브: 들어온 공을 죽인다. 바깥으로 터지는 파동 대신 깊게 눌렸다 느리게 복원한다.
@@ -398,10 +391,9 @@ const TAKRAW_CONFIG = Object.freeze({
                     squashDecay: 7,
                     squashFreq: 18,
                     pop: null,
-                    displayHold: 0.035,
                     intensity: 'incoming',
                 },
-                // 아슬아슬한 받아내기(clutchHeight 아래): 리시브보다 한 단계 강하게, 짧게 멈춘다.
+                // 아슬아슬한 받아내기(clutchHeight 아래): 리시브보다 파동과 카메라 진동을 강조한다.
                 save: {
                     life: 0.48,
                     wave: 0.5,
@@ -414,7 +406,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     squashDecay: 7,
                     squashFreq: 18,
                     pop: null,
-                    displayHold: 0.06,
                     intensity: 'incoming',
                 },
                 // 토스(세트): 가볍고 또렷한 "톡".
@@ -430,7 +421,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     squashDecay: 18,
                     squashFreq: 42,
                     pop: null,
-                    displayHold: 0.025,
                     intensity: 'ball',
                 },
                 // 스파이크가 아닌 공격성 접촉(세 번째 넘기기·공중 발차기): good 등급 정도.
@@ -444,7 +434,6 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.008,
                     squash: 0.18,
                     pop: null,
-                    displayHold: 0.05,
                     intensity: 'foot',
                 },
                 // 발이 아닌 몸(허벅지·몸통·머리): 둔탁하게. 파동·반짝임 없이 공 눌림만.

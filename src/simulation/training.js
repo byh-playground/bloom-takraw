@@ -35,7 +35,7 @@ const defineLesson = (
 const TAKRAW_TRAINING_LESSONS = Object.freeze([
     defineLesson(
         'auto',
-        6,
+        10,
         ['상황에 맞춰 차기', 'Context kick'],
         [
             '거리와 높이 맞추기 → 점프 → 발차기 버튼 유지',
@@ -104,7 +104,7 @@ const TAKRAW_TRAINING_LESSONS = Object.freeze([
 ]);
 
 /**
- * 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다. 명령 번호는 동작 연습(5~9)·재시작(4)과 겹치지 않는다.
+ * 연습 토스의 종류. high는 세터가 높게 올리는 기본 토스, quick은 낮고 빠른 토스(속공)다.
  * quick 속성은 그 토스가 속공인지다. 토스 궤적(game.js beginRally)과 성공 문구 값(finish)이 id 글자 대신 이 속성을 읽는다.
  */
 const TAKRAW_TRAINING_TEMPOS = Object.freeze(

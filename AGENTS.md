@@ -12,7 +12,8 @@
 ## 이 저장소의 설정
 
 - 개발 기준은 `C:\projects\bloom-takraw` 및 해당 Git 저장소의 작업 worktree다. 이전 임시 프로젝트는 삭제됐으며 실행/검사 의존성이 아니다.
-- 저장소는 `byh-playground/bloom-takraw`, PR 대상은 `main`, 작업 브랜치는 `codex/` 접두사를 쓴다. 독립 worktree에서 수정하며 검증을 마친 PR은 별도 승인을 묻지 않고 머지한다.
+- 저장소는 `byh-playground/bloom-takraw`, PR 대상은 `main`, 작업 브랜치는 `codex/` 접두사를 쓴다. 독립 worktree에서 수정하며 검증과 해당 작업에 필요한 검수 승인을 마친 PR은 머지한다.
+- 효과 변경이 포함된 PR은 검수 루프에서 발동 조건과 적용 대상 등 변경한 효과 범위 전체를 확인하고, 구현자와 분리된 독립 검수자의 승인을 받은 뒤 머지한다. 버그 수정과 효과 변경을 함께 담은 PR에도 이 기준을 적용한다.
 - 원본은 `index.html` + `src/` + `styles/`다. `npm run dev`로 HTTP 실행한다. 배포 파일 생성·번들링 단계는 없다.
 - 공통 기능은 `bloom-gamekit`의 기능 소유 모듈에서 직접 import한다. 핀은 `gamekit.lock.json`과 import map으로 관리한다. 게임 규칙·Rapier 어댑터·콘텐츠·표시는 이 저장소가 소유한다.
 - 검사 명령은 `npm run check`, `npm test`, `npm run verify:dependencies`다. 영구 시험은 고정 사용자 흐름 `tests/user-flow.spec.js`·`tests/mobile-flow.spec.js`만 두고(부하·통계·성능 판정 금지, 180초 이내), 결과는 Git 제외 `artifacts/e2e/`에 있다. 검증 범위와 미실행을 구별해 PR에 기록한다.

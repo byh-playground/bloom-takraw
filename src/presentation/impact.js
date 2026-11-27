@@ -53,7 +53,6 @@ class TakrawImpactEffects {
         this.scene = scene;
         this.impact = config.visual.impact;
         this.styles = config.visual.impact.styles;
-        this.tickMs = 1000 / config.simulation.tickRate;
         this.shakeCap = config.visual.shakeCap;
         this.seed = config.visual.effectSeed;
         this.reducedMotion = reducedMotion;
@@ -509,9 +508,9 @@ class TakrawImpactEffects {
 
     /**
      * 한 번에 공과 마지막으로 찬 선수 한 명이 반응한다. 같은 틱 안의 연속 접촉은 sequence로 가른다.
-     * 라이브 저널은 첫 렌더 전에 한 틱 가까이 경과할 수 있어 그만큼만 표시 반응의 시작을 맞춘다.
+     * 보간 화면에 막 도착한 타격의 표시 시간은 첫 렌더부터 잰다. 밀린 프레임에서 이미 지나간 타격은 저널 시각을 따른다.
      */
-    latestKick(replay) {
+    latestKick(replay, tick) {
         let latest = null;
         for (const node of this.active) {
             if (!node.kick || node.replay !== replay) continue;
@@ -522,8 +521,12 @@ class TakrawImpactEffects {
             )
                 latest = node;
         }
-        if (latest && latest.firstFrameAge === null)
-            latest.firstFrameAge = replay ? 0 : Math.min(latest.age, this.tickMs);
+        if (latest && latest.firstFrameAge === null) {
+            // 이벤트 틱이 적용된 뒤 tick이 1 증가하고, 라이브 포즈는 한 틱 늦게 보간한다.
+            const ticksSinceKick = tick - latest.tick;
+            const justDisplayed = !replay && ticksSinceKick >= 1 && ticksSinceKick <= 2;
+            latest.firstFrameAge = justDisplayed ? latest.age : 0;
+        }
         return latest;
     }
 

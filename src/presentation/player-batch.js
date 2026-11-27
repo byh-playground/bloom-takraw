@@ -35,7 +35,6 @@ class TakrawPlayerBatch {
         this.glow = glow;
         this.parts = [];
         this.stretching = [];
-        this.byId = new Map();
         this.bodies = null;
         this.batch = new RigidBatch(T);
         scene.add(this.batch.root);
@@ -74,6 +73,7 @@ class TakrawPlayerBatch {
         this.bodies = bodies.map(
             ({ id, part, team, shape, radius, halfHeight, halfExtents, restHalfHeight }) => ({
                 id,
+                playerId: Number(id.slice(1, id.indexOf(':'))),
                 part,
                 team,
                 shape,
@@ -90,10 +90,10 @@ class TakrawPlayerBatch {
                 part = entity.part || '',
                 stretch = [];
             bone.userData.halfHeight = valid ? entity.halfHeight : entity.restHalfHeight;
+            bone.userData.playerId = entity.playerId;
             if (/^(upperLeg|lowerLeg)/.test(part)) stretch.push(this.capBones(LEG));
             if (part.startsWith('lowerLeg')) stretch.push(this.capBones(SOCK));
             const record = { id: entity.id, index, bone, rest: entity.restHalfHeight, stretch };
-            this.byId.set(entity.id, record);
             if (stretch.length) this.stretching.push(record);
             return record;
         });
@@ -126,7 +126,7 @@ class TakrawPlayerBatch {
             const school = schools[entity.team === 1 ? 1 : 0],
                 { uniform, hair: hairstyle } = school,
                 color = uniform.primary,
-                playerId = Number((entity.id.match(/^p(\d+):/) || [0, 0])[1]),
+                playerId = entity.playerId,
                 skin = SKIN[playerId % 6],
                 part = entity.part || '',
                 record = this.parts[slot];
@@ -261,20 +261,17 @@ class TakrawPlayerBatch {
         ctx.restore();
     }
 
-    /** 접촉 반짝임 켜기·끄기(부위 id). 부위 뼈와 그 캡 뼈 모두에 같은 값을 준다. */
-    setGlow(id, on) {
-        const record = this.byId.get(id);
-        if (!record) return;
+    /** 찬 선수의 모든 부위와 다리 캡 뼈에 블링크를 켜거나 끈다. */
+    setGlow(playerId, on) {
         const value = on ? this.glow : 0;
-        this.batch.setGlow(record.index, value);
-        for (const { top, bottom } of record.stretch) {
-            this.batch.setGlow(top, value);
-            this.batch.setGlow(bottom, value);
+        for (const { bone, index, stretch } of this.parts) {
+            if (bone.userData.playerId !== playerId) continue;
+            this.batch.setGlow(index, value);
+            for (const { top, bottom } of stretch) {
+                this.batch.setGlow(top, value);
+                this.batch.setGlow(bottom, value);
+            }
         }
-    }
-
-    has(id) {
-        return this.byId.has(id);
     }
 
     /** 다리 부위의 반길이를 몸통 뼈 y 배율과 캡 뼈 위치로 옮긴다. 프레임마다 부르고 객체를 만들지 않는다. */

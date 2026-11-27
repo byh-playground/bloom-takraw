@@ -111,10 +111,8 @@ class TakrawView {
         // 화면에서 본 늘어남(공 후광이 공과 같이 늘어나게): along 배율과 화면 각도(rad).
         this.ballScreenStretch = { along: 1, angle: 0 };
         this.ballExtent = 1;
-        this.poseHoldValue = 0;
-        // 공·닿은 부위 반짝임(표시 전용): 밝아진 물체 이름과 공 재질 복제본. 선수 부위는 부위 뼈의 반짝임 값이다.
-        this.lit = new Set();
-        this.litKeys = new Set();
+        // 공과 찬 선수의 블링크에 쓰는 대상과 공의 밝은 재질 복제본.
+        this.litPlayerId = null;
         this.litMaterials = new Map();
         // 네트·기둥의 경계. 물리 충돌체와 같은 값에서 파생한다.
         this.netShape = takrawNetShape(config.court, config.physics);
@@ -919,17 +917,16 @@ class TakrawView {
             }
         // 득점 리플레이 중이면 재생 시각으로 접촉 화면 이펙트를 진행하고, 재생이 아니면 남은 것을 거둔다.
         this.replayImpacts.sync(viewData.state?.replay ?? null);
-        // 표시 전용 히트스톱: 1이면 멈춘 포즈 그대로, 0~1이면 멈춘 포즈에서 지금 포즈로 따라잡는다. 멈추기 시작한 프레임에 지금 포즈를 잡아 둔다.
-        const hold = this.reducedMotion() ? 0 : this.impacts.poseHold(),
-            snapshot = hold > 0 && this.poseHoldValue === 0;
-        this.poseHoldValue = hold;
+        const hit = this.reducedMotion() ? null : this.impacts.latestKick(Boolean(context.replay));
+        const hold = this.impacts.poseHold(hit);
         const apply = (model, id) => {
             const mesh = this.meshes.get(id);
             if (!mesh) return;
-            if (hold > 0) {
-                this.holdPose(mesh, model, hold, snapshot);
+            if (hold > 0 && (id === 'ball' || mesh.userData.playerId === hit.playerId)) {
+                this.holdPose(mesh, model, hit.id, hold);
                 return;
             }
+            if (mesh.userData.heldPose) mesh.userData.heldPose.impactId = null;
             mesh.position.set(model.x, model.y, model.z);
             mesh.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
             this.stretchPart(mesh, model.halfHeight);
@@ -1003,7 +1000,7 @@ class TakrawView {
             this.trail.visible = (viewData.state?.ballSpeed || 0) > 4 && this.trailCount > 1;
         }
         this.updateCrowd(nowMs);
-        this.applyHitFlash();
+        this.applyHitFlash(this.impacts.blinkPlayer(hit));
         this.players.update();
         if (ball) this.updateBallMask(ball);
         this.impacts.drawCloud();
@@ -1015,31 +1012,19 @@ class TakrawView {
     }
 
     /**
-     * 접촉 순간 공과 닿은 부위를 잠깐 밝게. 덧그림이 아니라 물체가 밝아진다.
-     * 선수 부위는 부위 뼈의 반짝임 값(RigidBatch가 emissive에 더함)이고, 공은 emissive를 켠 재질 복제본을 한 번 만들어 바꿔 끼우고 끝나면 되돌린다.
+     * 타격 순간 공과 찬 선수를 한 번 밝힌다. 선수는 각 뼈의 emissive를 더하고 공은 재질 복제본을 쓴다.
      */
-    applyHitFlash() {
-        const keys = this.litKeys;
-        keys.clear();
-        if (!this.reducedMotion()) this.impacts.collectFlash(keys);
-        for (const id of this.lit)
-            if (!keys.has(id)) {
-                this.lit.delete(id);
-                this.setLit(id, false);
-            }
-        for (const id of keys)
-            if (!this.lit.has(id) && this.meshes.has(id)) {
-                this.lit.add(id);
-                this.setLit(id, true);
-            }
+    applyHitFlash(playerId) {
+        const previous = this.litPlayerId;
+        if (playerId === previous) return;
+        if (previous !== null) this.players.setGlow(previous, false);
+        if (playerId !== null) this.players.setGlow(playerId, true);
+        if ((previous === null) !== (playerId === null)) this.setBallLit(playerId !== null);
+        this.litPlayerId = playerId;
     }
 
-    setLit(id, on) {
-        if (this.players.has(id)) {
-            this.players.setGlow(id, on);
-            return;
-        }
-        const group = this.meshes.get(id);
+    setBallLit(on) {
+        const group = this.meshes.get('ball');
         if (!group) return;
         group.traverse((child) => {
             if (!child.isMesh) return;
@@ -1136,24 +1121,27 @@ class TakrawView {
         return ball ? { x: ball.position.x, y: ball.position.y, z: ball.position.z } : null;
     }
 
-    /** 히트스톱 중 한 물체의 포즈: 잡아 둔 포즈와 지금 포즈를 1-hold 비율로 섞는다(hold 1이면 그대로 멈춤). */
-    holdPose(mesh, model, hold, snapshot) {
-        let held = mesh.userData.heldPose;
-        if (!held) {
-            held = mesh.userData.heldPose = {
-                position: mesh.position.clone(),
-                quaternion: mesh.quaternion.clone(),
-            };
-        } else if (snapshot) {
-            held.position.copy(mesh.position);
-            held.quaternion.copy(mesh.quaternion);
-        }
-        const follow = 1 - hold,
-            target = this.temp.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
+    /** 새 접촉이 시작된 프레임의 보간 포즈를 잡고, 정지가 끝나면 움직이는 포즈로 따라잡는다. */
+    holdPose(mesh, model, impactId, hold) {
+        const held = (mesh.userData.heldPose ??= {
+            impactId: null,
+            position: new this.THREE.Vector3(),
+            quaternion: new this.THREE.Quaternion(),
+            halfHeight: 0,
+        });
+        const target = this.temp.quaternion.set(model.qx, model.qy, model.qz, model.qw).normalize();
         mesh.position.set(model.x, model.y, model.z);
+        const halfHeight = model.halfHeight ?? 0;
+        if (held.impactId !== impactId) {
+            held.impactId = impactId;
+            held.position.copy(mesh.position);
+            held.quaternion.copy(target);
+            held.halfHeight = halfHeight;
+        }
+        const follow = 1 - hold;
         mesh.position.lerpVectors(held.position, mesh.position, follow);
         mesh.quaternion.slerpQuaternions(held.quaternion, target, follow);
-        if (follow > 0) this.stretchPart(mesh, model.halfHeight);
+        this.stretchPart(mesh, held.halfHeight + (halfHeight - held.halfHeight) * follow);
     }
 
     /** 공의 표시 속도를 갱신한다. 준비·득점 단계나 한 프레임에 resetDistance보다 멀리 가면(순간이동·롤백·리플레이 시작) 속도를 지운다. */

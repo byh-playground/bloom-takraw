@@ -1,7 +1,7 @@
 import { TAKRAW_PHYSICS } from './physics.js';
 
 // 제품 버전. package.json의 version과 같아야 하며(빌드 단계가 없어 한 곳에서 읽을 수 없다) scripts/check.cjs가 일치를 검사한다.
-const TAKRAW_VERSION = '0.31.7';
+const TAKRAW_VERSION = '0.31.8';
 // 이름은 뜻이 다른 셋이다. 어느 것도 바꾸면 안 되는 식별자가 아니라 화면에 보이는 이름이다.
 //   TAKRAW_GAME_NAME: 종목 이름(TextPair). 학교 클럽명·"○○ 경기장" 같은 문구 속에 들어간다.
 //   TAKRAW_PRODUCT_NAME: 제품 이름 "블룸 발 배구"/"Bloom Takraw"(TextPair). 홈 제목·소개영상·접속 버전 안내에 쓴다.
@@ -312,7 +312,7 @@ const TAKRAW_CONFIG = Object.freeze({
             intensity: { referenceSpeed: 10, footWeight: 2, min: 0.65, max: 1.5 },
             // 아슬아슬한 받아내기: 서브가 아닌 발 접촉이 이 높이(m, 공 중심)보다 낮으면 save로 한 단계 강조한다.
             clutchHeight: 0.5,
-            // 표시 전용 히트스톱 뒤 따라잡기: 멈춘 시간 × catchUp 동안 멈춘 포즈에서 지금 포즈로 섞는다.
+            // 표시 전용 히트스톱 뒤 따라잡기: 멈춘 시간 × displayCatchUp 동안 멈춘 포즈에서 지금 포즈로 섞는다. 스타일에서 배율을 덮어쓸 수 있다.
             displayCatchUp: 2,
             // styles 공통: life(초), wave: 왜곡 세기 배율(없으면 파동 없음), shade: 명암 세기 배율(wave와 함께), waveScale: 파동 최대 크기 배율, hold: 효과를 첫 모습으로 유지하는 시간(초),
             //   shake: 카메라 진동(CSS px, 초), fovPunch: 화면 확대(시야각 비율), squash: 공이 맞은 방향으로 눌리는 비율(0~1, 외형만), pop: 큰 글자 문구,
@@ -367,7 +367,8 @@ const TAKRAW_CONFIG = Object.freeze({
                     fovPunch: 0.06,
                     squash: 0.34,
                     pop: 'SPIKE!',
-                    displayHold: 0.09,
+                    displayHold: 0.15,
+                    displayCatchUp: 1.2, // 150 ms 정지 뒤 기존 180 ms 동안 따라잡는다.
                     intensity: 'foot',
                 },
                 // 서브 차기: 랠리의 시작. 일반 접촉보다 크고 스파이크보다 작다.

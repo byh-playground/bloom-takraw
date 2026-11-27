@@ -917,7 +917,9 @@ class TakrawView {
             }
         // 득점 리플레이 중이면 재생 시각으로 접촉 화면 이펙트를 진행하고, 재생이 아니면 남은 것을 거둔다.
         this.replayImpacts.sync(viewData.state?.replay ?? null);
-        const hit = this.reducedMotion() ? null : this.impacts.latestKick(Boolean(context.replay));
+        const hit = this.reducedMotion()
+            ? null
+            : this.impacts.latestKick(Boolean(context.replay), viewData.state?.tick);
         const hold = this.impacts.poseHold(hit);
         const apply = (model, id) => {
             const mesh = this.meshes.get(id);
